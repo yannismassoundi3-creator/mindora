@@ -300,22 +300,27 @@
 
   .dashboard-grid {
     grid-template-columns: 1fr;
-    gap: 16px;
+    gap: 12px;
   }
 
   .chart-section {
     grid-column: 1 / 2;
-    padding: 20px 16px;
+    padding: 16px 12px;
   }
 
   .section-header {
     flex-direction: column;
     align-items: stretch;
-    gap: 16px;
+    gap: 12px;
+    margin-bottom: 16px;
   }
 
   .section-header > div:first-child {
     text-align: left;
+  }
+  
+  .section-header h3 {
+    font-size: 1.2rem;
   }
 
   .chart-tabs {
@@ -326,30 +331,85 @@
   .chart-tab {
     flex: 1;
     text-align: center;
-    padding: 8px 4px;
-    font-size: 0.8rem;
+    padding: 6px 4px;
+    font-size: 0.75rem;
   }
 
   .routine-carousel-header {
     flex-direction: row;
     align-items: center;
+    margin-bottom: 16px;
+  }
+  
+  .routine-title-container h3 {
+    font-size: 1.2rem;
   }
 
   .stats-row {
     grid-column: 1 / 2;
-    flex-direction: column;
-    gap: 16px;
+    flex-direction: row;
+    gap: 10px;
   }
 
   .stat-card {
     flex: 1;
-    padding: 16px;
-    gap: 16px;
+    padding: 12px 8px;
+    gap: 8px;
+    flex-direction: column;
+    text-align: center;
+    justify-content: center;
+  }
+  
+  .stat-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
+  
+  .stat-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+  
+  .stat-info {
+    align-items: center;
+  }
+  
+  .stat-label {
+    font-size: 0.75rem;
+    margin-bottom: 2px;
+    line-height: 1.1;
+  }
+  
+  .stat-value {
+    font-size: 1.1rem;
+    gap: 4px;
+  }
+  
+  .highlight-streak {
+    font-size: 1.1rem;
+  }
+  
+  .fire-emoji {
+    font-size: 1rem;
+  }
+  
+  .streak-hint {
+    display: none;
   }
 
   .routines-section {
     grid-column: 1 / 2;
-    padding: 20px 16px;
+    padding: 16px 12px;
+  }
+  
+  .routine-item {
+    padding: 12px 14px;
+    gap: 12px;
+  }
+  
+  .routine-title {
+    font-size: 0.9rem;
   }
   
   .today-score-view {
@@ -362,13 +422,13 @@
   }
 
   .circular-progress-container svg {
-    width: 90px;
-    height: 90px;
+    width: 76px;
+    height: 76px;
     flex-shrink: 0;
   }
 
   .score-number {
-    font-size: 1.6rem;
+    font-size: 1.4rem;
   }
 
   .today-score-text {
@@ -377,7 +437,7 @@
   }
 
   .today-score-text h4 {
-    font-size: 1.05rem;
+    font-size: 1rem;
     margin-bottom: 4px;
   }
 
