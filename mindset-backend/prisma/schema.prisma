@@ -1,0 +1,245 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String            @id @default(uuid())
+  email              String            @unique
+  phone_number       String            @unique
+  password_hash      String
+  first_name         String
+  last_name          String
+  role               Role              @default(USER)
+  is_phone_verified  Boolean           @default(false)
+  stripe_customer_id String?           @unique
+  created_at         DateTime          @default(now())
+  updated_at         DateTime          @updatedAt
+  deleted_at         DateTime?
+  ai_profile         AIProfile?
+  audit_logs         AuditLog[]
+  calendar_events    CalendarEvent[]
+  daily_progress     DailyProgress[]
+  goals              Goal[]
+  habits             Habit[]
+  payments           Payment[]
+  refresh_tokens     RefreshToken[]
+  routines           Routine[]
+  subscription       Subscription?
+  sync_data          SyncData?
+  achievements       UserAchievement[]
+}
+
+model RefreshToken {
+  id         String   @id @default(uuid())
+  token      String   @unique
+  user_id    String
+  expires_at DateTime
+  is_revoked Boolean  @default(false)
+  created_at DateTime @default(now())
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model PhoneVerification {
+  id         String   @id @default(uuid())
+  phone      String
+  code       String
+  expires_at DateTime
+  is_used    Boolean  @default(false)
+  created_at DateTime @default(now())
+
+  @@index([phone])
+}
+
+model AIProfile {
+  id             String   @id @default(uuid())
+  user_id        String   @unique
+  age            Int?
+  occupation     String?
+  objectives     String[]
+  constraints    String[]
+  current_habits String[]
+  personality    String?
+  coaching_style String?
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+  user           User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model Subscription {
+  id                   String    @id @default(uuid())
+  user_id              String    @unique
+  stripe_sub_id        String?   @unique
+  status               SubStatus @default(INACTIVE)
+  plan_type            PlanType  @default(FREE_TRIAL)
+  current_period_start DateTime?
+  current_period_end   DateTime?
+  cancel_at_period_end Boolean   @default(false)
+  created_at           DateTime  @default(now())
+  updated_at           DateTime  @updatedAt
+  user                 User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  id               String   @id @default(uuid())
+  user_id          String
+  stripe_charge_id String   @unique
+  amount           Int
+  currency         String   @default("eur")
+  status           String
+  receipt_url      String?
+  created_at       DateTime @default(now())
+  user             User     @relation(fields: [user_id], references: [id])
+}
+
+model Goal {
+  id          String   @id @default(uuid())
+  user_id     String
+  title       String
+  description String?
+  category    String
+  timeframe   String
+  status      String   @default("IN_PROGRESS")
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model Habit {
+  id          String   @id @default(uuid())
+  user_id     String
+  name        String
+  description String?
+  frequency   String
+  time_of_day String
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model Routine {
+  id         String   @id @default(uuid())
+  user_id    String
+  type       String
+  date       DateTime @db.Date
+  created_at DateTime @default(now())
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  tasks      Task[]
+
+  @@unique([user_id, type, date])
+}
+
+model Task {
+  id          String    @id @default(uuid())
+  routine_id  String
+  title       String
+  description String?
+  duration    Int
+  start_time  DateTime?
+  end_time    DateTime?
+  status      String    @default("PENDING")
+  priority    String    @default("MEDIUM")
+  difficulty  String    @default("NORMAL")
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+  routine     Routine   @relation(fields: [routine_id], references: [id], onDelete: Cascade)
+}
+
+model DailyProgress {
+  id               String   @id @default(uuid())
+  user_id          String
+  date             DateTime @db.Date
+  discipline_score Int      @default(0)
+  tasks_completed  Int      @default(0)
+  tasks_missed     Int      @default(0)
+  current_streak   Int      @default(0)
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+  user             User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, date])
+}
+
+model CalendarEvent {
+  id              String   @id @default(uuid())
+  user_id         String
+  google_event_id String   @unique
+  title           String
+  start_time      DateTime
+  end_time        DateTime
+  is_synced       Boolean  @default(true)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+  user            User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model Achievement {
+  id          String            @id @default(uuid())
+  name        String
+  description String
+  icon_url    String?
+  points      Int               @default(0)
+  users       UserAchievement[]
+}
+
+model UserAchievement {
+  user_id        String
+  achievement_id String
+  unlocked_at    DateTime    @default(now())
+  achievement    Achievement @relation(fields: [achievement_id], references: [id], onDelete: Cascade)
+  user           User        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@id([user_id, achievement_id])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  user_id    String?
+  action     String
+  entity     String
+  entity_id  String?
+  ip_address String?
+  user_agent String?
+  details    Json?
+  created_at DateTime @default(now())
+  user       User?    @relation(fields: [user_id], references: [id])
+}
+
+model SyncData {
+  id               String   @id @default(uuid())
+  user_id          String   @unique
+  routines         Json?
+  micro_objectives Json?
+  macro_objectives Json?
+  habits           Json?
+  points           Int      @default(0)
+  mental_score     Int      @default(0)
+  bonus_score      Int      @default(0)
+  daily_scores     Json?
+  updated_at       DateTime @updatedAt
+  user             User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum SubStatus {
+  INACTIVE
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
+enum PlanType {
+  FREE_TRIAL
+  BASIC
+  ELITE
+}
