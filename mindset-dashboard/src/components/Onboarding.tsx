@@ -36,11 +36,12 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   useEffect(() => {
     if (step === 5) { // Étape de chargement/génération
       const timer = setTimeout(() => {
-        setStep(6);
+        localStorage.setItem('mindset_ai_name', answers.aiName || 'Coach IA');
+        onComplete();
       }, 3000);
       return () => clearTimeout(timer);
     }
-  }, [step]);
+  }, [step, answers.aiName, onComplete]);
 
   const handleComplete = () => {
     localStorage.setItem('mindset_ai_name', answers.aiName || 'Coach IA');
@@ -143,19 +144,6 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
             <div className="loading-bar-container">
               <div className="loading-bar"></div>
             </div>
-          </div>
-        )}
-
-        {step === 6 && (
-          <div className="step-card success-card">
-            <div className="success-icon-large">
-              <CheckCircle2 size={40} color="#fff" />
-            </div>
-            <h2 className="onboarding-title">Ton plan est prêt.</h2>
-            <p className="onboarding-subtitle">J'ai construit un programme sur-mesure pour t'aider à atteindre tes objectifs de {answers.goal === 'business' ? 'business' : 'discipline'}. On commence tout de suite sur ton Dashboard.</p>
-            <button className="btn-primary onboarding-btn glow" onClick={handleComplete}>
-              Accéder à mon Dashboard <ArrowRight size={18} />
-            </button>
           </div>
         )}
 
