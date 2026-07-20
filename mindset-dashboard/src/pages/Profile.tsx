@@ -214,7 +214,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
                 <div style={{ background: 'rgba(255, 255, 255, 0.05)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
                   <p style={{ color: 'white', fontWeight: 600, marginBottom: '8px' }}>Statut : Formule Gratuite</p>
                   <p style={{ fontSize: '0.85rem', color: 'var(--secondary)', marginBottom: '16px' }}>
-                    Débloquez le Coach IA 24/7 et la Gamification holographique avec Mindora Pro.
+                    Débloquez {aiName} 24/7 et la Gamification holographique avec Mindora Pro.
                   </p>
                   <button 
                     onClick={() => { playClickSound(); setShowPricingModal(true); }}

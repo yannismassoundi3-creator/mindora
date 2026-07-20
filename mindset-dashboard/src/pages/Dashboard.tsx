@@ -390,7 +390,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
           </div>
           <button className="btn-primary glass-panel-interactive pulse-glow" onClick={onOpenChat}>
             <Sparkles size={18} />
-            Parler au Coach IA
+            Parler à {aiName}
           </button>
         </div>
       </header>

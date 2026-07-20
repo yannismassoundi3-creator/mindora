@@ -13,6 +13,7 @@ interface PricingScreenProps {
 export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'lifetime'>('monthly');
+  const aiName = localStorage.getItem('mindset_ai_name') || 'Coach IA';
 
   const handlePurchase = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -49,7 +50,7 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
         <div className="pricing-header">
           <Sparkles className="pricing-sparkle" size={48} />
           <h1>Passez au niveau supérieur</h1>
-          <p>Débloquez la puissance totale de Mindora. Accédez au suivi des habitudes et à votre Coach IA personnel 24/7.</p>
+          <p>Débloquez la puissance totale de Mindora. Accédez au suivi des habitudes et à {aiName} 24/7.</p>
         </div>
 
       <div className="pricing-toggle">
@@ -90,7 +91,7 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
           <div className="pricing-features">
             <div className="feature-item">
               <CheckCircle size={20} className="feature-icon" />
-              <span>Accès illimité à Jarvis (Coach IA 24/7)</span>
+              <span>Accès illimité à {aiName} 24/7</span>
             </div>
             <div className="feature-item">
               <CheckCircle size={20} className="feature-icon" />

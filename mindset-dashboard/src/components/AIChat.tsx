@@ -3,6 +3,7 @@ import { Send, Bot, User, Sparkles } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { playBloopSound, playErrorSound } from '../utils/sounds';
 import './AIChat.css';
+import { api } from '../services/api';
 
 interface Message {
   id: number;
@@ -24,7 +25,7 @@ export const AIChat: React.FC = () => {
     return [
       {
         id: 1,
-        text: "Salut ! Je suis ton Coach IA, connecté à ton Dashboard. Je vois que tu as une série de 12 jours, c'est excellent ! Comment puis-je t'aider aujourd'hui ?",
+        text: `Salut ! Je suis ${localStorage.getItem('mindset_ai_name') || 'Coach IA'}, connecté à ton Dashboard. Je vois que tu as une série de 12 jours, c'est excellent ! Comment puis-je t'aider aujourd'hui ?`,
         sender: 'ai',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       }
@@ -127,35 +128,14 @@ export const AIChat: React.FC = () => {
         aiName: aiName,
       };
 
+      // Accès illimité à l'IA : les points ne sont plus déduits.
       const currentPoints = parseInt(localStorage.getItem('mindset_points') || '0', 10);
-      
-      if (currentPoints < 10) {
-        setIsTyping(false);
-        playErrorSound();
-        setMessages(prev => [...prev, {
-          id: Date.now() + 1,
-          text: "⚠️ **Énergie Insuffisante (Coins < 10)**\nMes systèmes requièrent de l'énergie pour fonctionner. Accomplissez vos habitudes et routines pour recharger mes circuits avant de pouvoir me consulter à nouveau.",
-          sender: 'ai',
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        }]);
-        return;
-      }
 
-      // Déduction des Coins
-      localStorage.setItem('mindset_points', (currentPoints - 10).toString());
-      window.dispatchEvent(new Event('storage'));
-
-      const response = await fetch('http://localhost:3000/ai-coaching/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          prompt: currentInput,
-          history: messages.slice(1),
-          context: userContext
-        })
+      const data = await api.post('/ai-coaching/chat', { 
+        prompt: currentInput,
+        history: messages.slice(1),
+        context: userContext
       });
-      
-      const data = await response.json();
       let replyText = data.reply || "Erreur lors de la génération.";
 
       const jsonMatch = replyText.match(/```json\n([\s\S]*?)\n```/);
