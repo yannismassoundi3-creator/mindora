@@ -28,6 +28,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   };
 
   const handleAnswer = (key: string, value: string) => {
+    if (isAnimating) return; // Prevent double click
     setAnswers(prev => ({ ...prev, [key]: value }));
     nextStep();
   };
@@ -62,7 +63,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
             </div>
             <h1 className="onboarding-title">Salut. Je suis ton Coach IA.</h1>
             <p className="onboarding-subtitle">Je vais t'aider à reprogrammer ton esprit pour atteindre l'excellence. Commençons par faire connaissance.</p>
-            <button className="btn-primary onboarding-btn" onClick={nextStep}>
+            <button className="btn-primary onboarding-btn" disabled={isAnimating} onClick={nextStep}>
               C'est parti <ArrowRight size={18} />
             </button>
           </div>
@@ -72,10 +73,10 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
           <div className="step-card">
             <h2 className="question-title">Que fais-tu dans la vie ?</h2>
             <div className="options-grid">
-              <button className="glass-panel option-btn" onClick={() => handleAnswer('job', 'Entrepreneur')}>Entrepreneur</button>
-              <button className="glass-panel option-btn" onClick={() => handleAnswer('job', 'Étudiant')}>Étudiant</button>
-              <button className="glass-panel option-btn" onClick={() => handleAnswer('job', 'Salarié')}>Salarié</button>
-              <button className="glass-panel option-btn" onClick={() => handleAnswer('job', 'Freelance')}>Freelance / Créateur</button>
+              <button className="glass-panel option-btn" disabled={isAnimating} onClick={() => handleAnswer('job', 'Entrepreneur')}>Entrepreneur</button>
+              <button className="glass-panel option-btn" disabled={isAnimating} onClick={() => handleAnswer('job', 'Étudiant')}>Étudiant</button>
+              <button className="glass-panel option-btn" disabled={isAnimating} onClick={() => handleAnswer('job', 'Salarié')}>Salarié</button>
+              <button className="glass-panel option-btn" disabled={isAnimating} onClick={() => handleAnswer('job', 'Freelance')}>Freelance / Créateur</button>
             </div>
           </div>
         )}
@@ -84,15 +85,15 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
           <div className="step-card">
             <h2 className="question-title">Es-tu quelqu'un de constant dans tes projets ?</h2>
             <div className="options-list">
-              <button className="glass-panel option-btn" onClick={() => handleAnswer('consistency', 'high')}>
+              <button className="glass-panel option-btn" disabled={isAnimating} onClick={() => handleAnswer('consistency', 'high')}>
                 <strong>Oui, très discipliné</strong>
                 <span>Je n'abandonne jamais ce que je commence.</span>
               </button>
-              <button className="glass-panel option-btn" onClick={() => handleAnswer('consistency', 'medium')}>
+              <button className="glass-panel option-btn" disabled={isAnimating} onClick={() => handleAnswer('consistency', 'medium')}>
                 <strong>En dents de scie</strong>
                 <span>J'ai des périodes de forte motivation, puis je relâche.</span>
               </button>
-              <button className="glass-panel option-btn" onClick={() => handleAnswer('consistency', 'low')}>
+              <button className="glass-panel option-btn" disabled={isAnimating} onClick={() => handleAnswer('consistency', 'low')}>
                 <strong>J'ai du mal à finir</strong>
                 <span>Je suis souvent dispersé et j'abandonne vite.</span>
               </button>
@@ -104,10 +105,10 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
           <div className="step-card">
             <h2 className="question-title">Quel est ton objectif numéro 1 ici ?</h2>
             <div className="options-grid">
-              <button className="glass-panel option-btn" onClick={() => handleAnswer('goal', 'business')}>Exploser mon Business</button>
-              <button className="glass-panel option-btn" onClick={() => handleAnswer('goal', 'discipline')}>Discipline de fer</button>
-              <button className="glass-panel option-btn" onClick={() => handleAnswer('goal', 'health')}>Santé & Énergie</button>
-              <button className="glass-panel option-btn" onClick={() => handleAnswer('goal', 'mental')}>Santé Mentale</button>
+              <button className="glass-panel option-btn" disabled={isAnimating} onClick={() => handleAnswer('goal', 'business')}>Exploser mon Business</button>
+              <button className="glass-panel option-btn" disabled={isAnimating} onClick={() => handleAnswer('goal', 'discipline')}>Discipline de fer</button>
+              <button className="glass-panel option-btn" disabled={isAnimating} onClick={() => handleAnswer('goal', 'health')}>Santé & Énergie</button>
+              <button className="glass-panel option-btn" disabled={isAnimating} onClick={() => handleAnswer('goal', 'mental')}>Santé Mentale</button>
             </div>
           </div>
         )}
@@ -124,13 +125,13 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
               value={tempAiName}
               onChange={(e) => setTempAiName(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && tempAiName.trim()) {
+                if (e.key === 'Enter' && tempAiName.trim() && !isAnimating) {
                   handleAnswer('aiName', tempAiName.trim());
                 }
               }}
               autoFocus
             />
-            <button className="btn-primary onboarding-btn" onClick={() => handleAnswer('aiName', tempAiName.trim() || 'Coach IA')}>
+            <button className="btn-primary onboarding-btn" disabled={isAnimating} onClick={() => handleAnswer('aiName', tempAiName.trim() || 'Coach IA')}>
               Valider ce nom
             </button>
           </div>

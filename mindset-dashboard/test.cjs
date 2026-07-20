@@ -16,8 +16,8 @@ const puppeteer = require('puppeteer');
     localStorage.setItem('mindset_user_name', 'User');
   });
 
-  console.log("Navigating to https://mindora-brown-one.vercel.app...");
-  await page.goto('https://mindora-brown-one.vercel.app', { waitUntil: 'networkidle2' });
+  console.log("Navigating to http://localhost:5173...");
+  await page.goto('http://localhost:5173', { waitUntil: 'networkidle2' });
   
   console.log("Waiting 1 second for React to render...");
   await new Promise(r => setTimeout(r, 1000));
