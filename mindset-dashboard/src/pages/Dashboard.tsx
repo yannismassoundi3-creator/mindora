@@ -124,11 +124,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
     if (parsedGroups && lastDate !== today) {
       parsedGroups = parsedGroups.map((group: any) => ({
         ...group,
-        items: group.items.map((item: any) => ({ ...item, done: false }))
+        items: group.items ? group.items.map((item: any) => ({ ...item, done: false })) : []
       }));
     }
 
-    if (parsedGroups) return parsedGroups;
+    if (parsedGroups && parsedGroups.length > 0) return parsedGroups;
 
     return [
       {
@@ -170,8 +170,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   }, [routineGroups]);
 
   // --- SCORE CALCULATION ---
-  const totalRoutines = routineGroups.reduce((acc: number, group: any) => acc + group.items.length, 0);
-  const doneRoutines = routineGroups.reduce((acc: number, group: any) => acc + group.items.filter((i: any) => i.done).length, 0);
+  const totalRoutines = routineGroups.reduce((acc: number, group: any) => acc + (group.items ? group.items.length : 0), 0);
+  const doneRoutines = routineGroups.reduce((acc: number, group: any) => acc + (group.items ? group.items.filter((i: any) => i.done).length : 0), 0);
 
   const [bonusScore, setBonusScore] = useState(0);
 
@@ -252,7 +252,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   const [currentRoutineIndex, setCurrentRoutineIndex] = useState(0);
   const [slideDirection, setSlideDirection] = useState('none');
   const [activeChartTab, setActiveChartTab] = useState('today');
-  const currentGroup = routineGroups[currentRoutineIndex];
+  const currentGroup = routineGroups[currentRoutineIndex] || { title: 'Aucune routine', desc: 'Créez vos routines', items: [] };
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState('');
@@ -345,14 +345,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   };
 
   const addNewRoutine = () => {
-    const newGroups = [...routineGroups];
-    const newId = Math.max(...routineGroups.flatMap((g: any) => g.items.map((i: any) => i.id)), 0) + 1;
-    newGroups[currentRoutineIndex].items.push({
-      id: newId,
-      title: 'Nouvelle tâche',
-      time: '10 min',
-      done: false
-    });
+    let newGroups = [...routineGroups];
+    if (newGroups.length === 0) {
+      newGroups = [{ id: 'custom', title: 'Mes routines', desc: '', items: [] }];
+    }
+    const newId = Math.max(...newGroups.flatMap((g: any) => (g.items || []).map((i: any) => i.id)), 0) + 1;
+    if (!newGroups[currentRoutineIndex]) {
+      newGroups[0].items.push({ id: newId, title: 'Nouvelle tâche', time: '10 min', done: false });
+    } else {
+      newGroups[currentRoutineIndex].items.push({ id: newId, title: 'Nouvelle tâche', time: '10 min', done: false });
+    }
     setRoutineGroups(newGroups);
     setEditingId(newId);
     setEditTitle('Nouvelle tâche');
