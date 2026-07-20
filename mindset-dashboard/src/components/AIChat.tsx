@@ -128,8 +128,24 @@ export const AIChat: React.FC = () => {
         aiName: aiName,
       };
 
-      // Accès illimité à l'IA : les points ne sont plus déduits.
+      // Système de Coins
       const currentPoints = parseInt(localStorage.getItem('mindset_points') || '0', 10);
+      
+      if (currentPoints < 10) {
+        setIsTyping(false);
+        playErrorSound();
+        setMessages(prev => [...prev, {
+          id: Date.now() + 1,
+          text: "⚠️ **Énergie Insuffisante (Coins < 10)**\nMes systèmes requièrent de l'énergie pour fonctionner. Accomplissez vos habitudes et routines pour recharger mes circuits avant de pouvoir me consulter à nouveau.",
+          sender: 'ai',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }]);
+        return;
+      }
+
+      // Déduction des Coins
+      localStorage.setItem('mindset_points', (currentPoints - 10).toString());
+      window.dispatchEvent(new Event('storage'));
 
       const data = await api.post('/ai-coaching/chat', { 
         prompt: currentInput,
