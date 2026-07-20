@@ -209,12 +209,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('mindset_micro_obj') || '[]');
-      setMicroObjectives(saved);
-    } catch {}
+      setMicroObjectives(Array.isArray(saved) ? saved : []);
+    } catch {
+      setMicroObjectives([]);
+    }
   }, []);
   
-  const microDone = microObjectives.filter((o: any) => o.done).length;
-  const microTotal = microObjectives.length;
+  const microDone = Array.isArray(microObjectives) ? microObjectives.filter((o: any) => o.done).length : 0;
+  const microTotal = Array.isArray(microObjectives) ? microObjectives.length : 0;
 
   // --- WEEKLY DATA (real) ---
   const weeklyData = getLastNDays(7).map(dateStr => {
@@ -374,6 +376,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   };
 
   const userName = localStorage.getItem('mindset_user_name') || 'Utilisateur';
+  const aiName = localStorage.getItem('mindset_ai_name') || 'MINDORA OS';
 
   return (
     <div className="dashboard-container">
