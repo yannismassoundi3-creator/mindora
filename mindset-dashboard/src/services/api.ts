@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:3002'; // NestJS Backend
+const API_URL = import.meta.env.VITE_API_URL || 'https://mindora-backend-haku.onrender.com'; // NestJS Backend
 
 export const api = {
   get: async (endpoint: string) => {
