@@ -99,14 +99,18 @@ export const AuthScreen = ({ onComplete }: { onComplete: () => void }) => {
           />
         )}
 
-        <input 
-          type="email" 
-          placeholder="Adresse e-mail" 
-          required 
-          value={email} 
-          onChange={e => setEmail(e.target.value)} 
-        />
-        <div className="password-wrapper">
+          <input
+            type="email"
+            placeholder="Adresse e-mail"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          {isLogin && (
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textAlign: 'left', marginTop: '-10px', marginLeft: '5px' }}>
+              * Attention aux majuscules dans votre email
+            </p>
+          )}<div className="password-wrapper">
           <input 
             type={showPassword ? "text" : "password"}
             placeholder="Mot de passe" 
