@@ -33,6 +33,25 @@ export class PushController {
     return { success: true };
   }
   
+  @Get('test-public')
+  @ApiOperation({ summary: 'Public test for email transport' })
+  async testPublicPush() {
+    try {
+      // Find the first user in the DB to test with
+      const user = await this.pushService['prisma'].user.findFirst();
+      if (!user) return { success: false, error: 'No user found' };
+      
+      await this.pushService.sendNotification(user.id, {
+        title: 'Mindset Test Public',
+        body: 'This is a public test.',
+        icon: '/pwa-192x192.png'
+      });
+      return { success: true, message: 'Public email sent' };
+    } catch (e: any) {
+      return { success: false, error: e.message };
+    }
+  }
+  
   @Get('vapid-public-key')
   @ApiOperation({ summary: 'Get VAPID public key for frontend subscription' })
   getVapidPublicKey() {
