@@ -9,8 +9,8 @@ export class PushService implements OnModuleInit {
 
   constructor(private prisma: PrismaService) {
     const vapidSubject = process.env.VAPID_SUBJECT || 'mailto:mindoraappli@gmail.com';
-    const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
-    const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
+    const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || 'BHrG1AYlmFHaFP1dsraB9T2mMpucNJ_t3Y2-69nIiLUfrpvaoesfe1wQE2y0fngztoBq6-NL-sxiVliec9fe4HE';
+    const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || 'c7NdrePKUzEMbvzHEXoXyFaD8aRmjJEXqvEnjC_41OA';
 
     if (vapidPublicKey && vapidPrivateKey) {
       webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);

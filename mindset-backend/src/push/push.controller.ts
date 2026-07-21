@@ -37,6 +37,8 @@ export class PushController {
   @Get('vapid-public-key')
   @ApiOperation({ summary: 'Get VAPID public key for frontend subscription' })
   getVapidPublicKey() {
-    return { publicKey: process.env.VAPID_PUBLIC_KEY };
+    // Fallback key hardcodée pour éviter les erreurs si la variable d'environnement manque
+    const key = process.env.VAPID_PUBLIC_KEY || 'BHrG1AYlmFHaFP1dsraB9T2mMpucNJ_t3Y2-69nIiLUfrpvaoesfe1wQE2y0fngztoBq6-NL-sxiVliec9fe4HE';
+    return { publicKey: key };
   }
 }
