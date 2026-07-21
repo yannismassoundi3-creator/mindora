@@ -82,19 +82,19 @@ export class PushService implements OnModuleInit {
     cron.schedule('0 10 * * *', async () => {
       this.logger.log('Running morning push reminder cron job at 10:00');
       await this.sendBulkReminders('Réveil ! ☀️', 'Tes objectifs t\'attendent, c\'est l\'heure de commencer ta journée.');
-    });
+    }, { timezone: 'Europe/Paris' });
 
     // 18:00 - Evening Check-in
     cron.schedule('0 18 * * *', async () => {
       this.logger.log('Running evening push reminder cron job at 18:00');
       await this.sendBulkReminders('Check-in de 18h 🎯', 'Où en es-tu dans tes objectifs ? Viens faire le point.');
-    });
+    }, { timezone: 'Europe/Paris' });
 
     // 22:00 - Night Review
     cron.schedule('0 22 * * *', async () => {
       this.logger.log('Running night push reminder cron job at 22:00');
       await this.sendBulkReminders('C\'est l\'heure du bilan 🌙', 'Valide tes dernières routines avant de dormir.');
-    });
+    }, { timezone: 'Europe/Paris' });
   }
 
   async sendBulkReminders(title: string, body: string) {
