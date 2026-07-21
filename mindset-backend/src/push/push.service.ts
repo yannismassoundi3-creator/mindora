@@ -21,33 +21,58 @@ export class PushService implements OnModuleInit {
   }
 
   async saveSubscription(userId: string, subscription: any) {
-    const user = await this.prisma.user.update({
-      where: { id: userId },
-      data: { push_subscription: JSON.parse(JSON.stringify(subscription)) },
+    const exists = await this.prisma.pushSubscription.findUnique({
+      where: { endpoint: subscription.endpoint }
     });
+    
+    if (exists) {
+      await this.prisma.pushSubscription.update({
+        where: { endpoint: subscription.endpoint },
+        data: {
+          user_id: userId,
+          p256dh: subscription.keys.p256dh,
+          auth: subscription.keys.auth
+        }
+      });
+    } else {
+      await this.prisma.pushSubscription.create({
+        data: {
+          user_id: userId,
+          endpoint: subscription.endpoint,
+          p256dh: subscription.keys.p256dh,
+          auth: subscription.keys.auth
+        }
+      });
+    }
     this.logger.log(`Saved push subscription for user ${userId}`);
     return { success: true };
   }
 
   async sendNotification(userId: string, payload: any) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user || !user.push_subscription) {
+    const subscriptions = await this.prisma.pushSubscription.findMany({ where: { user_id: userId } });
+    if (!subscriptions || subscriptions.length === 0) {
       this.logger.warn(`No push subscription found for user ${userId}`);
       return;
     }
 
-    try {
-      await webpush.sendNotification(user.push_subscription as any, JSON.stringify(payload));
-      this.logger.log(`Push notification sent successfully to user ${userId}`);
-    } catch (error) {
-      this.logger.error(`Error sending push notification to user ${userId}:`, error);
-      // Remove invalid subscriptions
-      if ((error as any).statusCode === 404 || (error as any).statusCode === 410) {
-        await this.prisma.user.update({
-          where: { id: userId },
-          data: { push_subscription: null },
-        });
-        this.logger.log(`Removed invalid push subscription for user ${userId}`);
+    for (const sub of subscriptions) {
+      const pushSub = {
+        endpoint: sub.endpoint,
+        keys: {
+          p256dh: sub.p256dh,
+          auth: sub.auth
+        }
+      };
+
+      try {
+        await webpush.sendNotification(pushSub, JSON.stringify(payload));
+        this.logger.log(`Push notification sent successfully to user ${userId}`);
+      } catch (error) {
+        this.logger.error(`Error sending push notification to user ${userId}:`, error);
+        if ((error as any).statusCode === 404 || (error as any).statusCode === 410) {
+          await this.prisma.pushSubscription.delete({ where: { id: sub.id } });
+          this.logger.log(`Removed invalid push subscription for user ${userId}`);
+        }
       }
     }
   }
@@ -61,15 +86,17 @@ export class PushService implements OnModuleInit {
 
   async sendDailyReminders() {
     const users = await this.prisma.user.findMany({
-      where: { push_subscription: { not: null } }
+      include: { push_subscriptions: true }
     });
     for (const user of users) {
-      await this.sendNotification(user.id, {
-        title: 'Validation Requise 🔥',
-        body: "N'oublie pas de compléter tes routines du jour ! Ne brise pas ta série de focus.",
-        url: 'https://mindset-elite.com'
-      });
+      if (user.push_subscriptions && user.push_subscriptions.length > 0) {
+        await this.sendNotification(user.id, {
+          title: 'Validation Requise 🔥',
+          body: "N'oublie pas de compléter tes routines du jour ! Ne brise pas ta série de focus.",
+          url: 'https://mindset-elite.com'
+        });
+      }
     }
-    this.logger.log(`Sent daily push reminders to ${users.length} users.`);
+    this.logger.log(`Sent daily push reminders.`);
   }
 }
