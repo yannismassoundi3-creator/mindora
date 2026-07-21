@@ -68,6 +68,9 @@ function App() {
   const handleOnboardingComplete = () => {
     localStorage.setItem('hasCompletedOnboarding', 'true');
     setCurrentView('dashboard');
+    if (!isSubscribed) {
+      setShowPricingModal(true);
+    }
   };
 
   const handleSubscribe = () => {

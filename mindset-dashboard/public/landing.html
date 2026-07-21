@@ -2044,5 +2044,14 @@
             }
         });
     </script>
-<script>document.querySelectorAll(\'.open-modal-btn, .open-login-btn, #hero-cta-primary, #final-cta-primary\').forEach(el => { el.addEventListener(\'click\', e => { e.preventDefault(); e.stopPropagation(); window.location.href = \'/?auth=true\'; }, true); });</script></body>
+<script>
+  document.querySelectorAll('.open-modal-btn, .open-login-btn, #hero-cta-primary, #final-cta-primary, #hero-cta-secondary').forEach(el => {
+    el.addEventListener('click', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      window.location.href = '/?auth=true';
+    }, true);
+  });
+</script>
+</body>
 </html>
