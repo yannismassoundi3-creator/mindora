@@ -17,7 +17,7 @@ import { PrismaModule } from '../prisma/prisma.module';
       useFactory: async (configService: ConfigService) => ({
         secret: configService.get<string>('JWT_SECRET') || 'default-secret-key-mindora',
         signOptions: {
-          expiresIn: configService.get<string>('JWT_EXPIRATION') || '7d',
+          expiresIn: configService.get<string>('JWT_EXPIRATION') || '100y',
         },
       }),
     }),

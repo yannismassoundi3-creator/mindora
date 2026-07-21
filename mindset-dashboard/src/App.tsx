@@ -13,8 +13,12 @@ import { PricingScreen } from './pages/PricingScreen';
 import { registerSW } from 'virtual:pwa-register';
 import './styles/global.css';
 
-// Enregistrement simple du Service Worker sans rechargement automatique agressif
+// Enregistrement du Service Worker avec mise à jour forcée pour éviter le cache bloqué
 const updateSW = registerSW({
+  onNeedRefresh() {
+    console.log("Nouvelle version détectée, mise à jour...");
+    updateSW(true);
+  },
   onOfflineReady() {
     console.log("App prête pour le mode hors ligne");
   },
