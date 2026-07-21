@@ -13,12 +13,8 @@ import { PricingScreen } from './pages/PricingScreen';
 import { registerSW } from 'virtual:pwa-register';
 import './styles/global.css';
 
-// Force l'application à se mettre à jour automatiquement dès qu'une nouvelle version est détectée sur le serveur
+// Enregistrement simple du Service Worker sans rechargement automatique agressif
 const updateSW = registerSW({
-  onNeedRefresh() {
-    // Appelle la mise à jour et rafraîchit la page
-    updateSW(true);
-  },
   onOfflineReady() {
     console.log("App prête pour le mode hors ligne");
   },
