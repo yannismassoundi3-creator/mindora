@@ -9,6 +9,10 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
+      workbox: {
+        importScripts: ['/custom-sw.js'], // Script for handling Push notifications
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,json}']
+      },
       manifest: {
         name: 'Mindset Elite',
         short_name: 'Mindset',

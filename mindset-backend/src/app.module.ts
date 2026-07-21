@@ -11,6 +11,7 @@ import { AiCoachingModule } from './ai-coaching/ai-coaching.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { CalendarModule } from './calendar/calendar.module';
 import { SyncModule } from './sync/sync.module';
+import { PushModule } from './push/push.module';
 
 @Module({
   imports: [

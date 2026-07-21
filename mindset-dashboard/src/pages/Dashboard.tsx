@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, Area, AreaChart } from 'recharts';
 import { Play, CheckCircle2, TrendingUp, Zap, Sparkles, Pencil, Coins, Circle, ChevronLeft, ChevronRight, Plus, Trophy } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { api } from '../services/api';
 import './Dashboard.css';
 
 // --- HELPERS ---
@@ -108,6 +109,48 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   }, []);
 
   const [points, setPoints] = useState(() => parseInt(localStorage.getItem('mindset_points') || '0', 10));
+
+  // --- PUSH NOTIFICATIONS SETUP ---
+  useEffect(() => {
+    const setupPushNotifications = async () => {
+      try {
+        if ('serviceWorker' in navigator && 'PushManager' in window) {
+          const permission = await Notification.requestPermission();
+          if (permission !== 'granted') return;
+
+          const registration = await navigator.serviceWorker.ready;
+          
+          // Get VAPID public key from backend
+          const { publicKey } = await api.get('/push/vapid-public-key');
+          if (!publicKey) return;
+
+          // Convert VAPID key to Uint8Array
+          const padding = '='.repeat((4 - publicKey.length % 4) % 4);
+          const base64 = (publicKey + padding).replace(/-/g, '+').replace(/_/g, '/');
+          const rawData = window.atob(base64);
+          const outputArray = new Uint8Array(rawData.length);
+          for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+          }
+
+          const subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: outputArray
+          });
+
+          // Send subscription to backend
+          await api.post('/push/subscribe', subscription);
+        }
+      } catch (err) {
+        console.error('Push Notifications setup failed:', err);
+      }
+    };
+
+    // Only run if user is properly logged in
+    if (localStorage.getItem('mindset_token')) {
+      setupPushNotifications();
+    }
+  }, []);
 
   // --- ROUTINES (persisted) ---
   const [routineGroups, setRoutineGroups] = useState(() => {
