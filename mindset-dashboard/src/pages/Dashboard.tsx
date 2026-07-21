@@ -116,9 +116,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
       // Le backend gère désormais l'envoi d'email directement.
       await api.post('/push/test', {});
       alert("Un email de test vous a été envoyé ! Vérifiez votre boîte de réception.");
-    } catch (err) {
+    } catch (err: any) {
       console.error('Email Notification setup failed:', err);
-      alert("Une erreur est survenue lors de l'envoi de l'email.");
+      alert(`Une erreur est survenue lors de l'envoi de l'email. Raison: ${err.message}`);
     }
   };
 
