@@ -30,9 +30,10 @@ function App() {
   
   const urlParams = new URLSearchParams(window.location.search);
   const isAuthIntent = urlParams.get('auth') === 'true';
+  const hasCompletedOnboarding = localStorage.getItem('hasCompletedOnboarding') === 'true';
 
   const [currentView, setCurrentView] = useState<'auth' | 'onboarding' | 'welcome' | 'dashboard' | 'chat' | 'objectives' | 'habits' | 'profile'>(
-    isAuthIntent ? 'auth' : 'welcome'
+    isAuthIntent ? 'auth' : (hasToken && hasCompletedOnboarding ? 'dashboard' : 'welcome')
   );
 
   const [isSubscribed, setIsSubscribed] = useState(() => localStorage.getItem('mindset_is_subscribed') === 'true');
