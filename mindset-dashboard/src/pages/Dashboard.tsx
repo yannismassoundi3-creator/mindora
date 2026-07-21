@@ -436,6 +436,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
             <span className="points-value">{points}</span>
             <span className="points-label">Coins</span>
           </div>
+          <button className="btn-primary glass-panel-interactive pulse-glow" onClick={() => api.post('/push/test')} style={{background: 'rgba(236, 72, 153, 0.2)'}}>
+            Test Notif
+          </button>
           <button className="btn-primary glass-panel-interactive pulse-glow" onClick={onOpenChat}>
             <Sparkles size={18} />
             Parler à {aiName}

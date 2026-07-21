@@ -27,7 +27,7 @@ export class PushController {
     const userId = req.user.userId;
     await this.pushService.sendNotification(userId, {
       title: 'Mindset Elite',
-      body: 'Ceci est un test de notification push !',
+      body: "Prêt à exploser tes objectifs aujourd'hui ? Ouvre l'application et valide tes habitudes pour maintenir ta série ! 🔥",
       icon: '/pwa-192x192.png'
     });
     return { success: true };
