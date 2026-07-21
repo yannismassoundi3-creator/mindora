@@ -110,50 +110,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
 
   const [points, setPoints] = useState(() => parseInt(localStorage.getItem('mindset_points') || '0', 10));
 
-  // --- PUSH NOTIFICATIONS SETUP ---
+  // --- EMAIL NOTIFICATIONS SETUP ---
   const handleTestNotif = async () => {
     try {
-      if ('serviceWorker' in navigator && 'PushManager' in window) {
-        // 1. Demander la permission (DOIT être fait suite à un clic utilisateur)
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') {
-          alert("Les notifications ont été bloquées par votre navigateur.");
-          return;
-        }
-
-        // 2. Récupérer le Service Worker
-        const registration = await navigator.serviceWorker.ready;
-        
-        // 3. Obtenir la clé VAPID
-        const { publicKey } = await api.get('/push/vapid-public-key');
-        if (!publicKey) return;
-
-        // 4. Convertir la clé VAPID
-        const padding = '='.repeat((4 - publicKey.length % 4) % 4);
-        const base64 = (publicKey + padding).replace(/-/g, '+').replace(/_/g, '/');
-        const rawData = window.atob(base64);
-        const outputArray = new Uint8Array(rawData.length);
-        for (let i = 0; i < rawData.length; ++i) {
-          outputArray[i] = rawData.charCodeAt(i);
-        }
-
-        // 5. Souscrire aux notifications Push
-        const subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: outputArray
-        });
-
-        // 6. Sauvegarder dans la DB
-        await api.post('/push/subscribe', subscription);
-        
-        // 7. Déclencher la notification de test depuis le backend
-        await api.post('/push/test', {});
-      } else {
-        alert("Les notifications Push ne sont pas supportées par votre navigateur.");
-      }
+      // Le backend gère désormais l'envoi d'email directement.
+      await api.post('/push/test', {});
+      alert("Un email de test vous a été envoyé ! Vérifiez votre boîte de réception.");
     } catch (err) {
-      console.error('Push Notifications setup failed:', err);
-      alert("Une erreur est survenue lors de la configuration des notifications.");
+      console.error('Email Notification setup failed:', err);
+      alert("Une erreur est survenue lors de l'envoi de l'email.");
     }
   };
 
