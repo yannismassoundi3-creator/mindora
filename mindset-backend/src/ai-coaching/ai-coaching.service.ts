@@ -58,10 +58,10 @@ export class AiCoachingService {
   }
 
   async chatWithAi(prompt: string, history: any[] = [], userContext?: any) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey || apiKey === 'YOUR_GEMINI_API_KEY') {
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey || apiKey === 'YOUR_GROQ_API_KEY') {
       return { 
-        reply: "Mon moteur d'intelligence (Gemini) est déconnecté. ⚠️\n\nPour me donner vie, ajoute ta vraie clé API dans le fichier `.env` du backend à la ligne `GEMINI_API_KEY=...` puis redémarre le serveur." 
+        reply: "Mon moteur d'intelligence (Groq) est déconnecté. ⚠️\n\nPour me donner vie, ajoute ta clé API dans le fichier `.env` du backend à la ligne `GROQ_API_KEY=...` (et sur Render) puis redémarre le serveur." 
       };
     }
 
@@ -99,6 +99,7 @@ RÈGLES DE COMPORTEMENT :
 5. Tu connais les données de l'utilisateur ci-dessous. Utilise-les pour personnaliser tes réponses.
 6. Quand on te demande d'analyser les objectifs, tu les listes et tu donnes des conseils actionnables.
 7. Tu ne mentionnes JAMAIS que tu es une IA, un modèle de langage ou que tu as des limitations techniques. Tu es Jarvis.
+8. Tu réponds TOUJOURS en français.
 
 MODE GÉNÉRATION DE PLAN (TRÈS IMPORTANT) :
 Si l'utilisateur te demande de générer un plan (ex: "Je souhaite générer un nouveau plan... pose-moi les questions"), tu passes en MODE INTERVIEW :
@@ -124,100 +125,69 @@ N'envoie ce JSON QUE lorsque le plan est finalisé, avec un petit mot d'encourag
 ${contextString}`;
 
     try {
-      const genAI = new GoogleGenerativeAI(apiKey);
+      console.log('[Groq] 🔄 Tentative avec Llama 3.3 70B (Groq)...');
+      
+      const messages = [
+        { role: 'system', content: systemInstruction }
+      ];
 
-      const formattedHistory = history.map(msg => ({
-        role: msg.sender === 'user' ? 'user' : 'model',
-        parts: [{ text: msg.text }]
-      }));
-
-      // Models ordered by quality: 1.5-pro for complex, 1.5-flash for speed
-      const modelsToTry = ["gemini-1.5-flash-latest", "gemini-2.0-flash", "gemini-1.5-pro-latest"];
-      let lastError: any;
-
-      for (const modelName of modelsToTry) {
-        try {
-          console.log(`[AI] Tentative avec le modèle : ${modelName}`);
-          const model = genAI.getGenerativeModel({ 
-            model: modelName,
-            systemInstruction: systemInstruction,
-          });
-          const chat = model.startChat({ history: formattedHistory });
-          const result = await chat.sendMessage(prompt);
-          const response = await result.response;
-          const text = response.text();
-          console.log(`[AI] ✅ Réponse reçue via ${modelName} (${text.length} chars)`);
-          return { reply: text };
-        } catch (error: any) {
-          console.error(`[AI] ❌ Erreur avec ${modelName}:`, error?.status, error?.statusText);
-          lastError = error;
-
-          // 429 = quota exceeded — try to wait and retry once before moving on
-          if (error?.status === 429) {
-            const retryMatch = error?.errorDetails?.find((d: any) => d['@type']?.includes('RetryInfo'));
-            const delaySec = retryMatch?.retryDelay ? parseInt(retryMatch.retryDelay) : 0;
-            
-            if (delaySec > 0 && delaySec <= 30) {
-              console.log(`[AI] ⏳ Quota atteint, attente de ${delaySec}s avant retry...`);
-              await new Promise(resolve => setTimeout(resolve, delaySec * 1000));
-              try {
-                const retryModel = genAI.getGenerativeModel({ 
-                  model: modelName,
-                  systemInstruction: systemInstruction,
-                });
-                const retryChat = retryModel.startChat({ history: formattedHistory });
-                const retryResult = await retryChat.sendMessage(prompt);
-                const retryResponse = await retryResult.response;
-                const retryText = retryResponse.text();
-                console.log(`[AI] ✅ Retry réussi via ${modelName}`);
-                return { reply: retryText };
-              } catch (retryError: any) {
-                console.error(`[AI] ❌ Retry échoué pour ${modelName}`);
-                lastError = retryError;
-              }
-            }
-            // Move to next model
-            continue;
-          }
-          
-          // 404 or 503 = model not available, try next
-          if (error?.status === 404 || error?.status === 503) {
-            continue;
-          }
-
-          // Any other error = stop trying
-          break;
-        }
+      for (const msg of history) {
+        messages.push({
+          role: msg.sender === 'user' ? 'user' : 'assistant',
+          content: msg.text
+        });
       }
 
-      throw lastError;
-    } catch (error) {
-      console.error("[AI] Erreur globale Gemini API — activation du fallback immersif");
+      messages.push({ role: 'user', content: prompt });
+
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          messages: messages,
+          temperature: 0.8,
+          max_tokens: 1024
+        })
+      });
+
+      if (!response.ok) {
+        const errBody = await response.text();
+        throw new Error(`Groq API Error: ${response.status} ${response.statusText} - ${errBody}`);
+      }
+
+      const data = await response.json();
+      const reply = data.choices?.[0]?.message?.content;
       
-      // Fallback intelligent qui garde l'immersion Jarvis
-      // Utilise le contexte utilisateur pour générer des réponses pertinentes
+      if (!reply) throw new Error('Empty response from Groq');
+      
+      console.log(`[Groq] ✅ Réponse Llama 3.3 70B reçue (${reply.length} chars)`);
+      return { reply };
+
+    } catch (error: any) {
+      console.error("[Groq] ❌ Erreur Groq API — activation du fallback immersif:", error.message);
+      
       const lowerPrompt = prompt.toLowerCase();
       let fallbackReply: string;
       
       if (lowerPrompt.includes('objectif') || lowerPrompt.includes('vision') || lowerPrompt.includes('goal')) {
         if (userContext?.macroObjectives?.length > 0) {
           const objectifsList = userContext.macroObjectives.map((o: any) => `• **${o.title || o.name}**`).join('\n');
-          fallbackReply = `📊 Yannis, voici tes grandes visions que j'ai en mémoire :\n\n${objectifsList}\n\n🔥 Reste concentré sur ces piliers. Chaque micro-action de la semaine te rapproche de ces objectifs. Continue !`;
+          fallbackReply = `📊 Yannis, voici tes grandes visions que j'ai en mémoire :\n\n${objectifsList}\n\n🔥 Reste concentré sur ces piliers. Continue !`;
         } else {
-          fallbackReply = "🎯 Yannis, je vois que tu n'as pas encore défini de macro-objectifs. Va dans l'onglet **Objectifs** pour créer ta première grande vision. C'est la base de tout !";
+          fallbackReply = "🎯 Yannis, je vois que tu n'as pas encore défini de macro-objectifs. Va dans l'onglet **Objectifs** pour créer ta première grande vision.";
         }
       } else if (lowerPrompt.includes('bonjour') || lowerPrompt.includes('salut') || lowerPrompt.includes('hey')) {
-        fallbackReply = `👋 **Bonjour Yannis !** Tes systèmes sont au vert.\n\n📈 Score Mental : **${userContext?.mentalScore ?? 0}%** | 💰 Coins : **${userContext?.coins ?? 0}**\n\nQuel est ton objectif prioritaire aujourd'hui ?`;
+        fallbackReply = `👋 **Bonjour Yannis !** Tes systèmes sont au vert.\n\n📈 Score Mental : **${userContext?.mentalScore ?? 0}%** | 💰 Coins : **${userContext?.coins ?? 0}**`;
       } else if (lowerPrompt.includes('routine') || lowerPrompt.includes('habitude') || lowerPrompt.includes('programme')) {
-        fallbackReply = "⚡ Pour booster ta discipline, je te recommande d'ajouter **une routine de 10 min** de méditation chaque matin. Clique sur le **crayon ✏️** dans ton Dashboard pour la créer. Chaque routine validée booste ton **Score Mental** !";
+        fallbackReply = "⚡ Pour booster ta discipline, ajoute **une routine de 10 min** de méditation. Chaque routine validée booste ton **Score Mental** !";
       } else if (lowerPrompt.includes('score') || lowerPrompt.includes('coin') || lowerPrompt.includes('point')) {
-        fallbackReply = `📊 **Récap de tes stats** :\n\n🧠 Score Mental : **${userContext?.mentalScore ?? 0}%**\n💰 Mindset Coins : **${userContext?.coins ?? 0}**\n\nChaque routine validée te rapporte des coins et du score. Les objectifs de semaine complétés ajoutent un **bonus de +10%** au score !`;
-      } else if (lowerPrompt.includes('sport') || lowerPrompt.includes('entrainement') || lowerPrompt.includes('muscu') || lowerPrompt.includes('course')) {
-        fallbackReply = "💪 **Le sport est le fondement de la discipline.**\n\nN'oublie pas : la motivation est éphémère, mais la routine reste. Planifie ton entraînement dans ton calendrier et exécute-le, peu importe ton niveau d'énergie. C'est dans l'inconfort qu'on progresse. Prêt pour la prochaine séance ?";
-      } else if (lowerPrompt.includes('fatigue') || lowerPrompt.includes('stress') || lowerPrompt.includes('dur') || lowerPrompt.includes('mal')) {
-        fallbackReply = "🔋 **Écoute ton corps, mais garde le rythme.**\n\nSi tu es fatigué, réduis l'intensité de tes habitudes aujourd'hui, mais ne les saute pas. La constance vaut mieux que la perfection. Prends 10 minutes pour te recentrer, tu verras la différence.";
+        fallbackReply = `📊 **Récap** :\n\n🧠 Score Mental : **${userContext?.mentalScore ?? 0}%**\n💰 Coins : **${userContext?.coins ?? 0}**`;
       } else {
-        fallbackReply = `🧠 **C'est noté, Yannis.**\n\nChaque décision que tu prends forge ton avenir. Ton Score Mental actuel est de **${userContext?.mentalScore ?? 0}%**.\n\nReste focus sur tes objectifs et exécute tes habitudes du jour. Si tu as une question spécifique sur tes routines, tes points ou ton sport, dis-le moi !`;
+        fallbackReply = `🧠 **C'est noté, Yannis.**\n\nTon Score Mental actuel est de **${userContext?.mentalScore ?? 0}%**.\n\nReste focus sur tes objectifs et exécute tes habitudes du jour.`;
       }
       
       return { reply: fallbackReply };
