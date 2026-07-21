@@ -267,10 +267,22 @@
 
 /* RESPONSIVE */
 @media (max-width: 900px) {
+  .dashboard-container {
+    width: 100%;
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 0;
+    overflow-x: hidden;
+    box-sizing: border-box;
+  }
+
   .dashboard-header {
     flex-direction: column;
     align-items: flex-start;
     gap: 16px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
   
   .greeting {
@@ -291,21 +303,32 @@
   .points-badge {
     width: 100%;
     justify-content: center;
+    box-sizing: border-box;
   }
 
   .btn-primary {
     width: 100%;
     justify-content: center;
+    box-sizing: border-box;
   }
 
   .dashboard-grid {
     grid-template-columns: 1fr;
     gap: 12px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    overflow-x: hidden;
   }
 
   .chart-section {
     grid-column: 1 / 2;
     padding: 16px 12px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
   }
 
   .section-header {
@@ -326,6 +349,7 @@
   .chart-tabs {
     width: 100%;
     justify-content: space-between;
+    box-sizing: border-box;
   }
 
   .chart-tab {
@@ -349,6 +373,10 @@
     grid-column: 1 / 2;
     flex-direction: row;
     gap: 10px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    min-width: 0;
   }
 
   .stat-card {
@@ -358,6 +386,8 @@
     flex-direction: column;
     text-align: center;
     justify-content: center;
+    min-width: 0;
+    box-sizing: border-box;
   }
   
   .stat-icon {
@@ -373,17 +403,23 @@
   
   .stat-info {
     align-items: center;
+    width: 100%;
   }
   
   .stat-label {
     font-size: 0.75rem;
     margin-bottom: 2px;
     line-height: 1.1;
+    white-space: normal;
+    text-align: center;
   }
   
   .stat-value {
     font-size: 1.1rem;
     gap: 4px;
+    flex-wrap: wrap;
+    justify-content: center;
+    text-align: center;
   }
   
   .highlight-streak {
@@ -401,6 +437,10 @@
   .routines-section {
     grid-column: 1 / 2;
     padding: 16px 12px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
   }
   
   .routine-item {
@@ -419,6 +459,8 @@
     justify-content: flex-start;
     align-items: center;
     width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 
   .circular-progress-container svg {
