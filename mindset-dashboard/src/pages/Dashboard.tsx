@@ -110,15 +110,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
 
   const [points, setPoints] = useState(() => parseInt(localStorage.getItem('mindset_points') || '0', 10));
 
-  // --- EMAIL NOTIFICATIONS SETUP ---
+  // --- EMAIL/PUSH NOTIFICATIONS SETUP ---
   const handleTestNotif = async () => {
     try {
-      // Le backend gère désormais l'envoi d'email directement.
-      await api.post('/email/test', {});
-      alert("Un email de test vous a été envoyé ! Vérifiez votre boîte de réception.");
+      // 1. Demande la permission et enregistre le pushManager au serveur
+      await api.subscribeToPushNotifications();
+      
+      // 2. Déclenche une notification de test
+      await api.post('/push/test', {});
+      
+      alert("Test envoyé ! Si tu as autorisé les notifications, elle va apparaître (ferme l'app pour la voir sur l'écran verrouillé).");
     } catch (err: any) {
-      console.error('Email Notification setup failed:', err);
-      alert(`Une erreur est survenue lors de l'envoi de l'email. Raison: ${err.message}`);
+      console.error('Notification setup failed:', err);
+      if (err.message === 'Notifications_Not_Supported') {
+        alert("⚠️ IMPORTANT (iPhone/iOS) : Apple bloque les notifications dans Safari.\n\nPour que ça marche comme Duolingo, tu DOIS ajouter cette application à ton écran d'accueil (Bouton Partager > Sur l'écran d'accueil). Ouvre ensuite l'application depuis l'écran d'accueil !");
+      } else if (err.message === 'Permission_Denied') {
+        alert("Tu as refusé l'autorisation d'envoyer des notifications. Va dans les paramètres de ton navigateur/téléphone pour les autoriser.");
+      } else {
+        alert(`Une erreur est survenue : ${err.message}`);
+      }
     }
   };
 

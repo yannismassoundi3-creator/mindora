@@ -48,10 +48,10 @@ export const api = {
   syncStateToCloud: async () => {
     try {
       const state = {
-        routines: JSON.parse(localStorage.getItem('mindset_routines') || 'null'),
-        micro_objectives: JSON.parse(localStorage.getItem('mindset_micro_obj') || 'null'),
-        macro_objectives: JSON.parse(localStorage.getItem('mindset_macro_obj') || 'null'),
-        habits: JSON.parse(localStorage.getItem('mindset_habits') || 'null'),
+        routines: JSON.parse(localStorage.getItem('mindset_routines') || '[]'),
+        micro_objectives: JSON.parse(localStorage.getItem('mindset_micro_obj') || '[]'),
+        macro_objectives: JSON.parse(localStorage.getItem('mindset_macro_obj') || '[]'),
+        habits: JSON.parse(localStorage.getItem('mindset_habits') || '[]'),
         points: parseInt(localStorage.getItem('mindset_points') || '0', 10),
         mental_score: parseInt(localStorage.getItem('mental_score') || '0', 10),
         bonus_score: parseInt(localStorage.getItem('bonus_mental_score') || '0', 10),
@@ -60,8 +60,57 @@ export const api = {
     } catch (e) {
       console.error('Failed to sync state', e);
     }
+  },
+
+  subscribeToPushNotifications: async () => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      throw new Error('Notifications_Not_Supported');
+    }
+    
+    let permission = Notification.permission;
+    if (permission === 'default') {
+      permission = await Notification.requestPermission();
+    }
+    
+    if (permission !== 'granted') {
+      throw new Error('Permission_Denied');
+    }
+
+    const registration = await navigator.serviceWorker.ready;
+    let subscription = await registration.pushManager.getSubscription();
+
+    if (!subscription) {
+      const vapidResponse = await api.get('/push/vapid-public-key');
+      const publicKey = vapidResponse.publicKey;
+      
+      const convertedVapidKey = urlBase64ToUint8Array(publicKey);
+      
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: convertedVapidKey
+      });
+    }
+
+    await api.post('/push/subscribe', subscription);
+    return true;
   }
 };
+
+// Utility function for VAPID key conversion
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/\-/g, '+')
+    .replace(/_/g, '/');
+  
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
 
 // Global debounced auto-sync hook
 let syncTimeout: any;
