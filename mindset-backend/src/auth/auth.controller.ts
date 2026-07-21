@@ -57,7 +57,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Connexion de l\'utilisateur' })
   @ApiResponse({ status: 200, description: 'Connexion réussie (retourne AccessToken et set RefreshToken en cookie).' })
   async login(@Body() loginDto: LoginDto, @Res({ passthrough: true }) response: Response) {
-    const { accessToken, refreshToken, user } = await this.authService.login(loginDto);
+    const { accessToken, refreshToken, user, has_ai_profile } = await this.authService.login(loginDto);
     
     // Sécurité: Refresh Token en HttpOnly Cookie
     response.cookie('refresh_token', refreshToken, {
@@ -69,7 +69,8 @@ export class AuthController {
 
     return {
       access_token: accessToken,
-      user
+      user,
+      has_ai_profile
     };
   }
 

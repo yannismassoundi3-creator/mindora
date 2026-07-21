@@ -78,25 +78,38 @@ export class PushService implements OnModuleInit {
   }
 
   onModuleInit() {
-    cron.schedule('0 20 * * *', async () => {
-      this.logger.log('Running daily push reminder cron job at 20:00');
-      await this.sendDailyReminders();
+    // 10:00 - Morning Wake Up
+    cron.schedule('0 10 * * *', async () => {
+      this.logger.log('Running morning push reminder cron job at 10:00');
+      await this.sendBulkReminders('Réveil ! ☀️', 'Tes objectifs t\'attendent, c\'est l\'heure de commencer ta journée.');
+    });
+
+    // 18:00 - Evening Check-in
+    cron.schedule('0 18 * * *', async () => {
+      this.logger.log('Running evening push reminder cron job at 18:00');
+      await this.sendBulkReminders('Check-in de 18h 🎯', 'Où en es-tu dans tes objectifs ? Viens faire le point.');
+    });
+
+    // 22:00 - Night Review
+    cron.schedule('0 22 * * *', async () => {
+      this.logger.log('Running night push reminder cron job at 22:00');
+      await this.sendBulkReminders('C\'est l\'heure du bilan 🌙', 'Valide tes dernières routines avant de dormir.');
     });
   }
 
-  async sendDailyReminders() {
+  async sendBulkReminders(title: string, body: string) {
     const users = await this.prisma.user.findMany({
       include: { push_subscriptions: true }
     });
     for (const user of users) {
       if (user.push_subscriptions && user.push_subscriptions.length > 0) {
         await this.sendNotification(user.id, {
-          title: 'Validation Requise 🔥',
-          body: "N'oublie pas de compléter tes routines du jour ! Ne brise pas ta série de focus.",
+          title,
+          body,
           url: 'https://mindset-elite.com'
         });
       }
     }
-    this.logger.log(`Sent daily push reminders.`);
+    this.logger.log(`Sent bulk push reminders: ${title}`);
   }
 }

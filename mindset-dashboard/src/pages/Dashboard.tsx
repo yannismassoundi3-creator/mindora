@@ -110,27 +110,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
 
   const [points, setPoints] = useState(() => parseInt(localStorage.getItem('mindset_points') || '0', 10));
 
-  // --- EMAIL/PUSH NOTIFICATIONS SETUP ---
-  const handleTestNotif = async () => {
-    try {
-      // 1. Demande la permission et enregistre le pushManager au serveur
-      await api.subscribeToPushNotifications();
-      
-      // 2. Déclenche une notification de test
-      await api.post('/push/test', {});
-      
-      alert("Test envoyé ! Si tu as autorisé les notifications, elle va apparaître (ferme l'app pour la voir sur l'écran verrouillé).");
-    } catch (err: any) {
-      console.error('Notification setup failed:', err);
-      if (err.message === 'Notifications_Not_Supported') {
-        alert("⚠️ IMPORTANT (iPhone/iOS) : Apple bloque les notifications dans Safari.\n\nPour que ça marche comme Duolingo, tu DOIS ajouter cette application à ton écran d'accueil (Bouton Partager > Sur l'écran d'accueil). Ouvre ensuite l'application depuis l'écran d'accueil !");
-      } else if (err.message === 'Permission_Denied') {
-        alert("Tu as refusé l'autorisation d'envoyer des notifications. Va dans les paramètres de ton navigateur/téléphone pour les autoriser.");
-      } else {
-        alert(`Une erreur est survenue : ${err.message}`);
-      }
-    }
-  };
+
 
   // --- ROUTINES (persisted) ---
   const [routineGroups, setRoutineGroups] = useState(() => {
@@ -416,9 +396,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
             <span className="points-value">{points}</span>
             <span className="points-label">Coins</span>
           </div>
-          <button className="btn-primary glass-panel-interactive pulse-glow" onClick={handleTestNotif} style={{background: 'rgba(236, 72, 153, 0.2)'}}>
-            Test Notif
-          </button>
           <button className="btn-primary glass-panel-interactive pulse-glow" onClick={onOpenChat}>
             <Sparkles size={18} />
             Parler à {aiName}

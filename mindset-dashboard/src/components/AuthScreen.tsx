@@ -26,6 +26,11 @@ export const AuthScreen = ({ onComplete }: { onComplete: () => void }) => {
         const res = await api.post('/auth/login', { email, password });
         localStorage.setItem('mindset_token', res.access_token);
         localStorage.setItem('mindset_user_name', res.user?.first_name || 'User');
+        if (res.has_ai_profile) {
+          localStorage.setItem('hasCompletedOnboarding', 'true');
+        } else {
+          localStorage.removeItem('hasCompletedOnboarding');
+        }
         await api.downloadCloudState();
         onComplete();
       } else {
@@ -41,6 +46,7 @@ export const AuthScreen = ({ onComplete }: { onComplete: () => void }) => {
         const res = await api.post('/auth/login', { email, password });
         localStorage.setItem('mindset_token', res.access_token);
         localStorage.setItem('mindset_user_name', firstName);
+        localStorage.removeItem('hasCompletedOnboarding');
         await api.downloadCloudState();
         onComplete();
       }

@@ -1,0 +1,2048 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Mindora — Reprogramme ton esprit. La plateforme technologique qui transforme ta mentalité pour atteindre tes objectifs.">
+    <title>Mindora — Reprogramme ton esprit</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* ======================== */
+        /*    CSS RESET & TOKENS    */
+        /* ======================== */
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --black: #0f172a;
+            --accent-purple: #8b5cf6;
+            --accent-blue: #3b82f6;
+            --black-light: #0a0a0a;
+            --gray-950: #0d0d0d;
+            --gray-900: #111111;
+            --gray-800: #1a1a1a;
+            --gray-700: #2a2a2a;
+            --gray-600: #3a3a3a;
+            --gray-500: #555555;
+            --gray-400: #777777;
+            --gray-300: #999999;
+            --gray-200: #bbbbbb;
+            --gray-100: #dddddd;
+            --white: #ffffff;
+            --white-soft: #f5f5f5;
+
+            --font-primary: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-display: 'Space Grotesk', 'Inter', sans-serif;
+
+            --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+            --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        html {
+            scroll-behavior: smooth;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        body {
+            font-family: var(--font-primary);
+            background-color: var(--black);
+            background-image: radial-gradient(circle at 50% -20%, rgba(139, 92, 246, 0.15) 0%, transparent 60%), radial-gradient(circle at 100% 50%, rgba(56, 189, 248, 0.1) 0%, transparent 50%);
+            color: var(--white);
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+
+        /* ======================== */
+        /*     CANVAS BACKGROUND    */
+        /* ======================== */
+        #particle-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* ======================== */
+        /*        NAVIGATION        */
+        /* ======================== */
+        .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            padding: 1.25rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            backdrop-filter: blur(20px) saturate(1.2);
+            -webkit-backdrop-filter: blur(20px) saturate(1.2);
+            background: rgba(0, 0, 0, 0.6);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.4s var(--ease-out-expo);
+        }
+
+        .navbar.scrolled {
+            padding: 0.8rem 2rem;
+            background: rgba(0, 0, 0, 0.85);
+        }
+
+        .navbar-logo {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            color: var(--white);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .logo-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--white);
+            border-radius: 50%;
+            animation: pulse-dot 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.8); }
+        }
+
+        .navbar-links {
+            display: flex;
+            align-items: center;
+            gap: 2.5rem;
+            list-style: none;
+        }
+
+        .navbar-links a {
+            color: var(--gray-300);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            letter-spacing: 0.02em;
+            transition: color 0.3s ease;
+            position: relative;
+        }
+
+        .navbar-links a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 1px;
+            background: var(--white);
+            transition: width 0.3s var(--ease-out-expo);
+        }
+
+        .navbar-links a:hover {
+            color: var(--white);
+        }
+
+        .navbar-links a:hover::after {
+            width: 100%;
+        }
+
+        /* ======================== */
+        /*       CTA BUTTONS        */
+        /* ======================== */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-family: var(--font-primary);
+            font-weight: 600;
+            font-size: 0.9rem;
+            letter-spacing: 0.01em;
+            border: none;
+            cursor: pointer;
+            transition: all 0.4s var(--ease-out-expo);
+            text-decoration: none;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary {
+            padding: 0.9rem 2.2rem;
+            background: var(--white);
+            color: var(--black);
+            border-radius: 100px;
+        }
+
+        .btn-primary::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0) 0%, rgba(200,200,200,0.3) 100%);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(255, 255, 255, 0.15), 0 0 80px rgba(255, 255, 255, 0.05);
+        }
+
+        .btn-primary:hover::before {
+            opacity: 1;
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            padding: 0.9rem 2.2rem;
+            background: transparent;
+            color: var(--white);
+            border-radius: 100px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .btn-large {
+            padding: 1.1rem 3rem;
+            font-size: 1rem;
+        }
+
+        .btn-icon {
+            transition: transform 0.3s var(--ease-out-expo);
+        }
+
+        .btn:hover .btn-icon {
+            transform: translateX(4px);
+        }
+
+        .btn-glow {
+            animation: btn-glow-pulse 3s ease-in-out infinite;
+        }
+
+        @keyframes btn-glow-pulse {
+            0%, 100% { box-shadow: 0 0 20px rgba(255, 255, 255, 0.1); }
+            50% { box-shadow: 0 0 40px rgba(255, 255, 255, 0.2), 0 0 80px rgba(255, 255, 255, 0.05); }
+        }
+
+        /* ======================== */
+        /*      HERO SECTION        */
+        /* ======================== */
+        .hero {
+            position: relative;
+            z-index: 1;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 8rem 2rem 4rem;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.5rem 1.2rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 100px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--gray-300);
+            margin-bottom: 2.5rem;
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.03);
+            animation: fadeInUp 0.8s var(--ease-out-expo) both;
+        }
+
+        .badge-dot {
+            width: 6px;
+            height: 6px;
+            background: #00ff88;
+            border-radius: 50%;
+            animation: pulse-dot 1.5s ease-in-out infinite;
+        }
+
+        .hero-title {
+            font-family: var(--font-display);
+            font-size: clamp(3rem, 8vw, 6.5rem);
+            font-weight: 800;
+            line-height: 1.05;
+            letter-spacing: -0.04em;
+            margin-bottom: 1.5rem;
+            animation: fadeInUp 0.8s var(--ease-out-expo) 0.1s both;
+        }
+
+        .hero-title .gradient-text {
+            background: linear-gradient(135deg, var(--white) 0%, var(--gray-400) 50%, var(--white) 100%);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: shimmer 4s linear infinite;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: 0% center; }
+            100% { background-position: 200% center; }
+        }
+
+        .hero-subtitle {
+            font-size: clamp(1.05rem, 2vw, 1.3rem);
+            color: var(--gray-400);
+            max-width: 580px;
+            margin: 0 auto 3rem;
+            line-height: 1.7;
+            font-weight: 400;
+            animation: fadeInUp 0.8s var(--ease-out-expo) 0.2s both;
+        }
+
+        .hero-cta-group {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+            justify-content: center;
+            animation: fadeInUp 0.8s var(--ease-out-expo) 0.3s both;
+        }
+
+        .hero-metrics {
+            display: flex;
+            gap: 3rem;
+            margin-top: 5rem;
+            animation: fadeInUp 0.8s var(--ease-out-expo) 0.5s both;
+        }
+
+        .metric {
+            text-align: center;
+        }
+
+        .metric-value {
+            font-family: var(--font-display);
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .metric-label {
+            font-size: 0.8rem;
+            color: var(--gray-500);
+            margin-top: 0.3rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        /* ======================== */
+        /*     SECTION LAYOUT       */
+        /* ======================== */
+        section {
+            position: relative;
+            z-index: 1;
+        }
+
+        .section-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 8rem 2rem;
+        }
+
+        .section-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--gray-500);
+            margin-bottom: 1rem;
+        }
+
+        .section-title {
+            font-family: var(--font-display);
+            font-size: clamp(2rem, 4vw, 3.2rem);
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            line-height: 1.15;
+            margin-bottom: 1.2rem;
+        }
+
+        .section-desc {
+            font-size: 1.1rem;
+            color: var(--gray-400);
+            max-width: 520px;
+            line-height: 1.7;
+        }
+
+        /* ======================== */
+        /*    FEATURES SECTION      */
+        /* ======================== */
+        .features-header {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .features-header .section-desc {
+            margin: 0 auto;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+        }
+
+        .feature-card {
+            background: rgba(15, 23, 42, 0.6) !important;
+            backdrop-filter: blur(20px) !important;
+            -webkit-backdrop-filter: blur(20px) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 20px;
+            padding: 2.5rem 2rem;
+            transition: all 0.5s var(--ease-out-expo);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        .feature-card:hover {
+            background: rgba(255, 255, 255, 0.04);
+            border-color: rgba(255, 255, 255, 0.12);
+            transform: translateY(-4px);
+        }
+
+        .feature-card:hover::before {
+            opacity: 1;
+        }
+
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .feature-title {
+            font-family: var(--font-display);
+            font-size: 1.15rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            letter-spacing: -0.01em;
+        }
+
+        .feature-desc {
+            font-size: 0.9rem;
+            color: var(--gray-400);
+            line-height: 1.65;
+        }
+
+        /* ======================== */
+        /*   HOW IT WORKS SECTION   */
+        /* ======================== */
+        .steps-section {
+            background: linear-gradient(180deg, transparent 0%, rgba(255,255,255,0.015) 50%, transparent 100%);
+        }
+
+        .steps-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+            margin-top: 4rem;
+        }
+
+        .step-card {
+            text-align: center;
+            padding: 2rem;
+            position: relative;
+        }
+
+        .step-number {
+            font-family: var(--font-display);
+            font-size: 5rem;
+            font-weight: 800;
+            color: rgba(255, 255, 255, 0.04);
+            line-height: 1;
+            margin-bottom: 1rem;
+            letter-spacing: -0.05em;
+        }
+
+        .step-title {
+            font-family: var(--font-display);
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+        }
+
+        .step-desc {
+            font-size: 0.9rem;
+            color: var(--gray-400);
+            line-height: 1.65;
+        }
+
+        .step-connector {
+            display: none;
+        }
+
+        /* ======================== */
+        /*   TESTIMONIALS SECTION   */
+        /* ======================== */
+        .testimonials-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+            margin-top: 4rem;
+        }
+
+        .testimonial-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 20px;
+            padding: 2rem;
+            transition: all 0.4s var(--ease-out-expo);
+        }
+
+        .testimonial-card:hover {
+            border-color: rgba(255, 255, 255, 0.12);
+            transform: translateY(-2px);
+        }
+
+        .testimonial-stars {
+            color: var(--white);
+            font-size: 0.85rem;
+            letter-spacing: 2px;
+            margin-bottom: 1rem;
+        }
+
+        .testimonial-text {
+            font-size: 0.95rem;
+            color: var(--gray-200);
+            line-height: 1.7;
+            margin-bottom: 1.5rem;
+            font-style: italic;
+        }
+
+        .testimonial-author {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .author-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--gray-700), var(--gray-600));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .author-name {
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .author-role {
+            font-size: 0.75rem;
+            color: var(--gray-500);
+        }
+
+        /* ======================== */
+        /*    PRICING SECTION       */
+        /* ======================== */
+        .pricing-header {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .pricing-header .section-desc {
+            margin: 0 auto;
+        }
+
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+            align-items: start;
+        }
+
+        .pricing-card {
+            background: rgba(15, 23, 42, 0.6) !important;
+            backdrop-filter: blur(20px) !important;
+            -webkit-backdrop-filter: blur(20px) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 24px;
+            padding: 2.5rem 2rem;
+            transition: all 0.4s var(--ease-out-expo);
+            position: relative;
+        }
+
+        .pricing-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(255, 255, 255, 0.12);
+        }
+
+        .pricing-card.featured {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .pricing-card.featured::before {
+            content: '';
+            position: absolute;
+            inset: -1px;
+            border-radius: 24px;
+            padding: 1px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.2), transparent 50%, rgba(255,255,255,0.1));
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask-composite: exclude;
+            -webkit-mask-composite: xor;
+            pointer-events: none;
+        }
+
+        .pricing-badge {
+            display: inline-block;
+            padding: 0.3rem 0.8rem;
+            background: var(--white);
+            color: var(--black);
+            border-radius: 100px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 1.5rem;
+        }
+
+        .pricing-name {
+            font-family: var(--font-display);
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .pricing-price {
+            font-family: var(--font-display);
+            font-size: 3rem;
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            margin-bottom: 0.3rem;
+        }
+
+        .pricing-price span {
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--gray-400);
+        }
+
+        .pricing-desc {
+            font-size: 0.85rem;
+            color: var(--gray-500);
+            margin-bottom: 2rem;
+        }
+
+        .pricing-features {
+            list-style: none;
+            margin-bottom: 2rem;
+        }
+
+        .pricing-features li {
+            padding: 0.5rem 0;
+            font-size: 0.9rem;
+            color: var(--gray-300);
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .pricing-features li::before {
+            content: '✓';
+            font-weight: 700;
+            font-size: 0.8rem;
+            color: var(--white);
+        }
+
+        .pricing-card .btn {
+            width: 100%;
+            justify-content: center;
+        }
+
+        /* ======================== */
+        /*      CTA SECTION         */
+        /* ======================== */
+        .cta-section {
+            text-align: center;
+            position: relative;
+        }
+
+        .cta-section .section-container {
+            padding: 10rem 2rem;
+        }
+
+        .cta-glow {
+            position: absolute;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255,255,255,0.03) 0%, transparent 70%);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+
+        .cta-title {
+            font-family: var(--font-display);
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            line-height: 1.1;
+            margin-bottom: 1.5rem;
+        }
+
+        .cta-desc {
+            font-size: 1.1rem;
+            color: var(--gray-400);
+            max-width: 480px;
+            margin: 0 auto 2.5rem;
+            line-height: 1.7;
+        }
+
+        .cta-buttons {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .cta-note {
+            margin-top: 1.5rem;
+            font-size: 0.8rem;
+            color: var(--gray-500);
+        }
+
+        /* ======================== */
+        /*         FOOTER           */
+        /* ======================== */
+        .footer {
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 4rem 2rem 2rem;
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 3rem;
+        }
+
+        .footer-brand p {
+            font-size: 0.85rem;
+            color: var(--gray-500);
+            margin-top: 1rem;
+            line-height: 1.6;
+            max-width: 280px;
+        }
+
+        .footer-col h4 {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--gray-400);
+            margin-bottom: 1.2rem;
+        }
+
+        .footer-col ul {
+            list-style: none;
+        }
+
+        .footer-col ul li {
+            margin-bottom: 0.6rem;
+        }
+
+        .footer-col ul a {
+            font-size: 0.85rem;
+            color: var(--gray-500);
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .footer-col ul a:hover {
+            color: var(--white);
+        }
+
+        .footer-bottom {
+            max-width: 1200px;
+            margin: 3rem auto 0;
+            padding-top: 2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.8rem;
+            color: var(--gray-500);
+        }
+
+        /* ======================== */
+        /*      SCROLL REVEAL       */
+        /* ======================== */
+        .reveal {
+            opacity: 0;
+            transform: translateY(40px);
+            transition: opacity 0.8s var(--ease-out-expo), transform 0.8s var(--ease-out-expo);
+        }
+
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* ======================== */
+        /*      RESPONSIVE          */
+        /* ======================== */
+        @media (max-width: 900px) {
+            .features-grid,
+            .steps-grid,
+            .testimonials-grid,
+            .pricing-grid {
+                grid-template-columns: 1fr;
+                max-width: 480px;
+                margin-left: auto;
+                margin-right: auto;
+            }
+
+            .hero-metrics {
+                gap: 2rem;
+            }
+
+            .footer-content {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .navbar-links {
+                display: none;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .hero-metrics {
+                flex-direction: column;
+                gap: 1.5rem;
+            }
+
+            .hero-cta-group {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .hero-cta-group .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .footer-content {
+                grid-template-columns: 1fr;
+            }
+
+            .footer-bottom {
+                flex-direction: column;
+                gap: 0.5rem;
+                text-align: center;
+            }
+        }
+
+        /* ======================== */
+        /*   MOBILE MENU TOGGLE     */
+        /* ======================== */
+        .mobile-toggle {
+            display: none;
+            flex-direction: column;
+            gap: 5px;
+            cursor: pointer;
+            padding: 5px;
+        }
+
+        .mobile-toggle span {
+            display: block;
+            width: 22px;
+            height: 1.5px;
+            background: var(--white);
+            transition: all 0.3s ease;
+        }
+
+        @media (max-width: 900px) {
+            .mobile-toggle {
+                display: flex;
+                z-index: 1000;
+            }
+
+            .mobile-toggle.active span:nth-child(1) {
+                transform: translateY(6.5px) rotate(45deg);
+            }
+            .mobile-toggle.active span:nth-child(2) {
+                opacity: 0;
+            }
+            .mobile-toggle.active span:nth-child(3) {
+                transform: translateY(-6.5px) rotate(-45deg);
+            }
+
+            .navbar-links {
+                display: flex;
+                flex-direction: column;
+                position: fixed;
+                top: 0;
+                right: -100%;
+                width: 70%;
+                height: 100vh;
+                background: rgba(10, 10, 10, 0.98);
+                backdrop-filter: blur(20px);
+                justify-content: center;
+                transition: right 0.4s var(--ease-out-expo);
+                border-left: 1px solid rgba(255, 255, 255, 0.05);
+            }
+
+            .navbar-links.active {
+                right: 0;
+            }
+        }
+        /* ======================== */
+        /*       SIGNUP MODAL       */
+        /* ======================== */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s var(--ease-out-expo);
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-content {
+            background: rgba(15, 15, 15, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            padding: 3rem;
+            width: 90%;
+            max-width: 480px;
+            transform: translateY(40px) scale(0.95);
+            transition: all 0.5s var(--ease-out-expo);
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 100px rgba(255, 255, 255, 0.05);
+        }
+
+        .modal-overlay.active .modal-content {
+            transform: translateY(0) scale(1);
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 1.5rem;
+            right: 1.5rem;
+            background: transparent;
+            border: none;
+            color: var(--gray-400);
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+
+        .modal-close:hover {
+            color: var(--white);
+        }
+
+        .modal-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .modal-title {
+            font-family: var(--font-display);
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.02em;
+        }
+
+        .modal-desc {
+            font-size: 0.9rem;
+            color: var(--gray-400);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+            text-align: left;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: var(--gray-300);
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 1rem 1.2rem;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            color: var(--white);
+            font-family: var(--font-primary);
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.06);
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.05);
+        }
+
+        .form-submit {
+            width: 100%;
+            margin-top: 1rem;
+            justify-content: center;
+        }
+
+        .form-success {
+            display: none;
+            text-align: center;
+            padding: 2rem 0;
+        }
+
+        .form-success.active {
+            display: block;
+        }
+
+        .success-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        /* Nouveaux styles: Téléphone & Erreurs */
+        .phone-group {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .phone-prefix {
+            width: 110px;
+            padding: 1rem 0.5rem;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            color: var(--white);
+            font-family: var(--font-primary);
+            font-size: 0.9rem;
+            outline: none;
+            cursor: pointer;
+        }
+        
+        .phone-prefix option {
+            background: var(--gray-900);
+            color: var(--white);
+        }
+
+        .phone-group .form-input {
+            flex: 1;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .form-error-msg {
+            color: #ff4d4d;
+            background: rgba(255, 77, 77, 0.1);
+            border: 1px solid rgba(255, 77, 77, 0.3);
+            padding: 0.8rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            margin-bottom: 1rem;
+            display: none;
+        }
+
+        .form-error-msg.active {
+            display: block;
+        }
+
+        /* Password Toggle */
+        .password-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        
+        .password-toggle {
+            position: absolute;
+            right: 1rem;
+            background: none;
+            border: none;
+            color: var(--gray-400);
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.3s ease;
+        }
+
+        .password-toggle:hover {
+            color: var(--white);
+        }
+        
+        .password-wrapper .form-input {
+            padding-right: 3rem;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Particle Grid Canvas -->
+    <canvas id="particle-canvas"></canvas>
+
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <a href="#" class="navbar-logo">
+            <span class="logo-dot"></span>
+            mindset
+        </a>
+        <ul class="navbar-links">
+            <li><a href="#features">Fonctionnalités</a></li>
+            <li><a href="#how-it-works">Comment ça marche</a></li>
+            <li><a href="#testimonials">Témoignages</a></li>
+            <li><a href="#pricing">Tarifs</a></li>
+            <li><a href="#" class="btn btn-secondary open-login-btn" style="padding: 0.6rem 1rem; font-size: 0.8rem; margin-right: 0.5rem;">Connexion</a></li>
+            <li><a href="#cta" class="btn btn-primary open-modal-btn" style="padding: 0.6rem 1.5rem; font-size: 0.8rem;">S'inscrire</a></li>
+        </ul>
+        <div class="mobile-toggle" id="mobile-toggle" onclick="this.classList.toggle('active')">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-badge">
+            <span class="badge-dot"></span>
+            Nouveau — Intelligence Adaptative v2.0
+        </div>
+        <h1 class="hero-title">
+            <span class="gradient-text">Reprogramme</span><br>
+            ton esprit.
+        </h1>
+        <p class="hero-subtitle">
+            La plateforme qui utilise la science cognitive et l'IA pour transformer ta mentalité, tes habitudes et ton potentiel.
+        </p>
+        <div class="hero-cta-group">
+            <a href="#cta" class="btn btn-primary btn-large btn-glow" id="hero-cta-primary">
+                Commencer gratuitement
+                <span class="btn-icon">→</span>
+            </a>
+            <a href="#how-it-works" class="btn btn-secondary btn-large" id="hero-cta-secondary">
+                Voir la démo
+            </a>
+        </div>
+        <div class="hero-metrics">
+            <div class="metric">
+                <div class="metric-value" id="metric-users">1500+</div>
+                <div class="metric-label">Utilisateurs actifs</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value">4.4/5</div>
+                <div class="metric-label">Note moyenne</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value">93%</div>
+                <div class="metric-label">Taux de rétention</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features">
+        <div class="section-container">
+            <div class="features-header reveal">
+                <span class="section-label">Fonctionnalités</span>
+                <h2 class="section-title">Tout ce dont tu as besoin<br>pour évoluer.</h2>
+                <p class="section-desc">Des outils puissants alimentés par l'intelligence artificielle, conçus pour accélérer ta transformation personnelle.</p>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card reveal">
+                    <div class="feature-icon">🧠</div>
+                    <h3 class="feature-title">Coaching IA Personnalisé</h3>
+                    <p class="feature-desc">Un coach intelligent qui s'adapte à ton profil, tes objectifs et ton rythme pour maximiser ton potentiel.</p>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon">⚡</div>
+                    <h3 class="feature-title">Routines Dynamiques</h3>
+                    <p class="feature-desc">Des routines matinales et nocturnes générées intelligemment et ajustées selon tes performances.</p>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon">📊</div>
+                    <h3 class="feature-title">Analytics Mentaux</h3>
+                    <p class="feature-desc">Visualise ta progression avec des métriques avancées : résilience, focus, motivation et bien plus.</p>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon">🎯</div>
+                    <h3 class="feature-title">Objectifs Intelligents</h3>
+                    <p class="feature-desc">Définis et suis tes objectifs avec un système de décomposition automatique en micro-étapes.</p>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon">🔄</div>
+                    <h3 class="feature-title">Reprogrammation</h3>
+                    <p class="feature-desc">Techniques de PNL et neuroscience intégrées pour recâbler tes schémas de pensée limitants.</p>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon">🤝</div>
+                    <h3 class="feature-title">Communauté Elite</h3>
+                    <p class="feature-desc">Rejoins un réseau de leaders et d'ambitieux qui partagent ta vision et t'élèvent au quotidien.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works -->
+    <section id="how-it-works" class="steps-section">
+        <div class="section-container">
+            <div class="features-header reveal">
+                <span class="section-label">Comment ça marche</span>
+                <h2 class="section-title">3 étapes vers ta<br>transformation.</h2>
+                <p class="section-desc">Un processus simple et scientifiquement validé pour reprogrammer ton mindset en profondeur.</p>
+            </div>
+            <div class="steps-grid">
+                <div class="step-card reveal">
+                    <div class="step-number">01</div>
+                    <h3 class="step-title">Diagnostic Mental</h3>
+                    <p class="step-desc">Notre IA analyse ton profil psychologique, tes habitudes et tes blocages en quelques minutes.</p>
+                </div>
+                <div class="step-card reveal">
+                    <div class="step-number">02</div>
+                    <h3 class="step-title">Plan Personnalisé</h3>
+                    <p class="step-desc">Reçois un programme sur-mesure avec des exercices quotidiens adaptés à tes objectifs spécifiques.</p>
+                </div>
+                <div class="step-card reveal">
+                    <div class="step-number">03</div>
+                    <h3 class="step-title">Évolution Continue</h3>
+                    <p class="step-desc">L'algorithme s'adapte en temps réel à ta progression et optimise ton parcours continuellement.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Testimonials -->
+    <section id="testimonials">
+        <div class="section-container">
+            <div class="features-header reveal">
+                <span class="section-label">Témoignages</span>
+                <h2 class="section-title">Ils ont transformé<br>leur mentalité.</h2>
+                <p class="section-desc">Des milliers de personnes utilisent Mindora pour repousser leurs limites chaque jour.</p>
+            </div>
+            <div class="testimonials-grid">
+                <div class="testimonial-card reveal">
+                    <div class="testimonial-stars">★★★★<span style="opacity:0.5">★</span></div>
+                    <p class="testimonial-text">"En 30 jours, j'ai complètement changé ma relation au travail. Le coaching IA est bluffant de précision."</p>
+                    <div class="testimonial-author">
+                        <div class="author-avatar">TL</div>
+                        <div>
+                            <div class="author-name">Thomas Laurent</div>
+                            <div class="author-role">Entrepreneur</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="testimonial-card reveal">
+                    <div class="testimonial-stars">★★★★☆</div>
+                    <p class="testimonial-text">"La fonctionnalité de reprogrammation m'a aidé à surmonter mes croyances limitantes. Résultats concrets en 2 semaines."</p>
+                    <div class="testimonial-author">
+                        <div class="author-avatar">SM</div>
+                        <div>
+                            <div class="author-name">Sarah Martin</div>
+                            <div class="author-role">Directrice Marketing</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="testimonial-card reveal">
+                    <div class="testimonial-stars">★★★★<span style="opacity:0.5">★</span></div>
+                    <p class="testimonial-text">"L'analytics mental m'a ouvert les yeux. Je comprends enfin mes patterns et je peux agir dessus. Game changer."</p>
+                    <div class="testimonial-author">
+                        <div class="author-avatar">AK</div>
+                        <div>
+                            <div class="author-name">Alex Kessler</div>
+                            <div class="author-role">Athlète Pro</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="text-align: center; margin-top: 40px;" class="reveal">
+                <button class="btn btn-primary open-login-btn btn-glow" style="display: inline-flex; align-items: center; gap: 8px;">
+                    ✍️ Ajouter un avis
+                </button>
+                <p style="font-size: 0.85rem; color: var(--gray-400); margin-top: 16px;">
+                    *Vous devez être connecté et posséder un abonnement Mindora Pro pour laisser un avis.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section id="pricing">
+        <div class="section-container">
+            <div class="pricing-header reveal">
+                <span class="section-label">Tarifs</span>
+                <h2 class="section-title">Investis dans<br>ton potentiel.</h2>
+                <p class="section-desc">Choisis le plan qui correspond à ton ambition. Annule à tout moment.</p>
+            </div>
+            <div class="pricing-grid">
+                <div class="pricing-card reveal">
+                    <div class="pricing-name">Starter</div>
+                    <div class="pricing-price">0€ <span>/mois</span></div>
+                    <div class="pricing-desc">Pour découvrir et commencer ta transformation.</div>
+                    <ul class="pricing-features">
+                        <li>Diagnostic mental initial</li>
+                        <li>3 routines quotidiennes</li>
+                        <li>Suivi de base</li>
+                        <li>Accès communauté</li>
+                    </ul>
+                    <a href="#" class="btn btn-secondary open-modal-btn">Commencer gratuitement</a>
+                </div>
+                <div class="pricing-card reveal">
+                    <div class="pricing-name">Basic</div>
+                    <div class="pricing-price">9.99€ <span>/mois</span></div>
+                    <div class="pricing-desc">Pour installer la discipline au quotidien.</div>
+                    <ul class="pricing-features">
+                        <li>Suivi quotidien des habitudes</li>
+                        <li>Calendrier interactif</li>
+                        <li>Système de "Win streak"</li>
+                        <li>Journaling intégré</li>
+                        <li>Badges de progression</li>
+                    </ul>
+                    <a href="#" class="btn btn-secondary open-modal-btn">Prendre le Basic</a>
+                </div>
+                <div class="pricing-card featured reveal">
+                    <div class="pricing-badge">Max / Premium</div>
+                    <div class="pricing-name">Elite</div>
+                    <div class="pricing-price">99.99€ <span>/à vie</span></div>
+                    <div class="pricing-desc">Le pack ultime pour des résultats exponentiels.</div>
+                    <ul class="pricing-features">
+                        <li>Coaching IA illimité & prédictif</li>
+                        <li>Routines ultra-personnalisées</li>
+                        <li>Reprogrammation PNL & neuro</li>
+                        <li>Appels de groupe mensuels</li>
+                        <li>Dashboard privé & mode Hors-ligne</li>
+                        <li>Intégration Apple/Google Calendar</li>
+                        <li>Support prioritaire 24/7</li>
+                    </ul>
+                    <a href="#" class="btn btn-primary open-modal-btn">
+                        Débloquer Elite
+                        <span class="btn-icon">→</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Final CTA Section -->
+    <section id="cta" class="cta-section">
+        <div class="cta-glow"></div>
+        <div class="section-container">
+            <div class="reveal">
+                <h2 class="cta-title">Prêt à reprogrammer<br>ton esprit ?</h2>
+                <p class="cta-desc">Rejoins les 50 000+ personnes qui ont déjà commencé leur transformation avec Mindora.</p>
+                <div class="cta-buttons">
+                    <a href="#" class="btn btn-primary btn-large btn-glow" id="final-cta-primary">
+                        Commencer maintenant
+                        <span class="btn-icon">→</span>
+                    </a>
+                    <a href="#" class="btn btn-secondary btn-large" id="final-cta-secondary">
+                        Parler à un expert
+                    </a>
+                </div>
+                <p class="cta-note">Aucune carte bancaire requise · Annulation en 1 clic</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-brand">
+                <a href="#" class="navbar-logo">
+                    <span class="logo-dot"></span>
+                    mindset
+                </a>
+                <p>La plateforme de transformation mentale alimentée par l'intelligence artificielle.</p>
+            </div>
+            <div class="footer-col">
+                <h4>Produit</h4>
+                <ul>
+                    <li><a href="#features">Fonctionnalités</a></li>
+                    <li><a href="#pricing">Tarifs</a></li>
+                    <li><a href="#">Changelog</a></li>
+                    <li><a href="#">Roadmap</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>Ressources</h4>
+                <ul>
+                    <li><a href="#">Blog</a></li>
+                    <li><a href="#">Documentation</a></li>
+                    <li><a href="#">Communauté</a></li>
+                    <li><a href="#">Aide</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>Légal</h4>
+                <ul>
+                    <li><a href="#">Confidentialité</a></li>
+                    <li><a href="#">CGU</a></li>
+                    <li><a href="#">Cookies</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <span>© 2026 Mindora. Tous droits réservés.</span>
+            <span>Conçu avec ambition.</span>
+        </div>
+    </footer>
+
+    <!-- Signup Modal -->
+    <div class="modal-overlay" id="signup-modal">
+        <div class="modal-content">
+            <button class="modal-close" id="close-modal">&times;</button>
+            <div id="form-container">
+                <div class="modal-header">
+                    <h3 class="modal-title">Rejoins l'Élite</h3>
+                    <p class="modal-desc">Commence ta reprogrammation aujourd'hui.</p>
+                </div>
+                <form id="signup-form">
+                    <div id="form-error" class="form-error-msg"></div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="firstName">Prénom</label>
+                            <input type="text" id="firstName" class="form-input" placeholder="Prénom" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="lastName">Nom</label>
+                            <input type="text" id="lastName" class="form-input" placeholder="Nom" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="email">Adresse email</label>
+                        <input type="email" id="email" class="form-input" placeholder="nom@exemple.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="phone">Numéro de téléphone</label>
+                        <div class="phone-group">
+                            <select id="phonePrefix" class="phone-prefix">
+                                <option value="+33">🇫🇷 +33</option>
+                                <option value="+32">🇧🇪 +32</option>
+                                <option value="+41">🇨🇭 +41</option>
+                                <option value="+1">🇺🇸 +1</option>
+                                <option value="+44">🇬🇧 +44</option>
+                            </select>
+                            <input type="tel" id="phone" class="form-input" placeholder="612345678" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="password">Mot de passe</label>
+                        <div class="password-wrapper">
+                            <input type="password" id="password" class="form-input" placeholder="••••••••" minlength="8" required>
+                            <button type="button" id="togglePassword" class="password-toggle" aria-label="Afficher le mot de passe">
+                                👁️
+                            </button>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary form-submit btn-glow">
+                        Créer mon compte
+                        <span class="btn-icon">→</span>
+                    </button>
+                </form>
+            </div>
+            
+            <div id="otp-container" style="display: none;">
+                <div class="modal-header">
+                    <h3 class="modal-title">Vérification SMS</h3>
+                    <p class="modal-desc">Saisis le code à 6 chiffres envoyé au <span id="display-phone"></span></p>
+                </div>
+                <form id="otp-form">
+                    <div id="otp-error" class="form-error-msg"></div>
+                    <div class="form-group">
+                        <label class="form-label" for="otpCode">Code de sécurité</label>
+                        <input type="text" id="otpCode" class="form-input" placeholder="123456" maxlength="6" style="text-align: center; font-size: 1.5rem; letter-spacing: 10px;" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary form-submit btn-glow">
+                        Vérifier mon compte
+                        <span class="btn-icon">→</span>
+                    </button>
+                </form>
+            </div>
+
+            <div id="success-container" class="form-success">
+                <span class="success-icon">✨</span>
+                <h3 class="modal-title">Bienvenue.</h3>
+                <p class="modal-desc">Ton compte a été créé et vérifié avec succès. Prépare-toi à évoluer.</p>
+                <button class="btn btn-secondary form-submit" id="close-success">Fermer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div class="modal-overlay" id="login-modal">
+        <div class="modal-content">
+            <button class="modal-close" id="close-login-modal">&times;</button>
+            
+            <!-- Step 1: Phone -->
+            <div id="login-phone-container">
+                <div class="modal-header">
+                    <h3 class="modal-title">Connexion</h3>
+                    <p class="modal-desc">Accède à ton espace sans mot de passe.</p>
+                </div>
+                <form id="login-phone-form">
+                    <div id="login-phone-error" class="form-error-msg"></div>
+                    <div class="form-group">
+                        <label class="form-label" for="loginPhone">Numéro de téléphone</label>
+                        <div class="phone-group">
+                            <select id="loginPhonePrefix" class="phone-prefix">
+                                <option value="+33">🇫🇷 +33</option>
+                                <option value="+32">🇧🇪 +32</option>
+                                <option value="+41">🇨🇭 +41</option>
+                                <option value="+1">🇺🇸 +1</option>
+                                <option value="+44">🇬🇧 +44</option>
+                            </select>
+                            <input type="tel" id="loginPhone" class="form-input" placeholder="612345678" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary form-submit btn-glow">
+                        Recevoir un code
+                        <span class="btn-icon">→</span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Step 2: OTP -->
+            <div id="login-otp-container" style="display: none;">
+                <div class="modal-header">
+                    <h3 class="modal-title">Vérification</h3>
+                    <p class="modal-desc">Saisis le code reçu par SMS.</p>
+                </div>
+                <form id="login-otp-form">
+                    <div id="login-otp-error" class="form-error-msg"></div>
+                    <div class="form-group">
+                        <label class="form-label" for="loginOtpCode">Code de sécurité</label>
+                        <input type="text" id="loginOtpCode" class="form-input" placeholder="123456" maxlength="6" style="text-align: center; font-size: 1.5rem; letter-spacing: 10px;" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary form-submit btn-glow">
+                        Se connecter
+                        <span class="btn-icon">→</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========================
+        //   PARTICLE GRID SYSTEM
+        // ========================
+        const canvas = document.getElementById('particle-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        let mouseX = -1000;
+        let mouseY = -1000;
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        function initParticles() {
+            particles = [];
+            const spacing = 80;
+            const cols = Math.ceil(canvas.width / spacing);
+            const rows = Math.ceil(canvas.height / spacing);
+
+            for (let i = 0; i < cols; i++) {
+                for (let j = 0; j < rows; j++) {
+                    particles.push({
+                        x: i * spacing + spacing / 2,
+                        y: j * spacing + spacing / 2,
+                        baseX: i * spacing + spacing / 2,
+                        baseY: j * spacing + spacing / 2,
+                        size: 1.2,
+                        opacity: Math.random() * 0.15 + 0.03,
+                        pulseSpeed: Math.random() * 0.02 + 0.005,
+                        pulseOffset: Math.random() * Math.PI * 2,
+                    });
+                }
+            }
+        }
+
+        function animateParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const time = Date.now() * 0.001;
+
+            particles.forEach(p => {
+                const dx = mouseX - p.baseX;
+                const dy = mouseY - p.baseY;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const maxDist = 200;
+
+                if (dist < maxDist) {
+                    const force = (maxDist - dist) / maxDist;
+                    p.x = p.baseX - dx * force * 0.3;
+                    p.y = p.baseY - dy * force * 0.3;
+                } else {
+                    p.x += (p.baseX - p.x) * 0.05;
+                    p.y += (p.baseY - p.y) * 0.05;
+                }
+
+                const pulse = Math.sin(time * p.pulseSpeed * 10 + p.pulseOffset) * 0.5 + 0.5;
+                const opacity = p.opacity + pulse * 0.08;
+
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+                ctx.fill();
+            });
+
+            // Draw faint connections
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const dx = particles[i].x - particles[j].x;
+                    const dy = particles[i].y - particles[j].y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist < 100) {
+                        const mdx = mouseX - (particles[i].x + particles[j].x) / 2;
+                        const mdy = mouseY - (particles[i].y + particles[j].y) / 2;
+                        const mDist = Math.sqrt(mdx * mdx + mdy * mdy);
+                        const boost = mDist < 200 ? (200 - mDist) / 200 * 0.08 : 0;
+                        const opacity = (1 - dist / 100) * 0.04 + boost;
+
+                        ctx.beginPath();
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(particles[j].x, particles[j].y);
+                        ctx.strokeStyle = `rgba(255, 255, 255, ${opacity})`;
+                        ctx.lineWidth = 0.5;
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            requestAnimationFrame(animateParticles);
+        }
+
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+            initParticles();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+
+        document.addEventListener('mouseleave', () => {
+            mouseX = -1000;
+            mouseY = -1000;
+        });
+
+        resizeCanvas();
+        initParticles();
+        animateParticles();
+
+        // ========================
+        //    NAVBAR SCROLL
+        // ========================
+        window.addEventListener('scroll', () => {
+            const navbar = document.getElementById('navbar');
+            if (window.scrollY > 50) {
+                navbar.classList.add('scrolled');
+            } else {
+                navbar.classList.remove('scrolled');
+            }
+        });
+
+        // ========================
+        //    SCROLL REVEAL
+        // ========================
+        const revealElements = document.querySelectorAll('.reveal');
+        const revealObserver = new IntersectionObserver((entries) => {
+            entries.forEach((entry, index) => {
+                if (entry.isIntersecting) {
+                    setTimeout(() => {
+                        entry.target.classList.add('visible');
+                    }, index * 80);
+                    revealObserver.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+
+        revealElements.forEach(el => revealObserver.observe(el));
+
+        // ========================
+        //   COUNTER ANIMATION
+        // ========================
+        function animateCounter(element, target, suffix = '') {
+            let current = 0;
+            const increment = target / 60;
+            const timer = setInterval(() => {
+                current += increment;
+                if (current >= target) {
+                    current = target;
+                    clearInterval(timer);
+                }
+                element.textContent = Math.floor(current).toLocaleString() + suffix;
+            }, 16);
+        }
+
+        const metricsObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const el = document.getElementById('metric-users');
+                    animateCounter(el, 1500, '+');
+                    metricsObserver.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.5 });
+
+        const metricEl = document.getElementById('metric-users');
+        if (metricEl) metricsObserver.observe(metricEl);
+
+        // ========================
+        //      MODAL & FORM LOGIC
+        // ========================
+        const modal = document.getElementById('signup-modal');
+        const closeBtn = document.getElementById('close-modal');
+        const closeSuccessBtn = document.getElementById('close-success');
+        const signupForm = document.getElementById('signup-form');
+        const formContainer = document.getElementById('form-container');
+        const successContainer = document.getElementById('success-container');
+
+        // Update all CTA links to redirect to React App
+        document.querySelectorAll('a[href="#cta"], a[href="#"], .open-modal-btn, #hero-cta-primary, #final-cta-primary').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                window.location.href = "http://localhost:3001";
+            });
+        });
+
+        // Login Modal Open (Redirect to React App)
+        document.querySelectorAll('.open-login-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                window.location.href = "http://localhost:3001";
+            });
+        });
+
+        // Registration State
+        let currentPhoneForVerification = '';
+
+        function closeSignupModal() {
+            modal.classList.remove('active');
+            setTimeout(() => {
+                formContainer.style.display = 'block';
+                document.getElementById('otp-container').style.display = 'none';
+                successContainer.classList.remove('active');
+                signupForm.reset();
+                document.getElementById('otp-form').reset();
+                document.getElementById('form-error').classList.remove('active');
+                document.getElementById('otp-error').classList.remove('active');
+            }, 400);
+        }
+
+        function closeLoginModal() {
+            loginModal.classList.remove('active');
+            setTimeout(() => {
+                document.getElementById('login-phone-container').style.display = 'block';
+                document.getElementById('login-otp-container').style.display = 'none';
+                document.getElementById('login-phone-form').reset();
+                document.getElementById('login-otp-form').reset();
+                document.getElementById('login-phone-error').classList.remove('active');
+                document.getElementById('login-otp-error').classList.remove('active');
+            }, 400);
+        }
+
+        closeBtn.addEventListener('click', closeSignupModal);
+        closeSuccessBtn.addEventListener('click', closeSignupModal);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeSignupModal();
+        });
+
+        document.getElementById('close-login-modal').addEventListener('click', closeLoginModal);
+        loginModal.addEventListener('click', (e) => {
+            if (e.target === loginModal) closeLoginModal();
+        });
+
+        // Mobile Menu Logic
+        const mobileToggle = document.getElementById('mobile-toggle');
+        const navbarLinks = document.querySelector('.navbar-links');
+        
+        mobileToggle.addEventListener('click', (e) => {
+            navbarLinks.classList.toggle('active');
+        });
+
+        navbarLinks.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', () => {
+                mobileToggle.classList.remove('active');
+                navbarLinks.classList.remove('active');
+            });
+        });
+
+        // Password Toggle Logic
+        const togglePasswordBtn = document.getElementById('togglePassword');
+        if (togglePasswordBtn) {
+            const passwordInput = document.getElementById('password');
+            togglePasswordBtn.addEventListener('click', () => {
+                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                passwordInput.setAttribute('type', type);
+                togglePasswordBtn.innerHTML = type === 'password' ? '👁️' : '🙈';
+            });
+        }
+
+        // ========================
+        //   API CALLS - SIGNUP
+        // ========================
+        signupForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = signupForm.querySelector('button[type="submit"]');
+            const errorDiv = document.getElementById('form-error');
+            const originalText = btn.innerHTML;
+            
+            errorDiv.classList.remove('active');
+            btn.innerHTML = 'Chargement...';
+            btn.disabled = true;
+
+            const prefix = document.getElementById('phonePrefix').value;
+            const phone = document.getElementById('phone').value.trim();
+            const fullPhone = prefix + phone;
+
+            const data = {
+                first_name: document.getElementById('firstName').value,
+                last_name: document.getElementById('lastName').value,
+                email: document.getElementById('email').value,
+                phone_number: fullPhone,
+                password: document.getElementById('password').value
+            };
+
+            try {
+                const response = await fetch('http://localhost:3000/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    currentPhoneForVerification = fullPhone;
+                    document.getElementById('display-phone').textContent = fullPhone;
+                    formContainer.style.display = 'none';
+                    document.getElementById('otp-container').style.display = 'block';
+                } else {
+                    const errData = await response.json();
+                    errorDiv.textContent = Array.isArray(errData.message) ? errData.message[0] : (errData.message || "Une erreur est survenue.");
+                    errorDiv.classList.add('active');
+                }
+            } catch (error) {
+                errorDiv.textContent = "Impossible de se connecter au serveur.";
+                errorDiv.classList.add('active');
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        });
+
+        document.getElementById('otp-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('otp-form').querySelector('button[type="submit"]');
+            const errorDiv = document.getElementById('otp-error');
+            const originalText = btn.innerHTML;
+            
+            errorDiv.classList.remove('active');
+            btn.innerHTML = 'Vérification...';
+            btn.disabled = true;
+
+            try {
+                const response = await fetch('http://localhost:3000/auth/verify-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        phone_number: currentPhoneForVerification,
+                        code: document.getElementById('otpCode').value 
+                    })
+                });
+
+                if (response.ok) {
+                    document.getElementById('otp-container').style.display = 'none';
+                    successContainer.classList.add('active');
+                } else {
+                    const errData = await response.json();
+                    errorDiv.textContent = errData.message || "Code invalide.";
+                    errorDiv.classList.add('active');
+                }
+            } catch (error) {
+                errorDiv.textContent = "Erreur de connexion.";
+                errorDiv.classList.add('active');
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        });
+
+        // ========================
+        //   API CALLS - LOGIN
+        // ========================
+        let currentLoginPhone = '';
+
+        document.getElementById('login-phone-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('login-phone-form').querySelector('button[type="submit"]');
+            const errorDiv = document.getElementById('login-phone-error');
+            const originalText = btn.innerHTML;
+            
+            errorDiv.classList.remove('active');
+            btn.innerHTML = 'Envoi...';
+            btn.disabled = true;
+
+            const prefix = document.getElementById('loginPhonePrefix').value;
+            const phone = document.getElementById('loginPhone').value.trim();
+            const fullPhone = prefix + phone;
+
+            try {
+                const response = await fetch('http://localhost:3000/auth/login/request-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone_number: fullPhone })
+                });
+
+                if (response.ok) {
+                    currentLoginPhone = fullPhone;
+                    document.getElementById('login-phone-container').style.display = 'none';
+                    document.getElementById('login-otp-container').style.display = 'block';
+                } else {
+                    const errData = await response.json();
+                    errorDiv.textContent = errData.message || "Utilisateur introuvable.";
+                    errorDiv.classList.add('active');
+                }
+            } catch (error) {
+                errorDiv.textContent = "Impossible de se connecter.";
+                errorDiv.classList.add('active');
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        });
+
+        document.getElementById('login-otp-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('login-otp-form').querySelector('button[type="submit"]');
+            const errorDiv = document.getElementById('login-otp-error');
+            const originalText = btn.innerHTML;
+            
+            errorDiv.classList.remove('active');
+            btn.innerHTML = 'Connexion...';
+            btn.disabled = true;
+
+            try {
+                const response = await fetch('http://localhost:3000/auth/login/verify-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        phone_number: currentLoginPhone,
+                        code: document.getElementById('loginOtpCode').value 
+                    })
+                });
+
+                if (response.ok) {
+                    // Connexion réussie, redirection vers l'app
+                    window.location.href = "http://localhost:3001";
+                } else {
+                    const errData = await response.json();
+                    errorDiv.textContent = errData.message || "Code invalide.";
+                    errorDiv.classList.add('active');
+                }
+            } catch (error) {
+                errorDiv.textContent = "Erreur de connexion.";
+                errorDiv.classList.add('active');
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        });
+    </script>
+<script>document.querySelectorAll(\'.open-modal-btn, .open-login-btn, #hero-cta-primary, #final-cta-primary\').forEach(el => { el.addEventListener(\'click\', e => { e.preventDefault(); e.stopPropagation(); window.location.href = \'/?auth=true\'; }, true); });</script></body>
+</html>

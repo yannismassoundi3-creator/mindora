@@ -26,10 +26,14 @@ const updateSW = registerSW({
 
 
 function App() {
-  const hasCompletedOnboarding = localStorage.getItem('hasCompletedOnboarding') === 'true';
   const hasToken = !!localStorage.getItem('mindset_token');
   
-  const [currentView, setCurrentView] = useState<'auth' | 'onboarding' | 'welcome' | 'dashboard' | 'chat' | 'objectives' | 'habits' | 'profile'>('welcome');
+  const urlParams = new URLSearchParams(window.location.search);
+  const isAuthIntent = urlParams.get('auth') === 'true';
+
+  const [currentView, setCurrentView] = useState<'auth' | 'onboarding' | 'welcome' | 'dashboard' | 'chat' | 'objectives' | 'habits' | 'profile'>(
+    isAuthIntent ? 'auth' : 'welcome'
+  );
 
   const [isSubscribed, setIsSubscribed] = useState(() => localStorage.getItem('mindset_is_subscribed') === 'true');
   const [showPricingModal, setShowPricingModal] = useState(false);
@@ -80,11 +84,20 @@ function App() {
   };
 
   if (currentView === 'welcome') {
-    return <WelcomeScreen onComplete={() => setCurrentView(!hasToken ? 'auth' : (hasCompletedOnboarding ? 'dashboard' : 'onboarding'))} />;
+    if (!hasToken) {
+      window.location.href = '/landing.html';
+      return null;
+    } else {
+      const isCompleted = localStorage.getItem('hasCompletedOnboarding') === 'true';
+      return <WelcomeScreen onComplete={() => setCurrentView(isCompleted ? 'dashboard' : 'onboarding')} />;
+    }
   }
 
   if (currentView === 'auth') {
-    return <AuthScreen onComplete={() => setCurrentView(hasCompletedOnboarding ? 'dashboard' : 'onboarding')} />;
+    return <AuthScreen onComplete={() => {
+      const isCompleted = localStorage.getItem('hasCompletedOnboarding') === 'true';
+      setCurrentView(isCompleted ? 'dashboard' : 'onboarding');
+    }} />;
   }
 
   if (currentView === 'onboarding') {

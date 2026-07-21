@@ -60,18 +60,18 @@ export class AuthService {
   async login(dto: LoginDto) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
+      include: { ai_profile: true }
     });
 
     if (!user || !await argon2.verify(user.password_hash, dto.password)) {
       throw new UnauthorizedException('Identifiants invalides.');
     }
 
-    // Le compte doit être vérifié (désactivé pour la démo)
-    // if (!user.is_phone_verified) {
-    //   throw new UnauthorizedException('Veuillez vérifier votre numéro de téléphone avec le code OTP.');
-    // }
-
-    return this.generateTokens(user.id, user.role);
+    const tokens = await this.generateTokens(user.id, user.role);
+    return {
+      ...tokens,
+      has_ai_profile: !!user.ai_profile
+    };
   }
 
   async generateTokens(userId: string, role: string) {
