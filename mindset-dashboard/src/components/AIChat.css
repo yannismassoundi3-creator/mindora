@@ -10,7 +10,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 24px;
+  padding: 12px 16px;
 }
 
 .chat-header-info {
@@ -21,8 +21,8 @@
 
 .ai-status-indicator {
   position: relative;
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   background: rgba(236, 72, 153, 0.1);
   display: flex;
@@ -50,7 +50,7 @@
 
 .chat-title {
   font-family: var(--font-display);
-  font-size: 1.4rem;
+  font-size: 1.1rem;
   font-weight: 700;
   margin-bottom: 2px;
 }
@@ -64,13 +64,13 @@
 .chat-action-btn {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.1);
   color: var(--primary);
-  padding: 10px 16px;
+  padding: 8px 12px;
   border-radius: 12px;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
@@ -212,8 +212,8 @@
 }
 
 .chat-input-area {
-  padding: 16px;
-  border-radius: 20px;
+  padding: 12px;
+  border-radius: 16px;
 }
 
 .chat-form {

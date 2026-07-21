@@ -442,7 +442,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
                   </svg>
                   <div className="circular-score-content">
                     <span className="score-number">{mentalScore}</span>
-                    <span className="score-label">/ 100</span>
                   </div>
                 </div>
                 <div className="today-score-text">

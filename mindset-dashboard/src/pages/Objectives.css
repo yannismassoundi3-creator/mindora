@@ -516,16 +516,44 @@
     box-sizing: border-box;
     overflow-x: hidden;
   }
-  .macro-card, .micro-list, .micro-item, .ai-observer-banner {
+  .macro-cards-container {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    width: 100%;
+  }
+  .macro-card {
+    height: 150px;
+    padding: 12px;
+    border-radius: 16px;
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
     min-width: 0;
   }
+  .add-macro-card {
+    height: 150px;
+  }
+  .macro-category {
+    font-size: 0.6rem;
+    padding: 3px 8px;
+    margin-bottom: 4px;
+  }
   .macro-title {
-    font-size: 1.4rem;
+    font-size: 1rem;
     word-break: break-word;
     white-space: normal;
+    margin-bottom: 6px;
+    line-height: 1.2;
+  }
+  .macro-footer {
+    font-size: 0.75rem;
+  }
+  .micro-list, .micro-item, .ai-observer-banner {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    min-width: 0;
   }
   .micro-title {
     font-size: 0.9rem;

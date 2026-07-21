@@ -25,7 +25,7 @@ export const AIChat: React.FC = () => {
     return [
       {
         id: 1,
-        text: `Salut ! Je suis ${localStorage.getItem('mindset_ai_name') || 'Coach IA'}, connecté à ton Dashboard. Je vois que tu as une série de 12 jours, c'est excellent ! Comment puis-je t'aider aujourd'hui ?`,
+        text: `Bonjour, comment je peux t'aider aujourd'hui ?`,
         sender: 'ai',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       }
