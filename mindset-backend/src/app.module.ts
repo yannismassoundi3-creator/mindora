@@ -38,6 +38,7 @@ import { PushModule } from './push/push.module';
     SubscriptionsModule,
     CalendarModule,
     SyncModule,
+    PushModule,
   ],
   controllers: [AppController],
   providers: [],
