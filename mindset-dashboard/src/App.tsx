@@ -10,7 +10,20 @@ import { Objectives } from './pages/Objectives';
 import { Habits } from './pages/Habits';
 import { Profile } from './pages/Profile';
 import { PricingScreen } from './pages/PricingScreen';
+import { registerSW } from 'virtual:pwa-register';
 import './styles/global.css';
+
+// Force l'application à se mettre à jour automatiquement dès qu'une nouvelle version est détectée sur le serveur
+const updateSW = registerSW({
+  onNeedRefresh() {
+    // Appelle la mise à jour et rafraîchit la page
+    updateSW(true);
+  },
+  onOfflineReady() {
+    console.log("App prête pour le mode hors ligne");
+  },
+});
+
 
 function App() {
   const hasCompletedOnboarding = localStorage.getItem('hasCompletedOnboarding') === 'true';
