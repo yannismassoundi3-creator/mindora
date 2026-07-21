@@ -4,7 +4,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
 @ApiTags('Push Notifications')
-@Controller('push')
+@Controller('email')
 export class PushController {
   constructor(private readonly pushService: PushService) {}
 
