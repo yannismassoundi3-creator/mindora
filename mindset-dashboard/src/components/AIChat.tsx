@@ -40,15 +40,21 @@ export const AIChat: React.FC = () => {
   const aiName = localStorage.getItem('mindset_ai_name') || 'Coach IA';
 
   const playTTS = async (msg: Message) => {
-    if (playingAudioId === msg.id && audioRef.current) {
-      audioRef.current.pause();
+    if (playingAudioId === msg.id) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
       setPlayingAudioId(null);
       return;
     }
     
     setLoadingAudioId(msg.id);
     try {
-      const data = await api.post('/ai-coaching/tts', { text: msg.text.replace(/[*#]/g, '') }); // Remove markdown for speech
+      const textToSpeak = msg.text.replace(/[*#]/g, '');
+      const data = await api.post('/ai-coaching/tts', { text: textToSpeak }); 
       if (data.audioBase64) {
         if (audioRef.current) {
            audioRef.current.pause();
@@ -60,7 +66,20 @@ export const AIChat: React.FC = () => {
         setPlayingAudioId(msg.id);
       }
     } catch (e) {
-      console.error('Failed to play TTS', e);
+      console.error('Failed to play TTS from backend, falling back to browser TTS', e);
+      // Fallback: Browser native TTS
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel(); // Stop any ongoing speech
+        const utterance = new SpeechSynthesisUtterance(msg.text.replace(/[*#]/g, ''));
+        utterance.lang = 'fr-FR';
+        utterance.rate = 1.0;
+        
+        utterance.onend = () => setPlayingAudioId(null);
+        utterance.onerror = () => setPlayingAudioId(null);
+        
+        window.speechSynthesis.speak(utterance);
+        setPlayingAudioId(msg.id);
+      }
     } finally {
       setLoadingAudioId(null);
     }
