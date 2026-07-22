@@ -11,6 +11,7 @@ import { Habits } from './pages/Habits';
 import { Profile } from './pages/Profile';
 import { PricingScreen } from './pages/PricingScreen';
 import { LevelUpOverlay } from './components/LevelUpOverlay';
+import { StreakBrokenOverlay } from './components/StreakBrokenOverlay';
 import { registerSW } from 'virtual:pwa-register';
 import './styles/global.css';
 
@@ -136,6 +137,7 @@ function App() {
         />
       )}
       <LevelUpOverlay />
+      <StreakBrokenOverlay />
     </Layout>
   );
 }

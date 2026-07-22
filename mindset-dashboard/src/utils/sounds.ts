@@ -148,3 +148,35 @@ export const playBloopSound = () => {
     osc.stop(ctx.currentTime + 0.1);
   } catch(e) {}
 };
+
+// 7. Son de casse / Verre brisé (Série Brisée)
+export const playShatterSound = () => {
+  try {
+    const ctx = getContext();
+    const bufferSize = ctx.sampleRate * 0.5; // 0.5 seconds
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = Math.random() * 2 - 1;
+    }
+    
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+    
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(1000, ctx.currentTime);
+    filter.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.3);
+    
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.8, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+    
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+    
+    noise.start();
+  } catch(e) {}
+};

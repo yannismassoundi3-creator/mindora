@@ -1,0 +1,80 @@
+.streak-broken-overlay {
+  position: fixed;
+  top: 0; left: 0; width: 100vw; height: 100vh;
+  z-index: 10000;
+  background: rgba(40, 0, 0, 0.95);
+  backdrop-filter: blur(30px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  pointer-events: none;
+  opacity: 0;
+  animation: brokenFade 4s ease-out forwards;
+}
+
+@keyframes brokenFade {
+  0% { opacity: 0; }
+  5% { opacity: 1; background: rgba(180, 0, 0, 0.8); }
+  15% { opacity: 1; background: rgba(40, 0, 0, 0.95); }
+  85% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.broken-glitch {
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><path d="M0 0 L50 40 L40 60 L100 100" stroke="%23ff0000" stroke-width="0.5" fill="none"/></svg>');
+  background-size: cover;
+  opacity: 0.2;
+  mix-blend-mode: overlay;
+  z-index: -1;
+}
+
+.streak-broken-content {
+  text-align: center;
+  transform: scale(1.5);
+  animation: brokenScale 4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes brokenScale {
+  0% { transform: scale(1.5); filter: blur(10px); }
+  10% { transform: scale(1); filter: blur(0px); }
+  100% { transform: scale(1); }
+}
+
+.broken-title {
+  font-size: 5rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  color: #ef4444;
+  margin: 0;
+  text-shadow: 0 0 40px rgba(239, 68, 68, 0.8), 2px 2px 0 #000;
+  letter-spacing: 4px;
+}
+
+.broken-subtitle {
+  font-size: 2rem;
+  color: #fca5a5;
+  margin-top: 10px;
+}
+
+.broken-emoji {
+  font-size: 6rem;
+  display: inline-block;
+  animation: shakeBroken 0.5s infinite;
+}
+
+@keyframes shakeBroken {
+  0% { transform: translate(1px, 1px) rotate(0deg); }
+  10% { transform: translate(-1px, -2px) rotate(-1deg); }
+  20% { transform: translate(-3px, 0px) rotate(1deg); }
+  30% { transform: translate(3px, 2px) rotate(0deg); }
+  40% { transform: translate(1px, -1px) rotate(1deg); }
+  50% { transform: translate(-1px, 2px) rotate(-1deg); }
+  60% { transform: translate(-3px, 1px) rotate(0deg); }
+  70% { transform: translate(3px, 1px) rotate(-1deg); }
+  80% { transform: translate(-1px, -1px) rotate(1deg); }
+  90% { transform: translate(1px, 2px) rotate(0deg); }
+  100% { transform: translate(1px, -2px) rotate(-1deg); }
+}
