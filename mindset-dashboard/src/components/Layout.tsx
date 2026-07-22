@@ -93,11 +93,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, setView })
           <Target size={24} />
           <span>Objectifs</span>
         </a>
-        <a href="#" className="bottom-nav-item ai-btn-wrapper" onClick={(e) => handleNavClick(e, 'chat')}>
-          <div className="ai-fab">
-            <Brain size={28} color="#fff" />
-          </div>
-        </a>
+        <div className="bottom-nav-spacer"></div>
         <a href="#" className={`bottom-nav-item ${activeView === 'habits' ? 'active' : ''}`} onClick={(e) => handleNavClick(e, 'habits')}>
           <Calendar size={24} />
           <span>Suivi</span>
@@ -105,6 +101,11 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, setView })
         <a href="#" className={`bottom-nav-item ${activeView === 'profile' ? 'active' : ''}`} onClick={(e) => handleNavClick(e, 'profile')}>
           <User size={24} />
           <span>Profil</span>
+        </a>
+        <a href="#" className="ai-btn-wrapper" onClick={(e) => handleNavClick(e, 'chat')}>
+          <div className="ai-fab">
+            <Brain size={28} color="#fff" />
+          </div>
         </a>
       </nav>
     </div>

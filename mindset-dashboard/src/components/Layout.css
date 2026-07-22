@@ -150,8 +150,8 @@
   }
 
   .bottom-nav {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    display: flex;
+    justify-content: space-evenly;
     position: fixed;
     bottom: 24px;
     left: 50%;
@@ -170,7 +170,6 @@
   .bottom-nav-item {
     -webkit-tap-highlight-color: transparent;
     display: flex;
-    flex: 1;
     flex-direction: column;
     align-items: center;
     justify-content: center;
@@ -182,15 +181,23 @@
     border-radius: 16px;
     padding: 8px 4px;
     margin: 0 4px;
+    min-width: 60px;
   }
 
   .bottom-nav-item.active {
     color: var(--accent-purple);
   }
 
+  .bottom-nav-spacer {
+    width: 64px; /* Space for the absolute AI button */
+    flex-shrink: 0;
+  }
+
   .ai-btn-wrapper {
-    position: relative;
+    position: absolute;
+    left: 50%;
     top: -24px;
+    transform: translateX(-50%);
     flex-shrink: 0;
   }
 
