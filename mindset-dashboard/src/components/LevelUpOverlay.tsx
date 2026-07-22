@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './LevelUpOverlay.css';
 import { playLevelUpSound } from '../utils/sounds';
-import confetti from 'canvas-confetti';
 
 export const LevelUpOverlay: React.FC = () => {
   const [show, setShow] = useState(false);
@@ -19,14 +18,6 @@ export const LevelUpOverlay: React.FC = () => {
         if (newLevel > prevLevel) {
           // Trigger Level Up!
           playLevelUpSound();
-          confetti({
-            particleCount: 150,
-            spread: 100,
-            origin: { y: 0.5 },
-            colors: ['#3b82f6', '#8b5cf6', '#ffffff', '#e2e8f0'],
-            zIndex: 10000
-          });
-          
           setShow(true);
           setTimeout(() => setShow(false), 3000); // 3 seconds
         }
@@ -43,24 +34,23 @@ export const LevelUpOverlay: React.FC = () => {
   return (
     <div className="level-up-overlay">
       <div className="arrows-container">
-        {[...Array(15)].map((_, i) => (
+        {[...Array(8)].map((_, i) => (
           <div 
             key={i} 
             className="up-arrow" 
             style={{ 
               left: `${Math.random() * 100}%`, 
               animationDelay: `${Math.random() * 1.5}s`,
-              width: `${30 + Math.random() * 40}px`,
-              height: `${30 + Math.random() * 40}px`,
-              opacity: 0.3 + Math.random() * 0.7
+              width: `${15 + Math.random() * 15}px`,
+              height: `${15 + Math.random() * 15}px`,
             }} 
           />
         ))}
       </div>
       
       <div className="level-up-content">
-        <h2 className="level-up-title">Level Up</h2>
-        <h1 className="level-up-number">Niveau {level}</h1>
+        <h2 className="level-up-title">Niveau Supérieur</h2>
+        <h1 className="level-up-number">Niv. {level}</h1>
       </div>
     </div>
   );

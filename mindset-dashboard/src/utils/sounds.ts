@@ -118,17 +118,17 @@ export const playErrorSound = () => {
 
 // 5. Son Succès Épique (Niveau Supérieur / Achat / Save Profil)
 export const playLevelUpSound = () => {
-  vibrate([30, 50, 30, 50, 100]); // Séquence épique
+  vibrate([30, 50, 30]); // Séquence courte
   try {
     const ctx = getContext();
     
     const playNote = (freq: number, startTime: number, duration: number) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      osc.type = 'triangle';
+      osc.type = 'sine'; // Son beaucoup plus pur, moins "jeu vidéo rétro"
       osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0.15, startTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+      gain.gain.setValueAtTime(0.08, startTime); // Volume plus faible
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.start(startTime);
@@ -136,9 +136,10 @@ export const playLevelUpSound = () => {
     };
 
     const now = ctx.currentTime;
-    playNote(440, now, 0.15); // A4
-    playNote(554.37, now + 0.15, 0.15); // C#5
-    playNote(659.25, now + 0.3, 0.4); // E5
+    // Accord majeur doux et satisfaisant (C5 - E5 - G5)
+    playNote(523.25, now, 0.4);
+    playNote(659.25, now + 0.1, 0.4);
+    playNote(783.99, now + 0.2, 0.6);
   } catch(e) {}
 };
 
