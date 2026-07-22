@@ -13,6 +13,17 @@ const getContext = () => {
   return audioCtx;
 };
 
+// --- HAPTIC FEEDBACK ---
+const vibrate = (pattern: number | number[]) => {
+  try {
+    if ('vibrate' in navigator) {
+      navigator.vibrate(pattern);
+    }
+  } catch (e) {
+    // Ignore if not supported or blocked
+  }
+};
+
 // 1. Son ultra léger au survol (Menu)
 export const playHoverSound = () => {
   try {
@@ -37,6 +48,7 @@ export const playHoverSound = () => {
 
 // 2. Son net au clic (Boutons standard)
 export const playClickSound = () => {
+  vibrate(15); // Micro-vibration sèche
   try {
     const ctx = getContext();
     const osc = ctx.createOscillator();
@@ -59,6 +71,7 @@ export const playClickSound = () => {
 
 // 3. Son mécanique (Toggles dans Profil)
 export const playToggleSound = (isOn: boolean) => {
+  vibrate(isOn ? [15, 30, 15] : 20);
   try {
     const ctx = getContext();
     const osc = ctx.createOscillator();
@@ -82,6 +95,7 @@ export const playToggleSound = (isOn: boolean) => {
 
 // 4. Son d'Erreur (Chat IA)
 export const playErrorSound = () => {
+  vibrate([40, 50, 40]);
   try {
     const ctx = getContext();
     const osc = ctx.createOscillator();
@@ -104,6 +118,7 @@ export const playErrorSound = () => {
 
 // 5. Son Succès Épique (Niveau Supérieur / Achat / Save Profil)
 export const playLevelUpSound = () => {
+  vibrate([30, 50, 30, 50, 100]); // Séquence épique
   try {
     const ctx = getContext();
     
@@ -129,6 +144,7 @@ export const playLevelUpSound = () => {
 
 // 6. Son de base (Habitude Validée)
 export const playBloopSound = () => {
+  vibrate(30); // Vibration douce
   try {
     const ctx = getContext();
     const osc = ctx.createOscillator();
@@ -151,6 +167,7 @@ export const playBloopSound = () => {
 
 // 7. Son de casse / Verre brisé (Série Brisée)
 export const playShatterSound = () => {
+  vibrate([50, 100, 200]); // Impact lourd
   try {
     const ctx = getContext();
     const bufferSize = ctx.sampleRate * 0.5; // 0.5 seconds

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Sparkles } from 'lucide-react';
+import { Send, User, Sparkles, Play, Square, Loader } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { playBloopSound, playErrorSound } from '../utils/sounds';
 import './AIChat.css';
@@ -33,8 +33,38 @@ export const AIChat: React.FC = () => {
   });
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [playingAudioId, setPlayingAudioId] = useState<number | null>(null);
+  const [loadingAudioId, setLoadingAudioId] = useState<number | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const aiName = localStorage.getItem('mindset_ai_name') || 'Coach IA';
+
+  const playTTS = async (msg: Message) => {
+    if (playingAudioId === msg.id && audioRef.current) {
+      audioRef.current.pause();
+      setPlayingAudioId(null);
+      return;
+    }
+    
+    setLoadingAudioId(msg.id);
+    try {
+      const data = await api.post('/ai-coaching/tts', { text: msg.text.replace(/[*#]/g, '') }); // Remove markdown for speech
+      if (data.audioBase64) {
+        if (audioRef.current) {
+           audioRef.current.pause();
+        }
+        const audio = new Audio(`data:audio/mp3;base64,${data.audioBase64}`);
+        audio.onended = () => setPlayingAudioId(null);
+        audioRef.current = audio;
+        audio.play();
+        setPlayingAudioId(msg.id);
+      }
+    } catch (e) {
+      console.error('Failed to play TTS', e);
+    } finally {
+      setLoadingAudioId(null);
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -216,7 +246,15 @@ export const AIChat: React.FC = () => {
                 <div className="message-avatar-orb"></div>
               )}
               <div className={`message-bubble ${msg.sender}`}>
-                {msg.sender === 'ai' && <div className="message-ai-name">{aiName}</div>}
+                {msg.sender === 'ai' && (
+                  <div className="message-ai-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="message-ai-name">{aiName}</div>
+                    <button className="tts-play-btn" onClick={() => playTTS(msg)} title="Écouter">
+                       {loadingAudioId === msg.id ? <Loader size={14} className="spin" /> : 
+                        playingAudioId === msg.id ? <Square size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
+                    </button>
+                  </div>
+                )}
                 <div className="message-content">
                   <ReactMarkdown>{msg.text}</ReactMarkdown>
                 </div>

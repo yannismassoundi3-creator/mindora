@@ -30,4 +30,10 @@ export class AiCoachingController {
   async chat(@Body() body: { prompt: string, history?: any[], context?: any }) {
     return this.aiCoachingService.chatWithAi(body.prompt, body.history || [], body.context);
   }
+
+  @Post('tts')
+  @ApiOperation({ summary: 'Générer de la voix avec OpenAI TTS' })
+  async generateSpeech(@Body() body: { text: string }) {
+    return this.aiCoachingService.generateSpeech(body.text);
+  }
 }

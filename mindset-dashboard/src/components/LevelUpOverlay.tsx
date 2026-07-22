@@ -23,7 +23,7 @@ export const LevelUpOverlay: React.FC = () => {
             particleCount: 150,
             spread: 100,
             origin: { y: 0.5 },
-            colors: ['#fcd34d', '#f59e0b', '#ffffff'],
+            colors: ['#3b82f6', '#8b5cf6', '#ffffff', '#e2e8f0'],
             zIndex: 10000
           });
           

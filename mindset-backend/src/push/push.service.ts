@@ -101,6 +101,11 @@ export class PushService implements OnModuleInit {
       this.logger.log('Running night push reminder and last chance at 22:00');
       await this.checkStreaksAndWarn(22);
     }, { timezone: 'Europe/Paris' });
+    // 20:00 - Sunday Weekly Report
+    cron.schedule('0 20 * * 0', async () => {
+      this.logger.log('Running sunday weekly report at 20:00');
+      await this.sendWeeklyReports();
+    }, { timezone: 'Europe/Paris' });
   }
 
   async checkStreaksAndWarn(hour: number) {
@@ -120,9 +125,29 @@ export class PushService implements OnModuleInit {
       const scoreToday = scores[today] || 0;
       const scoreYesterday = scores[yesterday] || 0;
       
+      // Calculate missed consecutive days
+      let missedDays = 0;
+      for (let i = 0; i < 4; i++) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toISOString().slice(0, 10);
+        if (!scores[dateStr] || scores[dateStr] === 0) {
+          missedDays++;
+        } else {
+          break; // Streak is alive at some point in the last 4 days
+        }
+      }
+
       if (hour === 20) {
-        // Warning 1st day miss
-        if (scoreToday === 0 && scoreYesterday > 0) {
+        if (missedDays >= 4) {
+          // AI Dynamic Adjustment Prompt
+          await this.sendNotification(user.id, {
+            title: '🤖 Coach IA : Stratégie',
+            body: 'Je remarque que tu as du mal depuis quelques jours. Ouvre le Chat IA pour réduire la difficulté de tes objectifs.',
+            url: 'https://mindset-elite.com?auth=true'
+          });
+        } else if (scoreToday === 0 && scoreYesterday > 0) {
+          // Warning 1st day miss
           await this.sendNotification(user.id, {
             title: 'Attention ! 😡',
             body: 'Tu n\'as pas encore fait tes routines aujourd\'hui. Ne brise pas ton rythme !',
@@ -131,7 +156,7 @@ export class PushService implements OnModuleInit {
         }
       } else if (hour === 22) {
         // Warning 2nd day miss (Urgency)
-        if (scoreToday === 0 && scoreYesterday === 0) {
+        if (missedDays === 2) {
           await this.sendNotification(user.id, {
             title: '🚨 URGENCE STREAK 🚨',
             body: 'Dernier avertissement ! Ta série va disparaître à minuit si tu n\'agis pas tout de suite !',
@@ -146,6 +171,22 @@ export class PushService implements OnModuleInit {
           });
         }
       }
+    }
+  }
+
+  async sendWeeklyReports() {
+    const users = await this.prisma.user.findMany({
+      include: { push_subscriptions: true, sync_data: true }
+    });
+    for (const user of users) {
+      if (!user.push_subscriptions || user.push_subscriptions.length === 0) continue;
+      
+      const score = user.sync_data?.mental_score || 0;
+      await this.sendNotification(user.id, {
+        title: '📊 Bilan de ta semaine',
+        body: `Ton Score Mental est de ${score}%. Voici ton plan d'attaque pour lundi. Ouvre l'app pour le découvrir !`,
+        url: 'https://mindset-elite.com'
+      });
     }
   }
 

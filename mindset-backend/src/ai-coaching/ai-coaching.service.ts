@@ -193,4 +193,39 @@ ${contextString}`;
       return { reply: fallbackReply };
     }
   }
+
+  async generateSpeech(text: string) {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      throw new Error('OPENAI_API_KEY is not defined in backend');
+    }
+    
+    console.log(`[TTS] Generating speech for text: ${text.substring(0, 30)}...`);
+    const response = await fetch('https://api.openai.com/v1/audio/speech', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'tts-1',
+        input: text,
+        voice: 'onyx', // Onyx is deep and authoritative (Jarvis/Mentor vibe)
+        response_format: 'mp3'
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      console.error('[TTS] OpenAI Error:', err);
+      throw new Error('Failed to generate speech');
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    
+    return {
+      audioBase64: buffer.toString('base64')
+    };
+  }
 }

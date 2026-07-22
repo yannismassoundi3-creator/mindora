@@ -92,6 +92,20 @@ button:active:not(.ai-fab):not(.btn-primary), .nav-item:active, .bottom-nav-item
 }
 
 /* Background Effects */
+@keyframes floatingOrb {
+  0% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, 20px) scale(1.1); }
+  66% { transform: translate(-20px, 40px) scale(0.9); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+
+@keyframes floatingOrbRight {
+  0% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-30px, -20px) scale(1.1); }
+  66% { transform: translate(20px, -40px) scale(0.9); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+
 .bg-glow-effect {
   position: fixed;
   top: -10%;
@@ -103,14 +117,23 @@ button:active:not(.ai-fab):not(.btn-primary), .nav-item:active, .bottom-nav-item
   pointer-events: none;
   z-index: -1;
   filter: blur(60px);
+  animation: floatingOrb 20s ease-in-out infinite;
 }
 
 .bg-glow-effect-right {
+  position: fixed;
   top: auto;
   left: auto;
   bottom: -10%;
   right: -10%;
+  width: 40vw;
+  height: 40vw;
   background: radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: -1;
+  filter: blur(60px);
+  animation: floatingOrbRight 25s ease-in-out infinite;
 }
 
 /* Custom Scrollbar */

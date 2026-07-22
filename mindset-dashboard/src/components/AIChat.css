@@ -300,12 +300,41 @@
 }
 
 .message-ai-name {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 700;
   color: var(--accent-purple);
   margin-bottom: 4px;
-  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.05em;
+}
+
+.tts-play-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: var(--primary);
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.tts-play-btn:hover {
+  background: var(--accent-purple);
+  transform: scale(1.1);
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .typing-indicator span {

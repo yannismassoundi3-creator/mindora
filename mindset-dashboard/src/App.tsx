@@ -12,6 +12,7 @@ import { Profile } from './pages/Profile';
 import { PricingScreen } from './pages/PricingScreen';
 import { LevelUpOverlay } from './components/LevelUpOverlay';
 import { StreakBrokenOverlay } from './components/StreakBrokenOverlay';
+import { SkeletonGlow } from './components/SkeletonGlow';
 import { registerSW } from 'virtual:pwa-register';
 import './styles/global.css';
 
@@ -41,6 +42,7 @@ function App() {
 
   const [isSubscribed, setIsSubscribed] = useState(() => localStorage.getItem('mindset_is_subscribed') === 'true');
   const [showPricingModal, setShowPricingModal] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -56,6 +58,9 @@ function App() {
         }
       } catch (e) {
         console.error('Failed to initialize app', e);
+      } finally {
+        // Ajouter un très léger délai pour apprécier l'animation skeleton si la co est très rapide
+        setTimeout(() => setIsInitializing(false), 800);
       }
     };
     initializeApp();
@@ -137,11 +142,19 @@ function App() {
       setView={handleSetView}
     >
       <div key={currentView} className={`view-transition-wrapper slide-${slideDirection}`}>
-        {currentView === 'dashboard' && <Dashboard onOpenChat={tryOpenChat} />}
-        {currentView === 'chat' && <AIChat />}
-        {currentView === 'objectives' && <Objectives onOpenChat={tryOpenChat} />}
-        {currentView === 'habits' && <Habits onOpenChat={tryOpenChat} />}
-        {currentView === 'profile' && <Profile onNameChange={() => window.location.reload()} />}
+        {isInitializing && currentView !== 'welcome' && currentView !== 'auth' && currentView !== 'onboarding' ? (
+          <div style={{ padding: '20px' }}>
+            <SkeletonGlow rows={4} />
+          </div>
+        ) : (
+          <>
+            {currentView === 'dashboard' && <Dashboard onOpenChat={tryOpenChat} />}
+            {currentView === 'chat' && <AIChat />}
+            {currentView === 'objectives' && <Objectives onOpenChat={tryOpenChat} />}
+            {currentView === 'habits' && <Habits onOpenChat={tryOpenChat} />}
+            {currentView === 'profile' && <Profile onNameChange={() => window.location.reload()} />}
+          </>
+        )}
       </div>
       
       {showPricingModal && (
