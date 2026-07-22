@@ -10,6 +10,7 @@ import { Objectives } from './pages/Objectives';
 import { Habits } from './pages/Habits';
 import { Profile } from './pages/Profile';
 import { PricingScreen } from './pages/PricingScreen';
+import { LevelUpOverlay } from './components/LevelUpOverlay';
 import { registerSW } from 'virtual:pwa-register';
 import './styles/global.css';
 
@@ -134,6 +135,7 @@ function App() {
           onClose={() => setShowPricingModal(false)} 
         />
       )}
+      <LevelUpOverlay />
     </Layout>
   );
 }

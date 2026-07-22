@@ -322,6 +322,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
       const newPoints = points + 5;
       setPoints(newPoints);
       localStorage.setItem('mindset_points', newPoints.toString());
+      window.dispatchEvent(new CustomEvent('pointsChanged', { detail: newPoints }));
 
       if (newlyDoneCount === totalRoutines) {
         playLevelUpSound();
@@ -332,6 +333,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
       const newPoints = Math.max(0, points - 5);
       setPoints(newPoints);
       localStorage.setItem('mindset_points', newPoints.toString());
+      window.dispatchEvent(new CustomEvent('pointsChanged', { detail: newPoints }));
     }
 
     setRoutineGroups(newGroups);

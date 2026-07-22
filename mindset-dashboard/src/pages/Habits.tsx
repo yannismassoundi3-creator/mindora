@@ -173,6 +173,7 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
       const newPoints = points + pointsGained;
       setPoints(newPoints);
       localStorage.setItem('mindset_points', newPoints.toString());
+      window.dispatchEvent(new CustomEvent('pointsChanged', { detail: newPoints }));
 
       // AI Commentary logic
       if (leveledUp) {
@@ -197,6 +198,7 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
       const newPoints = Math.max(0, points - pointsGained);
       setPoints(newPoints);
       localStorage.setItem('mindset_points', newPoints.toString());
+      window.dispatchEvent(new CustomEvent('pointsChanged', { detail: newPoints }));
     }
   };
 
