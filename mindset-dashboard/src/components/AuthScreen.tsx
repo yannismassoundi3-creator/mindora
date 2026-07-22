@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
 import { api } from '../services/api';
 import './AuthScreen.css';
-import { Brain, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { Brain, ArrowRight, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 
 export const AuthScreen = ({ onComplete }: { onComplete: () => void }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  
+  // 2FA State
+  const [is2FAPending, setIs2FAPending] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
   
   // Form State
   const [email, setEmail] = useState('');
@@ -22,15 +26,31 @@ export const AuthScreen = ({ onComplete }: { onComplete: () => void }) => {
     setError('');
 
     try {
-      if (isLogin) {
-        const res = await api.post('/auth/login', { email, password });
+      if (is2FAPending) {
+        const res = await api.post('/auth/verify-2fa', { email, code: verificationCode });
         localStorage.setItem('mindset_token', res.access_token);
         localStorage.setItem('mindset_user_name', res.user?.first_name || 'User');
-        
         await api.downloadCloudState();
-        // Always skip onboarding for returning users who log in
         localStorage.setItem('hasCompletedOnboarding', 'true');
         onComplete();
+        return;
+      }
+
+      if (isLogin) {
+        const res = await api.post('/auth/login', { email, password });
+        if (res.requires2FA) {
+          setIs2FAPending(true);
+          setLoading(false);
+          return;
+        }
+        // Fallback pour ancien backend
+        if (res.access_token) {
+          localStorage.setItem('mindset_token', res.access_token);
+          localStorage.setItem('mindset_user_name', res.user?.first_name || 'User');
+          await api.downloadCloudState();
+          localStorage.setItem('hasCompletedOnboarding', 'true');
+          onComplete();
+        }
       } else {
         await api.post('/auth/register', { 
           email, 
@@ -42,22 +62,69 @@ export const AuthScreen = ({ onComplete }: { onComplete: () => void }) => {
         
         // Auto login after register
         const res = await api.post('/auth/login', { email, password });
-        localStorage.setItem('mindset_token', res.access_token);
-        localStorage.setItem('mindset_user_name', firstName);
-        localStorage.removeItem('hasCompletedOnboarding');
-        await api.downloadCloudState();
-        onComplete();
+        if (res.requires2FA) {
+          setIs2FAPending(true);
+          setLoading(false);
+          return;
+        }
+        if (res.access_token) {
+          localStorage.setItem('mindset_token', res.access_token);
+          localStorage.setItem('mindset_user_name', firstName);
+          localStorage.removeItem('hasCompletedOnboarding');
+          await api.downloadCloudState();
+          onComplete();
+        }
       }
     } catch (err: any) {
       // Custom friendly error messages
       let msg = err.message || 'Une erreur est survenue';
       if (msg.includes('Identifiants')) msg = "Adresse e-mail ou mot de passe incorrect.";
       if (msg.includes('déjà utilisé')) msg = "Cette adresse e-mail ou ce numéro est déjà utilisé.";
+      if (msg.includes('2FA invalide')) msg = "Code de sécurité incorrect ou expiré.";
       setError(msg);
     } finally {
       setLoading(false);
     }
   };
+
+  if (is2FAPending) {
+    return (
+      <div className="auth-container glass-panel" style={{ animation: 'slideInRight 0.4s ease' }}>
+        <div className="auth-logo">
+          <ShieldCheck size={48} className="text-primary pulse" />
+          <h1>Sécurité</h1>
+        </div>
+        
+        <h2>Vérification 2FA</h2>
+        <p className="auth-subtitle">
+          Un code de sécurité à 6 chiffres a été envoyé à <strong>{email}</strong>.
+        </p>
+
+        {error && <div className="auth-error">{error}</div>}
+
+        <form onSubmit={handleSubmit} className="auth-form" style={{ marginTop: '20px' }}>
+          <input
+            type="text"
+            placeholder="Code à 6 chiffres"
+            value={verificationCode}
+            onChange={(e) => setVerificationCode(e.target.value)}
+            required
+            maxLength={6}
+            style={{ textAlign: 'center', fontSize: '1.5rem', letterSpacing: '8px', fontWeight: 'bold' }}
+          />
+
+          <button type="submit" className="auth-submit-btn" disabled={loading} style={{ marginTop: '20px' }}>
+            {loading ? 'Vérification...' : 'Valider le code'}
+            <ArrowRight size={20} />
+          </button>
+        </form>
+
+        <button className="auth-switch-btn" onClick={() => { setIs2FAPending(false); setVerificationCode(''); setError(''); }}>
+          Annuler et retourner à la connexion
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="auth-container glass-panel">

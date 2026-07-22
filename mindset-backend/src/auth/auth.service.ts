@@ -3,20 +3,31 @@ import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as argon2 from 'argon2';
+import * as nodemailer from 'nodemailer';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 
 @Injectable()
 export class AuthService {
+  private transporter: nodemailer.Transporter;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-  ) {}
+  ) {
+    this.transporter = nodemailer.createTransport({
+      host: this.configService.get<string>('SMTP_HOST') || 'smtp.ethereal.email',
+      port: parseInt(this.configService.get<string>('SMTP_PORT') || '587', 10),
+      auth: {
+        user: this.configService.get<string>('SMTP_USER') || 'ethereal_user',
+        pass: this.configService.get<string>('SMTP_PASS') || 'ethereal_pass',
+      },
+    });
+  }
 
   async register(dto: RegisterDto) {
-    // Vérification de l'unicité
     const existingUser = await this.prisma.user.findFirst({
       where: {
         OR: [
@@ -40,7 +51,6 @@ export class AuthService {
           email: dto.email,
           phone_number: dto.phone_number,
           password_hash: passwordHash,
-          // La vérification OTP se ferait ensuite via un autre endpoint
           is_phone_verified: false, 
         },
       });
@@ -67,10 +77,87 @@ export class AuthService {
       throw new UnauthorizedException('Identifiants invalides.');
     }
 
+    // 2FA par E-mail
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60000); // 10 min
+
+    await this.prisma.twoFactorCode.create({
+      data: {
+        user_id: user.id,
+        code,
+        expires_at: expiresAt,
+      }
+    });
+
+    await this.send2FAEmail(user.email, code);
+
+    return {
+      requires2FA: true,
+      email: user.email,
+      message: 'Un code de vérification vous a été envoyé par e-mail.'
+    };
+  }
+
+  async send2FAEmail(email: string, code: string) {
+    try {
+      await this.transporter.sendMail({
+        from: '"Mindset Elite Security" <security@mindset-elite.com>',
+        to: email,
+        subject: 'Votre code de connexion Mindset',
+        html: `
+          <div style="font-family: Arial, sans-serif; background-color: #f4f4f5; padding: 40px; text-align: center;">
+            <div style="background-color: #ffffff; padding: 30px; border-radius: 10px; max-width: 500px; margin: 0 auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+              <h2 style="color: #1a1a1a;">Connexion Mindset Elite</h2>
+              <p style="color: #4a4a4a; font-size: 16px;">Voici votre code de sécurité à 6 chiffres. Il est valide pendant 10 minutes.</p>
+              <div style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #3b82f6; margin: 30px 0; padding: 15px; background: #eff6ff; border-radius: 8px;">
+                ${code}
+              </div>
+              <p style="color: #9ca3af; font-size: 14px;">Si vous n'avez pas demandé ce code, ignorez cet e-mail.</p>
+            </div>
+          </div>
+        `
+      });
+      console.log(`[MOCK EMAIL 2FA] Code ${code} envoyé à ${email}`);
+    } catch (e) {
+      console.error('Failed to send 2FA email', e);
+      // Fallback log for development
+      console.log(`[MOCK EMAIL 2FA FALLBACK] Code ${code} envoyé à ${email}`);
+    }
+  }
+
+  async verify2FA(email: string, code: string) {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      throw new UnauthorizedException('Utilisateur introuvable.');
+    }
+
+    const verification = await this.prisma.twoFactorCode.findFirst({
+      where: {
+        user_id: user.id,
+        code: code,
+        is_used: false,
+        expires_at: { gt: new Date() }
+      },
+      orderBy: { created_at: 'desc' }
+    });
+
+    if (!verification) {
+      throw new UnauthorizedException('Code 2FA invalide ou expiré.');
+    }
+
+    await this.prisma.twoFactorCode.update({
+      where: { id: verification.id },
+      data: { is_used: true }
+    });
+
     const tokens = await this.generateTokens(user.id, user.role);
+    
+    // Check if ai_profile exists for response
+    const has_ai_profile = (await this.prisma.aIProfile.count({ where: { user_id: user.id } })) > 0;
+
     return {
       ...tokens,
-      has_ai_profile: !!user.ai_profile
+      has_ai_profile
     };
   }
 
@@ -85,9 +172,8 @@ export class AuthService {
       }),
     ]);
 
-    // Enregistrer le refresh token en DB
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7); // +7 jours
+    expiresAt.setDate(expiresAt.getDate() + 7);
 
     await this.prisma.refreshToken.create({
       data: {
@@ -97,91 +183,26 @@ export class AuthService {
       },
     });
 
-    return {
-      accessToken,
-      refreshToken,
-      user: { id: userId, role }
-    };
+    return { accessToken, refreshToken, user: { id: userId, role } };
   }
 
   async revokeRefreshToken(userId: string, token: string) {
     await this.prisma.refreshToken.updateMany({
-      where: {
-        user_id: userId,
-        token: token,
-        is_revoked: false,
-      },
-      data: {
-        is_revoked: true,
-      },
+      where: { user_id: userId, token: token, is_revoked: false },
+      data: { is_revoked: true },
     });
   }
 
-  // --- LOGIQUE OTP ---
-
   async sendOtp(phoneNumber: string) {
-    // Générer un code à 6 chiffres
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 15 * 60000); // Valide 15 minutes
-
+    const expiresAt = new Date(Date.now() + 15 * 60000);
     await this.prisma.phoneVerification.create({
-      data: {
-        phone: phoneNumber,
-        code: code,
-        expires_at: expiresAt,
-      }
+      data: { phone: phoneNumber, code, expires_at: expiresAt }
     });
-
-    // En production, on utiliserait le SDK Twilio ici:
-    // await this.twilioClient.messages.create({ body: `Votre code Mindset: ${code}`, from: '...', to: phoneNumber });
     console.log(`[MOCK SMS] Envoi du code ${code} au numéro ${phoneNumber}`);
   }
 
   async verifyOtp(dto: VerifyOtpDto) {
-    const verification = await this.prisma.phoneVerification.findFirst({
-      where: {
-        phone: dto.phone_number,
-        code: dto.code,
-        is_used: false,
-        expires_at: { gt: new Date() } // Non expiré
-      },
-      orderBy: { created_at: 'desc' }
-    });
-
-    if (!verification) {
-      throw new UnauthorizedException('Code OTP invalide ou expiré.');
-    }
-
-    // Marquer comme utilisé
-    await this.prisma.phoneVerification.update({
-      where: { id: verification.id },
-      data: { is_used: true }
-    });
-
-    // Valider le compte utilisateur
-    const user = await this.prisma.user.update({
-      where: { phone_number: dto.phone_number },
-      data: { is_phone_verified: true }
-    });
-
-    return { message: 'Numéro de téléphone vérifié avec succès.' };
-  }
-
-  async requestLoginOtp(phoneNumber: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { phone_number: phoneNumber }
-    });
-
-    if (!user) {
-      throw new UnauthorizedException('Aucun compte associé à ce numéro.');
-    }
-
-    await this.sendOtp(phoneNumber);
-    return { message: 'Code de connexion envoyé par SMS.' };
-  }
-
-  async verifyLoginOtp(dto: VerifyOtpDto) {
-    // Vérification du code
     const verification = await this.prisma.phoneVerification.findFirst({
       where: {
         phone: dto.phone_number,
@@ -192,33 +213,51 @@ export class AuthService {
       orderBy: { created_at: 'desc' }
     });
 
-    if (!verification) {
-      throw new UnauthorizedException('Code OTP invalide ou expiré.');
-    }
+    if (!verification) throw new UnauthorizedException('Code OTP invalide ou expiré.');
+    await this.prisma.phoneVerification.update({
+      where: { id: verification.id },
+      data: { is_used: true }
+    });
+    await this.prisma.user.update({
+      where: { phone_number: dto.phone_number },
+      data: { is_phone_verified: true }
+    });
+    return { message: 'Numéro de téléphone vérifié avec succès.' };
+  }
 
-    // Utilisateur associé
-    const user = await this.prisma.user.findUnique({
-      where: { phone_number: dto.phone_number }
+  async requestLoginOtp(phoneNumber: string) {
+    const user = await this.prisma.user.findUnique({ where: { phone_number: phoneNumber } });
+    if (!user) throw new UnauthorizedException('Aucun compte associé à ce numéro.');
+    await this.sendOtp(phoneNumber);
+    return { message: 'Code de connexion envoyé par SMS.' };
+  }
+
+  async verifyLoginOtp(dto: VerifyOtpDto) {
+    const verification = await this.prisma.phoneVerification.findFirst({
+      where: {
+        phone: dto.phone_number,
+        code: dto.code,
+        is_used: false,
+        expires_at: { gt: new Date() }
+      },
+      orderBy: { created_at: 'desc' }
     });
 
-    if (!user) {
-      throw new UnauthorizedException('Utilisateur introuvable.');
-    }
+    if (!verification) throw new UnauthorizedException('Code OTP invalide ou expiré.');
+    const user = await this.prisma.user.findUnique({ where: { phone_number: dto.phone_number } });
+    if (!user) throw new UnauthorizedException('Utilisateur introuvable.');
 
-    // Marquer comme utilisé
     await this.prisma.phoneVerification.update({
       where: { id: verification.id },
       data: { is_used: true }
     });
 
-    // Si c'est sa première connexion et qu'il n'était pas vérifié, on le valide
     if (!user.is_phone_verified) {
       await this.prisma.user.update({
         where: { id: user.id },
         data: { is_phone_verified: true }
       });
     }
-
     return this.generateTokens(user.id, user.role);
   }
 
@@ -227,9 +266,7 @@ export class AuthService {
       where: { id: userId },
       include: { subscription: true }
     });
-    if (!user) {
-      throw new UnauthorizedException('Utilisateur introuvable.');
-    }
+    if (!user) throw new UnauthorizedException('Utilisateur introuvable.');
     const { password_hash, ...result } = user;
     return result;
   }

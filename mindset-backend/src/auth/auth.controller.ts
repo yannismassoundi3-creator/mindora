@@ -54,10 +54,19 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Connexion de l\'utilisateur' })
+  @ApiOperation({ summary: 'Connexion de l\'utilisateur (Etape 1: 2FA)' })
+  @ApiResponse({ status: 200, description: 'Retourne requires2FA: true si les identifiants sont valides.' })
+  async login(@Body() loginDto: LoginDto) {
+    // Étape 1 : Vérifie le mot de passe et envoie le code 2FA par e-mail
+    return this.authService.login(loginDto);
+  }
+
+  @Post('verify-2fa')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Vérifier le code 2FA par e-mail (Etape 2)' })
   @ApiResponse({ status: 200, description: 'Connexion réussie (retourne AccessToken et set RefreshToken en cookie).' })
-  async login(@Body() loginDto: LoginDto, @Res({ passthrough: true }) response: Response) {
-    const { accessToken, refreshToken, user, has_ai_profile } = await this.authService.login(loginDto);
+  async verify2FA(@Body() body: { email: string; code: string }, @Res({ passthrough: true }) response: Response) {
+    const { accessToken, refreshToken, user, has_ai_profile } = await this.authService.verify2FA(body.email, body.code);
     
     // Sécurité: Refresh Token en HttpOnly Cookie
     response.cookie('refresh_token', refreshToken, {
