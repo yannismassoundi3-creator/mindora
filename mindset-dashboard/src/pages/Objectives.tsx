@@ -41,18 +41,28 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
 
   const [microObjectives, setMicroObjectives] = useState<MicroObjective[]>(() => {
     const saved = localStorage.getItem('mindset_micro_obj');
-    return saved ? JSON.parse(saved) : [
+    const defaultMicro = [
       { id: 1, title: "Aller à la salle de sport", progress: 2, total: 4, done: false, category: "🏃 Sport" },
       { id: 2, title: "Lire 50 pages", progress: 50, total: 50, done: true, category: "🧠 Mindset" },
     ];
+    if (!saved) return defaultMicro;
+    try {
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) ? parsed : defaultMicro;
+    } catch { return defaultMicro; }
   });
 
   const [macroObjectives, setMacroObjectives] = useState<MacroObjective[]>(() => {
     const saved = localStorage.getItem('mindset_macro_obj');
-    return saved ? JSON.parse(saved) : [
+    const defaultMacro = [
       { id: 1, title: "Indépendance Financière", category: "💼 Business", deadline: "Déc 2026", bgGradient: GRADIENTS[0] },
       { id: 2, title: "Physique d'Athlète", category: "🏃 Sport", deadline: "Juil 2026", bgGradient: GRADIENTS[1] }
     ];
+    if (!saved) return defaultMacro;
+    try {
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) ? parsed : defaultMacro;
+    } catch { return defaultMacro; }
   });
 
   // Saving state

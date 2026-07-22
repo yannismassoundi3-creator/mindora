@@ -74,6 +74,7 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
+        if (!Array.isArray(parsed)) throw new Error('Not an array');
         const sanitized = parsed.map((h: any) => ({
           ...h,
           title: h.title || h.name || 'Habitude IA',

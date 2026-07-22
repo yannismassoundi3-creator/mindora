@@ -77,12 +77,16 @@ export const AIChat: React.FC = () => {
 
   const applyPlanData = (planData: any) => {
     if (planData.newHabits && Array.isArray(planData.newHabits)) {
-      const existingHabits = JSON.parse(localStorage.getItem('mindset_habits') || '[]');
-      const updatedHabits = [...existingHabits];
-      planData.newHabits.forEach((h: any) => {
+      let existingHabits = [];
+      try {
+        const parsed = JSON.parse(localStorage.getItem('mindset_habits') || '[]');
+        existingHabits = Array.isArray(parsed) ? parsed : [];
+      } catch {}
+      
+      const newEntries = planData.newHabits.map((h: any) => {
         const colors = ['#3b82f6', '#ec4899', '#8b5cf6', '#10b981', '#fcd34d', '#ef4444'];
         const randomColor = colors[Math.floor(Math.random() * colors.length)];
-        updatedHabits.push({
+        return {
           id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
           title: h.name || h.title || 'Nouvelle Habitude',
           icon: 'target',
@@ -90,13 +94,17 @@ export const AIChat: React.FC = () => {
           xp: 0,
           level: 1,
           history: []
-        });
+        };
       });
-      localStorage.setItem('mindset_habits', JSON.stringify(updatedHabits));
+      localStorage.setItem('mindset_habits', JSON.stringify([...existingHabits, ...newEntries]));
     }
     
     if (planData.newRoutines && Array.isArray(planData.newRoutines)) {
-      const existingRoutines = JSON.parse(localStorage.getItem('mindset_routines_data') || '[]');
+      let existingRoutines = [];
+      try {
+        const parsed = JSON.parse(localStorage.getItem('mindset_routines_data') || '[]');
+        existingRoutines = Array.isArray(parsed) ? parsed : [];
+      } catch {}
       const updatedRoutines = [...existingRoutines];
       planData.newRoutines.forEach((r: any) => {
         const routineDate = new Date().toISOString().split('T')[0];

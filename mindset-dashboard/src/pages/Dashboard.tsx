@@ -138,14 +138,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
     }
 
     // Si c'est un nouveau jour, on décoche toutes les routines
-    if (parsedGroups && lastDate !== today) {
+    if (Array.isArray(parsedGroups) && lastDate !== today) {
       parsedGroups = parsedGroups.map((group: any) => ({
         ...group,
-        items: group.items ? group.items.map((item: any) => ({ ...item, done: false })) : []
+        items: Array.isArray(group.items) ? group.items.map((item: any) => ({ ...item, done: false })) : []
       }));
     }
 
-    if (parsedGroups && parsedGroups.length > 0) return parsedGroups;
+    if (Array.isArray(parsedGroups) && parsedGroups.length > 0) return parsedGroups;
 
     return [
       {
@@ -187,8 +187,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   }, [routineGroups]);
 
   // --- SCORE CALCULATION ---
-  const totalRoutines = routineGroups.reduce((acc: number, group: any) => acc + (group.items ? group.items.length : 0), 0);
-  const doneRoutines = routineGroups.reduce((acc: number, group: any) => acc + (group.items ? group.items.filter((i: any) => i.done).length : 0), 0);
+  const totalRoutines = Array.isArray(routineGroups) ? routineGroups.reduce((acc: number, group: any) => acc + (Array.isArray(group.items) ? group.items.length : 0), 0) : 0;
+  const doneRoutines = Array.isArray(routineGroups) ? routineGroups.reduce((acc: number, group: any) => acc + (Array.isArray(group.items) ? group.items.filter((i: any) => i.done).length : 0), 0) : 0;
 
   const [bonusScore, setBonusScore] = useState(0);
 
@@ -197,9 +197,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
     const handleStorage = () => {
       try {
         const saved = JSON.parse(localStorage.getItem('mindset_micro_obj') || '[]');
-        const todayKey = getTodayKey();
-        const currentBonus = saved.filter((o: any) => o.done && o.awardedDate === todayKey).length * 10;
-        setBonusScore(currentBonus);
+        if (Array.isArray(saved)) {
+          const todayKey = getTodayKey();
+          const currentBonus = saved.filter((o: any) => o.done && o.awardedDate === todayKey).length * 10;
+          setBonusScore(currentBonus);
+        } else {
+          setBonusScore(0);
+        }
       } catch {}
     };
     window.addEventListener('storage', handleStorage);
@@ -335,8 +339,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
     let itemWasDone = false;
     let newlyDoneCount = 0;
 
-    const newGroups = routineGroups.map((group: any) => {
-      const newItems = group.items.map((item: any) => {
+    const newGroups = (Array.isArray(routineGroups) ? routineGroups : []).map((group: any) => {
+      const newItems = (Array.isArray(group.items) ? group.items : []).map((item: any) => {
         if (item.id === id) {
           itemWasDone = item.done;
           if (!itemWasDone) newlyDoneCount++;
@@ -377,8 +381,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   };
 
   const saveEditing = (id: number) => {
-    const newGroups = routineGroups.map((group: any) => {
-      const newItems = group.items.map((item: any) => {
+    const newGroups = (Array.isArray(routineGroups) ? routineGroups : []).map((group: any) => {
+      const newItems = (Array.isArray(group.items) ? group.items : []).map((item: any) => {
         if (item.id === id) return { ...item, title: editTitle };
         return item;
       });
@@ -599,10 +603,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
           
           <div className={`routine-list ${slideDirection}`}>
             <span className="time-est glass-badge mb-3">
-              {currentGroup.items.filter((r: any) => !r.done).length} tâche(s) restante(s)
+              {Array.isArray(currentGroup.items) ? currentGroup.items.filter((r: any) => !r.done).length : 0} tâche(s) restante(s)
             </span>
             
-            {currentGroup.items.map((routine: any) => (
+            {Array.isArray(currentGroup.items) && currentGroup.items.map((routine: any) => (
               <div key={routine.id} className={`routine-item ${routine.done ? 'done' : ''} glass-panel-interactive`}>
                 <div className="routine-checkbox" onClick={(e) => toggleRoutine(e, routine.id)}>
                   {routine.done ? <CheckCircle2 size={18} /> : <Circle size={18} color="rgba(255,255,255,0.4)" />}
