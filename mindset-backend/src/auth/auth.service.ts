@@ -112,8 +112,9 @@ export class AuthService {
 
   async send2FAEmail(email: string, code: string) {
     try {
+      const senderEmail = this.configService.get<string>('SMTP_USER') || 'security@mindset-elite.com';
       await this.transporter.sendMail({
-        from: '"Mindset Elite Security" <security@mindset-elite.com>',
+        from: `"Mindset Elite Security" <${senderEmail}>`,
         to: email,
         subject: 'Votre code de connexion Mindset',
         html: `
