@@ -304,14 +304,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
     if (isAnimating) return;
     setIsAnimating(true);
     playClickSound();
-    setSlideDirection('slide-left');
+    
+    // Switch immediately, only play ONE animation (slide-in)
+    setCurrentRoutineIndex((prev) => (prev + 1) % routineGroups.length);
+    setSlideDirection('slide-in-right');
+    
     setTimeout(() => {
-      setCurrentRoutineIndex((prev) => (prev + 1) % routineGroups.length);
-      setSlideDirection('slide-in-right');
-      setTimeout(() => {
-        setSlideDirection('none');
-        setIsAnimating(false);
-      }, 300);
+      setSlideDirection('none');
+      setIsAnimating(false);
     }, 300);
   };
 
@@ -319,14 +319,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
     if (isAnimating) return;
     setIsAnimating(true);
     playClickSound();
-    setSlideDirection('slide-right');
+    
+    // Switch immediately, only play ONE animation (slide-in)
+    setCurrentRoutineIndex((prev) => (prev === 0 ? routineGroups.length - 1 : prev - 1));
+    setSlideDirection('slide-in-left');
+    
     setTimeout(() => {
-      setCurrentRoutineIndex((prev) => (prev === 0 ? routineGroups.length - 1 : prev - 1));
-      setSlideDirection('slide-in-left');
-      setTimeout(() => {
-        setSlideDirection('none');
-        setIsAnimating(false);
-      }, 300);
+      setSlideDirection('none');
+      setIsAnimating(false);
     }, 300);
   };
 
@@ -660,14 +660,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
                 onClick={() => {
                   if (idx !== currentRoutineIndex && !isAnimating) {
                     setIsAnimating(true);
-                    setSlideDirection(idx > currentRoutineIndex ? 'slide-left' : 'slide-right');
+                    
+                    // Switch immediately, only play ONE animation
+                    setCurrentRoutineIndex(idx);
+                    setSlideDirection(idx > currentRoutineIndex ? 'slide-in-right' : 'slide-in-left');
+                    
                     setTimeout(() => {
-                      setCurrentRoutineIndex(idx);
-                      setSlideDirection(idx > currentRoutineIndex ? 'slide-in-right' : 'slide-in-left');
-                      setTimeout(() => {
-                        setSlideDirection('none');
-                        setIsAnimating(false);
-                      }, 300);
+                      setSlideDirection('none');
+                      setIsAnimating(false);
                     }, 300);
                   }
                 }}
