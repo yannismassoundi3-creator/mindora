@@ -211,13 +211,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
     const savedPreviousStreak = parseInt(localStorage.getItem('mindset_previous_streak') || '0', 10);
     
     if (currentStreak === 0 && savedPreviousStreak > 0) {
-      window.dispatchEvent(new CustomEvent('streakBroken', { detail: { lostStreak: savedPreviousStreak } }));
-      
-      const currentPoints = parseInt(localStorage.getItem('mindset_points') || '0', 10);
-      const newPoints = Math.max(0, currentPoints - 50);
-      setPoints(newPoints);
-      localStorage.setItem('mindset_points', newPoints.toString());
-      window.dispatchEvent(new CustomEvent('pointsChanged', { detail: newPoints }));
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('streakBroken', { detail: { lostStreak: savedPreviousStreak } }));
+        
+        const currentPoints = parseInt(localStorage.getItem('mindset_points') || '0', 10);
+        const newPoints = Math.max(0, currentPoints - 50);
+        setPoints(newPoints);
+        localStorage.setItem('mindset_points', newPoints.toString());
+        window.dispatchEvent(new CustomEvent('pointsChanged', { detail: newPoints }));
+      }, 500); // 500ms delay to ensure all components are mounted
       
       localStorage.setItem('mindset_previous_streak', '0');
     } else if (currentStreak > 0) {
