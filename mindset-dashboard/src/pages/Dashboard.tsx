@@ -293,6 +293,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   // --- CAROUSEL ---
   const [currentRoutineIndex, setCurrentRoutineIndex] = useState(0);
   const [slideDirection, setSlideDirection] = useState('none');
+  const [isAnimating, setIsAnimating] = useState(false);
   const [activeChartTab, setActiveChartTab] = useState('today');
   const currentGroup = routineGroups[currentRoutineIndex] || { title: 'Aucune routine', desc: 'Créez vos routines', items: [] };
 
@@ -300,22 +301,32 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   const [editTitle, setEditTitle] = useState('');
 
   const nextRoutine = () => {
+    if (isAnimating) return;
+    setIsAnimating(true);
     playClickSound();
     setSlideDirection('slide-left');
     setTimeout(() => {
       setCurrentRoutineIndex((prev) => (prev + 1) % routineGroups.length);
       setSlideDirection('slide-in-right');
-      setTimeout(() => setSlideDirection('none'), 300);
+      setTimeout(() => {
+        setSlideDirection('none');
+        setIsAnimating(false);
+      }, 300);
     }, 300);
   };
 
   const prevRoutine = () => {
+    if (isAnimating) return;
+    setIsAnimating(true);
     playClickSound();
     setSlideDirection('slide-right');
     setTimeout(() => {
       setCurrentRoutineIndex((prev) => (prev === 0 ? routineGroups.length - 1 : prev - 1));
       setSlideDirection('slide-in-left');
-      setTimeout(() => setSlideDirection('none'), 300);
+      setTimeout(() => {
+        setSlideDirection('none');
+        setIsAnimating(false);
+      }, 300);
     }, 300);
   };
 
@@ -593,50 +604,52 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
         {/* Routines Carousel */}
         <section className="glass-panel routines-section">
           <div className="section-header routine-carousel-header">
-            <button className="carousel-nav-btn" onClick={prevRoutine}><ChevronLeft size={24} /></button>
+            <button className="carousel-nav-btn" onClick={prevRoutine} disabled={isAnimating}><ChevronLeft size={24} /></button>
             <div className="routine-title-container">
               <h3 className={slideDirection}>{currentGroup.title}</h3>
-              <p className={`section-desc ${slideDirection}`}>{currentGroup.desc}</p>
             </div>
-            <button className="carousel-nav-btn" onClick={nextRoutine}><ChevronRight size={24} /></button>
+            <button className="carousel-nav-btn" onClick={nextRoutine} disabled={isAnimating}><ChevronRight size={24} /></button>
           </div>
           
-          <div className={`routine-list ${slideDirection}`}>
-            <span className="time-est glass-badge mb-3">
-              {Array.isArray(currentGroup.items) ? currentGroup.items.filter((r: any) => !r.done).length : 0} tâche(s) restante(s)
-            </span>
-            
-            {Array.isArray(currentGroup.items) && currentGroup.items.map((routine: any) => (
-              <div key={routine.id} className={`routine-item ${routine.done ? 'done' : ''} glass-panel-interactive`}>
-                <div className="routine-checkbox" onClick={(e) => toggleRoutine(e, routine.id)}>
-                  {routine.done ? <CheckCircle2 size={18} /> : <Circle size={18} color="rgba(255,255,255,0.4)" />}
+          <div className={`routine-transition-wrapper ${slideDirection}`}>
+            <p className="section-desc mb-3" style={{ textAlign: 'center', width: '100%' }}>{currentGroup.desc}</p>
+            <div className="routine-list">
+              <span className="time-est glass-badge mb-3" style={{ alignSelf: 'center' }}>
+                {Array.isArray(currentGroup.items) ? currentGroup.items.filter((r: any) => !r.done).length : 0} tâche(s) restante(s)
+              </span>
+              
+              {Array.isArray(currentGroup.items) && currentGroup.items.map((routine: any) => (
+                <div key={routine.id} className={`routine-item ${routine.done ? 'done' : ''} glass-panel-interactive`}>
+                  <div className="routine-checkbox" onClick={(e) => toggleRoutine(e, routine.id)}>
+                    {routine.done ? <CheckCircle2 size={18} /> : <Circle size={18} color="rgba(255,255,255,0.4)" />}
+                  </div>
+                  <div className="routine-content">
+                    {editingId === routine.id ? (
+                      <input 
+                        type="text" 
+                        className="routine-edit-input" 
+                        value={editTitle}
+                        onChange={e => setEditTitle(e.target.value)}
+                        onBlur={() => saveEditing(routine.id)}
+                        onKeyDown={e => e.key === 'Enter' && saveEditing(routine.id)}
+                        autoFocus
+                      />
+                    ) : (
+                      <span className="routine-title">{routine.title}</span>
+                    )}
+                    <span className="routine-time">{routine.time}</span>
+                  </div>
+                  <button className="routine-edit-btn" onClick={() => startEditing(routine)}>
+                    <Pencil size={14} />
+                  </button>
                 </div>
-                <div className="routine-content">
-                  {editingId === routine.id ? (
-                    <input 
-                      type="text" 
-                      className="routine-edit-input" 
-                      value={editTitle}
-                      onChange={e => setEditTitle(e.target.value)}
-                      onBlur={() => saveEditing(routine.id)}
-                      onKeyDown={e => e.key === 'Enter' && saveEditing(routine.id)}
-                      autoFocus
-                    />
-                  ) : (
-                    <span className="routine-title">{routine.title}</span>
-                  )}
-                  <span className="routine-time">{routine.time}</span>
-                </div>
-                <button className="routine-edit-btn" onClick={() => startEditing(routine)}>
-                  <Pencil size={14} />
-                </button>
-              </div>
-            ))}
+              ))}
 
-            <button className="add-routine-btn" onClick={addNewRoutine}>
-              <Plus size={18} />
-              Ajouter une routine
-            </button>
+              <button className="add-routine-btn" onClick={addNewRoutine}>
+                <Plus size={18} />
+                Ajouter une routine
+              </button>
+            </div>
           </div>
           
           <div className="carousel-dots">
@@ -645,12 +658,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
                 key={idx} 
                 className={`carousel-dot ${idx === currentRoutineIndex ? 'active' : ''}`}
                 onClick={() => {
-                  if (idx !== currentRoutineIndex) {
+                  if (idx !== currentRoutineIndex && !isAnimating) {
+                    setIsAnimating(true);
                     setSlideDirection(idx > currentRoutineIndex ? 'slide-left' : 'slide-right');
                     setTimeout(() => {
                       setCurrentRoutineIndex(idx);
                       setSlideDirection(idx > currentRoutineIndex ? 'slide-in-right' : 'slide-in-left');
-                      setTimeout(() => setSlideDirection('none'), 300);
+                      setTimeout(() => {
+                        setSlideDirection('none');
+                        setIsAnimating(false);
+                      }, 300);
                     }, 300);
                   }
                 }}
