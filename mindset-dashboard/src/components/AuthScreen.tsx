@@ -26,12 +26,10 @@ export const AuthScreen = ({ onComplete }: { onComplete: () => void }) => {
         const res = await api.post('/auth/login', { email, password });
         localStorage.setItem('mindset_token', res.access_token);
         localStorage.setItem('mindset_user_name', res.user?.first_name || 'User');
-        if (res.has_ai_profile) {
-          localStorage.setItem('hasCompletedOnboarding', 'true');
-        } else {
-          localStorage.removeItem('hasCompletedOnboarding');
-        }
+        
         await api.downloadCloudState();
+        // Always skip onboarding for returning users who log in
+        localStorage.setItem('hasCompletedOnboarding', 'true');
         onComplete();
       } else {
         await api.post('/auth/register', { 
