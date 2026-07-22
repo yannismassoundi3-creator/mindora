@@ -17,14 +17,29 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
   ) {
-    this.transporter = nodemailer.createTransport({
-      host: this.configService.get<string>('SMTP_HOST') || 'smtp.ethereal.email',
-      port: parseInt(this.configService.get<string>('SMTP_PORT') || '587', 10),
-      auth: {
-        user: this.configService.get<string>('SMTP_USER') || 'ethereal_user',
-        pass: this.configService.get<string>('SMTP_PASS') || 'ethereal_pass',
-      },
-    });
+    const smtpHost = this.configService.get<string>('SMTP_HOST') || 'smtp.ethereal.email';
+    const smtpUser = this.configService.get<string>('SMTP_USER') || 'ethereal_user';
+    const smtpPass = this.configService.get<string>('SMTP_PASS') || 'ethereal_pass';
+
+    if (smtpHost.includes('gmail')) {
+      this.transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: smtpUser,
+          pass: smtpPass,
+        },
+      });
+    } else {
+      this.transporter = nodemailer.createTransport({
+        host: smtpHost,
+        port: parseInt(this.configService.get<string>('SMTP_PORT') || '587', 10),
+        secure: false, // true for 465, false for other ports
+        auth: {
+          user: smtpUser,
+          pass: smtpPass,
+        },
+      });
+    }
   }
 
   async register(dto: RegisterDto) {
