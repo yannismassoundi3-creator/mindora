@@ -38,7 +38,7 @@ function App() {
   const hasCompletedOnboarding = localStorage.getItem('hasCompletedOnboarding') === 'true';
 
   const [currentView, setCurrentView] = useState<'auth' | 'onboarding' | 'welcome' | 'dashboard' | 'chat' | 'objectives' | 'habits' | 'profile'>(
-    isAuthIntent ? 'auth' : (hasToken && hasCompletedOnboarding ? 'dashboard' : 'welcome')
+    (isAuthIntent && !hasToken) ? 'auth' : (hasToken && hasCompletedOnboarding ? 'dashboard' : 'welcome')
   );
 
   const [isSubscribed, setIsSubscribed] = useState(() => localStorage.getItem('mindset_is_subscribed') === 'true');

@@ -17,6 +17,7 @@ export default defineConfig({
         name: 'Mindset Elite',
         short_name: 'Mindset',
         description: 'Reprogramme ton esprit avec l\'IA.',
+        start_url: '/',
         theme_color: '#0a0a0a',
         background_color: '#0a0a0a',
         display: 'standalone',
