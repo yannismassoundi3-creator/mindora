@@ -77,6 +77,17 @@ export class AuthService {
       throw new UnauthorizedException('Identifiants invalides.');
     }
 
+    // Vérifier si le SMTP est configuré. Sinon, bypass 2FA pour ne pas bloquer l'utilisateur.
+    const smtpUser = this.configService.get<string>('SMTP_USER');
+    if (!smtpUser || smtpUser === 'ethereal_user') {
+      console.log(`[AUTH] 2FA bypassé pour ${user.email} car SMTP n'est pas configuré.`);
+      const tokens = await this.generateTokens(user.id, user.role);
+      return {
+        ...tokens,
+        has_ai_profile: !!user.ai_profile
+      };
+    }
+
     // 2FA par E-mail
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60000); // 10 min
@@ -89,7 +100,8 @@ export class AuthService {
       }
     });
 
-    await this.send2FAEmail(user.email, code);
+    // Send in background to avoid hanging the login request if SMTP is slow
+    this.send2FAEmail(user.email, code).catch(console.error);
 
     return {
       requires2FA: true,
