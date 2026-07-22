@@ -5,6 +5,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Request } from 'express';
 
 @ApiTags('AI Coaching')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('ai-coaching')
 export class AiCoachingController {
   constructor(private readonly aiCoachingService: AiCoachingService) {}
