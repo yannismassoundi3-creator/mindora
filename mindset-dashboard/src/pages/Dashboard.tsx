@@ -115,6 +115,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   useEffect(() => {
     const options: Intl.DateTimeFormatOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
     setCurrentDate(new Date().toLocaleDateString('fr-FR', options));
+    
+    // Demander la permission push au chargement du dashboard
+    setTimeout(() => {
+      api.subscribeToPushNotifications().catch(console.error);
+    }, 2000);
   }, []);
 
   const [points, setPoints] = useState(() => parseInt(localStorage.getItem('mindset_points') || '0', 10));

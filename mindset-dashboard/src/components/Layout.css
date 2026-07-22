@@ -150,15 +150,14 @@
   }
 
   .bottom-nav {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
     position: fixed;
     bottom: 24px;
     left: 50%;
     transform: translateX(-50%);
     width: 95%;
     max-width: 400px;
-    justify-content: space-between;
-    align-items: center;
     padding: 12px 10px;
     z-index: 100;
     border-radius: 32px;

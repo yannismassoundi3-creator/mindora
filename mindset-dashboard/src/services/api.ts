@@ -66,7 +66,8 @@ export const api = {
 
   subscribeToPushNotifications: async () => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      throw new Error('Notifications_Not_Supported');
+      console.warn('Notifications_Not_Supported');
+      return false;
     }
     
     let permission = Notification.permission;
@@ -75,7 +76,8 @@ export const api = {
     }
     
     if (permission !== 'granted') {
-      throw new Error('Permission_Denied');
+      console.warn('Permission_Denied');
+      return false;
     }
 
     const registration = await navigator.serviceWorker.ready;

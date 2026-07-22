@@ -113,22 +113,36 @@ function App() {
 
 
 
+  const VIEW_ORDER = ['dashboard', 'objectives', 'chat', 'habits', 'profile'];
+  const [slideDirection, setSlideDirection] = useState<'right' | 'left' | 'none'>('none');
+
+  const handleSetView = (v: string) => {
+    const prevIdx = VIEW_ORDER.indexOf(currentView);
+    const newIdx = VIEW_ORDER.indexOf(v);
+    
+    if (newIdx !== -1 && prevIdx !== -1 && newIdx !== prevIdx) {
+      setSlideDirection(newIdx > prevIdx ? 'right' : 'left');
+    }
+    
+    if ((v === 'chat' || v === 'objectives' || v === 'habits') && !isSubscribed && !IS_BETA_TEST_PHASE) {
+      setShowPricingModal(true);
+    } else {
+      setCurrentView(v as any);
+    }
+  };
+
   return (
     <Layout 
       activeView={currentView} 
-      setView={(v) => {
-        if ((v === 'chat' || v === 'objectives' || v === 'habits') && !isSubscribed && !IS_BETA_TEST_PHASE) {
-          setShowPricingModal(true);
-        } else {
-          setCurrentView(v as any);
-        }
-      }}
+      setView={handleSetView}
     >
-      {currentView === 'dashboard' && <Dashboard onOpenChat={tryOpenChat} />}
-      {currentView === 'chat' && <AIChat />}
-      {currentView === 'objectives' && <Objectives onOpenChat={tryOpenChat} />}
-      {currentView === 'habits' && <Habits onOpenChat={tryOpenChat} />}
-      {currentView === 'profile' && <Profile onNameChange={() => window.location.reload()} />}
+      <div key={currentView} className={`view-transition-wrapper slide-${slideDirection}`}>
+        {currentView === 'dashboard' && <Dashboard onOpenChat={tryOpenChat} />}
+        {currentView === 'chat' && <AIChat />}
+        {currentView === 'objectives' && <Objectives onOpenChat={tryOpenChat} />}
+        {currentView === 'habits' && <Habits onOpenChat={tryOpenChat} />}
+        {currentView === 'profile' && <Profile onNameChange={() => window.location.reload()} />}
+      </div>
       
       {showPricingModal && (
         <PricingScreen 
