@@ -13,6 +13,7 @@ import { PricingScreen } from './pages/PricingScreen';
 import { LevelUpOverlay } from './components/LevelUpOverlay';
 import { StreakBrokenOverlay } from './components/StreakBrokenOverlay';
 import { SkeletonGlow } from './components/SkeletonGlow';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { registerSW } from 'virtual:pwa-register';
 import './styles/global.css';
 
@@ -137,35 +138,37 @@ function App() {
   };
 
   return (
-    <Layout 
-      activeView={currentView} 
-      setView={handleSetView}
-    >
-      <div key={currentView} className={`view-transition-wrapper slide-${slideDirection}`}>
-        {isInitializing && currentView !== 'welcome' && currentView !== 'auth' && currentView !== 'onboarding' ? (
-          <div style={{ padding: '20px' }}>
-            <SkeletonGlow rows={4} />
-          </div>
-        ) : (
-          <>
-            {currentView === 'dashboard' && <Dashboard onOpenChat={tryOpenChat} />}
-            {currentView === 'chat' && <AIChat />}
-            {currentView === 'objectives' && <Objectives onOpenChat={tryOpenChat} />}
-            {currentView === 'habits' && <Habits onOpenChat={tryOpenChat} />}
-            {currentView === 'profile' && <Profile onNameChange={() => window.location.reload()} />}
-          </>
+    <ErrorBoundary>
+      <Layout 
+        activeView={currentView} 
+        setView={handleSetView}
+      >
+        <div key={currentView} className={`view-transition-wrapper slide-${slideDirection}`}>
+          {isInitializing && currentView !== 'welcome' && currentView !== 'auth' && currentView !== 'onboarding' ? (
+            <div style={{ padding: '20px' }}>
+              <SkeletonGlow rows={4} />
+            </div>
+          ) : (
+            <>
+              {currentView === 'dashboard' && <Dashboard onOpenChat={tryOpenChat} />}
+              {currentView === 'chat' && <AIChat />}
+              {currentView === 'objectives' && <Objectives onOpenChat={tryOpenChat} />}
+              {currentView === 'habits' && <Habits onOpenChat={tryOpenChat} />}
+              {currentView === 'profile' && <Profile onNameChange={() => window.location.reload()} />}
+            </>
+          )}
+        </div>
+        
+        {showPricingModal && (
+          <PricingScreen 
+            onSubscribe={handleSubscribe} 
+            onClose={() => setShowPricingModal(false)} 
+          />
         )}
-      </div>
-      
-      {showPricingModal && (
-        <PricingScreen 
-          onSubscribe={handleSubscribe} 
-          onClose={() => setShowPricingModal(false)} 
-        />
-      )}
-      <LevelUpOverlay />
-      <StreakBrokenOverlay />
-    </Layout>
+        <LevelUpOverlay />
+        <StreakBrokenOverlay />
+      </Layout>
+    </ErrorBoundary>
   );
 }
 
