@@ -90,11 +90,63 @@ export class PushService implements OnModuleInit {
       await this.sendBulkReminders('Check-in de 18h 🎯', 'Où en es-tu dans tes objectifs ? Viens faire le point.');
     }, { timezone: 'Europe/Paris' });
 
-    // 22:00 - Night Review
-    cron.schedule('0 22 * * *', async () => {
-      this.logger.log('Running night push reminder cron job at 22:00');
-      await this.sendBulkReminders('C\'est l\'heure du bilan 🌙', 'Valide tes dernières routines avant de dormir.');
+    // 20:00 - Streak Warnings (1st day)
+    cron.schedule('0 20 * * *', async () => {
+      this.logger.log('Running evening streak warnings at 20:00');
+      await this.checkStreaksAndWarn(20);
     }, { timezone: 'Europe/Paris' });
+
+    // 22:00 - Night Review & Urgent Warnings (2nd day)
+    cron.schedule('0 22 * * *', async () => {
+      this.logger.log('Running night push reminder and last chance at 22:00');
+      await this.checkStreaksAndWarn(22);
+    }, { timezone: 'Europe/Paris' });
+  }
+
+  async checkStreaksAndWarn(hour: number) {
+    const users = await this.prisma.user.findMany({
+      include: { push_subscriptions: true, sync_data: true }
+    });
+
+    const today = new Date().toISOString().slice(0, 10);
+    const dYesterday = new Date();
+    dYesterday.setDate(dYesterday.getDate() - 1);
+    const yesterday = dYesterday.toISOString().slice(0, 10);
+
+    for (const user of users) {
+      if (!user.push_subscriptions || user.push_subscriptions.length === 0) continue;
+      
+      const scores = (user.sync_data?.daily_scores as Record<string, number>) || {};
+      const scoreToday = scores[today] || 0;
+      const scoreYesterday = scores[yesterday] || 0;
+      
+      if (hour === 20) {
+        // Warning 1st day miss
+        if (scoreToday === 0 && scoreYesterday > 0) {
+          await this.sendNotification(user.id, {
+            title: 'Attention ! 😡',
+            body: 'Tu n\'as pas encore fait tes routines aujourd\'hui. Ne brise pas ton rythme !',
+            url: 'https://mindset-elite.com'
+          });
+        }
+      } else if (hour === 22) {
+        // Warning 2nd day miss (Urgency)
+        if (scoreToday === 0 && scoreYesterday === 0) {
+          await this.sendNotification(user.id, {
+            title: '🚨 URGENCE STREAK 🚨',
+            body: 'Dernier avertissement ! Ta série va disparaître à minuit si tu n\'agis pas tout de suite !',
+            url: 'https://mindset-elite.com'
+          });
+        } else if (scoreToday === 0 && scoreYesterday > 0) {
+          // Normal night review for those who just haven't finished today yet
+          await this.sendNotification(user.id, {
+            title: 'C\'est l\'heure du bilan 🌙',
+            body: 'Valide tes dernières routines avant de dormir.',
+            url: 'https://mindset-elite.com'
+          });
+        }
+      }
+    }
   }
 
   async sendBulkReminders(title: string, body: string) {

@@ -45,19 +45,27 @@ function calculateStreak(): number {
   const scores = loadDailyScores();
   let streak = 0;
   const today = getTodayKey();
+  let consecutiveMisses = 0;
   
-  if (scores[today] && scores[today] > 0) {
-    streak = 1;
+  if (!scores[today] || scores[today] === 0) {
+    consecutiveMisses++;
+  } else {
+    streak++;
   }
   
   for (let i = 1; i <= 365; i++) {
     const d = new Date();
     d.setDate(d.getDate() - i);
     const key = d.toISOString().slice(0, 10);
+    
     if (scores[key] && scores[key] > 0) {
       streak++;
+      consecutiveMisses = 0;
     } else {
-      break;
+      consecutiveMisses++;
+      if (consecutiveMisses >= 2) {
+        break;
+      }
     }
   }
   return streak;

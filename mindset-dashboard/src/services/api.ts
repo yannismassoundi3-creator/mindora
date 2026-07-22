@@ -39,6 +39,7 @@ export const api = {
         if (data.points !== undefined) localStorage.setItem('mindset_points', data.points.toString());
         if (data.mental_score !== undefined) localStorage.setItem('mental_score', data.mental_score.toString());
         if (data.bonus_score !== undefined) localStorage.setItem('bonus_mental_score', data.bonus_score.toString());
+        if (data.daily_scores) localStorage.setItem('mindset_daily_scores', JSON.stringify(data.daily_scores));
       }
     } catch (e) {
       console.error('Failed to download state', e);
@@ -55,6 +56,7 @@ export const api = {
         points: parseInt(localStorage.getItem('mindset_points') || '0', 10),
         mental_score: parseInt(localStorage.getItem('mental_score') || '0', 10),
         bonus_score: parseInt(localStorage.getItem('bonus_mental_score') || '0', 10),
+        daily_scores: JSON.parse(localStorage.getItem('mindset_daily_scores') || '{}'),
       };
       await api.post('/sync/state', state);
     } catch (e) {
