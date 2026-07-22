@@ -4,9 +4,13 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as argon2 from 'argon2';
 import * as nodemailer from 'nodemailer';
+import * as dns from 'dns';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
+
+// Forcer l'utilisation de l'IPv4 pour contourner l'erreur ENETUNREACH (IPv6) de Render
+dns.setDefaultResultOrder('ipv4first');
 
 @Injectable()
 export class AuthService {
