@@ -118,15 +118,21 @@ function urlBase64ToUint8Array(base64String: string) {
 
 // Global debounced auto-sync hook
 let syncTimeout: any;
-const originalSetItem = localStorage.setItem;
-localStorage.setItem = function(key, value) {
-  originalSetItem.apply(this, [key, value]);
-  if (key.startsWith('mindset_') || key.includes('mental_score')) {
-    clearTimeout(syncTimeout);
-    syncTimeout = setTimeout(() => {
-      if (localStorage.getItem('mindset_token')) {
-        api.syncStateToCloud();
-      }
-    }, 2000); // 2 seconds debounce
-  }
-};
+try {
+  const originalSetItem = localStorage.setItem;
+  localStorage.setItem = function(key, value) {
+    originalSetItem.apply(this, [key, value]);
+    if (key.startsWith('mindset_') || key.includes('mental_score')) {
+      clearTimeout(syncTimeout);
+      syncTimeout = setTimeout(() => {
+        try {
+          if (localStorage.getItem('mindset_token')) {
+            api.syncStateToCloud();
+          }
+        } catch (e) {}
+      }, 2000); // 2 seconds debounce
+    }
+  };
+} catch (e) {
+  console.warn('localStorage override failed');
+}

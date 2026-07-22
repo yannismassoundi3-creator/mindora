@@ -42,6 +42,10 @@ function App() {
   );
 
   const [isSubscribed, setIsSubscribed] = useState(() => localStorage.getItem('mindset_is_subscribed') === 'true');
+
+  const VIEW_ORDER = ['dashboard', 'objectives', 'chat', 'habits', 'profile'];
+  const [slideDirection, setSlideDirection] = useState<'right' | 'left' | 'none'>('none');
+
   const [showPricingModal, setShowPricingModal] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
 
@@ -118,9 +122,6 @@ function App() {
   }
 
 
-
-  const VIEW_ORDER = ['dashboard', 'objectives', 'chat', 'habits', 'profile'];
-  const [slideDirection, setSlideDirection] = useState<'right' | 'left' | 'none'>('none');
 
   const handleSetView = (v: string) => {
     const prevIdx = VIEW_ORDER.indexOf(currentView);
