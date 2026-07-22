@@ -239,6 +239,7 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
 
   // CRUD
   const saveHabit = () => {
+    playClickSound();
     if (!editingHabit) return;
     if (habits.find(h => h.id === editingHabit.id)) {
       setHabits(habits.map(h => h.id === editingHabit.id ? editingHabit : h));
@@ -249,6 +250,7 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
   };
 
   const deleteHabit = () => {
+    playClickSound();
     if (editingHabit) {
       setHabits(habits.filter(h => h.id !== editingHabit.id));
       setEditingHabit(null);
@@ -256,6 +258,7 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
   };
 
   const openNewHabitModal = () => {
+    playClickSound();
     setEditingHabit({
       id: Date.now().toString(),
       title: 'Nouvelle Habitude',
@@ -283,7 +286,7 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
         </div>
         
         <div className="header-actions">
-          <button className="btn-primary glass-panel-interactive pulse-glow" onClick={onOpenChat}>
+          <button className="btn-primary glass-panel-interactive pulse-glow" onClick={() => { playClickSound(); onOpenChat(); }}>
             <Sparkles size={18} />
             Parler à {aiName}
           </button>
@@ -326,7 +329,7 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
                   <Zap size={16} className={`streak-icon ${streak > 0 ? 'active' : ''}`} style={{ color: streak > 0 ? '#fcd34d' : 'var(--secondary)' }} />
                 </div>
                 
-                <button className="edit-habit-btn" onClick={() => setEditingHabit(habit)}>
+                <button className="edit-habit-btn" onClick={() => { playClickSound(); setEditingHabit(habit); }}>
                   <Pencil size={14} />
                 </button>
               </div>
@@ -376,9 +379,9 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
 
       {/* EDIT MODAL */}
       {editingHabit && (
-        <div className="modal-backdrop" onClick={() => setEditingHabit(null)}>
+        <div className="modal-backdrop" onClick={() => { playClickSound(); setEditingHabit(null); }}>
           <div className="modal-content glass-panel edit-habit-modal" onClick={e => e.stopPropagation()}>
-            <button className="modal-close" onClick={() => setEditingHabit(null)}><X size={20} /></button>
+            <button className="modal-close" onClick={() => { playClickSound(); setEditingHabit(null); }}><X size={20} /></button>
             <h2 className="modal-title">Paramètres de l'Habitude</h2>
             
             <div className="form-group">
@@ -401,7 +404,7 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
                     <button 
                       key={ic.id}
                       className={`icon-swatch ${editingHabit.icon === ic.id ? 'selected' : ''}`}
-                      onClick={() => setEditingHabit({...editingHabit, icon: ic.id})}
+                      onClick={() => { playClickSound(); setEditingHabit({...editingHabit, icon: ic.id}); }}
                     >
                       <IconComp size={20} />
                     </button>
@@ -418,7 +421,7 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
                     key={c.value}
                     className={`color-swatch ${editingHabit.color === c.value ? 'selected' : ''}`}
                     style={{ backgroundColor: c.value }}
-                    onClick={() => setEditingHabit({...editingHabit, color: c.value})}
+                    onClick={() => { playClickSound(); setEditingHabit({...editingHabit, color: c.value}); }}
                     title={c.name}
                   />
                 ))}

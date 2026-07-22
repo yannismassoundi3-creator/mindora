@@ -26,6 +26,7 @@ const updateSW = registerSW({
 
 
 function App() {
+  const IS_BETA_TEST_PHASE = true; // Activer la phase de test gratuite
   const hasToken = !!localStorage.getItem('mindset_token');
   
   const urlParams = new URLSearchParams(window.location.search);
@@ -68,7 +69,7 @@ function App() {
   const handleOnboardingComplete = () => {
     localStorage.setItem('hasCompletedOnboarding', 'true');
     setCurrentView('dashboard');
-    if (!isSubscribed) {
+    if (!isSubscribed && !IS_BETA_TEST_PHASE) {
       setShowPricingModal(true);
     }
   };
@@ -80,7 +81,7 @@ function App() {
   };
 
   const tryOpenChat = () => {
-    if (isSubscribed) {
+    if (isSubscribed || IS_BETA_TEST_PHASE) {
       setCurrentView('chat');
     } else {
       setShowPricingModal(true);
@@ -114,7 +115,7 @@ function App() {
     <Layout 
       activeView={currentView} 
       setView={(v) => {
-        if ((v === 'chat' || v === 'objectives' || v === 'habits') && !isSubscribed) {
+        if ((v === 'chat' || v === 'objectives' || v === 'habits') && !isSubscribed && !IS_BETA_TEST_PHASE) {
           setShowPricingModal(true);
         } else {
           setCurrentView(v as any);

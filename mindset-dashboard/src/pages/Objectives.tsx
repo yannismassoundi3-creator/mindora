@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Target, Flag, Trophy, Plus, CheckCircle2, Circle, Sparkles, Pencil, Trash2, X } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { playClickSound, playLevelUpSound } from '../utils/sounds';
 import './Objectives.css';
 
 interface ObjectivesProps {
@@ -69,6 +70,7 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
   const [mForm, setMForm] = useState({ title: '', category: CATEGORIES[0], deadline: '', bgGradient: GRADIENTS[0] });
 
   const openMacroModal = (macro?: MacroObjective) => {
+    playClickSound();
     if (macro) {
       setEditingMacro(macro);
       setMForm(macro);
@@ -80,6 +82,7 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
   };
 
   const saveMacro = () => {
+    playClickSound();
     if (!mForm.title.trim()) return;
     if (editingMacro) {
       setMacroObjectives(prev => prev.map(m => m.id === editingMacro.id ? { ...mForm, id: m.id } : m));
@@ -90,6 +93,7 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
   };
 
   const deleteMacro = () => {
+    playClickSound();
     if (editingMacro) {
       setMacroObjectives(prev => prev.filter(m => m.id !== editingMacro.id));
     }
@@ -101,16 +105,19 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
   const [microForm, setMicroForm] = useState<Partial<MicroObjective>>({});
 
   const startMicroEdit = (micro: MicroObjective) => {
+    playClickSound();
     setEditingMicroId(micro.id);
     setMicroForm(micro);
   };
 
   const saveMicro = (id: number) => {
+    playClickSound();
     setMicroObjectives(prev => prev.map(m => m.id === id ? { ...m, ...microForm } as MicroObjective : m));
     setEditingMicroId(null);
   };
 
   const deleteMicro = (id: number) => {
+    playClickSound();
     setMicroObjectives(prev => prev.filter(m => m.id !== id));
     setEditingMicroId(null);
   };
@@ -121,7 +128,10 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
         const isNowDone = !obj.done;
         
         if (isNowDone) {
+          playLevelUpSound();
           confetti({ particleCount: 80, spread: 60, origin: { y: 0.8 }, colors: ['#3b82f6', '#ec4899', '#fcd34d'] });
+        } else {
+          playClickSound();
         }
 
         const getTodayKey = () => new Date().toISOString().slice(0, 10);
@@ -142,6 +152,7 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
   };
 
   const addMicroObjective = () => {
+    playClickSound();
     const newId = Date.now();
     const newMicro = { id: newId, title: "Nouvel Objectif", progress: 0, total: 1, done: false, category: CATEGORIES[0] };
     setMicroObjectives([...microObjectives, newMicro]);
@@ -163,7 +174,7 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
             <span className="points-value">{mentalScore}</span>
             <span className="points-label">% Mental</span>
           </div>
-          <button className="btn-primary glass-panel-interactive pulse-glow ai-header-btn" onClick={onOpenChat}>
+          <button className="btn-primary glass-panel-interactive pulse-glow ai-header-btn" onClick={() => { playClickSound(); onOpenChat(); }}>
             <div className="ai-jarvis-orb small"></div>
             Parler à {aiName}
           </button>
@@ -296,9 +307,9 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
 
       {/* MACRO MODAL */}
       {macroModalOpen && (
-        <div className="modal-backdrop" onClick={() => setMacroModalOpen(false)}>
+        <div className="modal-backdrop" onClick={() => { playClickSound(); setMacroModalOpen(false); }}>
           <div className="modal-content glass-panel" onClick={e => e.stopPropagation()}>
-            <button className="modal-close" onClick={() => setMacroModalOpen(false)}><X size={20} /></button>
+            <button className="modal-close" onClick={() => { playClickSound(); setMacroModalOpen(false); }}><X size={20} /></button>
             <h2 className="modal-title">{editingMacro ? 'Modifier la Vision' : 'Nouvelle Vision'}</h2>
             
             <div className="form-group">

@@ -3,6 +3,7 @@ import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, LineCh
 import { Play, CheckCircle2, TrendingUp, Zap, Sparkles, Pencil, Coins, Circle, ChevronLeft, ChevronRight, Plus, Trophy } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { api } from '../services/api';
+import { playClickSound, playBloopSound, playLevelUpSound } from '../utils/sounds';
 import './Dashboard.css';
 
 // --- HELPERS ---
@@ -263,6 +264,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   const [editTitle, setEditTitle] = useState('');
 
   const nextRoutine = () => {
+    playClickSound();
     setSlideDirection('slide-left');
     setTimeout(() => {
       setCurrentRoutineIndex((prev) => (prev + 1) % routineGroups.length);
@@ -272,6 +274,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   };
 
   const prevRoutine = () => {
+    playClickSound();
     setSlideDirection('slide-right');
     setTimeout(() => {
       setCurrentRoutineIndex((prev) => (prev === 0 ? routineGroups.length - 1 : prev - 1));
@@ -314,12 +317,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
     });
 
     if (!itemWasDone) {
+      playBloopSound();
       triggerDopamine(e);
       const newPoints = points + 5;
       setPoints(newPoints);
       localStorage.setItem('mindset_points', newPoints.toString());
 
       if (newlyDoneCount === totalRoutines) {
+        playLevelUpSound();
         setTimeout(() => triggerDopamine(), 500);
         setTimeout(() => triggerDopamine(), 1000);
       }
@@ -350,6 +355,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   };
 
   const addNewRoutine = () => {
+    playClickSound();
     let newGroups = [...routineGroups];
     if (newGroups.length === 0) {
       newGroups = [{ id: 'custom', title: 'Mes routines', desc: '', items: [] }];
@@ -396,7 +402,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
             <span className="points-value">{points}</span>
             <span className="points-label">Coins</span>
           </div>
-          <button className="btn-primary glass-panel-interactive pulse-glow" onClick={onOpenChat}>
+          <button className="btn-primary glass-panel-interactive pulse-glow" onClick={() => { playClickSound(); onOpenChat(); }}>
             <Sparkles size={18} />
             Parler à {aiName}
           </button>
@@ -413,9 +419,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
             </div>
             
             <div className="chart-tabs">
-              <button className={`chart-tab ${activeChartTab === 'today' ? 'active' : ''}`} onClick={() => setActiveChartTab('today')}>Aujourd'hui</button>
-              <button className={`chart-tab ${activeChartTab === 'week' ? 'active' : ''}`} onClick={() => setActiveChartTab('week')}>Semaine</button>
-              <button className={`chart-tab ${activeChartTab === 'trend' ? 'active' : ''}`} onClick={() => setActiveChartTab('trend')}>Tendance</button>
+              <button className={`chart-tab ${activeChartTab === 'today' ? 'active' : ''}`} onClick={() => { playClickSound(); setActiveChartTab('today'); }}>Aujourd'hui</button>
+              <button className={`chart-tab ${activeChartTab === 'week' ? 'active' : ''}`} onClick={() => { playClickSound(); setActiveChartTab('week'); }}>Semaine</button>
+              <button className={`chart-tab ${activeChartTab === 'trend' ? 'active' : ''}`} onClick={() => { playClickSound(); setActiveChartTab('trend'); }}>Tendance</button>
             </div>
           </div>
 
