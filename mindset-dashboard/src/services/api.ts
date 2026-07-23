@@ -19,7 +19,8 @@ export const api = {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
+      keepalive: true
     });
     if (!res.ok) {
         const err = await res.json();
@@ -40,6 +41,8 @@ export const api = {
         if (data.mental_score !== undefined) localStorage.setItem('mental_score', data.mental_score.toString());
         if (data.bonus_score !== undefined) localStorage.setItem('bonus_mental_score', data.bonus_score.toString());
         if (data.daily_scores) localStorage.setItem('mindset_daily_scores', JSON.stringify(data.daily_scores));
+        if (data.last_routine_date) localStorage.setItem('mindset_last_routine_date', data.last_routine_date);
+        if (data.last_habit_date) localStorage.setItem('mindset_last_habit_date', data.last_habit_date);
       }
     } catch (e) {
       console.error('Failed to download state', e);
@@ -57,6 +60,8 @@ export const api = {
         mental_score: parseInt(localStorage.getItem('mental_score') || '0', 10),
         bonus_score: parseInt(localStorage.getItem('bonus_mental_score') || '0', 10),
         daily_scores: JSON.parse(localStorage.getItem('mindset_daily_scores') || '{}'),
+        last_routine_date: localStorage.getItem('mindset_last_routine_date') || '',
+        last_habit_date: localStorage.getItem('mindset_last_habit_date') || '',
       };
       await api.post('/sync/state', state);
     } catch (e) {
@@ -118,10 +123,16 @@ function urlBase64ToUint8Array(base64String: string) {
 
 // Global debounced auto-sync hook
 let syncTimeout: any;
+let isSyncing = false;
+
 try {
   const originalSetItem = localStorage.setItem;
   localStorage.setItem = function(key, value) {
     originalSetItem.apply(this, [key, value]);
+    
+    // Ignore updates that are just downloading from cloud to prevent feedback loops
+    if (isSyncing) return;
+
     if (key.startsWith('mindset_') || key.includes('mental_score')) {
       clearTimeout(syncTimeout);
       syncTimeout = setTimeout(() => {
@@ -130,9 +141,24 @@ try {
             api.syncStateToCloud();
           }
         } catch (e) {}
-      }, 2000); // 2 seconds debounce
+      }, 500); // 500ms debounce
     }
   };
+
+  // Wrap downloadCloudState to prevent feedback loops
+  const originalDownload = api.downloadCloudState;
+  api.downloadCloudState = async () => {
+    isSyncing = true;
+    await originalDownload();
+    isSyncing = false;
+  };
+
+  // Force sync when page is hidden/closed to prevent data loss
+  window.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden' && localStorage.getItem('mindset_token')) {
+      api.syncStateToCloud();
+    }
+  });
 } catch (e) {
   console.warn('localStorage override failed');
 }
