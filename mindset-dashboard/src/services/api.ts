@@ -8,7 +8,13 @@ export const api = {
         'Authorization': `Bearer ${token}`
       }
     });
-    if (!res.ok) throw new Error('API Error');
+    if (!res.ok) {
+      if (res.status === 401) {
+        localStorage.removeItem('mindset_token');
+        window.location.href = '/?auth=true';
+      }
+      throw new Error('API Error');
+    }
     return res.json();
   },
   post: async (endpoint: string, data: any, keepalive: boolean = false) => {
@@ -23,7 +29,11 @@ export const api = {
       keepalive: keepalive
     });
     if (!res.ok) {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({}));
+        if (res.status === 401 && !endpoint.includes('/auth/')) {
+          localStorage.removeItem('mindset_token');
+          window.location.href = '/?auth=true';
+        }
         throw new Error(err.message || 'API Error');
     }
     return res.json();
