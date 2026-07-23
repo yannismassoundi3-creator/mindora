@@ -6,6 +6,7 @@ import { Onboarding } from './components/Onboarding';
 import { AIChat } from './components/AIChat';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { AuthScreen } from './components/AuthScreen';
+import { Shop } from './pages/Shop';
 import { Objectives } from './pages/Objectives';
 import { Habits } from './pages/Habits';
 import { Profile } from './pages/Profile';
@@ -38,7 +39,7 @@ function App() {
   const isAuthIntent = urlParams.get('auth') === 'true';
   const hasCompletedOnboarding = localStorage.getItem('hasCompletedOnboarding') === 'true';
 
-  const [currentView, setCurrentView] = useState<'auth' | 'onboarding' | 'welcome' | 'dashboard' | 'chat' | 'objectives' | 'habits' | 'profile'>(
+  const [currentView, setCurrentView] = useState<'auth' | 'onboarding' | 'welcome' | 'dashboard' | 'chat' | 'objectives' | 'habits' | 'profile' | 'shop'>(
     (isAuthIntent && !hasToken) ? 'auth' : (hasToken && hasCompletedOnboarding ? 'dashboard' : 'welcome')
   );
 
@@ -46,7 +47,7 @@ function App() {
 
   const [isSubscribed, setIsSubscribed] = useState(() => localStorage.getItem('mindset_is_subscribed') === 'true');
 
-  const VIEW_ORDER = ['dashboard', 'objectives', 'chat', 'habits', 'profile'];
+  const VIEW_ORDER = ['dashboard', 'objectives', 'chat', 'habits', 'profile', 'shop'];
   const [slideDirection, setSlideDirection] = useState<'right' | 'left' | 'none'>('none');
 
   const [showPricingModal, setShowPricingModal] = useState(false);
@@ -165,6 +166,7 @@ function App() {
               {currentView === 'objectives' && <Objectives onOpenChat={tryOpenChat} />}
               {currentView === 'habits' && <Habits onOpenChat={tryOpenChat} />}
               {currentView === 'profile' && <Profile onNameChange={() => window.location.reload()} />}
+              {currentView === 'shop' && <Shop />}
             </>
           )}
         </div>

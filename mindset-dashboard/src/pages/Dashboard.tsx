@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, Area, AreaChart } from 'recharts';
-import { Play, CheckCircle2, TrendingUp, Zap, Sparkles, Pencil, Coins, Circle, ChevronLeft, ChevronRight, Plus, Trophy } from 'lucide-react';
+import { Play, CheckCircle2, TrendingUp, Zap, Sparkles, Pencil, Coins, Circle, ChevronLeft, ChevronRight, Plus, Trophy, Calendar } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { api } from '../services/api';
 import { playClickSound, playBloopSound, playLevelUpSound } from '../utils/sounds';
@@ -707,6 +707,41 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
                 }}
               />
             ))}
+          </div>
+        </section>
+
+        {/* Heatmap Section */}
+        <section className="heatmap-section glass-panel fade-in delay-2">
+          <h3 className="section-title" style={{ fontSize: '1.2rem', marginBottom: '16px' }}>
+            <Calendar size={18} /> Ton Année
+          </h3>
+          <div className="heatmap-grid">
+            {getLastNDays(84).reverse().map((dateStr, i) => {
+              const scores = loadDailyScores();
+              const score = scores[dateStr] || 0;
+              let levelClass = 'level-0';
+              if (score >= 100) levelClass = 'level-4';
+              else if (score >= 50) levelClass = 'level-3';
+              else if (score >= 20) levelClass = 'level-2';
+              else if (score > 0) levelClass = 'level-1';
+              
+              return (
+                <div 
+                  key={i} 
+                  className={`heatmap-cell ${levelClass}`}
+                  title={`${dateStr}: ${score} pts`}
+                />
+              );
+            })}
+          </div>
+          <div className="heatmap-legend">
+            <span>Moins</span>
+            <div className="heatmap-cell level-0"></div>
+            <div className="heatmap-cell level-1"></div>
+            <div className="heatmap-cell level-2"></div>
+            <div className="heatmap-cell level-3"></div>
+            <div className="heatmap-cell level-4"></div>
+            <span>Plus</span>
           </div>
         </section>
       </div>

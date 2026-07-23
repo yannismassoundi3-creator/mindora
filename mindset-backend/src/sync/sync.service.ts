@@ -35,6 +35,7 @@ export class SyncService {
         last_habit_date: data.last_habit_date,
         join_date: data.join_date,
         settings: data.settings,
+        rewards: data.rewards,
       },
       create: {
         user_id: userId,
@@ -50,6 +51,7 @@ export class SyncService {
         last_habit_date: data.last_habit_date,
         join_date: data.join_date,
         settings: data.settings,
+        rewards: data.rewards,
       }
     });
   }

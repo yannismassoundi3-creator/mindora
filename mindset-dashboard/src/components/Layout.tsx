@@ -1,5 +1,5 @@
-import React from 'react';
-import { Home, Brain, Target, Calendar, User } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Home, Brain, Target, Calendar, User, ShoppingBag, Coins } from 'lucide-react';
 import { playHoverSound, playClickSound } from '../utils/sounds';
 import './Layout.css';
 
@@ -10,6 +10,16 @@ interface LayoutProps {
 }
 
 export const Layout: React.FC<LayoutProps> = ({ children, activeView, setView }) => {
+  const [points, setPoints] = useState(() => parseInt(localStorage.getItem('mindset_points') || '0', 10));
+
+  useEffect(() => {
+    const handleStorage = () => {
+      setPoints(parseInt(localStorage.getItem('mindset_points') || '0', 10));
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
   const handleNavClick = (e: React.MouseEvent, viewId: string) => {
     e.preventDefault();
     playClickSound();
@@ -54,6 +64,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, setView })
             <Calendar size={20} />
             <span>Habitudes</span>
           </a>
+          <a href="#" className={`nav-item ${activeView === 'shop' ? 'active' : ''}`} 
+             onClick={(e) => handleNavClick(e, 'shop')}
+             onMouseEnter={() => playHoverSound()}>
+            <ShoppingBag size={20} />
+            <span>Boutique</span>
+          </a>
         </nav>
 
         <div className="sidebar-bottom">
@@ -73,9 +89,14 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, setView })
             <span className="logo-dot"></span>
             <h2>mindora</h2>
           </div>
-          <button className="user-avatar-btn" onClick={() => { playClickSound(); setView('profile'); }}>
-            <div className="user-avatar">{localStorage.getItem('mindset_user_name')?.substring(0,2).toUpperCase() || 'YL'}</div>
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button className="coin-balance-btn" onClick={() => { playClickSound(); setView('shop'); }} style={{ background: 'rgba(251, 191, 36, 0.1)', border: '1px solid rgba(251, 191, 36, 0.3)', padding: '6px 12px', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '6px', color: '#fbbf24', fontWeight: 'bold', fontSize: '0.9rem', cursor: 'pointer' }}>
+              {points} <Coins size={16} />
+            </button>
+            <button className="user-avatar-btn" onClick={() => { playClickSound(); setView('profile'); }}>
+              <div className="user-avatar">{localStorage.getItem('mindset_user_name')?.substring(0,2).toUpperCase() || 'YL'}</div>
+            </button>
+          </div>
         </header>
         
         <div className="content-scroll-area">
