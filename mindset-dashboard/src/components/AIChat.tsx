@@ -248,11 +248,12 @@ export const AIChat: React.FC = () => {
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       setMessages(prev => [...prev, aiResponse]);
-    } catch (error) {
+    } catch (error: any) {
+      console.error("AI Chat Error:", error);
       setIsAiAwake(false);
       const errorResponse: Message = {
         id: Date.now() + 1,
-        text: "Désolé, je n'arrive pas à me connecter à mon cerveau externe (backend). S'il était inactif, il met environ 50 secondes à se réveiller. Réessaie dans une minute !",
+        text: `Désolé, je n'arrive pas à me connecter à mon cerveau externe (Erreur: ${error.message || 'Inconnue'}). S'il était inactif, patiente 50s et réessaie !`,
         sender: 'ai',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
