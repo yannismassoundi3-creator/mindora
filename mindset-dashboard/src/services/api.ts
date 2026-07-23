@@ -11,7 +11,7 @@ export const api = {
     if (!res.ok) throw new Error('API Error');
     return res.json();
   },
-  post: async (endpoint: string, data: any) => {
+  post: async (endpoint: string, data: any, keepalive: boolean = false) => {
     const token = localStorage.getItem('mindset_token');
     const res = await fetch(`${API_URL}${endpoint}`, {
       method: 'POST',
@@ -20,7 +20,7 @@ export const api = {
         'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify(data),
-      keepalive: true
+      keepalive: keepalive
     });
     if (!res.ok) {
         const err = await res.json();
@@ -86,7 +86,7 @@ export const api = {
           localHistory: localStorage.getItem('mindset_sec_local') !== 'false'
         }
       };
-      await api.post('/sync/state', state);
+      await api.post('/sync/state', state, true);
     } catch (e) {
       console.error('Failed to sync state', e);
     }
