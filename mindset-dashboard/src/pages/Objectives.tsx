@@ -13,6 +13,7 @@ interface MicroObjective {
   title: string;
   progress: number;
   total: number;
+  step?: number;
   done: boolean;
   category: string;
 }
@@ -161,10 +162,36 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
     }));
   };
 
+  const incrementMicro = (id: number, amount: number) => {
+    playClickSound();
+    setMicroObjectives(prev => prev.map(obj => {
+      if (obj.id === id) {
+        if (obj.done) return obj;
+        let newProgress = (obj.progress || 0) + amount;
+        let isNowDone = false;
+        if (newProgress >= obj.total) {
+          newProgress = obj.total;
+          isNowDone = true;
+          playLevelUpSound();
+          confetti({ particleCount: 80, spread: 60, origin: { y: 0.8 }, colors: ['#3b82f6', '#ec4899', '#fcd34d'] });
+        }
+        
+        let newAwardedDate = obj.awardedDate;
+        if (isNowDone && !obj.awardedDate) {
+          newAwardedDate = new Date().toISOString().slice(0, 10);
+        }
+
+        setTimeout(() => window.dispatchEvent(new Event('storage')), 100);
+        return { ...obj, progress: newProgress, done: isNowDone, awardedDate: newAwardedDate };
+      }
+      return obj;
+    }));
+  };
+
   const addMicroObjective = () => {
     playClickSound();
     const newId = Date.now();
-    const newMicro = { id: newId, title: "Nouvel Objectif", progress: 0, total: 1, done: false, category: CATEGORIES[0] };
+    const newMicro = { id: newId, title: "Nouvel Objectif", progress: 0, total: 10, step: 1, done: false, category: CATEGORIES[0] };
     setMicroObjectives([...microObjectives, newMicro]);
     startMicroEdit(newMicro);
   };
@@ -273,6 +300,14 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
                           onChange={e => setMicroForm({...microForm, total: parseInt(e.target.value) || 1})}
                           className="num-input"
                         />
+                        + :
+                        <input 
+                          type="number" 
+                          min="1" 
+                          value={microForm.step || 1} 
+                          onChange={e => setMicroForm({...microForm, step: parseInt(e.target.value) || 1})}
+                          className="num-input"
+                        />
                       </div>
                     </div>
                     <div className="micro-edit-actions">
@@ -290,15 +325,27 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
                       </div>
                     </div>
                     
-                    <div className="micro-right">
-                      <div className="progress-text">{micro.progress} / {micro.total}</div>
-                      <div className="progress-bar-bg">
-                        <div 
-                          className="progress-bar-fill" 
-                          style={{ width: `${(micro.progress / micro.total) * 100}%` }}
-                        ></div>
+                    <div className="micro-right" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', flex: 1 }}>
+                        <div className="progress-text">{micro.progress} / {micro.total}</div>
+                        <div className="progress-bar-bg" style={{ width: '80px', height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+                          <div 
+                            className="progress-bar-fill" 
+                            style={{ width: `${(micro.progress / micro.total) * 100}%`, height: '100%', background: 'linear-gradient(90deg, #3b82f6, #8b5cf6)', borderRadius: '3px', transition: 'width 0.4s' }}
+                          ></div>
+                        </div>
                       </div>
-                      <button className="inline-edit-btn" onClick={() => startMicroEdit(micro)}>
+                      
+                      {!micro.done && micro.total > 1 && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); incrementMicro(micro.id, micro.step || 1); }}
+                          style={{ background: 'rgba(59, 130, 246, 0.2)', border: '1px solid rgba(59, 130, 246, 0.4)', borderRadius: '5px', padding: '4px 8px', color: '#3b82f6', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', fontWeight: 600 }}
+                        >
+                          <Plus size={12} /> {micro.step || 1}
+                        </button>
+                      )}
+
+                      <button className="inline-edit-btn" onClick={(e) => { e.stopPropagation(); startMicroEdit(micro); }}>
                         <Pencil size={14} />
                       </button>
                     </div>
