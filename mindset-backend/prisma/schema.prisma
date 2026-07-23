@@ -221,10 +221,12 @@ model SyncData {
   habits           Json?
   points           Int      @default(0)
   mental_score     Int      @default(0)
-  bonus_score      Int      @default(0)
-  daily_scores     Json?
-  updated_at       DateTime @updatedAt
-  user             User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  bonus_score       Int      @default(0)
+  daily_scores      Json?
+  last_routine_date String?
+  last_habit_date   String?
+  updated_at        DateTime @updatedAt
+  user              User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
 enum Role {

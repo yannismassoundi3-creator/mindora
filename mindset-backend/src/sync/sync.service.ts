@@ -31,6 +31,8 @@ export class SyncService {
         mental_score: data.mental_score,
         bonus_score: data.bonus_score,
         daily_scores: data.daily_scores,
+        last_routine_date: data.last_routine_date,
+        last_habit_date: data.last_habit_date,
       },
       create: {
         user_id: userId,
@@ -42,6 +44,8 @@ export class SyncService {
         mental_score: data.mental_score || 0,
         bonus_score: data.bonus_score || 0,
         daily_scores: data.daily_scores,
+        last_routine_date: data.last_routine_date,
+        last_habit_date: data.last_habit_date,
       }
     });
   }
