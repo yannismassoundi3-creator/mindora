@@ -269,25 +269,39 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
     };
   });
 
-  // --- TREND DATA (real, last 8 weeks) ---
+  // --- TREND DATA (real, last 6 months) ---
   const trendData = (() => {
     const scores = loadDailyScores();
-    const weeks: { name: string; score: number }[] = [];
-    for (let w = 7; w >= 0; w--) {
+    const months = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Déc"];
+    const result: { name: string; score: number }[] = [];
+    
+    const today = new Date();
+    for (let m = 5; m >= 0; m--) {
+      const d = new Date(today.getFullYear(), today.getMonth() - m, 1);
+      const monthStr = d.getFullYear() + '-' + (d.getMonth() + 1).toString().padStart(2, '0');
+      const monthName = months[d.getMonth()];
+      
       let sum = 0;
       let count = 0;
-      for (let d = 0; d < 7; d++) {
-        const date = new Date();
-        date.setDate(date.getDate() - (w * 7 + d));
-        const key = date.toISOString().slice(0, 10);
-        if (scores[key]) {
-          sum += scores[key];
+      
+      const daysInMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${monthStr}-${day.toString().padStart(2, '0')}`;
+        
+        let scoreToUse = scores[dateStr];
+        if (dateStr === getTodayKey()) {
+          scoreToUse = mentalScore; // Use live score for today
+        }
+        
+        if (scoreToUse) {
+          sum += scoreToUse;
           count++;
         }
       }
-      weeks.push({ name: `S${8 - w}`, score: count > 0 ? Math.round(sum / count) : 0 });
+      
+      result.push({ name: monthName, score: count > 0 ? Math.round(sum / count) : 0 });
     }
-    return weeks;
+    return result;
   })();
 
   // --- CAROUSEL ---
@@ -472,7 +486,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
             <div className="chart-tabs">
               <button className={`chart-tab ${activeChartTab === 'today' ? 'active' : ''}`} onClick={() => { playClickSound(); setActiveChartTab('today'); }}>Aujourd'hui</button>
               <button className={`chart-tab ${activeChartTab === 'week' ? 'active' : ''}`} onClick={() => { playClickSound(); setActiveChartTab('week'); }}>Semaine</button>
-              <button className={`chart-tab ${activeChartTab === 'trend' ? 'active' : ''}`} onClick={() => { playClickSound(); setActiveChartTab('trend'); }}>Tendance</button>
+              <button className={`chart-tab ${activeChartTab === 'trend' ? 'active' : ''}`} onClick={() => { playClickSound(); setActiveChartTab('trend'); }}>Mois</button>
             </div>
           </div>
 
