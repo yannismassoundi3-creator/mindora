@@ -64,12 +64,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, setView })
             <Calendar size={20} />
             <span>Habitudes</span>
           </a>
-          <a href="#" className={`nav-item ${activeView === 'profile' ? 'active' : ''}`} 
-             onClick={(e) => handleNavClick(e, 'profile')}
-             onMouseEnter={() => playHoverSound()}>
-            <User size={20} />
-            <span>Profil</span>
-          </a>
+
           <a href="#" className={`nav-item ${activeView === 'inventory' ? 'active' : ''}`} 
              onClick={(e) => handleNavClick(e, 'inventory')}
              onMouseEnter={() => playHoverSound()}>
