@@ -279,15 +279,6 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
                 <div className="macro-content">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <span className="macro-category">{macro.category}</span>
-                    <div 
-                      className="macro-done-indicator"
-                      style={{ 
-                        color: 'white', 
-                        opacity: macro.done ? 1 : 0.5
-                      }}
-                    >
-                      {macro.done ? <CheckCircle2 size={24} className="check-icon" /> : <Circle size={24} className="uncheck-icon" />}
-                    </div>
                   </div>
                   <h3 className="macro-title" style={{ textDecoration: macro.done ? 'line-through' : 'none' }}>{macro.title}</h3>
                   <div className="macro-footer">
