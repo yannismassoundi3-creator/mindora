@@ -263,6 +263,7 @@ export const AIChat: React.FC = () => {
   };
 
   const startPlanWizard = () => {
+    if (isTyping) return;
     handleSend(undefined, "Je souhaite générer un nouveau plan d'action complet (sport, business, habitudes). Pose-moi les questions nécessaires.");
   };
 
@@ -287,7 +288,12 @@ export const AIChat: React.FC = () => {
             </p>
           </div>
         </div>
-        <button className="chat-action-btn" onClick={startPlanWizard}>
+        <button 
+          className="chat-action-btn" 
+          onClick={startPlanWizard}
+          disabled={isTyping}
+          style={{ opacity: isTyping ? 0.5 : 1, cursor: isTyping ? 'not-allowed' : 'pointer' }}
+        >
           <Sparkles size={18} />
           <span>Générer un plan</span>
         </button>
