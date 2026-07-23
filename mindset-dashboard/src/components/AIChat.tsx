@@ -233,7 +233,7 @@ export const AIChat: React.FC = () => {
     } catch (error) {
       const errorResponse: Message = {
         id: Date.now() + 1,
-        text: "Impossible de contacter le serveur backend. Assure-toi qu'il tourne sur le port 3000.",
+        text: "Désolé, je n'arrive pas à me connecter à mon cerveau externe (backend). S'il était inactif, il met environ 50 secondes à se réveiller. Réessaie dans une minute !",
         sender: 'ai',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };

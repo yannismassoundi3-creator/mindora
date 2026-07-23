@@ -11,9 +11,7 @@ async function bootstrap() {
   // Sécurité
   app.use(helmet());
   app.enableCors({
-    origin: process.env.NODE_ENV === 'production' 
-      ? [process.env.FRONTEND_URL || 'https://mindora-brown-one.vercel.app', 'https://mindset-elite.com'] 
-      : true,
+    origin: true, // Allow all origins dynamically (required when credentials: true)
     credentials: true,
   });
   app.use(cookieParser());
