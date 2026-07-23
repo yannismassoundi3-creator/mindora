@@ -33,6 +33,8 @@ export class SyncService {
         daily_scores: data.daily_scores,
         last_routine_date: data.last_routine_date,
         last_habit_date: data.last_habit_date,
+        join_date: data.join_date,
+        settings: data.settings,
       },
       create: {
         user_id: userId,
@@ -46,6 +48,8 @@ export class SyncService {
         daily_scores: data.daily_scores,
         last_routine_date: data.last_routine_date,
         last_habit_date: data.last_habit_date,
+        join_date: data.join_date,
+        settings: data.settings,
       }
     });
   }

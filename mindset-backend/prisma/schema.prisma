@@ -225,6 +225,8 @@ model SyncData {
   daily_scores      Json?
   last_routine_date String?
   last_habit_date   String?
+  join_date         String?
+  settings          Json?
   updated_at        DateTime @updatedAt
   user              User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }

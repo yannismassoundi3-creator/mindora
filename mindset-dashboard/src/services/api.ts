@@ -43,6 +43,15 @@ export const api = {
         if (data.daily_scores) localStorage.setItem('mindset_daily_scores', JSON.stringify(data.daily_scores));
         if (data.last_routine_date) localStorage.setItem('mindset_last_routine_date', data.last_routine_date);
         if (data.last_habit_date) localStorage.setItem('mindset_last_habit_date', data.last_habit_date);
+        if (data.join_date) localStorage.setItem('mindset_join_date', data.join_date);
+        if (data.settings) {
+          if (data.settings.encryption !== undefined) localStorage.setItem('mindset_sec_encryption', data.settings.encryption.toString());
+          if (data.settings.biometric !== undefined) localStorage.setItem('mindset_sec_biometric', data.settings.biometric.toString());
+          if (data.settings.localHistory !== undefined) localStorage.setItem('mindset_sec_local', data.settings.localHistory.toString());
+        }
+        
+        // Force React components to re-render with new data
+        window.dispatchEvent(new Event('storage'));
       }
     } catch (e) {
       console.error('Failed to download state', e);
@@ -62,6 +71,12 @@ export const api = {
         daily_scores: JSON.parse(localStorage.getItem('mindset_daily_scores') || '{}'),
         last_routine_date: localStorage.getItem('mindset_last_routine_date') || '',
         last_habit_date: localStorage.getItem('mindset_last_habit_date') || '',
+        join_date: localStorage.getItem('mindset_join_date') || '',
+        settings: {
+          encryption: localStorage.getItem('mindset_sec_encryption') !== 'false',
+          biometric: localStorage.getItem('mindset_sec_biometric') === 'true',
+          localHistory: localStorage.getItem('mindset_sec_local') !== 'false'
+        }
       };
       await api.post('/sync/state', state);
     } catch (e) {
