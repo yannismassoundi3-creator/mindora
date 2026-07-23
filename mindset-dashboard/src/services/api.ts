@@ -43,6 +43,8 @@ export const api = {
         if (data.daily_scores) localStorage.setItem('mindset_daily_scores', JSON.stringify(data.daily_scores));
         if (data.rewards) localStorage.setItem('mindset_rewards', JSON.stringify(data.rewards));
         if (data.inventory) localStorage.setItem('mindset_inventory_rewards', JSON.stringify(data.inventory));
+        if (data.owned_cosmetics) localStorage.setItem('mindset_owned_cosmetics', JSON.stringify(data.owned_cosmetics));
+        if (data.ai_skin_id) localStorage.setItem('mindset_ai_skin_id', data.ai_skin_id);
         if (data.last_routine_date) localStorage.setItem('mindset_last_routine_date', data.last_routine_date);
         if (data.last_habit_date) localStorage.setItem('mindset_last_habit_date', data.last_habit_date);
         if (data.join_date) localStorage.setItem('mindset_join_date', data.join_date);
@@ -73,6 +75,8 @@ export const api = {
         daily_scores: JSON.parse(localStorage.getItem('mindset_daily_scores') || '{}'),
         rewards: JSON.parse(localStorage.getItem('mindset_rewards') || '[]'),
         inventory: JSON.parse(localStorage.getItem('mindset_inventory_rewards') || '[]'),
+        owned_cosmetics: JSON.parse(localStorage.getItem('mindset_owned_cosmetics') || '[]'),
+        ai_skin_id: localStorage.getItem('mindset_ai_skin_id') || '',
         last_routine_date: localStorage.getItem('mindset_last_routine_date') || '',
         last_habit_date: localStorage.getItem('mindset_last_habit_date') || '',
         join_date: localStorage.getItem('mindset_join_date') || '',

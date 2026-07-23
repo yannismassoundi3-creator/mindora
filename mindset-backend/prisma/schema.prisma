@@ -229,6 +229,8 @@ model SyncData {
   settings          Json?
   rewards           Json?
   inventory         Json?
+  owned_cosmetics   Json?
+  ai_skin_id        String?
   updated_at        DateTime @updatedAt
   user              User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }

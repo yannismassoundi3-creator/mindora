@@ -37,6 +37,8 @@ export class SyncService {
         settings: data.settings,
         rewards: data.rewards,
         inventory: data.inventory,
+        owned_cosmetics: data.owned_cosmetics,
+        ai_skin_id: data.ai_skin_id,
       },
       create: {
         user_id: userId,
@@ -54,6 +56,8 @@ export class SyncService {
         settings: data.settings,
         rewards: data.rewards,
         inventory: data.inventory,
+        owned_cosmetics: data.owned_cosmetics,
+        ai_skin_id: data.ai_skin_id,
       }
     });
   }
