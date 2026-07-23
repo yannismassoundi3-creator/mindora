@@ -299,6 +299,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState('');
+  const [editTime, setEditTime] = useState('');
 
   const nextRoutine = () => {
     if (isAnimating) return;
@@ -389,12 +390,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   const startEditing = (routine: any) => {
     setEditingId(routine.id);
     setEditTitle(routine.title);
+    setEditTime(routine.time || '10 min');
   };
 
   const saveEditing = (id: number) => {
     const newGroups = (Array.isArray(routineGroups) ? routineGroups : []).map((group: any) => {
       const newItems = (Array.isArray(group.items) ? group.items : []).map((item: any) => {
-        if (item.id === id) return { ...item, title: editTitle };
+        if (item.id === id) return { ...item, title: editTitle, time: editTime };
         return item;
       });
       return { ...group, items: newItems };
@@ -623,25 +625,43 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
                   <div className="routine-checkbox" onClick={(e) => toggleRoutine(e, routine.id)}>
                     {routine.done ? <CheckCircle2 size={18} /> : <Circle size={18} color="rgba(255,255,255,0.4)" />}
                   </div>
-                  <div className="routine-content">
+                  <div className="routine-content" style={{ display: 'flex', flex: 1, gap: '10px', alignItems: 'center' }}>
                     {editingId === routine.id ? (
-                      <input 
-                        type="text" 
-                        className="routine-edit-input" 
-                        value={editTitle}
-                        onChange={e => setEditTitle(e.target.value)}
-                        onBlur={() => saveEditing(routine.id)}
-                        onKeyDown={e => e.key === 'Enter' && saveEditing(routine.id)}
-                        autoFocus
-                      />
+                      <>
+                        <input 
+                          type="text" 
+                          className="routine-edit-input" 
+                          value={editTitle}
+                          onChange={e => setEditTitle(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && saveEditing(routine.id)}
+                          autoFocus
+                          style={{ flex: 1 }}
+                        />
+                        <input 
+                          type="text" 
+                          className="routine-edit-input" 
+                          value={editTime}
+                          onChange={e => setEditTime(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && saveEditing(routine.id)}
+                          style={{ width: '70px', textAlign: 'center' }}
+                        />
+                      </>
                     ) : (
-                      <span className="routine-title">{routine.title}</span>
+                      <>
+                        <span className="routine-title">{routine.title}</span>
+                        <span className="routine-time">{routine.time}</span>
+                      </>
                     )}
-                    <span className="routine-time">{routine.time}</span>
                   </div>
-                  <button className="routine-edit-btn" onClick={() => startEditing(routine)}>
-                    <Pencil size={14} />
-                  </button>
+                  {editingId === routine.id ? (
+                    <button className="routine-edit-btn" onClick={() => saveEditing(routine.id)}>
+                      <CheckCircle2 size={14} color="#3b82f6" />
+                    </button>
+                  ) : (
+                    <button className="routine-edit-btn" onClick={() => startEditing(routine)}>
+                      <Pencil size={14} />
+                    </button>
+                  )}
                 </div>
               ))}
 
