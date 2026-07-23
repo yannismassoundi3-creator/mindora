@@ -24,6 +24,7 @@ interface MacroObjective {
   category: string;
   deadline: string;
   bgGradient: string;
+  done?: boolean;
 }
 
 const CATEGORIES = ["🧠 Mindset", "🏃 Sport", "💼 Business", "🎓 Apprentissage", "🧘 Santé Mentale"];
@@ -133,6 +134,13 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
     setEditingMicroId(null);
   };
 
+  const awardCoins = (amount: number) => {
+    const currentPoints = parseInt(localStorage.getItem('mindset_points') || '0', 10);
+    const newPoints = Math.max(0, currentPoints + amount);
+    localStorage.setItem('mindset_points', newPoints.toString());
+    window.dispatchEvent(new CustomEvent('pointsChanged', { detail: newPoints }));
+  };
+
   const toggleMicro = (id: number) => {
     setMicroObjectives(prev => prev.map(obj => {
       if (obj.id === id) {
@@ -141,8 +149,10 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
         if (isNowDone) {
           playLevelUpSound();
           confetti({ particleCount: 80, spread: 60, origin: { y: 0.8 }, colors: ['#3b82f6', '#ec4899', '#fcd34d'] });
+          awardCoins(5);
         } else {
           playClickSound();
+          awardCoins(-5);
         }
 
         const getTodayKey = () => new Date().toISOString().slice(0, 10);
@@ -174,6 +184,7 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
           isNowDone = true;
           playLevelUpSound();
           confetti({ particleCount: 80, spread: 60, origin: { y: 0.8 }, colors: ['#3b82f6', '#ec4899', '#fcd34d'] });
+          awardCoins(5);
         }
         
         let newAwardedDate = obj.awardedDate;
@@ -194,6 +205,25 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
     const newMicro = { id: newId, title: "Nouvel Objectif", progress: 0, total: 10, step: 1, done: false, category: CATEGORIES[0] };
     setMicroObjectives([...microObjectives, newMicro]);
     startMicroEdit(newMicro);
+  };
+
+  const toggleMacro = (id: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setMacroObjectives(prev => prev.map(m => {
+      if (m.id === id) {
+        const isNowDone = !m.done;
+        if (isNowDone) {
+          playLevelUpSound();
+          confetti({ particleCount: 150, spread: 100, origin: { y: 0.6 }, colors: ['#f59e0b', '#ec4899', '#3b82f6', '#8b5cf6'] });
+          awardCoins(5);
+        } else {
+          playClickSound();
+          awardCoins(-5);
+        }
+        return { ...m, done: isNowDone };
+      }
+      return m;
+    }));
   };
 
   return (
@@ -240,14 +270,23 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
             {macroObjectives.map(macro => (
               <div 
                 key={macro.id} 
-                className="macro-card glass-panel-interactive" 
-                style={{ background: macro.bgGradient }}
+                className={`macro-card glass-panel-interactive ${macro.done ? 'done' : ''}`} 
+                style={{ background: macro.bgGradient, opacity: macro.done ? 0.6 : 1 }}
                 onClick={() => openMacroModal(macro)}
               >
                 <div className="macro-overlay"></div>
                 <div className="macro-content">
-                  <span className="macro-category">{macro.category}</span>
-                  <h3 className="macro-title">{macro.title}</h3>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <span className="macro-category">{macro.category}</span>
+                    <button 
+                      className="macro-done-btn"
+                      onClick={(e) => toggleMacro(macro.id, e)}
+                      style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', zIndex: 10, padding: 0 }}
+                    >
+                      {macro.done ? <CheckCircle2 size={24} className="check-icon" /> : <Circle size={24} className="uncheck-icon" />}
+                    </button>
+                  </div>
+                  <h3 className="macro-title" style={{ textDecoration: macro.done ? 'line-through' : 'none' }}>{macro.title}</h3>
                   <div className="macro-footer">
                     <Flag size={14} />
                     <span>Objectif: {macro.deadline}</span>
