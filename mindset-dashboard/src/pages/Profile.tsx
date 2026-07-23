@@ -293,17 +293,6 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
             <div className="settings-list">
               <div className="setting-item">
                 <div className="setting-info">
-                  <div className="setting-title"><Lock size={16}/> Chiffrement des données</div>
-                  <div className="setting-desc">Chiffre tes routines et notes en local (AES-256).</div>
-                </div>
-                <label className="toggle-switch">
-                  <input type="checkbox" checked={encryption} onChange={() => { playToggleSound(!encryption); setEncryption(!encryption); }} />
-                  <span className="slider"></span>
-                </label>
-              </div>
-
-              <div className="setting-item">
-                <div className="setting-info">
                   <div className="setting-title"><User size={16}/> Connexion Biométrique</div>
                   <div className="setting-desc">Utiliser Windows Hello / Touch ID / Face ID au lancement.</div>
                 </div>
