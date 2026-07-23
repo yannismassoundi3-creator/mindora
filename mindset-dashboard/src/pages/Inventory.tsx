@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Backpack, CheckCircle2, Sparkles, CheckSquare } from 'lucide-react';
 import { playClickSound, playLevelUpSound, playBloopSound } from '../utils/sounds';
 import { api } from '../services/api';
-import { AI_COSMETICS, Cosmetic } from '../utils/cosmetics';
+import { AI_COSMETICS } from '../utils/cosmetics';
+import type { Cosmetic } from '../utils/cosmetics';
 import './Inventory.css';
 
 interface InventoryItem {
