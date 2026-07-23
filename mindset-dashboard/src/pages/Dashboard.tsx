@@ -712,9 +712,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
 
         {/* Heatmap Section */}
         <section className="heatmap-section glass-panel fade-in delay-2">
-          <h3 className="section-title" style={{ fontSize: '1.2rem', marginBottom: '16px' }}>
-            <Calendar size={18} /> Ton Année
-          </h3>
+          <div className="section-header-flex" style={{ marginBottom: '8px' }}>
+            <h3 className="section-title" style={{ fontSize: '1.2rem', margin: 0 }}>
+              <Calendar size={18} /> Ton Année
+            </h3>
+          </div>
+          <p style={{ fontSize: '0.85rem', color: 'var(--secondary)', marginBottom: '24px', lineHeight: 1.4 }}>
+            Chaque carré représente un jour de l'année. Plus tu es régulier dans tes habitudes, plus le carré brille. L'objectif : <strong style={{color: '#10b981'}}>ne jamais briser la chaîne lumineuse !</strong>
+          </p>
           <div className="heatmap-grid">
             {getLastNDays(84).reverse().map((dateStr, i) => {
               const scores = loadDailyScores();

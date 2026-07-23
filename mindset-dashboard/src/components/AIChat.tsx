@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Send, User, Sparkles, Play, Square, Loader } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { playBloopSound, playErrorSound } from '../utils/sounds';
+import { AI_COSMETICS } from '../utils/cosmetics';
 import './AIChat.css';
 import { api } from '../services/api';
 
@@ -35,6 +36,19 @@ export const AIChat: React.FC = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [playingAudioId, setPlayingAudioId] = useState<number | null>(null);
   const [loadingAudioId, setLoadingAudioId] = useState<number | null>(null);
+
+  const [equippedSkinId, setEquippedSkinId] = useState<string | null>(() => localStorage.getItem('mindset_ai_skin_id'));
+  
+  useEffect(() => {
+    const handleStorage = () => {
+      setEquippedSkinId(localStorage.getItem('mindset_ai_skin_id'));
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
+  const equippedCosmetic = AI_COSMETICS.find(c => c.id === equippedSkinId);
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const aiName = localStorage.getItem('mindset_ai_name') || 'Coach IA';
@@ -252,7 +266,14 @@ export const AIChat: React.FC = () => {
       <header className="chat-header glass-panel">
         <div className="chat-header-info">
           <div className="ai-status-indicator">
-            <div className="status-dot pulsing"></div>
+            {equippedCosmetic?.type === 'icon' ? (
+              <div className="status-icon-skin pulsing">{equippedCosmetic.value}</div>
+            ) : (
+              <div 
+                className="status-dot pulsing" 
+                style={equippedCosmetic?.type === 'color' ? { background: equippedCosmetic.value, boxShadow: 'none' } : {}}
+              ></div>
+            )}
           </div>
           <div>
             <h2 className="chat-title">{aiName}</h2>
@@ -270,7 +291,16 @@ export const AIChat: React.FC = () => {
           {messages.map(msg => (
             <div key={msg.id} className={`message ${msg.sender}`}>
               {msg.sender === 'ai' && (
-                <div className="message-avatar-orb"></div>
+                <div className="message-avatar-orb-container">
+                  {equippedCosmetic?.type === 'icon' ? (
+                    <div className="status-icon-skin-large">{equippedCosmetic.value}</div>
+                  ) : (
+                    <div 
+                      className="message-avatar-orb" 
+                      style={equippedCosmetic?.type === 'color' ? { background: equippedCosmetic.value, boxShadow: 'none' } : {}}
+                    ></div>
+                  )}
+                </div>
               )}
               <div className={`message-bubble ${msg.sender}`}>
                 {msg.sender === 'ai' && (
@@ -296,7 +326,16 @@ export const AIChat: React.FC = () => {
           ))}
           {isTyping && (
             <div className="message ai">
-              <div className="message-avatar-orb small"></div>
+              <div className="message-avatar-orb-container small">
+                {equippedCosmetic?.type === 'icon' ? (
+                  <div className="status-icon-skin-large small">{equippedCosmetic.value}</div>
+                ) : (
+                  <div 
+                    className="message-avatar-orb small" 
+                    style={equippedCosmetic?.type === 'color' ? { background: equippedCosmetic.value, boxShadow: 'none' } : {}}
+                  ></div>
+                )}
+              </div>
               <div className="message-content typing-indicator">
                 <span></span><span></span><span></span>
               </div>

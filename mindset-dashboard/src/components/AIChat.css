@@ -39,7 +39,47 @@
 }
 
 .status-dot.pulsing {
-  animation: pulse-dot 2s infinite;
+  animation: pulse-glow 2s infinite ease-in-out;
+}
+
+.status-icon-skin {
+  font-size: 1.5rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.status-icon-skin.pulsing {
+  animation: float-pulse 3s infinite ease-in-out;
+}
+
+.message-avatar-orb-container {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.message-avatar-orb-container.small {
+  width: 24px;
+  height: 24px;
+}
+
+.status-icon-skin-large {
+  font-size: 1.8rem;
+}
+
+.status-icon-skin-large.small {
+  font-size: 1.4rem;
+}
+
+@keyframes float-pulse {
+  0% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-3px) scale(1.05); }
+  100% { transform: translateY(0) scale(1); }
 }
 
 @keyframes pulse-dot {

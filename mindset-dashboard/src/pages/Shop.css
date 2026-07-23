@@ -6,6 +6,38 @@
   margin-bottom: 24px;
 }
 
+.shop-section {
+  margin-bottom: 40px;
+}
+
+.section-header-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.section-header-flex h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.2rem;
+  color: var(--text);
+}
+
+.daily-timer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: monospace;
+  font-size: 0.9rem;
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.1);
+  padding: 4px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(251, 191, 36, 0.2);
+}
+
 .balance-card {
   display: flex;
   align-items: center;
@@ -40,7 +72,7 @@
 
 .rewards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 16px;
 }
 
@@ -52,6 +84,44 @@
   align-items: center;
   text-align: center;
   position: relative;
+  overflow: hidden;
+}
+
+.cosmetic-card {
+  background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0.5) 100%);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.cosmetic-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 4px;
+}
+
+.cosmetic-card.commun::before { background: #10b981; }
+.cosmetic-card.rare::before { background: #3b82f6; }
+.cosmetic-card.epique::before { background: #8b5cf6; }
+.cosmetic-card.legendaire::before { background: linear-gradient(90deg, #fbbf24, #f59e0b); }
+
+.rarity-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  background: rgba(0,0,0,0.5);
+  padding: 2px 8px;
+  border-radius: 8px;
+  color: var(--secondary);
+}
+
+.cosmetic-desc {
+  font-size: 0.75rem;
+  color: var(--secondary);
+  margin-bottom: 16px;
+  line-height: 1.4;
+  flex-grow: 1;
 }
 
 .reward-delete-btn {
@@ -75,19 +145,18 @@
 }
 
 .reward-icon-large {
-  font-size: 3rem;
+  font-size: 3.5rem;
   margin-bottom: 16px;
-  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
+  margin-top: 16px;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
 }
 
 .reward-title {
   font-size: 1rem;
-  font-weight: 600;
-  margin-bottom: 16px;
+  font-weight: 700;
+  margin-bottom: 8px;
   color: var(--text);
-  flex-grow: 1;
-  display: flex;
-  align-items: center;
+  line-height: 1.2;
 }
 
 .buy-btn {
@@ -116,16 +185,24 @@
   transform: translateY(-2px);
 }
 
-.buy-btn.affordable:active {
-  transform: scale(0.95);
-}
-
 .buy-btn.expensive {
   background: rgba(255,255,255,0.05);
   color: var(--secondary);
   border: 1px solid rgba(255,255,255,0.1);
   cursor: not-allowed;
   opacity: 0.5;
+}
+
+.buy-btn.owned {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.4);
+}
+
+.buy-btn.equipped {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.4);
 }
 
 .buy-btn.purchased {
@@ -182,7 +259,15 @@
   100% { transform: scale(1); }
 }
 
-/* Form Styles */
+.bounce-in {
+  animation: bounceIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+}
+
+@keyframes bounceIn {
+  0% { opacity: 0; transform: scale(0.8) translateY(20px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
 .add-reward-form {
   display: flex;
   flex-direction: column;
