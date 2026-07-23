@@ -34,6 +34,7 @@ export const AIChat: React.FC = () => {
   });
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [isAiAwake, setIsAiAwake] = useState(true);
   const [playingAudioId, setPlayingAudioId] = useState<number | null>(null);
   const [loadingAudioId, setLoadingAudioId] = useState<number | null>(null);
 
@@ -214,15 +215,18 @@ export const AIChat: React.FC = () => {
         return;
       }
 
-      // Déduction des Coins
-      localStorage.setItem('mindset_points', (currentPoints - 10).toString());
-      window.dispatchEvent(new Event('storage'));
-
       const data = await api.post('/ai-coaching/chat', { 
         prompt: currentInput,
         history: messages.slice(1),
         context: userContext
       });
+
+      // Déduction des Coins uniquement si le backend répond
+      localStorage.setItem('mindset_points', (currentPoints - 10).toString());
+      window.dispatchEvent(new Event('storage'));
+      
+      setIsAiAwake(true);
+
       let replyText = data.reply || "Erreur lors de la génération.";
 
       const jsonMatch = replyText.match(/```json\n([\s\S]*?)\n```/);
@@ -245,6 +249,7 @@ export const AIChat: React.FC = () => {
       };
       setMessages(prev => [...prev, aiResponse]);
     } catch (error) {
+      setIsAiAwake(false);
       const errorResponse: Message = {
         id: Date.now() + 1,
         text: "Désolé, je n'arrive pas à me connecter à mon cerveau externe (backend). S'il était inactif, il met environ 50 secondes à se réveiller. Réessaie dans une minute !",
@@ -277,7 +282,9 @@ export const AIChat: React.FC = () => {
           </div>
           <div>
             <h2 className="chat-title">{aiName}</h2>
-            <p className="chat-subtitle">Connecté et prêt à t'assister</p>
+            <p className="chat-subtitle">
+              {isAiAwake ? "Connecté et prêt à t'assister" : "Déconnecté, réveil en cours..."}
+            </p>
           </div>
         </div>
         <button className="chat-action-btn" onClick={startPlanWizard}>

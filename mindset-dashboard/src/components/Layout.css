@@ -111,7 +111,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: max(16px, env(safe-area-inset-top)) 20px 16px;
+    padding: max(16px, env(safe-area-inset-top)) 10px 16px;
     margin: 0;
     border-radius: 0 0 24px 24px;
     z-index: 50;
@@ -124,6 +124,8 @@
 
   .mobile-header .sidebar-logo {
     margin-bottom: 0;
+    padding-left: 4px;
+    gap: 8px;
   }
 
   .user-avatar-btn {
