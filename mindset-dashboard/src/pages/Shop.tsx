@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Gift, Coins, Plus, Trash2, CheckCircle2, Clock, Sparkles } from 'lucide-react';
 import { playClickSound, playLevelUpSound, playHoverSound, playBloopSound } from '../utils/sounds';
 import { api } from '../services/api';
-import { Cosmetic, getDailyShopItems } from '../utils/cosmetics';
+import { getDailyShopItems } from '../utils/cosmetics';
+import type { Cosmetic } from '../utils/cosmetics';
 import './Shop.css';
 
 interface Reward {
