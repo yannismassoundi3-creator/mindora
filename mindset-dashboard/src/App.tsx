@@ -20,6 +20,29 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { registerSW } from 'virtual:pwa-register';
 import './styles/global.css';
 
+const APP_VERSION = '1.0.1'; // Change this string to force a global cache clear
+const currentVersion = localStorage.getItem('mindset_app_version');
+if (currentVersion !== APP_VERSION) {
+  if ('caches' in window) {
+    caches.keys().then((names) => {
+      for (const name of names) {
+        caches.delete(name);
+      }
+    });
+  }
+  localStorage.setItem('mindset_app_version', APP_VERSION);
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(function(registrations) {
+      for(let registration of registrations) {
+        registration.unregister();
+      }
+    });
+  }
+  setTimeout(() => {
+    window.location.reload();
+  }, 100);
+}
+
 // Enregistrement du Service Worker avec mise à jour forcée pour éviter le cache bloqué
 const updateSW = registerSW({
   onNeedRefresh() {
