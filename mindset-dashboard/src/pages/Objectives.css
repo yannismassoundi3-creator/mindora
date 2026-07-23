@@ -213,7 +213,7 @@
 
 /* MICRO LIST */
 .micro-list {
-  padding: 24px;
+  padding: 24px 0; /* Remove horizontal padding so it aligns with headers */
 }
 
 .micro-item {
@@ -255,6 +255,7 @@
 .micro-info {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 .micro-cat {
   font-size: 0.75rem;
@@ -548,6 +549,17 @@
     font-size: 0.6rem;
     padding: 3px 8px;
     margin-bottom: 4px;
+  }
+  .section-title-wrapper h2 {
+    font-size: 1.25rem;
+    white-space: normal;
+    word-break: break-word;
+  }
+  .section-desc {
+    font-size: 0.85rem;
+    margin-bottom: 16px;
+    white-space: normal;
+    word-break: break-word;
   }
   .macro-title {
     font-size: 1rem;
