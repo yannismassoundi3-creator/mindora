@@ -208,6 +208,7 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
   };
 
   const toggleMacro = (id: number, e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     setMacroObjectives(prev => prev.map(m => {
       if (m.id === id) {
@@ -281,7 +282,16 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
                     <button 
                       className="macro-done-btn"
                       onClick={(e) => toggleMacro(macro.id, e)}
-                      style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', zIndex: 10, padding: 0 }}
+                      style={{ 
+                        background: 'none', 
+                        border: 'none', 
+                        color: 'white', 
+                        cursor: 'pointer', 
+                        zIndex: 10, 
+                        position: 'relative',
+                        padding: '10px',
+                        margin: '-10px'
+                      }}
                     >
                       {macro.done ? <CheckCircle2 size={24} className="check-icon" /> : <Circle size={24} className="uncheck-icon" />}
                     </button>
