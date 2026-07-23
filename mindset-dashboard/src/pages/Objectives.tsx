@@ -279,22 +279,15 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
                 <div className="macro-content">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <span className="macro-category">{macro.category}</span>
-                    <button 
-                      className="macro-done-btn"
-                      onClick={(e) => toggleMacro(macro.id, e)}
+                    <div 
+                      className="macro-done-indicator"
                       style={{ 
-                        background: 'none', 
-                        border: 'none', 
                         color: 'white', 
-                        cursor: 'pointer', 
-                        zIndex: 10, 
-                        position: 'relative',
-                        padding: '10px',
-                        margin: '-10px'
+                        opacity: macro.done ? 1 : 0.5
                       }}
                     >
                       {macro.done ? <CheckCircle2 size={24} className="check-icon" /> : <Circle size={24} className="uncheck-icon" />}
-                    </button>
+                    </div>
                   </div>
                   <h3 className="macro-title" style={{ textDecoration: macro.done ? 'line-through' : 'none' }}>{macro.title}</h3>
                   <div className="macro-footer">
@@ -448,6 +441,37 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
                 ))}
               </div>
             </div>
+
+            {editingMacro && (
+              <div className="form-group" style={{ marginTop: '20px' }}>
+                <button 
+                  style={{ 
+                    width: '100%', 
+                    padding: '15px', 
+                    borderRadius: '12px', 
+                    border: 'none',
+                    fontWeight: 'bold',
+                    fontSize: '1.1rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '10px',
+                    background: editingMacro.done ? 'rgba(255,255,255,0.1)' : 'linear-gradient(135deg, #10b981, #059669)',
+                    color: editingMacro.done ? 'rgba(255,255,255,0.6)' : '#fff',
+                    transition: 'all 0.3s',
+                    boxShadow: editingMacro.done ? 'none' : '0 10px 20px rgba(16, 185, 129, 0.3)'
+                  }}
+                  onClick={() => {
+                    const fakeEvent = { stopPropagation: () => {}, preventDefault: () => {} } as any;
+                    toggleMacro(editingMacro.id, fakeEvent);
+                    setMacroModalOpen(false);
+                  }}
+                >
+                  {editingMacro.done ? <><X size={20}/> Annuler la validation</> : <><Trophy size={20}/> Valider la Vision !</>}
+                </button>
+              </div>
+            )}
 
             <div className="modal-actions">
               {editingMacro && <button className="btn-delete-full" onClick={deleteMacro}><Trash2 size={16}/> Supprimer</button>}
