@@ -12,6 +12,7 @@ import { Profile } from './pages/Profile';
 import { PricingScreen } from './pages/PricingScreen';
 import { LevelUpOverlay } from './components/LevelUpOverlay';
 import { StreakBrokenOverlay } from './components/StreakBrokenOverlay';
+import { LockScreen } from './components/LockScreen';
 import { SkeletonGlow } from './components/SkeletonGlow';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { registerSW } from 'virtual:pwa-register';
@@ -40,6 +41,8 @@ function App() {
   const [currentView, setCurrentView] = useState<'auth' | 'onboarding' | 'welcome' | 'dashboard' | 'chat' | 'objectives' | 'habits' | 'profile'>(
     (isAuthIntent && !hasToken) ? 'auth' : (hasToken && hasCompletedOnboarding ? 'dashboard' : 'welcome')
   );
+
+  const [isLocked, setIsLocked] = useState(() => !!localStorage.getItem('mindset_biometric_id'));
 
   const [isSubscribed, setIsSubscribed] = useState(() => localStorage.getItem('mindset_is_subscribed') === 'true');
 
@@ -137,6 +140,12 @@ function App() {
       setCurrentView(v as any);
     }
   };
+
+  if (isLocked) {
+    return (
+      <LockScreen onUnlock={() => setIsLocked(false)} />
+    );
+  }
 
   return (
     <ErrorBoundary>

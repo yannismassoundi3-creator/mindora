@@ -3,6 +3,7 @@ import { User, Shield, Lock, HardDrive, AlertTriangle, Save, CheckCircle, Databa
 import { PricingScreen } from './PricingScreen';
 import { playHoverSound, playClickSound, playToggleSound, playLevelUpSound } from '../utils/sounds';
 import { api } from '../services/api';
+import { bufferToBase64url } from '../utils/webauthn';
 import './Profile.css';
 
 interface ProfileProps {
@@ -44,6 +45,57 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
       localStorage.setItem('mindset_join_date', joinDate);
     }
   }, []);
+
+  const handleBiometricToggle = async () => {
+    const newValue = !biometric;
+    if (newValue) {
+      if (!window.PublicKeyCredential) {
+        alert("Ton appareil ne supporte pas la biométrie (WebAuthn).");
+        return;
+      }
+      try {
+        const challenge = new Uint8Array(32);
+        window.crypto.getRandomValues(challenge);
+        
+        const credential = await navigator.credentials.create({
+          publicKey: {
+            challenge,
+            rp: { name: "Mindora", id: window.location.hostname },
+            user: {
+              id: new Uint8Array(16),
+              name: userName,
+              displayName: userName
+            },
+            pubKeyCredParams: [
+              { type: "public-key", alg: -7 }, // ES256
+              { type: "public-key", alg: -257 } // RS256
+            ],
+            authenticatorSelection: {
+              userVerification: "required"
+            },
+            timeout: 60000,
+            attestation: "none"
+          }
+        });
+        
+        if (credential && (credential as PublicKeyCredential).rawId) {
+          const rawId = (credential as PublicKeyCredential).rawId;
+          localStorage.setItem('mindset_biometric_id', bufferToBase64url(rawId));
+          setBiometric(true);
+          playLevelUpSound();
+          alert("Verrouillage biométrique activé avec succès !");
+        }
+      } catch (err) {
+        console.error("Biometric registration failed", err);
+        alert("Activation annulée ou échouée.");
+        setBiometric(false);
+      }
+    } else {
+      localStorage.removeItem('mindset_biometric_id');
+      setBiometric(false);
+      playToggleSound(false);
+    }
+  };
 
   const handleSave = async () => {
     localStorage.setItem('mindset_user_name', userName);
@@ -253,10 +305,10 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
               <div className="setting-item">
                 <div className="setting-info">
                   <div className="setting-title"><User size={16}/> Connexion Biométrique</div>
-                  <div className="setting-desc">Utiliser Windows Hello / Touch ID au lancement.</div>
+                  <div className="setting-desc">Utiliser Windows Hello / Touch ID / Face ID au lancement.</div>
                 </div>
                 <label className="toggle-switch">
-                  <input type="checkbox" checked={biometric} onChange={() => { playToggleSound(!biometric); setBiometric(!biometric); }} />
+                  <input type="checkbox" checked={biometric} onChange={() => handleBiometricToggle()} />
                   <span className="slider"></span>
                 </label>
               </div>

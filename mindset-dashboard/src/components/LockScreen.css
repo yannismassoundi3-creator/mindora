@@ -1,0 +1,92 @@
+.lockscreen-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: radial-gradient(circle at top right, #1e1e2f, #0f0f13);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  backdrop-filter: blur(20px);
+}
+
+.lockscreen-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px;
+  border-radius: 24px;
+  width: 90%;
+  max-width: 350px;
+  text-align: center;
+  animation: slideUpFade 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.lock-icon-wrapper {
+  width: 80px;
+  height: 80px;
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24px;
+  border: 2px solid rgba(59, 130, 246, 0.3);
+}
+
+.lock-icon {
+  color: var(--accent-blue);
+}
+
+.lock-title {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 800;
+  margin-bottom: 8px;
+  background: linear-gradient(to right, #fff, #a5b4fc);
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+.lock-subtitle {
+  color: var(--secondary);
+  margin-bottom: 32px;
+}
+
+.lock-error {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  padding: 12px;
+  border-radius: 12px;
+  margin-bottom: 24px;
+  font-size: 0.9rem;
+  width: 100%;
+}
+
+.unlock-btn {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  font-size: 1.1rem;
+  padding: 16px;
+  border-radius: 16px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.unlock-btn:active {
+  transform: scale(0.95);
+}
+
+@keyframes slideUpFade {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
