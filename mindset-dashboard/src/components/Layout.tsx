@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, Brain, Target, Calendar, User, ShoppingBag, Coins } from 'lucide-react';
+import { Home, Brain, Target, Calendar, User, ShoppingBag, Coins, Backpack } from 'lucide-react';
 import { playHoverSound, playClickSound } from '../utils/sounds';
 import './Layout.css';
 
@@ -64,6 +64,18 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, setView })
             <Calendar size={20} />
             <span>Habitudes</span>
           </a>
+          <a href="#" className={`nav-item ${activeView === 'profile' ? 'active' : ''}`} 
+             onClick={(e) => handleNavClick(e, 'profile')}
+             onMouseEnter={() => playHoverSound()}>
+            <User size={20} />
+            <span>Profil</span>
+          </a>
+          <a href="#" className={`nav-item ${activeView === 'inventory' ? 'active' : ''}`} 
+             onClick={(e) => handleNavClick(e, 'inventory')}
+             onMouseEnter={() => playHoverSound()}>
+            <Backpack size={20} />
+            <span>Inventaire</span>
+          </a>
           <a href="#" className={`nav-item ${activeView === 'shop' ? 'active' : ''}`} 
              onClick={(e) => handleNavClick(e, 'shop')}
              onMouseEnter={() => playHoverSound()}>
@@ -90,6 +102,9 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, setView })
             <h2>mindora</h2>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button className="coin-balance-btn" onClick={() => { playClickSound(); setView('inventory'); }} style={{ background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 255, 255, 0.2)', padding: '6px 12px', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '6px', color: '#fff', fontSize: '0.9rem', cursor: 'pointer' }}>
+              <Backpack size={16} />
+            </button>
             <button className="coin-balance-btn" onClick={() => { playClickSound(); setView('shop'); }} style={{ background: 'rgba(251, 191, 36, 0.1)', border: '1px solid rgba(251, 191, 36, 0.3)', padding: '6px 12px', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '6px', color: '#fbbf24', fontWeight: 'bold', fontSize: '0.9rem', cursor: 'pointer' }}>
               {points} <Coins size={16} />
             </button>

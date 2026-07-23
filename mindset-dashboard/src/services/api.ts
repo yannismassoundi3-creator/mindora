@@ -42,6 +42,7 @@ export const api = {
         if (data.bonus_score !== undefined) localStorage.setItem('bonus_mental_score', data.bonus_score.toString());
         if (data.daily_scores) localStorage.setItem('mindset_daily_scores', JSON.stringify(data.daily_scores));
         if (data.rewards) localStorage.setItem('mindset_rewards', JSON.stringify(data.rewards));
+        if (data.inventory) localStorage.setItem('mindset_inventory_rewards', JSON.stringify(data.inventory));
         if (data.last_routine_date) localStorage.setItem('mindset_last_routine_date', data.last_routine_date);
         if (data.last_habit_date) localStorage.setItem('mindset_last_habit_date', data.last_habit_date);
         if (data.join_date) localStorage.setItem('mindset_join_date', data.join_date);
@@ -71,6 +72,7 @@ export const api = {
         bonus_score: parseInt(localStorage.getItem('bonus_mental_score') || '0', 10),
         daily_scores: JSON.parse(localStorage.getItem('mindset_daily_scores') || '{}'),
         rewards: JSON.parse(localStorage.getItem('mindset_rewards') || '[]'),
+        inventory: JSON.parse(localStorage.getItem('mindset_inventory_rewards') || '[]'),
         last_routine_date: localStorage.getItem('mindset_last_routine_date') || '',
         last_habit_date: localStorage.getItem('mindset_last_habit_date') || '',
         join_date: localStorage.getItem('mindset_join_date') || '',

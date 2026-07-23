@@ -10,6 +10,7 @@ import { Shop } from './pages/Shop';
 import { Objectives } from './pages/Objectives';
 import { Habits } from './pages/Habits';
 import { Profile } from './pages/Profile';
+import { Inventory } from './pages/Inventory';
 import { PricingScreen } from './pages/PricingScreen';
 import { LevelUpOverlay } from './components/LevelUpOverlay';
 import { StreakBrokenOverlay } from './components/StreakBrokenOverlay';
@@ -39,7 +40,7 @@ function App() {
   const isAuthIntent = urlParams.get('auth') === 'true';
   const hasCompletedOnboarding = localStorage.getItem('hasCompletedOnboarding') === 'true';
 
-  const [currentView, setCurrentView] = useState<'auth' | 'onboarding' | 'welcome' | 'dashboard' | 'chat' | 'objectives' | 'habits' | 'profile' | 'shop'>(
+  const [currentView, setCurrentView] = useState<'auth' | 'onboarding' | 'welcome' | 'dashboard' | 'chat' | 'objectives' | 'habits' | 'profile' | 'shop' | 'inventory'>(
     (isAuthIntent && !hasToken) ? 'auth' : (hasToken && hasCompletedOnboarding ? 'dashboard' : 'welcome')
   );
 
@@ -47,7 +48,7 @@ function App() {
 
   const [isSubscribed, setIsSubscribed] = useState(() => localStorage.getItem('mindset_is_subscribed') === 'true');
 
-  const VIEW_ORDER = ['dashboard', 'objectives', 'chat', 'habits', 'profile', 'shop'];
+  const VIEW_ORDER = ['dashboard', 'objectives', 'chat', 'habits', 'profile', 'shop', 'inventory'];
   const [slideDirection, setSlideDirection] = useState<'right' | 'left' | 'none'>('none');
 
   const [showPricingModal, setShowPricingModal] = useState(false);
@@ -167,6 +168,7 @@ function App() {
               {currentView === 'habits' && <Habits onOpenChat={tryOpenChat} />}
               {currentView === 'profile' && <Profile onNameChange={() => window.location.reload()} />}
               {currentView === 'shop' && <Shop />}
+              {currentView === 'inventory' && <Inventory />}
             </>
           )}
         </div>

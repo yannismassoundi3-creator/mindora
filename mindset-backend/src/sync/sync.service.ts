@@ -36,6 +36,7 @@ export class SyncService {
         join_date: data.join_date,
         settings: data.settings,
         rewards: data.rewards,
+        inventory: data.inventory,
       },
       create: {
         user_id: userId,
@@ -52,6 +53,7 @@ export class SyncService {
         join_date: data.join_date,
         settings: data.settings,
         rewards: data.rewards,
+        inventory: data.inventory,
       }
     });
   }

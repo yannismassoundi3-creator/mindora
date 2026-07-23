@@ -82,6 +82,20 @@ export const Shop: React.FC = () => {
     if (points >= reward.cost) {
       const remaining = points - reward.cost;
       handlePointsUpdate(remaining);
+      
+      // Add to inventory
+      const currentInventory = JSON.parse(localStorage.getItem('mindset_inventory_rewards') || '[]');
+      const newInventoryItem = {
+        id: Date.now().toString() + Math.random().toString(36),
+        rewardId: reward.id,
+        title: reward.title,
+        icon: reward.icon,
+        purchasedAt: new Date().toISOString()
+      };
+      const updatedInventory = [...currentInventory, newInventoryItem];
+      localStorage.setItem('mindset_inventory_rewards', JSON.stringify(updatedInventory));
+      window.dispatchEvent(new Event('storage')); // trigger sync
+      
       setPurchasedId(reward.id);
       playLevelUpSound();
       setTimeout(() => setPurchasedId(null), 2000);
