@@ -25,6 +25,18 @@ html, body, #root {
   overflow-x: hidden;
 }
 
+@media (max-width: 768px) {
+  html {
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  html {
+    font-size: 14px;
+  }
+}
+
 body {
   font-family: var(--font-main);
   background-color: var(--bg-dark);

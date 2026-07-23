@@ -20,6 +20,7 @@
   border-radius: 50%;
   background: radial-gradient(circle, var(--accent-blue) 0%, var(--accent-purple) 100%);
   box-shadow: 0 0 15px var(--accent-blue), inset 0 0 10px #fff;
+  flex-shrink: 0;
 }
 
 .ai-jarvis-orb.small {
@@ -517,22 +518,22 @@
     overflow-x: hidden;
   }
   .macro-cards-container {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    display: flex;
+    flex-direction: column;
     gap: 12px;
     width: 100%;
   }
   .macro-card {
-    height: 150px;
-    padding: 12px;
+    height: auto;
+    min-height: 140px;
+    padding: 16px;
     border-radius: 16px;
     width: 100%;
-    max-width: 100%;
     box-sizing: border-box;
-    min-width: 0;
   }
   .add-macro-card {
-    height: 150px;
+    height: 100px;
+    min-height: 100px;
   }
   .macro-category {
     font-size: 0.6rem;

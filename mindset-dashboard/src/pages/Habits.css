@@ -368,6 +368,28 @@
 @media (max-width: 768px) {
   .habits-grid {
     grid-template-columns: 1fr;
+    gap: 15px;
+  }
+  .habit-card {
+    padding: 16px;
+    border-radius: 16px;
+  }
+  .habit-card h3 {
+    font-size: 1.2rem;
+    margin-bottom: 4px;
+  }
+  .habit-card p {
+    font-size: 0.85rem;
+  }
+  .habit-header {
+    margin-bottom: 15px;
+  }
+  .habit-icon-wrapper {
+    width: 45px;
+    height: 45px;
+  }
+  .add-habit-card {
+    min-height: 120px;
   }
 }
 
