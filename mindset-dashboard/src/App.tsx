@@ -56,7 +56,7 @@ const updateSW = registerSW({
 
 
 function App() {
-  const IS_BETA_TEST_PHASE = true; // Activer la phase de test gratuite
+  const IS_BETA_TEST_PHASE = false; // Activer la phase de test gratuite
   const hasToken = !!localStorage.getItem('mindset_token');
   
   const urlParams = new URLSearchParams(window.location.search);
