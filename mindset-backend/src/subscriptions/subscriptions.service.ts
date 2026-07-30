@@ -75,6 +75,12 @@ export class SubscriptionsService {
         const userId = session.client_reference_id;
         if (userId) {
           const mode = session.mode;
+          
+          await this.prisma.user.update({
+            where: { id: userId },
+            data: { stripe_customer_id: session.customer as string }
+          });
+
           await this.prisma.subscription.upsert({
             where: { user_id: userId },
             update: { 
@@ -117,5 +123,26 @@ export class SubscriptionsService {
       create: { user_id: userId, status: 'ACTIVE', plan_type: 'ELITE' }
     });
     return { success: true };
+  }
+
+  async createPortalSession(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || !user.stripe_customer_id) {
+      throw new BadRequestException('Aucun compte Stripe associé trouvé.');
+    }
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+
+    try {
+      const session = await this.stripe.billingPortal.sessions.create({
+        customer: user.stripe_customer_id,
+        return_url: `${frontendUrl}/?auth=true`,
+      });
+
+      return { portalUrl: session.url };
+    } catch (error: any) {
+      console.error('[Stripe] Create portal session error:', error);
+      throw new BadRequestException('Failed to create Stripe portal session: ' + error.message);
+    }
   }
 }

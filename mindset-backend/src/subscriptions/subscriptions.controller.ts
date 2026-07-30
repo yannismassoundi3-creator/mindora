@@ -18,6 +18,15 @@ export class SubscriptionsController {
     return this.subscriptionsService.createCheckoutSession(userId, planType);
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post('portal')
+  @ApiOperation({ summary: 'Créer une session portail client Stripe' })
+  async createPortalSession(@Req() req: Request) {
+    const userId = (req.user as any).userId;
+    return this.subscriptionsService.createPortalSession(userId);
+  }
+
   @Post('webhook')
   @ApiOperation({ summary: 'Stripe Webhook (Appelé par Stripe)' })
   async handleStripeWebhook(@Headers('stripe-signature') signature: string, @Req() req: Request) {

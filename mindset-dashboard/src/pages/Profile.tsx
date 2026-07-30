@@ -256,8 +256,18 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
                     Vous bénéficiez de l'accès illimité à l'IA Jarvis, du Dashboard holographique et du double de Coins par habitude.
                   </p>
                   <button 
-                    onClick={() => { localStorage.removeItem('mindset_is_subscribed'); window.location.reload(); }}
-                    style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }}
+                    onClick={async () => {
+                      try {
+                        const res = await api.post('/subscriptions/portal', {});
+                        if (res.portalUrl) {
+                          window.location.href = res.portalUrl;
+                        }
+                      } catch (e) {
+                        console.error('Failed to open portal', e);
+                        alert("Le portail n'est pas encore disponible pour votre compte de test.");
+                      }
+                    }}
+                    style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: '1px solid rgba(59, 130, 246, 0.3)', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }}
                   >
                     Gérer / Annuler l'abonnement
                   </button>
