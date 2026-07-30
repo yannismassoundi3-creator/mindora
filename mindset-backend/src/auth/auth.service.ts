@@ -16,17 +16,12 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
-    const existingUser = await this.prisma.user.findFirst({
-      where: {
-        OR: [
-          { email: dto.email },
-          { phone_number: dto.phone_number }
-        ]
-      }
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: dto.email }
     });
 
     if (existingUser) {
-      throw new ConflictException('Cet email ou ce numéro de téléphone est déjà utilisé.');
+      throw new ConflictException('Cet email est déjà utilisé.');
     }
 
     try {
@@ -37,16 +32,12 @@ export class AuthService {
           first_name: dto.first_name,
           last_name: dto.last_name,
           email: dto.email,
-          phone_number: dto.phone_number,
-          password_hash: passwordHash,
-          is_phone_verified: false, 
+          password_hash: passwordHash
         },
       });
 
-      await this.sendOtp(dto.phone_number);
-
       return {
-        message: 'Compte créé avec succès. Un code OTP a été envoyé par SMS.',
+        message: 'Compte créé avec succès.',
         user_id: user.id,
       };
     } catch (error) {
