@@ -18,7 +18,6 @@ export const AuthScreen = ({ onComplete }: { onComplete: () => void }) => {
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [phone, setPhone] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,8 +55,7 @@ export const AuthScreen = ({ onComplete }: { onComplete: () => void }) => {
           email, 
           password, 
           first_name: firstName, 
-          last_name: lastName, 
-          phone_number: phone 
+          last_name: lastName
         });
         
         // Auto login after register
@@ -158,16 +156,6 @@ export const AuthScreen = ({ onComplete }: { onComplete: () => void }) => {
               onChange={e => setLastName(e.target.value)} 
             />
           </div>
-        )}
-        
-        {!isLogin && (
-          <input 
-            type="tel" 
-            placeholder="Téléphone (ex: +33612345678)" 
-            required 
-            value={phone} 
-            onChange={e => setPhone(e.target.value)} 
-          />
         )}
 
           <input

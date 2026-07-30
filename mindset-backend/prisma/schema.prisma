@@ -10,12 +10,10 @@ datasource db {
 model User {
   id                 String            @id @default(uuid())
   email              String            @unique
-  phone_number       String            @unique
   password_hash      String
   first_name         String
   last_name          String
   role               Role              @default(USER)
-  is_phone_verified  Boolean           @default(false)
   stripe_customer_id String?           @unique
   created_at         DateTime          @default(now())
   updated_at         DateTime          @updatedAt
@@ -44,17 +42,6 @@ model RefreshToken {
   is_revoked Boolean  @default(false)
   created_at DateTime @default(now())
   user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-}
-
-model PhoneVerification {
-  id         String   @id @default(uuid())
-  phone      String
-  code       String
-  expires_at DateTime
-  is_used    Boolean  @default(false)
-  created_at DateTime @default(now())
-
-  @@index([phone])
 }
 
 model AIProfile {

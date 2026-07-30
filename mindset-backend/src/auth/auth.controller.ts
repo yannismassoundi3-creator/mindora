@@ -20,37 +20,6 @@ export class AuthController {
     return this.authService.register(registerDto);
   }
 
-  @Post('verify-otp')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Vérifier le numéro de téléphone après inscription' })
-  @ApiResponse({ status: 200, description: 'Téléphone vérifié avec succès.' })
-  @ApiResponse({ status: 401, description: 'Code invalide ou expiré.' })
-  async verifyOtp(@Body() verifyOtpDto: VerifyOtpDto) {
-    return this.authService.verifyOtp(verifyOtpDto);
-  }
-
-  @Post('login/request-otp')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Demander un code de connexion par SMS (Passwordless)' })
-  async requestLoginOtp(@Body('phone_number') phoneNumber: string) {
-    return this.authService.requestLoginOtp(phoneNumber);
-  }
-
-  @Post('login/verify-otp')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Connexion via code SMS' })
-  async verifyLoginOtp(@Body() verifyOtpDto: VerifyOtpDto, @Res({ passthrough: true }) response: Response) {
-    const { accessToken, refreshToken, user } = await this.authService.verifyLoginOtp(verifyOtpDto);
-    
-    response.cookie('refresh_token', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-
-    return { access_token: accessToken, user };
-  }
 
   @Post('login')
   @HttpCode(HttpStatus.OK)

@@ -342,6 +342,16 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
                 } catch(e) {}
                 localStorage.removeItem('mindset_token');
                 localStorage.removeItem('mindset_is_subscribed');
+                localStorage.removeItem('mindset_habits');
+                localStorage.removeItem('mindset_routines_data');
+                localStorage.removeItem('mindset_points');
+                localStorage.removeItem('mindset_daily_scores');
+                localStorage.removeItem('mindset_objectives');
+                localStorage.removeItem('mindset_user_name');
+                localStorage.removeItem('mindset_ai_name');
+                localStorage.removeItem('hasCompletedOnboarding');
+                localStorage.removeItem('mindset_inventory');
+                localStorage.removeItem('mindset_ai_skin');
                 window.location.reload();
               }}
             >

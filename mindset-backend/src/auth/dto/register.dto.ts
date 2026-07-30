@@ -17,12 +17,6 @@ export class RegisterDto {
   @IsNotEmpty()
   email: string;
 
-  @ApiProperty({ example: '+33612345678', description: 'Numéro de téléphone international pour l\'OTP' })
-  @IsString()
-  @IsNotEmpty()
-  @Matches(/^\+[1-9]\d{1,14}$/, { message: 'Le numéro de téléphone doit être au format international valide (ex: +33612345678)' })
-  phone_number: string;
-
   @ApiProperty({ example: 'P@ssword123!', description: 'Mot de passe sécurisé' })
   @IsString()
   @IsNotEmpty()
