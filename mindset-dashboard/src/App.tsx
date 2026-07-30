@@ -88,6 +88,18 @@ function App() {
           const subscribed = user.subscription?.status === 'ACTIVE';
           setIsSubscribed(subscribed);
           localStorage.setItem('mindset_is_subscribed', subscribed ? 'true' : 'false');
+
+          if (urlParams.get('success') === 'true') {
+            import('canvas-confetti').then((confetti) => {
+              confetti.default({
+                particleCount: 150,
+                spread: 100,
+                origin: { y: 0.6 },
+                colors: ['#3b82f6', '#8b5cf6', '#ec4899']
+              });
+            });
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
         }
       } catch (e) {
         console.error('Failed to initialize app', e);

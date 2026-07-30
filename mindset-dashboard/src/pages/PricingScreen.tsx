@@ -21,16 +21,16 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
     playLevelUpSound();
     
     try {
-      // Simulation de l'appel à Stripe + vérification backend
-      const res = await api.post('/subscriptions/mock-success', {});
-      if(res.success) {
-        confetti({
-          particleCount: 150,
-          spread: 100,
-          origin: { y: 0.6 },
-          colors: ['#3b82f6', '#8b5cf6', '#ec4899']
-        });
-        onSubscribe();
+      const res = await api.post('/subscriptions/checkout', { planType: selectedPlan });
+      if (res.checkoutUrl) {
+        if (res.checkoutUrl.includes('mock=true')) {
+          // Mode développement sans clé Stripe
+          confetti({ particleCount: 150, spread: 100, origin: { y: 0.6 }, colors: ['#3b82f6', '#8b5cf6', '#ec4899'] });
+          onSubscribe();
+        } else {
+          // Redirection vers la vraie page Stripe
+          window.location.href = res.checkoutUrl;
+        }
       }
     } catch (error) {
       console.error('Erreur lors du paiement:', error);
