@@ -47,6 +47,10 @@
             scroll-behavior: smooth;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
+            overflow-x: hidden;
+            width: 100vw;
+            max-width: 100%;
+            position: relative;
         }
 
         body {
@@ -55,6 +59,8 @@
             background-image: radial-gradient(circle at 50% -20%, rgba(139, 92, 246, 0.15) 0%, transparent 60%), radial-gradient(circle at 100% 50%, rgba(56, 189, 248, 0.1) 0%, transparent 50%);
             color: var(--white);
             overflow-x: hidden;
+            width: 100%;
+            position: relative;
             line-height: 1.6;
         }
 
@@ -1213,9 +1219,6 @@
                 Commencer gratuitement
                 <span class="btn-icon">→</span>
             </a>
-            <a href="#how-it-works" class="btn btn-secondary btn-large" id="hero-cta-secondary">
-                Voir la démo
-            </a>
         </div>
         <div class="hero-metrics">
             <div class="metric">
@@ -1349,9 +1352,9 @@
             </div>
 
             <div style="text-align: center; margin-top: 40px;" class="reveal">
-                <button class="btn btn-primary open-login-btn btn-glow" style="display: inline-flex; align-items: center; gap: 8px;">
+                <a href="mailto:contact@mindora.app?subject=Mon avis sur Mindora" class="btn btn-primary btn-glow" style="display: inline-flex; align-items: center; gap: 8px; text-decoration: none;">
                     ✍️ Ajouter un avis
-                </button>
+                </a>
                 <p style="font-size: 0.85rem; color: var(--gray-400); margin-top: 16px;">
                     *Vous devez être connecté et posséder un abonnement Mindora Pro pour laisser un avis.
                 </p>
