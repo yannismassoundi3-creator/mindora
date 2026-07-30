@@ -80,14 +80,12 @@ export class SubscriptionsService {
             update: { 
               status: 'ACTIVE', 
               plan_type: 'ELITE',
-              stripe_cust_id: session.customer as string,
               stripe_sub_id: session.subscription as string
             },
             create: { 
               user_id: userId, 
               status: 'ACTIVE', 
               plan_type: 'ELITE',
-              stripe_cust_id: session.customer as string,
               stripe_sub_id: session.subscription as string
             }
           });
