@@ -34,12 +34,22 @@ export class ErrorBoundary extends Component<Props, State> {
           <p style={{ marginTop: '10px' }}>L'application a rencontré un problème critique.</p>
           <button 
             onClick={() => {
-              localStorage.clear();
-              window.location.href = '/landing.html';
+              // On ne clear pas le localStorage pour ne pas perdre les données utilisateur !
+              // On désenregistre plutôt le service worker qui cause le cache persistant
+              if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                  for(let registration of registrations) {
+                    registration.unregister();
+                  }
+                  window.location.reload();
+                });
+              } else {
+                window.location.reload();
+              }
             }}
             style={{ padding: '12px 24px', background: '#3b82f6', color: 'var(--primary)', border: 'none', borderRadius: '12px', marginTop: '20px', cursor: 'pointer', fontWeight: 'bold' }}
           >
-            Vider le cache et redémarrer
+            Mettre à jour l'application et redémarrer
           </button>
           <pre style={{ marginTop: '20px', background: '#111', padding: '15px', borderRadius: '8px', overflowX: 'auto', fontSize: '12px', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
             {this.state.error?.toString()}
