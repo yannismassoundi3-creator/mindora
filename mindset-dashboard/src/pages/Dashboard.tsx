@@ -476,7 +476,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
 
       <div className="dashboard-grid">
         {/* Main Chart Section */}
-        <section className="glass-panel chart-section glass-panel-interactive pulse-glow">
+        <section className="glass-panel chart-section pulse-glow" style={{ transition: 'all 0.3s ease', cursor: 'pointer' }}>
           <div className="section-header">
             <div>
               <h3>Évolution Mentale</h3>
@@ -711,7 +711,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
         </section>
 
         {/* Heatmap Section */}
-        <section className="heatmap-section glass-panel glass-panel-interactive pulse-glow fade-in delay-2">
+        <section className="heatmap-section glass-panel pulse-glow fade-in delay-2" style={{ transition: 'all 0.3s ease', cursor: 'pointer' }}>
           <div className="section-header-flex" style={{ marginBottom: '8px' }}>
             <h3 className="section-title" style={{ fontSize: '1.2rem', margin: 0 }}>
               <Calendar size={18} /> Ton Année
