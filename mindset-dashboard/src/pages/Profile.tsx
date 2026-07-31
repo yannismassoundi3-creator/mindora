@@ -10,11 +10,15 @@ interface ProfileProps {
   onNameChange?: () => void;
 }
 
-const THEMES = [
+const TEXT_COLORS = [
+  { id: 'default', name: 'Par Défaut (Thème)', value: 'default' },
+  { id: 'white', name: 'Blanc Pur', value: '#ffffff' },
   { id: 'blue', name: 'Bleu Néon', value: '#3b82f6' },
   { id: 'purple', name: 'Violet Néon', value: '#8b5cf6' },
   { id: 'pink', name: 'Rose Néon', value: '#ec4899' },
-  { id: 'green', name: 'Vert Émeraude', value: '#10b981' }
+  { id: 'green', name: 'Vert Émeraude', value: '#10b981' },
+  { id: 'orange', name: 'Orange Vif', value: '#f97316' },
+  { id: 'silver', name: 'Argent', value: '#e2e8f0' }
 ];
 
 export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
@@ -25,8 +29,8 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
   const [userName, setUserName] = useState(() => localStorage.getItem('mindset_user_name') || 'Yannis');
   const [aiName, setAiName] = useState(() => localStorage.getItem('mindset_ai_name') || 'Coach IA');
   
-  // Theme
-  const [theme, setTheme] = useState(() => localStorage.getItem('mindset_theme') || '#3b82f6');
+  // Text Color
+  const [textColor, setTextColor] = useState(() => localStorage.getItem('mindset_text_color') || 'default');
 
   // Security (Persistent)
   const [encryption, setEncryption] = useState(() => localStorage.getItem('mindset_sec_encryption') !== 'false');
@@ -100,13 +104,17 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
   const handleSave = async () => {
     localStorage.setItem('mindset_user_name', userName);
     localStorage.setItem('mindset_ai_name', aiName);
-    localStorage.setItem('mindset_theme', theme);
+    localStorage.setItem('mindset_text_color', textColor);
     localStorage.setItem('mindset_sec_encryption', encryption.toString());
     localStorage.setItem('mindset_sec_biometric', biometric.toString());
     localStorage.setItem('mindset_sec_local', localHistory.toString());
     
-    // Apply theme globally
-    document.documentElement.style.setProperty('--primary', theme);
+    // Apply text color globally to body
+    if (textColor && textColor !== 'default') {
+      document.body.style.setProperty('--primary', textColor);
+    } else {
+      document.body.style.removeProperty('--primary');
+    }
 
     try {
       // Force sync to PostgreSQL database
@@ -230,17 +238,23 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
               <small>Renomme ton assistant (ex: Jarvis, Friday...)</small>
             </div>
 
-            <h3 className="card-title" style={{ marginTop: '24px' }}><Palette size={18}/> Aura (Thème)</h3>
-            <div className="theme-picker">
-              {THEMES.map(t => (
+            <h3 className="card-title" style={{ marginTop: '24px' }}><Palette size={18}/> Couleur du Texte</h3>
+            <div className="theme-picker" style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '12px' }}>
+              {TEXT_COLORS.map(t => (
                 <button 
                   key={t.id}
-                  className={`theme-swatch ${theme === t.value ? 'selected' : ''}`}
-                  style={{ backgroundColor: t.value }}
-                  onClick={() => { playClickSound(); setTheme(t.value); }}
+                  className={`theme-swatch ${textColor === t.value ? 'selected' : ''}`}
+                  style={{ 
+                    backgroundColor: t.value === 'default' ? 'var(--primary)' : t.value,
+                    border: t.value === '#ffffff' ? '1px solid rgba(255,255,255,0.2)' : 'none',
+                    position: 'relative'
+                  }}
+                  onClick={() => { playClickSound(); setTextColor(t.value); }}
                   onMouseEnter={() => playHoverSound()}
                   title={t.name}
-                />
+                >
+                  {t.value === 'default' && <span style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: '10px', color: 'var(--bg-dark)' }}>Auto</span>}
+                </button>
               ))}
             </div>
 
