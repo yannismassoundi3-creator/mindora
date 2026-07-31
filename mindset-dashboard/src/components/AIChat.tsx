@@ -126,17 +126,21 @@ export const AIChat: React.FC = () => {
     }
   };
 
-  const applyPlanData = (planData: any) => {
-    if (!planData) return;
+  const applyPlanData = (rawPlanData: any) => {
+    if (!rawPlanData) return;
     
-    if (planData.newHabits && Array.isArray(planData.newHabits)) {
+    // Si l'IA a imbriqué les données dans un objet "plan" ou "actionPlan"
+    const planData = rawPlanData.plan || rawPlanData.actionPlan || rawPlanData;
+    
+    const habitsList = planData.newHabits || planData.habits;
+    if (habitsList && Array.isArray(habitsList)) {
       let existingHabits = [];
       try {
         const parsed = JSON.parse(localStorage.getItem('mindset_habits') || '[]');
         existingHabits = Array.isArray(parsed) ? parsed : [];
       } catch {}
       
-      const newEntries = planData.newHabits.map((h: any) => {
+      const newEntries = habitsList.map((h: any) => {
         const colors = ['#3b82f6', '#ec4899', '#8b5cf6', '#10b981', '#fcd34d', '#ef4444'];
         const randomColor = colors[Math.floor(Math.random() * colors.length)];
         return {
@@ -153,15 +157,16 @@ export const AIChat: React.FC = () => {
       addAiNotification('habit', `✨ ${aiName} a ajouté de nouvelles habitudes stratégiques pour toi.`);
     }
     
-    if (planData.newRoutines && Array.isArray(planData.newRoutines)) {
+    const routinesList = planData.newRoutines || planData.routines;
+    if (routinesList && Array.isArray(routinesList)) {
       let existingRoutines: any[] = [];
       try {
         const saved = JSON.parse(localStorage.getItem('mindset_routines') || '[]');
         existingRoutines = Array.isArray(saved) ? saved : [];
       } catch {}
       
-      planData.newRoutines.forEach((r: any) => {
-        const typeMap: Record<string, string> = { 'MORNING': 'morning', 'MIDDAY': 'midday', 'EVENING': 'evening' };
+      routinesList.forEach((r: any) => {
+        const typeMap: Record<string, string> = { 'MORNING': 'morning', 'MATIN': 'morning', 'MIDDAY': 'midday', 'MIDI': 'midday', 'APRÈS-MIDI': 'midday', 'EVENING': 'evening', 'SOIR': 'evening', 'SOIRÉE': 'evening' };
         const rawType = (r.type || 'MORNING').toUpperCase();
         const mappedType = typeMap[rawType] || 'morning';
         
@@ -174,9 +179,10 @@ export const AIChat: React.FC = () => {
         if (r.tasks && Array.isArray(r.tasks)) {
           r.tasks.forEach((t: any) => {
             if (!targetRoutine.items) targetRoutine.items = [];
+            const taskTitle = t.title || t.name || t.description || t.task || t.tache || 'Nouvelle tâche';
             targetRoutine.items.push({
               id: Date.now() + Math.floor(Math.random() * 100000),
-              title: t.title,
+              title: taskTitle,
               time: `${t.duration || 15} min`,
               done: false
             });
@@ -187,17 +193,19 @@ export const AIChat: React.FC = () => {
       addAiNotification('routine', `✨ ${aiName} a mis à jour tes routines pour t'aider à atteindre tes objectifs.`);
       }
       
-      if (planData.newObjectives && Array.isArray(planData.newObjectives)) {
+      const objectivesList = planData.newObjectives || planData.objectives || planData.microObjectives || planData.goals;
+      if (objectivesList && Array.isArray(objectivesList)) {
         let existingMicro: any[] = [];
         try {
           const saved = JSON.parse(localStorage.getItem('mindset_micro_obj') || '[]');
           existingMicro = Array.isArray(saved) ? saved : [];
         } catch {}
         
-        const newEntries = planData.newObjectives.map((o: any) => {
+        const newEntries = objectivesList.map((o: any) => {
+          const objTitle = o.title || o.name || o.description || o.objectif || o.objective || o.goal || 'Nouvel Objectif';
           return {
             id: Date.now() + Math.floor(Math.random() * 100000),
-            title: o.title || 'Nouvel Objectif',
+            title: objTitle,
             category: o.category || 'Mindset',
             progress: 0,
             total: 7,
