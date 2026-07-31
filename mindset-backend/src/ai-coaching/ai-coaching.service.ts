@@ -118,7 +118,10 @@ RÈGLES DE COMPORTEMENT :
         }
       ],
       "newObjectives": [
-        { "title": "Titre objectif", "category": "Mindset", "deadline": "2 semaines" }
+        { "title": "Titre objectif (micro)", "category": "Mindset", "deadline": "2 semaines" }
+      ],
+      "newMacroObjectives": [
+        { "title": "Titre objectif (macro)", "category": "Vision", "deadline": "Déc 2026" }
       ]
     }
     \`\`\`

@@ -177,8 +177,9 @@ export const AIChat: React.FC = () => {
         }
         
         if (r.tasks && Array.isArray(r.tasks)) {
+          // Vider les anciennes tâches pour remplacer par les nouvelles
+          targetRoutine.items = [];
           r.tasks.forEach((t: any) => {
-            if (!targetRoutine.items) targetRoutine.items = [];
             const taskTitle = t.title || t.name || t.description || t.task || t.tache || 'Nouvelle tâche';
             targetRoutine.items.push({
               id: Date.now() + Math.floor(Math.random() * 100000),
@@ -195,12 +196,6 @@ export const AIChat: React.FC = () => {
       
       const objectivesList = planData.newObjectives || planData.objectives || planData.microObjectives || planData.goals;
       if (objectivesList && Array.isArray(objectivesList)) {
-        let existingMicro: any[] = [];
-        try {
-          const saved = JSON.parse(localStorage.getItem('mindset_micro_obj') || '[]');
-          existingMicro = Array.isArray(saved) ? saved : [];
-        } catch {}
-        
         const newEntries = objectivesList.map((o: any) => {
           const objTitle = o.title || o.name || o.description || o.objectif || o.objective || o.goal || 'Nouvel Objectif';
           return {
@@ -212,8 +207,29 @@ export const AIChat: React.FC = () => {
             done: false
           };
         });
-        localStorage.setItem('mindset_micro_obj', JSON.stringify([...existingMicro, ...newEntries]));
+        // Remplacer complètement les anciens objectifs par les nouveaux
+        localStorage.setItem('mindset_micro_obj', JSON.stringify(newEntries));
         addAiNotification('objective', `✨ ${aiName} a défini de nouveaux objectifs d'évolution pour toi.`);
+      }
+
+      const macroList = planData.newMacroObjectives || planData.macroObjectives || planData.vision;
+      if (macroList && Array.isArray(macroList)) {
+        const GRADIENTS = [
+          'linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%)',
+          'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+          'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        ];
+        const newMacros = macroList.map((m: any, idx: number) => {
+          const mTitle = m.title || m.name || m.description || m.objectif || m.objective || m.goal || 'Nouvelle Vision';
+          return {
+            id: Date.now() + Math.floor(Math.random() * 100000) + idx,
+            title: mTitle,
+            category: m.category || 'Vision',
+            deadline: m.deadline || m.date || 'Déc 2026',
+            bgGradient: GRADIENTS[idx % GRADIENTS.length]
+          };
+        });
+        localStorage.setItem('mindset_macro_obj', JSON.stringify(newMacros));
       }
 
       // Force API sync if needed
