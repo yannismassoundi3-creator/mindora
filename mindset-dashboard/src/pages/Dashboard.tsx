@@ -187,6 +187,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
     localStorage.setItem('mindset_last_routine_date', getTodayKey());
   }, [routineGroups]);
 
+  // Écouter les changements venant de l'IA (storage)
+  useEffect(() => {
+    const handleStorage = () => {
+      const saved = localStorage.getItem('mindset_routines');
+      if (saved) {
+        try {
+          setRoutineGroups(JSON.parse(saved));
+        } catch (e) {}
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
   // --- SCORE CALCULATION ---
   const totalRoutines = Array.isArray(routineGroups) ? routineGroups.reduce((acc: number, group: any) => acc + (Array.isArray(group.items) ? group.items.length : 0), 0) : 0;
   const doneRoutines = Array.isArray(routineGroups) ? routineGroups.reduce((acc: number, group: any) => acc + (Array.isArray(group.items) ? group.items.filter((i: any) => i.done).length : 0), 0) : 0;

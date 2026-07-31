@@ -81,6 +81,21 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
     localStorage.setItem('mindset_macro_obj', JSON.stringify(macroObjectives));
   }, [macroObjectives]);
 
+  // Écouter les changements venant de l'IA (storage)
+  useEffect(() => {
+    const handleStorage = () => {
+      try {
+        const savedMicro = localStorage.getItem('mindset_micro_obj');
+        if (savedMicro) setMicroObjectives(JSON.parse(savedMicro));
+        
+        const savedMacro = localStorage.getItem('mindset_macro_obj');
+        if (savedMacro) setMacroObjectives(JSON.parse(savedMacro));
+      } catch (e) {}
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
   // Weekly Reset Logic
   useEffect(() => {
     const getWeekNumber = (d: Date) => {

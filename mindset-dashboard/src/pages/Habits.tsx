@@ -110,6 +110,18 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
     localStorage.setItem('mindset_habits', JSON.stringify(habits));
   }, [habits]);
 
+  // Écouter les changements venant de l'IA (storage)
+  useEffect(() => {
+    const handleStorage = () => {
+      try {
+        const saved = localStorage.getItem('mindset_habits');
+        if (saved) setHabits(JSON.parse(saved));
+      } catch (e) {}
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
   const showAiMessage = (msg: string) => {
     setAiMessage({ text: msg, visible: true });
     setTimeout(() => {
