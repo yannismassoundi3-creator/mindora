@@ -112,8 +112,10 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
     // Apply text color globally to body
     if (textColor && textColor !== 'default') {
       document.body.style.setProperty('--primary', textColor);
+      document.body.style.setProperty('--secondary', textColor);
     } else {
       document.body.style.removeProperty('--primary');
+      document.body.style.removeProperty('--secondary');
     }
 
     try {
@@ -288,14 +290,14 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
                 </div>
               ) : (
                 <div style={{ background: 'rgba(255, 255, 255, 0.05)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
-                  <p style={{ color: 'white', fontWeight: 600, marginBottom: '8px' }}>Statut : Formule Gratuite</p>
+                  <p style={{ color: 'var(--primary)', fontWeight: 600, marginBottom: '8px' }}>Statut : Formule Gratuite</p>
                   <p style={{ fontSize: '0.85rem', color: 'var(--secondary)', marginBottom: '16px' }}>
                     Débloquez {aiName} 24/7 et la Gamification holographique avec Mindora Pro.
                   </p>
                   <button 
                     onClick={() => { playClickSound(); setShowPricingModal(true); }}
                     onMouseEnter={() => playHoverSound()}
-                    style={{ background: 'linear-gradient(135deg, var(--primary), var(--accent-purple))', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600 }}
+                    style={{ background: 'linear-gradient(135deg, var(--primary), var(--accent-purple))', color: 'var(--primary)', border: 'none', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600 }}
                   >
                     Voir les offres Pro (Dès 9.99€)
                   </button>
@@ -349,7 +351,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
             </button>
             <button 
               className="btn-purge" 
-              style={{ marginTop: '12px', background: 'rgba(255, 255, 255, 0.05)', color: 'white', border: '1px solid rgba(255, 255, 255, 0.2)' }} 
+              style={{ marginTop: '12px', background: 'rgba(255, 255, 255, 0.05)', color: 'var(--primary)', border: '1px solid rgba(255, 255, 255, 0.2)' }} 
               onClick={async () => {
                 try {
                   await api.post('/auth/logout', {});

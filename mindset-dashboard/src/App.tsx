@@ -66,17 +66,22 @@ function App() {
     const applyTheme = () => {
       const themeId = localStorage.getItem('mindset_app_theme_id');
       document.body.className = themeId || '';
+    };
 
+    // Appliquer la couleur de texte personnalisée
+    const applyTextColor = () => {
       const textColor = localStorage.getItem('mindset_text_color');
       if (textColor && textColor !== 'default') {
         document.body.style.setProperty('--primary', textColor);
+        document.body.style.setProperty('--secondary', textColor); // On écrase aussi le secondary pour que les dégradés deviennent solides
       } else {
         document.body.style.removeProperty('--primary');
+        document.body.style.removeProperty('--secondary');
       }
     };
     
-    // Apply on load
     applyTheme();
+    applyTextColor();
 
     // Listen for changes from other tabs or components
     window.addEventListener('storage', applyTheme);

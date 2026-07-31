@@ -96,12 +96,14 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, setView })
             <span className="logo-dot"></span>
             <h2>mindora</h2>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <button className="coin-balance-btn" onClick={() => { playClickSound(); setView('inventory'); }} style={{ background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 255, 255, 0.2)', padding: '6px 12px', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '6px', color: '#fff', fontSize: '0.9rem', cursor: 'pointer' }}>
-              <Backpack size={16} />
+          <div className="header-actions">
+            <button className="coin-balance-btn glass-panel-interactive pulse-glow" onClick={() => { playClickSound(); setView('inventory'); }} style={{ background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 255, 255, 0.2)', padding: '6px 12px', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--primary)', fontSize: '0.9rem', cursor: 'pointer' }}>
+              <div className="liquid-glass-orb" style={{ width: '16px', height: '16px', background: 'var(--primary)' }}></div>
+              Mes Objets
             </button>
-            <button className="coin-balance-btn" onClick={() => { playClickSound(); setView('shop'); }} style={{ background: 'rgba(251, 191, 36, 0.1)', border: '1px solid rgba(251, 191, 36, 0.3)', padding: '6px 12px', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '6px', color: '#fbbf24', fontWeight: 'bold', fontSize: '0.9rem', cursor: 'pointer' }}>
-              {points} <Coins size={16} />
+            <button className="coin-balance-btn glass-panel-interactive pulse-glow" onClick={() => { playClickSound(); setView('shop'); }} style={{ background: 'rgba(251, 191, 36, 0.1)', border: '1px solid rgba(251, 191, 36, 0.3)', padding: '6px 12px', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '6px', color: '#fbbf24', fontWeight: 'bold', fontSize: '0.9rem', cursor: 'pointer' }}>
+              <Coins size={16} color="#fbbf24" />
+              {points}
             </button>
             <button className="user-avatar-btn" onClick={() => { playClickSound(); setView('profile'); }}>
               <div className="user-avatar">{localStorage.getItem('mindset_user_name')?.substring(0,2).toUpperCase() || 'YL'}</div>

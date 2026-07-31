@@ -196,7 +196,7 @@ export const Shop: React.FC = () => {
       <section className="shop-section">
         <div className="section-header-flex">
           <h2><Sparkles size={20} color="#c4b5fd" /> Boutique du Jour (Skins IA)</h2>
-          <div className="daily-timer">
+          <div className="daily-timer glass-panel-interactive pulse-glow">
             <Clock size={14} /> Renouvellement dans {timeLeft}
           </div>
         </div>
@@ -224,9 +224,9 @@ export const Shop: React.FC = () => {
                   <p className="cosmetic-desc">{item.description}</p>
                 
                 <button 
-                  className={`buy-btn ${isEquipped ? 'equipped' : isOwned ? 'owned' : points >= item.cost ? 'affordable' : 'expensive'} ${purchasedId === item.id ? 'purchased' : ''}`}
+                  className={`buy-btn glass-panel-interactive pulse-glow ${isEquipped ? 'equipped' : isOwned ? 'owned' : points >= item.cost ? 'affordable' : 'expensive'} ${purchasedId === item.id ? 'purchased' : ''}`}
                   onClick={() => handleBuyCosmetic(item)}
-                  onMouseEnter={playHoverSound}
+                  disabled={isOwned || points < item.cost}
                 >
                   {isEquipped ? (
                     <><CheckCircle2 size={18} /> Équipé</>
@@ -260,7 +260,7 @@ export const Shop: React.FC = () => {
               <h3 className="reward-title">{reward.title}</h3>
               
               <button 
-                className={`buy-btn ${points >= reward.cost ? 'affordable' : 'expensive'} ${purchasedId === reward.id ? 'purchased' : ''}`}
+                className={`buy-btn glass-panel-interactive pulse-glow ${points >= reward.cost ? 'affordable' : 'expensive'} ${purchasedId === reward.id ? 'purchased' : ''}`}
                 onClick={() => handleBuyReward(reward)}
                 onMouseEnter={playHoverSound}
               >

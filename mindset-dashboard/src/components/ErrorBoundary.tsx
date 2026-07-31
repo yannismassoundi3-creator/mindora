@@ -29,7 +29,7 @@ export class ErrorBoundary extends Component<Props, State> {
   public render() {
     if (this.state.hasError) {
       return (
-        <div style={{ padding: '20px', color: '#fff', background: '#000', minHeight: '100vh', fontFamily: 'sans-serif', overflowY: 'auto' }}>
+        <div style={{ padding: '20px', color: 'var(--primary)', background: '#000', minHeight: '100vh', fontFamily: 'sans-serif', overflowY: 'auto' }}>
           <h1 style={{ color: '#ef4444', fontSize: '24px' }}>Oups ! Une erreur est survenue.</h1>
           <p style={{ marginTop: '10px' }}>L'application a rencontré un problème critique.</p>
           <button 
@@ -37,7 +37,7 @@ export class ErrorBoundary extends Component<Props, State> {
               localStorage.clear();
               window.location.href = '/landing.html';
             }}
-            style={{ padding: '12px 24px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '12px', marginTop: '20px', cursor: 'pointer', fontWeight: 'bold' }}
+            style={{ padding: '12px 24px', background: '#3b82f6', color: 'var(--primary)', border: 'none', borderRadius: '12px', marginTop: '20px', cursor: 'pointer', fontWeight: 'bold' }}
           >
             Vider le cache et redémarrer
           </button>
