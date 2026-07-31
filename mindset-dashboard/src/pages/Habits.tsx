@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Trophy, TrendingUp, Calendar, Zap, AlertTriangle, Play, Edit2, Trash2, Plus, Target, BookOpen, Dumbbell, Brain, Coffee, Sparkles, X } from 'lucide-react';
+import { Trophy, TrendingUp, Calendar, Zap, AlertTriangle, Play, Edit2, Pencil, Trash2, Plus, Target, BookOpen, Dumbbell, Brain, Coffee, Sparkles, X } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { playLevelUpSound, playClickSound, playErrorSound, playBloopSound } from '../utils/sounds';
 import { AiNotification } from '../components/AiNotification';
