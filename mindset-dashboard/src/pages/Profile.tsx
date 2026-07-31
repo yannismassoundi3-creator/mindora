@@ -194,11 +194,11 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
         {/* Left Column : Identity & Stats */}
         <div className="profile-left">
           <div className="profile-card glass-panel text-center">
-            <div className="profile-avatar-large" style={{ background: `linear-gradient(135deg, ${theme}, var(--accent-purple))` }}>
+            <div className="profile-avatar-large" style={{ background: `linear-gradient(135deg, var(--primary), var(--accent-purple))` }}>
               {userName.substring(0, 2).toUpperCase()}
             </div>
             <h2 className="profile-name-display">{userName}</h2>
-            <p className="profile-status" style={{ color: theme }}>Opérateur Principal</p>
+            <p className="profile-status" style={{ color: 'var(--primary)' }}>Opérateur Principal</p>
 
             <div className="profile-stats-row">
               <div className="stat-box">
