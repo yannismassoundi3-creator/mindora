@@ -164,7 +164,7 @@
 
 .message-avatar.ai {
   background: linear-gradient(135deg, var(--accent-purple), #ec4899);
-  color: white;
+  color: var(--primary);
 }
 
 .message-avatar.user {
@@ -282,7 +282,7 @@
   height: 48px;
   border-radius: 14px;
   background: linear-gradient(135deg, var(--accent-purple), #ec4899);
-  color: white;
+  color: var(--primary);
   border: none;
   display: flex;
   align-items: center;

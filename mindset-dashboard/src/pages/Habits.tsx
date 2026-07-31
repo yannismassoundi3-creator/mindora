@@ -306,7 +306,7 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
           return (
             <div 
               key={habit.id} 
-              className={`habit-card glass-liquid ${isDoneToday ? 'done' : ''} ${isIronFocus ? 'iron-focus' : ''}`} 
+              className={`habit-card glass-panel-interactive glass-liquid ${isDoneToday ? 'done' : ''} ${isIronFocus ? 'iron-focus' : ''}`} 
               style={{ '--habit-color': habit.color } as any}
               onMouseMove={(e) => handleMouseMove(e, streak)}
               onMouseLeave={handleMouseLeave}

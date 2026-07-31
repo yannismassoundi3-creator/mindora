@@ -177,3 +177,43 @@ body.theme-synthwave .bg-glow-effect-right { background: radial-gradient(circle,
 
 body.theme-deepspace .bg-glow-effect { background: radial-gradient(circle, rgba(59, 130, 246, 0.25) 0%, transparent 70%); filter: blur(60px); }
 body.theme-deepspace .bg-glow-effect-right { background: radial-gradient(circle, rgba(129, 140, 248, 0.2) 0%, transparent 70%); filter: blur(60px); }
+
+/* Légendaire : Effet de Particules (Étoiles) pour Deep Space */
+body.theme-deepspace::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; width: 100vw; height: 100vh;
+  pointer-events: none;
+  z-index: -1;
+  background-image: 
+    radial-gradient(2px 2px at 20px 30px, #ffffff, rgba(0,0,0,0)),
+    radial-gradient(2px 2px at 40px 70px, rgba(255,255,255,0.8), rgba(0,0,0,0)),
+    radial-gradient(2px 2px at 50px 160px, rgba(255,255,255,0.9), rgba(0,0,0,0)),
+    radial-gradient(2px 2px at 90px 40px, #ffffff, rgba(0,0,0,0)),
+    radial-gradient(2px 2px at 130px 80px, rgba(255,255,255,0.7), rgba(0,0,0,0)),
+    radial-gradient(2px 2px at 160px 120px, #ffffff, rgba(0,0,0,0));
+  background-size: 200px 200px;
+  animation: moveStars 40s linear infinite;
+  opacity: 0.6;
+}
+
+body.theme-deepspace::after {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; width: 100vw; height: 100vh;
+  pointer-events: none;
+  z-index: -1;
+  background-image: 
+    radial-gradient(1.5px 1.5px at 10px 10px, rgba(255,255,255,0.5), rgba(0,0,0,0)),
+    radial-gradient(1.5px 1.5px at 150px 150px, rgba(255,255,255,0.4), rgba(0,0,0,0)),
+    radial-gradient(1.5px 1.5px at 60px 100px, rgba(255,255,255,0.6), rgba(0,0,0,0)),
+    radial-gradient(1.5px 1.5px at 180px 20px, rgba(255,255,255,0.5), rgba(0,0,0,0));
+  background-size: 300px 300px;
+  animation: moveStars 80s linear infinite;
+  opacity: 0.4;
+}
+
+@keyframes moveStars {
+  from { background-position: 0 0; }
+  to { background-position: 0 -600px; }
+}

@@ -122,7 +122,9 @@ export const Inventory: React.FC = () => {
                 {inventory.map(item => (
                   <div 
                     key={item.id} 
-                    className={`privilege-card glass-panel ${animatingItemId === item.id ? 'consuming-anim' : ''}`}
+                    className={`privilege-card glass-panel glass-panel-interactive ${animatingItemId === item.id ? 'consuming-anim' : ''}`}
+                    onClick={() => { if (animatingItemId !== item.id) handleConsume(item); }}
+                    style={{ cursor: 'pointer' }}
                   >
                     <div className="privilege-icon">{item.icon}</div>
                     <div className="privilege-info">
@@ -130,11 +132,12 @@ export const Inventory: React.FC = () => {
                       <span>Acheté le {new Date(item.purchasedAt).toLocaleDateString()}</span>
                     </div>
                     <button 
-                      className="consume-btn" 
-                      onClick={() => handleConsume(item)}
+                      className={`btn-primary ${animatingItemId === item.id ? 'consumed' : ''}`}
+                      onClick={(e) => { e.stopPropagation(); handleConsume(item); }}
                       disabled={animatingItemId === item.id}
+                      style={{ padding: '8px 16px', fontSize: '0.9rem', borderRadius: '8px' }}
                     >
-                      {animatingItemId === item.id ? <CheckCircle2 size={20} /> : <CheckSquare size={20} />}
+                      {animatingItemId === item.id ? <CheckCircle2 size={18} /> : <CheckSquare size={18} />}
                       <span>Consommer</span>
                     </button>
                   </div>

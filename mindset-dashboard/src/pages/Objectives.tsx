@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Target, Flag, Trophy, Plus, CheckCircle2, Circle, Sparkles, Pencil, Trash2, X } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { playClickSound, playLevelUpSound } from '../utils/sounds';
+import { AI_COSMETICS } from '../utils/cosmetics';
 import './Objectives.css';
 
 interface ObjectivesProps {
@@ -40,6 +41,9 @@ const GRADIENTS = [
 export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
   const [mentalScore, setMentalScore] = useState(parseInt(localStorage.getItem('mental_score') || '0', 10));
   const aiName = localStorage.getItem('mindset_ai_name') || 'Coach IA';
+  
+  const [equippedSkin] = useState<string | null>(() => localStorage.getItem('mindset_ai_skin_id'));
+  const equippedCosmetic = AI_COSMETICS.find(c => c.id === equippedSkin);
 
   const [microObjectives, setMicroObjectives] = useState<MicroObjective[]>(() => {
     const saved = localStorage.getItem('mindset_micro_obj');
@@ -75,6 +79,24 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
   useEffect(() => {
     localStorage.setItem('mindset_macro_obj', JSON.stringify(macroObjectives));
   }, [macroObjectives]);
+
+  // Weekly Reset Logic
+  useEffect(() => {
+    const getWeekNumber = (d: Date) => {
+      const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+      date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
+      const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+      return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+    };
+    
+    const currentWeekStr = `${new Date().getFullYear()}-W${getWeekNumber(new Date())}`;
+    const lastResetWeek = localStorage.getItem('mindset_last_reset_week');
+
+    if (lastResetWeek !== currentWeekStr) {
+      setMicroObjectives(prev => prev.map(m => ({ ...m, progress: 0, done: false, awardedDate: undefined })));
+      localStorage.setItem('mindset_last_reset_week', currentWeekStr);
+    }
+  }, []);
 
   // -- MACRO MODAL STATE --
   const [macroModalOpen, setMacroModalOpen] = useState(false);
@@ -243,7 +265,16 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
             <span className="points-label">% Mental</span>
           </div>
           <button className="btn-primary glass-panel-interactive pulse-glow ai-header-btn" onClick={() => { playClickSound(); onOpenChat(); }}>
-            <div className="ai-jarvis-orb small"></div>
+            {equippedCosmetic?.type === 'icon' ? (
+              <div className="ai-jarvis-orb small pulsing-orb" style={{ background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>
+                {equippedCosmetic.value}
+              </div>
+            ) : (
+              <div 
+                className="ai-jarvis-orb small liquid-glass-orb pulsing-orb" 
+                style={equippedCosmetic?.type === 'color' ? { background: equippedCosmetic.value } : {}}
+              ></div>
+            )}
             Parler à {aiName}
           </button>
         </div>
@@ -251,7 +282,16 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
 
       {/* AI Observer Banner */}
       <div className="ai-observer-banner glass-panel">
-        <div className="ai-jarvis-orb medium pulsing-orb"></div>
+        {equippedCosmetic?.type === 'icon' ? (
+          <div className="ai-jarvis-orb medium pulsing-orb" style={{ background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}>
+            {equippedCosmetic.value}
+          </div>
+        ) : (
+          <div 
+            className="ai-jarvis-orb medium liquid-glass-orb pulsing-orb"
+            style={equippedCosmetic?.type === 'color' ? { background: equippedCosmetic.value } : {}}
+          ></div>
+        )}
         <div className="banner-text">
           <strong>{aiName} analyse tes objectifs...</strong>
           <span>Complète tes actions hebdomadaires pour faire grimper ton Score du Jour ! (+10%)</span>
