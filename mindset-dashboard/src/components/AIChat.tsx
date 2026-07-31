@@ -277,7 +277,7 @@ export const AIChat: React.FC = () => {
               <div className="status-icon-skin pulsing">{equippedCosmetic.value}</div>
             ) : (
               <div 
-                className={`status-dot pulsing ${equippedCosmetic?.type === 'color' ? 'liquid-glass-orb' : ''}`} 
+                className="status-dot pulsing liquid-glass-orb" 
                 style={equippedCosmetic?.type === 'color' ? { background: equippedCosmetic.value } : {}}
               ></div>
             )}
@@ -310,7 +310,7 @@ export const AIChat: React.FC = () => {
                     <div className="status-icon-skin-large">{equippedCosmetic.value}</div>
                   ) : (
                     <div 
-                      className={`message-avatar-orb ${equippedCosmetic?.type === 'color' ? 'liquid-glass-orb' : ''}`} 
+                      className="message-avatar-orb liquid-glass-orb" 
                       style={equippedCosmetic?.type === 'color' ? { background: equippedCosmetic.value } : {}}
                     ></div>
                   )}
@@ -345,7 +345,7 @@ export const AIChat: React.FC = () => {
                   <div className="status-icon-skin-large small">{equippedCosmetic.value}</div>
                 ) : (
                   <div 
-                    className={`message-avatar-orb small ${equippedCosmetic?.type === 'color' ? 'liquid-glass-orb' : ''}`} 
+                    className="message-avatar-orb small liquid-glass-orb" 
                     style={equippedCosmetic?.type === 'color' ? { background: equippedCosmetic.value } : {}}
                   ></div>
                 )}

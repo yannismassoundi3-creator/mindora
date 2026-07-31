@@ -62,7 +62,7 @@ button {
   -webkit-backdrop-filter: blur(16px);
   transition: all 0.5s cubic-bezier(0.25, 1, 0.5, 1);
   overflow: hidden;
-  animation: floatOrb 6s ease-in-out infinite;
+  animation: floatOrb 6s ease-in-out infinite !important;
 }
 
 /* The glossy reflection on top */
