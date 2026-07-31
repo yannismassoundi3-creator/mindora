@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, Area, AreaChart } from 'recharts';
 import { Play, CheckCircle2, TrendingUp, Zap, Sparkles, Pencil, Coins, Circle, ChevronLeft, ChevronRight, Plus, Trophy, Calendar } from 'lucide-react';
+import { AiNotification } from '../components/AiNotification';
 import confetti from 'canvas-confetti';
 import { api } from '../services/api';
 import { playClickSound, playBloopSound, playLevelUpSound } from '../utils/sounds';
@@ -618,6 +619,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
         </div>
 
         {/* Routines Carousel */}
+        <div>
+          <AiNotification type="routine" />
+        </div>
         <section className="glass-panel routines-section">
           <div className="section-header routine-carousel-header">
             <button className="carousel-nav-btn" onClick={prevRoutine} disabled={isAnimating}><ChevronLeft size={24} /></button>

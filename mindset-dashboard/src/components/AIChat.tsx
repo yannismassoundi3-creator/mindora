@@ -109,7 +109,26 @@ export const AIChat: React.FC = () => {
     localStorage.setItem('mindset_ai_chat_history', JSON.stringify(messages));
   }, [messages, isTyping]);
 
+  const addAiNotification = (type: string, message: string) => {
+    try {
+      const notifs = JSON.parse(localStorage.getItem('mindset_ai_notifications') || '[]');
+      notifs.push({
+        id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+        type,
+        message,
+        timestamp: new Date().toISOString()
+      });
+      // Keep only last 50 notifications to prevent bloat
+      if (notifs.length > 50) notifs.shift();
+      localStorage.setItem('mindset_ai_notifications', JSON.stringify(notifs));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const applyPlanData = (planData: any) => {
+    if (!planData) return;
+    
     if (planData.newHabits && Array.isArray(planData.newHabits)) {
       let existingHabits = [];
       try {
@@ -131,35 +150,41 @@ export const AIChat: React.FC = () => {
         };
       });
       localStorage.setItem('mindset_habits', JSON.stringify([...existingHabits, ...newEntries]));
+      addAiNotification('habit', `✨ ${aiName} a ajouté de nouvelles habitudes stratégiques pour toi.`);
     }
     
     if (planData.newRoutines && Array.isArray(planData.newRoutines)) {
-      let existingRoutines = [];
+      let existingRoutines: any[] = [];
       try {
-        const parsed = JSON.parse(localStorage.getItem('mindset_routines_data') || '[]');
-        existingRoutines = Array.isArray(parsed) ? parsed : [];
+        const saved = JSON.parse(localStorage.getItem('mindset_routines') || '[]');
+        existingRoutines = Array.isArray(saved) ? saved : [];
       } catch {}
-      const updatedRoutines = [...existingRoutines];
+      
       planData.newRoutines.forEach((r: any) => {
-        const routineDate = new Date().toISOString().split('T')[0];
-        let targetRoutine = updatedRoutines.find(x => x.type === r.type && x.date === routineDate);
+        const typeMap: Record<string, string> = { 'MORNING': 'morning', 'MIDDAY': 'midday', 'EVENING': 'evening' };
+        const rawType = (r.type || 'MORNING').toUpperCase();
+        const mappedType = typeMap[rawType] || 'morning';
+        
+        let targetRoutine = existingRoutines.find((x: any) => x.id === mappedType);
         if (!targetRoutine) {
-          targetRoutine = { id: Date.now().toString() + Math.random().toString(36), type: r.type, date: routineDate, tasks: [] };
-          updatedRoutines.push(targetRoutine);
+          targetRoutine = { id: mappedType, title: `Routine ${mappedType}`, items: [] };
+          existingRoutines.push(targetRoutine);
         }
+        
         if (r.tasks && Array.isArray(r.tasks)) {
           r.tasks.forEach((t: any) => {
-            targetRoutine.tasks.push({
-              id: Date.now().toString() + Math.random().toString(36),
+            if (!targetRoutine.items) targetRoutine.items = [];
+            targetRoutine.items.push({
+              id: Date.now() + Math.floor(Math.random() * 100000),
               title: t.title,
-              duration: t.duration || 15,
-              status: 'PENDING',
-              priority: t.priority || 'MEDIUM'
+              time: `${t.duration || 15} min`,
+              done: false
             });
           });
         }
       });
-      localStorage.setItem('mindset_routines_data', JSON.stringify(updatedRoutines));
+      localStorage.setItem('mindset_routines', JSON.stringify(existingRoutines));
+      addAiNotification('routine', `✨ ${aiName} a mis à jour tes routines pour t'aider à atteindre tes objectifs.`);
     }
 
     // Force API sync if needed

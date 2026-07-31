@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Target, Plus, TrendingUp, Zap, Calendar, Sparkles, BookOpen, Dumbbell, Brain, Coffee, Pencil, Trash2, X } from 'lucide-react';
+import { Trophy, TrendingUp, Calendar, Zap, AlertTriangle, Play, Edit2, Trash2, Plus, Target, BookOpen, Dumbbell, Brain, Coffee, Sparkles, X } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { playLevelUpSound, playBloopSound, playClickSound } from '../utils/sounds';
+import { playLevelUpSound, playClickSound, playErrorSound, playWhooshSound, playBloopSound } from '../utils/sounds';
+import { AiNotification } from '../components/AiNotification';
 import './Habits.css';
 
 interface HabitsProps {
@@ -275,6 +276,7 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
 
   return (
     <div className="habits-container">
+      <AiNotification type="habit" />
       {/* AI Commentary Notification */}
       <div className={`ai-commentary-toast glass-panel ${aiMessage.visible ? 'visible' : ''}`}>
         <div className="ai-jarvis-orb tiny pulsing-orb"></div>
