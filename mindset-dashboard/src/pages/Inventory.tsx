@@ -156,9 +156,15 @@ export const Inventory: React.FC = () => {
               <div className="dressing-grid">
                 {myCosmetics.map(item => (
                   <div key={item.id} className={`dressing-card glass-panel ${equippedSkin === item.id ? 'equipped-card' : ''}`}>
-                    <div className="dressing-icon-large" style={item.type === 'color' ? { background: item.value, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' } : {}}>
-                      {item.type === 'color' ? '🔮' : item.value}
-                    </div>
+                    {item.type === 'color' ? (
+                      <div className="dressing-icon-large" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                        <div className="liquid-glass-orb" style={{ background: item.value, width: '50px', height: '50px' }}></div>
+                      </div>
+                    ) : (
+                      <div className="dressing-icon-large">
+                        {item.value}
+                      </div>
+                    )}
                     <h3 className="dressing-title">{item.title}</h3>
                     <p className="dressing-desc">{item.description}</p>
                     

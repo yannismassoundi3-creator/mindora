@@ -48,7 +48,18 @@ body {
 button {
   font-family: var(--font-main);
 }
-
+/* Premium Liquid Glass Effect for AI Avatars */
+.liquid-glass-orb {
+  border-radius: 50%;
+  box-shadow: 
+    inset -8px -8px 20px rgba(0, 0, 0, 0.6), 
+    inset 8px 8px 20px rgba(255, 255, 255, 0.5),
+    0 15px 35px var(--accent-glow);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: all 0.5s ease-in-out;
+}
 
 /* App Themes */
 body.theme-cyberpunk {
@@ -91,3 +102,15 @@ body.theme-deepspace {
   --accent-glow: rgba(59, 130, 246, 0.2);
 }
 
+/* Radical Background Overrides for Liquid Glass Themes */
+body.theme-cyberpunk .bg-glow-effect { background: radial-gradient(circle, rgba(255, 0, 60, 0.3) 0%, transparent 70%); filter: blur(80px); }
+body.theme-cyberpunk .bg-glow-effect-right { background: radial-gradient(circle, rgba(0, 240, 255, 0.3) 0%, transparent 70%); filter: blur(80px); }
+
+body.theme-matrix .bg-glow-effect { background: radial-gradient(circle, rgba(0, 255, 65, 0.25) 0%, transparent 70%); filter: blur(70px); }
+body.theme-matrix .bg-glow-effect-right { background: radial-gradient(circle, rgba(0, 143, 17, 0.3) 0%, transparent 70%); filter: blur(70px); }
+
+body.theme-synthwave .bg-glow-effect { background: radial-gradient(circle, rgba(255, 0, 255, 0.3) 0%, transparent 70%); filter: blur(90px); }
+body.theme-synthwave .bg-glow-effect-right { background: radial-gradient(circle, rgba(255, 153, 0, 0.25) 0%, transparent 70%); filter: blur(90px); }
+
+body.theme-deepspace .bg-glow-effect { background: radial-gradient(circle, rgba(59, 130, 246, 0.25) 0%, transparent 70%); filter: blur(60px); }
+body.theme-deepspace .bg-glow-effect-right { background: radial-gradient(circle, rgba(129, 140, 248, 0.2) 0%, transparent 70%); filter: blur(60px); }

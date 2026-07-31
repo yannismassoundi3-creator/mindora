@@ -211,9 +211,15 @@ export const Shop: React.FC = () => {
               return (
                 <div key={item.id} id={`cosmetic-${item.id}`} className={`reward-card glass-panel cosmetic-card ${item.rarity}`}>
                   <div className="rarity-badge">{item.rarity}</div>
-                  <div className="reward-icon-large" style={item.type === 'color' ? { background: item.value, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' } : {}}>
-                    {item.type === 'color' ? '🔮' : (item.type === 'app_theme' ? '🎨' : item.value)}
-                  </div>
+                  {item.type === 'color' ? (
+                    <div className="reward-icon-large" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                      <div className="liquid-glass-orb" style={{ background: item.value, width: '60px', height: '60px' }}></div>
+                    </div>
+                  ) : (
+                    <div className="reward-icon-large">
+                      {item.type === 'app_theme' ? '🎨' : item.value}
+                    </div>
+                  )}
                   <h3 className="reward-title">{item.title}</h3>
                   <p className="cosmetic-desc">{item.description}</p>
                 
