@@ -116,6 +116,9 @@ RÈGLES DE COMPORTEMENT :
           "type": "MORNING",
           "tasks": [ { "title": "Méditation", "duration": 10, "priority": "HIGH" } ]
         }
+      ],
+      "newObjectives": [
+        { "title": "Titre objectif", "category": "Mindset", "deadline": "2 semaines" }
       ]
     }
     \`\`\`

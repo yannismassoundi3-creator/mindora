@@ -185,9 +185,30 @@ export const AIChat: React.FC = () => {
       });
       localStorage.setItem('mindset_routines', JSON.stringify(existingRoutines));
       addAiNotification('routine', `✨ ${aiName} a mis à jour tes routines pour t'aider à atteindre tes objectifs.`);
-    }
+      }
+      
+      if (planData.newObjectives && Array.isArray(planData.newObjectives)) {
+        let existingMicro: any[] = [];
+        try {
+          const saved = JSON.parse(localStorage.getItem('mindset_micro_obj') || '[]');
+          existingMicro = Array.isArray(saved) ? saved : [];
+        } catch {}
+        
+        const newEntries = planData.newObjectives.map((o: any) => {
+          return {
+            id: Date.now() + Math.floor(Math.random() * 100000),
+            title: o.title || 'Nouvel Objectif',
+            category: o.category || 'Mindset',
+            progress: 0,
+            total: 7,
+            done: false
+          };
+        });
+        localStorage.setItem('mindset_micro_obj', JSON.stringify([...existingMicro, ...newEntries]));
+        addAiNotification('objective', `✨ ${aiName} a défini de nouveaux objectifs d'évolution pour toi.`);
+      }
 
-    // Force API sync if needed
+      // Force API sync if needed
     window.dispatchEvent(new Event('storage'));
   };
 
