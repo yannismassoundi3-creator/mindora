@@ -108,6 +108,7 @@ RÈGLES DE COMPORTEMENT :
     Étape 3 : Pour finaliser le plan, tu dois OBLIGATOIREMENT inclure à la toute fin de ton message un bloc de code JSON valide avec le format exact suivant :
     \`\`\`json
     {
+      "action": "REPLACE", // "REPLACE" pour effacer l'ancien plan et créer un tout nouveau de zéro. "APPEND" pour juste rajouter des choses sans supprimer ce qui existe déjà.
       "newHabits": [
         { "name": "Titre habitude", "description": "Desc", "frequency": "daily" }
       ],

@@ -132,8 +132,19 @@ export const AIChat: React.FC = () => {
     // Si l'IA a imbriqué les données dans un objet "plan" ou "actionPlan"
     const planData = rawPlanData.plan || rawPlanData.actionPlan || rawPlanData;
     
+    // REPLACE = effacer l'ancien (défaut), APPEND = garder l'ancien et rajouter
+    const action = planData.action === 'APPEND' ? 'APPEND' : 'REPLACE';
+    
     const habitsList = planData.newHabits || planData.habits;
     if (habitsList && Array.isArray(habitsList)) {
+      let existingHabits: any[] = [];
+      if (action === 'APPEND') {
+        try {
+          const parsed = JSON.parse(localStorage.getItem('mindset_habits') || '[]');
+          existingHabits = Array.isArray(parsed) ? parsed : [];
+        } catch {}
+      }
+      
       const newEntries = habitsList.map((h: any) => {
         const colors = ['#3b82f6', '#ec4899', '#8b5cf6', '#10b981', '#fcd34d', '#ef4444'];
         const randomColor = colors[Math.floor(Math.random() * colors.length)];
@@ -147,33 +158,43 @@ export const AIChat: React.FC = () => {
           history: []
         };
       });
-      // Remplacer complètement
-      localStorage.setItem('mindset_habits', JSON.stringify(newEntries));
+      localStorage.setItem('mindset_habits', JSON.stringify([...existingHabits, ...newEntries]));
       addAiNotification('habit', `✨ ${aiName} a ajouté de nouvelles habitudes stratégiques pour toi.`);
     }
     
     const routinesList = planData.newRoutines || planData.routines;
     if (routinesList && Array.isArray(routinesList)) {
-      let newRoutines: any[] = [
-        { id: 'morning', title: 'Routine Matinale', icon: 'sun', items: [] },
-        { id: 'midday', title: 'Routine de Midi', icon: 'sun', items: [] },
-        { id: 'evening', title: 'Routine du Soir', icon: 'moon', items: [] }
-      ];
+      let existingRoutines: any[] = [];
+      if (action === 'APPEND') {
+        try {
+          const saved = JSON.parse(localStorage.getItem('mindset_routines') || '[]');
+          existingRoutines = Array.isArray(saved) ? saved : [];
+        } catch {}
+      } else {
+        existingRoutines = [
+          { id: 'morning', title: 'Routine Matinale', icon: 'sun', items: [] },
+          { id: 'midday', title: 'Routine de Midi', icon: 'sun', items: [] },
+          { id: 'evening', title: 'Routine du Soir', icon: 'moon', items: [] }
+        ];
+      }
       
       routinesList.forEach((r: any) => {
         const typeMap: Record<string, string> = { 'MORNING': 'morning', 'MATIN': 'morning', 'MIDDAY': 'midday', 'MIDI': 'midday', 'APRÈS-MIDI': 'midday', 'EVENING': 'evening', 'SOIR': 'evening', 'SOIRÉE': 'evening' };
         const rawType = (r.type || 'MORNING').toUpperCase();
         const mappedType = typeMap[rawType] || 'morning';
         
-        let targetRoutine = newRoutines.find((x: any) => x.id === mappedType);
+        let targetRoutine = existingRoutines.find((x: any) => x.id === mappedType);
         if (!targetRoutine) {
           targetRoutine = { id: mappedType, title: `Routine ${mappedType}`, icon: 'sun', items: [] };
-          newRoutines.push(targetRoutine);
+          existingRoutines.push(targetRoutine);
         }
         
         if (r.tasks && Array.isArray(r.tasks)) {
-          // Vider les anciennes tâches pour remplacer par les nouvelles (déjà vide, mais par sécurité)
-          targetRoutine.items = [];
+          if (action === 'REPLACE') {
+            targetRoutine.items = [];
+          } else if (!targetRoutine.items) {
+            targetRoutine.items = [];
+          }
           r.tasks.forEach((t: any) => {
             const taskTitle = t.title || t.name || t.description || t.task || t.tache || 'Nouvelle tâche';
             targetRoutine.items.push({
@@ -185,12 +206,20 @@ export const AIChat: React.FC = () => {
           });
         }
       });
-      localStorage.setItem('mindset_routines', JSON.stringify(newRoutines));
+      localStorage.setItem('mindset_routines', JSON.stringify(existingRoutines));
       addAiNotification('routine', `✨ ${aiName} a mis à jour tes routines pour t'aider à atteindre tes objectifs.`);
       }
       
       const objectivesList = planData.newObjectives || planData.objectives || planData.microObjectives || planData.goals;
       if (objectivesList && Array.isArray(objectivesList)) {
+        let existingMicro: any[] = [];
+        if (action === 'APPEND') {
+          try {
+            const saved = JSON.parse(localStorage.getItem('mindset_micro_obj') || '[]');
+            existingMicro = Array.isArray(saved) ? saved : [];
+          } catch {}
+        }
+        
         const newEntries = objectivesList.map((o: any) => {
           const objTitle = o.title || o.name || o.description || o.objectif || o.objective || o.goal || 'Nouvel Objectif';
           return {
@@ -202,13 +231,20 @@ export const AIChat: React.FC = () => {
             done: false
           };
         });
-        // Remplacer complètement les anciens objectifs par les nouveaux
-        localStorage.setItem('mindset_micro_obj', JSON.stringify(newEntries));
+        localStorage.setItem('mindset_micro_obj', JSON.stringify([...existingMicro, ...newEntries]));
         addAiNotification('objective', `✨ ${aiName} a défini de nouveaux objectifs d'évolution pour toi.`);
       }
 
       const macroList = planData.newMacroObjectives || planData.macroObjectives || planData.vision;
       if (macroList && Array.isArray(macroList)) {
+        let existingMacro: any[] = [];
+        if (action === 'APPEND') {
+          try {
+            const saved = JSON.parse(localStorage.getItem('mindset_macro_obj') || '[]');
+            existingMacro = Array.isArray(saved) ? saved : [];
+          } catch {}
+        }
+        
         const GRADIENTS = [
           'linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%)',
           'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
@@ -224,7 +260,7 @@ export const AIChat: React.FC = () => {
             bgGradient: GRADIENTS[idx % GRADIENTS.length]
           };
         });
-        localStorage.setItem('mindset_macro_obj', JSON.stringify(newMacros));
+        localStorage.setItem('mindset_macro_obj', JSON.stringify([...existingMacro, ...newMacros]));
       }
 
       // Force API sync if needed
