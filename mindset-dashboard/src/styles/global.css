@@ -174,3 +174,4 @@ button, .nav-item, .bottom-nav-item, .routine-item, .ai-fab, .reward-card, .dres
 .slide-right { animation-name: slideInRight; }
 .slide-left { animation-name: slideInLeft; }
 .slide-none { animation: none; }
+@media (max-width: 480px) { .hide-on-mobile { display: none !important; } }
