@@ -277,7 +277,7 @@ export const AIChat: React.FC = () => {
               <div className="status-icon-skin pulsing">{equippedCosmetic.value}</div>
             ) : (
               <div 
-                className="status-dot pulsing liquid-glass-orb" 
+                className="status-dot pulsing liquid-glass-dot" 
                 style={equippedCosmetic?.type === 'color' ? { background: equippedCosmetic.value } : {}}
               ></div>
             )}

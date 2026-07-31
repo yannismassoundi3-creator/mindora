@@ -99,6 +99,31 @@ button {
   100% { transform: translateY(0px) scale(1); }
 }
 
+/* Mini Liquid Glass for Status Dots (12px) */
+.liquid-glass-dot {
+  position: relative;
+  border-radius: 50%;
+  box-shadow: 
+    inset -2px -2px 4px rgba(0, 0, 0, 0.6), 
+    inset 2px 2px 4px rgba(255, 255, 255, 0.5),
+    0 4px 10px var(--accent-glow);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  overflow: hidden;
+}
+
+.liquid-glass-dot::before {
+  content: '';
+  position: absolute;
+  top: 10%;
+  left: 15%;
+  width: 60%;
+  height: 35%;
+  background: linear-gradient(180deg, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 100%);
+  border-radius: 50%;
+  transform: rotate(-20deg);
+  pointer-events: none;
+}
+
 /* App Themes */
 body.theme-cyberpunk {
   --bg-dark: #050b14;
