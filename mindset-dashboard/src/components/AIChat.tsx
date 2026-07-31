@@ -136,7 +136,7 @@ export const AIChat: React.FC = () => {
     const action = planData.action === 'APPEND' ? 'APPEND' : 'REPLACE';
     
     const habitsList = planData.newHabits || planData.habits;
-    if (habitsList && Array.isArray(habitsList)) {
+    if (habitsList && Array.isArray(habitsList) && habitsList.length > 0) {
       let existingHabits: any[] = [];
       if (action === 'APPEND') {
         try {
@@ -163,7 +163,7 @@ export const AIChat: React.FC = () => {
     }
     
     const routinesList = planData.newRoutines || planData.routines;
-    if (routinesList && Array.isArray(routinesList)) {
+    if (routinesList && Array.isArray(routinesList) && routinesList.length > 0) {
       let existingRoutines: any[] = [];
       if (action === 'APPEND') {
         try {
@@ -211,7 +211,7 @@ export const AIChat: React.FC = () => {
       }
       
       const objectivesList = planData.newObjectives || planData.objectives || planData.microObjectives || planData.goals;
-      if (objectivesList && Array.isArray(objectivesList)) {
+      if (objectivesList && Array.isArray(objectivesList) && objectivesList.length > 0) {
         let existingMicro: any[] = [];
         if (action === 'APPEND') {
           try {
@@ -236,7 +236,7 @@ export const AIChat: React.FC = () => {
       }
 
       const macroList = planData.newMacroObjectives || planData.macroObjectives || planData.vision;
-      if (macroList && Array.isArray(macroList)) {
+      if (macroList && Array.isArray(macroList) && macroList.length > 0) {
         let existingMacro: any[] = [];
         if (action === 'APPEND') {
           try {
