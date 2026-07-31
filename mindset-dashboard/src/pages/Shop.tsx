@@ -106,11 +106,18 @@ export const Shop: React.FC = () => {
 
   const handleBuyCosmetic = (cosmetic: Cosmetic) => {
     playClickSound();
-    if (ownedCosmetics.includes(cosmetic.id)) {
+    const isOwned = ownedCosmetics.includes(cosmetic.id);
+    
+    if (isOwned) {
       // Equip
       playBloopSound();
-      localStorage.setItem('mindset_ai_skin_id', cosmetic.id);
-      setEquippedSkin(cosmetic.id);
+      if (cosmetic.type === 'app_theme') {
+        localStorage.setItem('mindset_app_theme_id', cosmetic.value);
+        window.dispatchEvent(new Event('themeChanged'));
+      } else {
+        localStorage.setItem('mindset_ai_skin_id', cosmetic.id);
+        setEquippedSkin(cosmetic.id);
+      }
       window.dispatchEvent(new Event('storage'));
     } else if (points >= cosmetic.cost) {
       // Buy
@@ -123,8 +130,13 @@ export const Shop: React.FC = () => {
       playLevelUpSound();
       
       // Auto-equip
-      localStorage.setItem('mindset_ai_skin_id', cosmetic.id);
-      setEquippedSkin(cosmetic.id);
+      if (cosmetic.type === 'app_theme') {
+        localStorage.setItem('mindset_app_theme_id', cosmetic.value);
+        window.dispatchEvent(new Event('themeChanged'));
+      } else {
+        localStorage.setItem('mindset_ai_skin_id', cosmetic.id);
+        setEquippedSkin(cosmetic.id);
+      }
       window.dispatchEvent(new Event('storage'));
       
       setTimeout(() => setPurchasedId(null), 2000);
@@ -192,16 +204,18 @@ export const Shop: React.FC = () => {
         <div className="rewards-grid">
           {dailyItems.map(item => {
             const isOwned = ownedCosmetics.includes(item.id);
-            const isEquipped = equippedSkin === item.id;
-            
-            return (
-              <div key={item.id} id={`cosmetic-${item.id}`} className={`reward-card glass-panel cosmetic-card ${item.rarity}`}>
-                <div className="rarity-badge">{item.rarity}</div>
-                <div className="reward-icon-large" style={item.type === 'color' ? { background: item.value, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' } : {}}>
-                  {item.type === 'color' ? '🔮' : item.value}
-                </div>
-                <h3 className="reward-title">{item.title}</h3>
-                <p className="cosmetic-desc">{item.description}</p>
+              const isEquipped = item.type === 'app_theme' 
+                ? localStorage.getItem('mindset_app_theme_id') === item.value 
+                : equippedSkin === item.id;
+              
+              return (
+                <div key={item.id} id={`cosmetic-${item.id}`} className={`reward-card glass-panel cosmetic-card ${item.rarity}`}>
+                  <div className="rarity-badge">{item.rarity}</div>
+                  <div className="reward-icon-large" style={item.type === 'color' ? { background: item.value, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' } : {}}>
+                    {item.type === 'color' ? '🔮' : (item.type === 'app_theme' ? '🎨' : item.value)}
+                  </div>
+                  <h3 className="reward-title">{item.title}</h3>
+                  <p className="cosmetic-desc">{item.description}</p>
                 
                 <button 
                   className={`buy-btn ${isEquipped ? 'equipped' : isOwned ? 'owned' : points >= item.cost ? 'affordable' : 'expensive'} ${purchasedId === item.id ? 'purchased' : ''}`}

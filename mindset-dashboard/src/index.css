@@ -48,3 +48,46 @@ body {
 button {
   font-family: var(--font-main);
 }
+
+
+/* App Themes */
+body.theme-cyberpunk {
+  --bg-dark: #050b14;
+  --bg-panel: rgba(5, 11, 20, 0.8);
+  --primary: #00f0ff;
+  --secondary: #fcee0a;
+  --accent-purple: #ff003c;
+  --accent-blue: #00f0ff;
+  --accent-glow: rgba(0, 240, 255, 0.2);
+}
+
+body.theme-matrix {
+  --bg-dark: #020a02;
+  --bg-panel: rgba(2, 10, 2, 0.8);
+  --primary: #00ff41;
+  --secondary: #008f11;
+  --accent-purple: #00ff41;
+  --accent-blue: #008f11;
+  --accent-glow: rgba(0, 255, 65, 0.15);
+}
+
+body.theme-synthwave {
+  --bg-dark: #120422;
+  --bg-panel: rgba(18, 4, 34, 0.8);
+  --primary: #ff00ff;
+  --secondary: #00ffff;
+  --accent-purple: #ff9900;
+  --accent-blue: #ff00ff;
+  --accent-glow: rgba(255, 0, 255, 0.2);
+}
+
+body.theme-deepspace {
+  --bg-dark: #000411;
+  --bg-panel: rgba(0, 4, 17, 0.8);
+  --primary: #e2e8f0;
+  --secondary: #94a3b8;
+  --accent-purple: #3b82f6;
+  --accent-blue: #818cf8;
+  --accent-glow: rgba(59, 130, 246, 0.2);
+}
+

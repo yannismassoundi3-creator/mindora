@@ -58,7 +58,29 @@ const updateSW = registerSW({
 function App() {
   const IS_BETA_TEST_PHASE = false; // Activer la phase de test gratuite
   const hasToken = !!localStorage.getItem('mindset_token');
-  
+  const [isAuthenticated, setIsAuthenticated] = useState(hasToken);
+
+  // App Theme Management
+  useEffect(() => {
+    const applyTheme = () => {
+      const themeId = localStorage.getItem('mindset_app_theme_id');
+      document.body.className = themeId || '';
+    };
+    
+    // Apply on load
+    applyTheme();
+
+    // Listen for changes from other tabs or components
+    window.addEventListener('storage', applyTheme);
+    // Custom event for internal app changes
+    window.addEventListener('themeChanged', applyTheme);
+    
+    return () => {
+      window.removeEventListener('storage', applyTheme);
+      window.removeEventListener('themeChanged', applyTheme);
+    };
+  }, []);
+
   const urlParams = new URLSearchParams(window.location.search);
   const isAuthIntent = urlParams.get('auth') === 'true';
   const hasCompletedOnboarding = localStorage.getItem('hasCompletedOnboarding') === 'true';

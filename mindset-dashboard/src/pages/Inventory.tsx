@@ -24,8 +24,11 @@ export const Inventory: React.FC = () => {
   const [equippedSkin, setEquippedSkin] = useState<string | null>(() => {
     return localStorage.getItem('mindset_ai_skin_id');
   });
+  const [equippedAppTheme, setEquippedAppTheme] = useState<string | null>(() => {
+    return localStorage.getItem('mindset_app_theme_id');
+  });
 
-  const [activeTab, setActiveTab] = useState<'privileges' | 'dressing'>('privileges');
+  const [activeTab, setActiveTab] = useState<'privileges' | 'dressing' | 'themes'>('privileges');
   const [animatingItemId, setAnimatingItemId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -33,6 +36,7 @@ export const Inventory: React.FC = () => {
       setInventory(JSON.parse(localStorage.getItem('mindset_inventory_rewards') || '[]'));
       setOwnedCosmetics(JSON.parse(localStorage.getItem('mindset_owned_cosmetics') || '[]'));
       setEquippedSkin(localStorage.getItem('mindset_ai_skin_id'));
+      setEquippedAppTheme(localStorage.getItem('mindset_app_theme_id'));
     };
     window.addEventListener('storage', handleStorage);
     return () => window.removeEventListener('storage', handleStorage);
@@ -61,12 +65,20 @@ export const Inventory: React.FC = () => {
 
   const handleEquip = (cosmeticId: string) => {
     playBloopSound();
-    localStorage.setItem('mindset_ai_skin_id', cosmeticId);
-    setEquippedSkin(cosmeticId);
+    const cosmetic = AI_COSMETICS.find(c => c.id === cosmeticId);
+    if (cosmetic?.type === 'app_theme') {
+      localStorage.setItem('mindset_app_theme_id', cosmetic.value);
+      setEquippedAppTheme(cosmetic.value);
+      window.dispatchEvent(new Event('themeChanged'));
+    } else {
+      localStorage.setItem('mindset_ai_skin_id', cosmeticId);
+      setEquippedSkin(cosmeticId);
+    }
     window.dispatchEvent(new Event('storage'));
   };
 
-  const myCosmetics = AI_COSMETICS.filter(c => ownedCosmetics.includes(c.id));
+  const myCosmetics = AI_COSMETICS.filter(c => ownedCosmetics.includes(c.id) && c.type !== 'app_theme');
+  const myThemes = AI_COSMETICS.filter(c => ownedCosmetics.includes(c.id) && c.type === 'app_theme');
 
   return (
     <div className="inventory-container fade-in">
@@ -87,6 +99,12 @@ export const Inventory: React.FC = () => {
           onClick={() => { playClickSound(); setActiveTab('dressing'); }}
         >
           👕 Dressing IA ({myCosmetics.length})
+        </button>
+        <button 
+          className={`tab-btn ${activeTab === 'themes' ? 'active' : ''}`}
+          onClick={() => { playClickSound(); setActiveTab('themes'); }}
+        >
+          🎨 Thèmes ({myThemes.length})
         </button>
       </div>
 
@@ -149,6 +167,42 @@ export const Inventory: React.FC = () => {
                       onClick={() => handleEquip(item.id)}
                     >
                       {equippedSkin === item.id ? (
+                        <><CheckCircle2 size={16} /> Équipé</>
+                      ) : (
+                        <><Sparkles size={16} /> Équiper</>
+                      )}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+
+        {activeTab === 'themes' && (
+          <div className="dressing-section fade-in">
+            {myThemes.length === 0 ? (
+              <div className="empty-state glass-panel">
+                <div className="empty-icon">🎨</div>
+                <h3>Aucun thème !</h3>
+                <p>Achète des thèmes globaux dans la Boutique du Jour.</p>
+              </div>
+            ) : (
+              <div className="dressing-grid">
+                {myThemes.map(item => (
+                  <div key={item.id} className={`dressing-card glass-panel ${equippedAppTheme === item.value ? 'equipped-card' : ''}`}>
+                    <div className="dressing-icon-large">
+                      🎨
+                    </div>
+                    <h3 className="dressing-title">{item.title}</h3>
+                    <p className="dressing-desc">{item.description}</p>
+                    
+                    <button 
+                      className={`equip-btn ${equippedAppTheme === item.value ? 'equipped' : ''}`}
+                      onClick={() => handleEquip(item.id)}
+                    >
+                      {equippedAppTheme === item.value ? (
                         <><CheckCircle2 size={16} /> Équipé</>
                       ) : (
                         <><Sparkles size={16} /> Équiper</>

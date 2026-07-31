@@ -3,8 +3,8 @@ export interface Cosmetic {
   title: string;
   description: string;
   cost: number;
-  type: 'color' | 'icon';
-  value: string; // CSS color or Icon name/Emoji
+  type: 'color' | 'icon' | 'app_theme';
+  value: string; // CSS color, Icon name, or CSS class name
   rarity: 'commun' | 'rare' | 'epique' | 'legendaire';
 }
 
@@ -28,7 +28,13 @@ export const AI_COSMETICS: Cosmetic[] = [
   { id: 'i_knight', title: 'Chevalier Noir', description: 'Protège tes habitudes.', cost: 1600, type: 'icon', value: '🛡️', rarity: 'rare' },
   { id: 'i_hacker', title: 'Cyber-Hacker', description: 'Accès non autorisé.', cost: 1900, type: 'icon', value: '💻', rarity: 'epique' },
   { id: 'i_mage', title: 'Grand Mage', description: 'Maîtrise les arcanes du code.', cost: 2400, type: 'icon', value: '🧙', rarity: 'legendaire' },
-  { id: 'i_demon', title: 'Oni', description: 'La fureur d\'atteindre tes buts.', cost: 2600, type: 'icon', value: '👹', rarity: 'legendaire' }
+  { id: 'i_demon', title: 'Oni', description: 'La fureur d\'atteindre tes buts.', cost: 2600, type: 'icon', value: '👹', rarity: 'legendaire' },
+
+  // Thèmes d'application
+  { id: 't_cyberpunk', title: 'Thème Cyberpunk', description: 'Bleu Néon et Noir Absolu.', cost: 1500, type: 'app_theme', value: 'theme-cyberpunk', rarity: 'epique' },
+  { id: 't_matrix', title: 'Thème Matrix', description: 'Vert Code et Hacker.', cost: 1200, type: 'app_theme', value: 'theme-matrix', rarity: 'rare' },
+  { id: 't_synthwave', title: 'Thème Synthwave', description: 'Violet Rétro et Coucher de Soleil.', cost: 1800, type: 'app_theme', value: 'theme-synthwave', rarity: 'epique' },
+  { id: 't_deepspace', title: 'Thème Deep Space', description: 'Bleu Nuit Profond et Argent.', cost: 2000, type: 'app_theme', value: 'theme-deepspace', rarity: 'legendaire' }
 ];
 
 // Helper to get today's shop items based on the date seed
@@ -48,6 +54,6 @@ export function getDailyShopItems(): Cosmetic[] {
     return aHash - bHash;
   });
 
-  // Return 4 items for the daily shop
-  return shuffled.slice(0, 4);
+  // Return 6 items for the daily shop
+  return shuffled.slice(0, 6);
 }
