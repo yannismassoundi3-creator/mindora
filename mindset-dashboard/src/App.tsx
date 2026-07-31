@@ -20,7 +20,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { registerSW } from 'virtual:pwa-register';
 import './styles/global.css';
 
-const APP_VERSION = '1.0.1'; // Change this string to force a global cache clear
+const APP_VERSION = '1.0.2'; // Change this string to force a global cache clear
 const currentVersion = localStorage.getItem('mindset_app_version');
 if (currentVersion !== APP_VERSION) {
   if ('caches' in window) {
