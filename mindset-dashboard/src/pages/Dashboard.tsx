@@ -559,15 +559,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
               )}
               {activeChartTab === 'week' && (
                 <div className="chart-bars">
-                  {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map((day, i) => {
-                    const height = Math.random() * 80 + 20;
-                    const isToday = i === new Date().getDay() - 1;
+                  {[...weeklyData].reverse().map((data, i) => {
+                    const height = Math.max(data.score, 5); // At least 5% to be visible
+                    const isToday = data.isToday;
                     return (
-                      <div key={day} className={`bar-col ${isToday ? 'active' : ''}`}>
+                      <div key={data.name + i} className={`bar-col ${isToday ? 'active' : ''}`}>
                         <div className="bar-track glass-panel">
-                          <div className="bar-fill" style={{ height: `${height}%`, background: isToday ? 'linear-gradient(to top, #3b82f6, #60a5fa)' : 'rgba(255,255,255,0.1)' }}></div>
+                          <div className="bar-tooltip">{data.score}%</div>
+                          <div className="bar-fill" style={{ height: `${height}%`, background: isToday ? 'linear-gradient(to top, #3b82f6, #60a5fa)' : 'var(--accent-purple)' }}></div>
                         </div>
-                        <span className="bar-label">{day}</span>
+                        <span className="bar-label">{data.name}</span>
                       </div>
                     );
                   })}

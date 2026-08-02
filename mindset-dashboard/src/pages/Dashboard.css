@@ -175,7 +175,8 @@
   flex: 1;
   border-radius: 8px;
   position: relative;
-  overflow: hidden;
+  background: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
 }
 
 .bar-fill {
@@ -184,12 +185,52 @@
   left: 0;
   width: 100%;
   border-radius: 8px;
-  transition: height 0.5s ease-out;
+  transition: height 0.5s ease-out, filter 0.3s ease;
+}
+
+.bar-col:hover .bar-fill {
+  filter: brightness(1.3) drop-shadow(0 0 8px rgba(139, 92, 246, 0.4));
+}
+
+.bar-col.active:hover .bar-fill {
+  filter: brightness(1.2) drop-shadow(0 0 10px rgba(59, 130, 246, 0.6));
+}
+
+.bar-tooltip {
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%) scale(0.8);
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  color: var(--text);
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,255,255,0.1);
+  z-index: 10;
+  white-space: nowrap;
+}
+
+.bar-col:hover .bar-tooltip {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
+  top: -30px;
 }
 
 .bar-label {
   font-size: 0.8rem;
   color: var(--secondary);
+  transition: color 0.2s;
+}
+
+.bar-col:hover .bar-label {
+  color: var(--text);
 }
 
 .bar-col.active .bar-label {
