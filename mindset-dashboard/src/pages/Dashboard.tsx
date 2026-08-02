@@ -490,283 +490,248 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
       </header>
 
       <div className="dashboard-grid">
-        {/* Main Chart Section */}
-        <section className="glass-panel chart-section glass-panel-interactive pulse-glow" style={{ transition: 'all 0.3s ease', cursor: 'pointer' }}>
-          <div className="section-header">
-            <div>
-              <h3>Évolution Mentale</h3>
-              <p className="section-desc">Ton niveau d'énergie et de focus</p>
-            </div>
-            
-            <div className="chart-tabs">
-              <button className={`chart-tab ${activeChartTab === 'today' ? 'active' : ''}`} onClick={() => { playClickSound(); setActiveChartTab('today'); }}>Aujourd'hui</button>
-              <button className={`chart-tab ${activeChartTab === 'week' ? 'active' : ''}`} onClick={() => { playClickSound(); setActiveChartTab('week'); }}>Semaine</button>
-              <button className={`chart-tab ${activeChartTab === 'trend' ? 'active' : ''}`} onClick={() => { playClickSound(); setActiveChartTab('trend'); }}>Mois</button>
-            </div>
-          </div>
-
-          <div className="chart-container">
-            {activeChartTab === 'today' && (
-              <div className="today-score-view">
-                <div className="circular-progress-container glass-liquid">
-                  <svg width="180" height="180" viewBox="0 0 160 160">
-                    <defs>
-                      <linearGradient id="scoreGradient" x1="0" y1="0" x2="1" y2="1">
-                        <stop offset="0%" stopColor="#3b82f6" />
-                        <stop offset="100%" stopColor="#ec4899" />
-                      </linearGradient>
-                    </defs>
-                    <circle cx="80" cy="80" r={radius} fill="transparent" stroke="rgba(255,255,255,0.05)" strokeWidth="12" />
-                    <circle 
-                      cx="80" cy="80" r={radius} 
-                      fill="transparent" 
-                      stroke="url(#scoreGradient)" 
-                      strokeWidth="12" 
-                      strokeLinecap="round"
-                      strokeDasharray={circumference}
-                      strokeDashoffset={strokeDashoffset}
-                      style={{ transition: 'stroke-dashoffset 1s ease-out' }}
-                      transform="rotate(-90 80 80)"
-                    />
-                  </svg>
-                  <div className="circular-score-content">
-                    <span className="score-number">{mentalScore}</span>
-                  </div>
-                </div>
-                <div className="today-score-text">
-                  {mentalScore >= 100 ? (
-                    <div className="victory-message">
-                      <h4 className="gradient-text">Bravo Champion 🏆</h4>
-                      <p>Tu as accompli toutes tes routines. Repose-toi bien.</p>
-                    </div>
-                  ) : (
-                    <>
-                      <h4>Score Actuel</h4>
-                      <p>Complète tes routines pour atteindre 100%.</p>
-                    </>
-                  )}
-                </div>
+        <div className="dashboard-left-col">
+          {/* Main Chart Section */}
+          <section className="glass-panel chart-section glass-panel-interactive pulse-glow" style={{ transition: 'all 0.3s ease', cursor: 'pointer' }}>
+            <div className="section-header">
+              <div>
+                <h3>Évolution Mentale</h3>
+                <p className="section-desc">Ton niveau d'énergie et de focus</p>
               </div>
-            )}
-
-            {activeChartTab === 'week' && (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={weeklyData} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
-                  <defs>
-                    <linearGradient id="blueGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.8}/>
-                      <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.2}/>
-                    </linearGradient>
-                    <linearGradient id="pinkGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#ec4899" stopOpacity={1}/>
-                      <stop offset="100%" stopColor="#ec4899" stopOpacity={0.4}/>
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={<CustomTick />} dy={10} />
-                  <YAxis hide domain={[0, 100]} />
-                  <Tooltip content={<CustomTooltipContent />} cursor={{ fill: 'rgba(255,255,255,0.02)' }} />
-                  <Bar dataKey="score" radius={[12, 12, 12, 12]} barSize={34}>
-                    {weeklyData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.isToday ? 'url(#pinkGradient)' : 'url(#blueGradient)'} stroke="rgba(255,255,255,0.15)" strokeWidth={1} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-
-            {activeChartTab === 'trend' && (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
-                  <defs>
-                    <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#ec4899" stopOpacity={0.3}/>
-                      <stop offset="100%" stopColor="#ec4899" stopOpacity={0}/>
-                    </linearGradient>
-                    <linearGradient id="lineColor" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0%" stopColor="#3b82f6" />
-                      <stop offset="100%" stopColor="#ec4899" />
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={<CustomTick />} dy={10} />
-                  <YAxis hide domain={[0, 100]} />
-                  <Tooltip content={<CustomTooltipContent />} />
-                  <Area 
-                    type="monotone" 
-                    dataKey="score" 
-                    stroke="url(#lineColor)" 
-                    strokeWidth={3} 
-                    fill="url(#areaFill)"
-                    dot={{ r: 5, fill: '#141414', strokeWidth: 3, stroke: '#ec4899' }} 
-                    activeDot={{ r: 7, stroke: '#ec4899', strokeWidth: 2, fill: '#ec4899' }} 
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </section>
-
-        {/* Stats Row */}
-        <div className="stats-row">
-          <div className="glass-panel stat-card streak-card glass-panel-interactive">
-            <div className="streak-glow"></div>
-            <div className="stat-icon purple"><Zap size={28} /></div>
-            <div className="stat-info">
-              <span className="stat-label">Série de focus</span>
-              <span className="stat-value highlight-streak">
-                {streak} Jour{streak > 1 ? 's' : ''} <span className="fire-emoji animated">🔥</span>
-              </span>
-              <span className="streak-hint">{getStreakMessage()}</span>
-            </div>
-          </div>
-          <div className="glass-panel stat-card glass-panel-interactive">
-            <div className="stat-icon blue"><Trophy size={22} /></div>
-            <div className="stat-info">
-              <span className="stat-label">Objectifs atteints</span>
-              <span className="stat-value">{microDone}/{microTotal} terminés</span>
-              {microTotal > 0 && (
-                <div className="obj-progress-bar">
-                  <div className="obj-progress-fill" style={{ width: `${(microDone / microTotal) * 100}%` }}></div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Routines Carousel */}
-        <div>
-          <AiNotification type="routine" />
-        </div>
-        <section className="glass-panel routines-section">
-          <div className="section-header routine-carousel-header">
-            <button className="carousel-nav-btn" onClick={prevRoutine} disabled={isAnimating}><ChevronLeft size={24} /></button>
-            <div className="routine-title-container">
-              <h3 className={slideDirection}>{currentGroup.title}</h3>
-            </div>
-            <button className="carousel-nav-btn" onClick={nextRoutine} disabled={isAnimating}><ChevronRight size={24} /></button>
-          </div>
-          
-          <div className={`routine-transition-wrapper ${slideDirection}`}>
-            <p className="section-desc mb-3" style={{ textAlign: 'center', width: '100%' }}>{currentGroup.desc}</p>
-            <div className="routine-list">
-              <span className="time-est glass-badge mb-3" style={{ alignSelf: 'center' }}>
-                {Array.isArray(currentGroup.items) ? currentGroup.items.filter((r: any) => !r.done).length : 0} tâche(s) restante(s)
-              </span>
               
-              {Array.isArray(currentGroup.items) && currentGroup.items.map((routine: any) => (
-                <div key={routine.id} className={`routine-item ${routine.done ? 'done' : ''} glass-panel-interactive`}>
-                  <div className="routine-checkbox" onClick={(e) => toggleRoutine(e, routine.id)}>
-                    {routine.done ? <CheckCircle2 size={18} /> : <Circle size={18} color="rgba(255,255,255,0.4)" />}
+              <div className="chart-tabs">
+                <button className={`chart-tab ${activeChartTab === 'today' ? 'active' : ''}`} onClick={() => { playClickSound(); setActiveChartTab('today'); }}>Aujourd'hui</button>
+                <button className={`chart-tab ${activeChartTab === 'week' ? 'active' : ''}`} onClick={() => { playClickSound(); setActiveChartTab('week'); }}>Semaine</button>
+                <button className={`chart-tab ${activeChartTab === 'trend' ? 'active' : ''}`} onClick={() => { playClickSound(); setActiveChartTab('trend'); }}>Mois</button>
+              </div>
+            </div>
+  
+            <div className="chart-container">
+              {activeChartTab === 'today' && (
+                <div className="today-score-view">
+                  <div className="circular-progress-container glass-liquid">
+                    <svg width="180" height="180" viewBox="0 0 160 160">
+                      <defs>
+                        <linearGradient id="scoreGradient" x1="0" y1="0" x2="1" y2="1">
+                          <stop offset="0%" stopColor="#3b82f6" />
+                          <stop offset="100%" stopColor="#ec4899" />
+                        </linearGradient>
+                      </defs>
+                      <circle cx="80" cy="80" r={radius} fill="transparent" stroke="rgba(255,255,255,0.05)" strokeWidth="12" />
+                      <circle 
+                        cx="80" cy="80" r={radius} 
+                        fill="transparent" 
+                        stroke="url(#scoreGradient)" 
+                        strokeWidth="12" 
+                        strokeLinecap="round"
+                        strokeDasharray={circumference}
+                        strokeDashoffset={strokeDashoffset}
+                        style={{ transition: 'stroke-dashoffset 1s ease-out' }}
+                        transform="rotate(-90 80 80)"
+                      />
+                    </svg>
+                    <div className="circular-score-content">
+                      <span className="score-number">{mentalScore}</span>
+                    </div>
                   </div>
-                  <div className="routine-content" style={{ display: 'flex', flex: 1, gap: '10px', alignItems: 'center' }}>
-                    {editingId === routine.id ? (
-                      <>
-                        <input 
-                          type="text" 
-                          className="routine-edit-input" 
-                          value={editTitle}
-                          onChange={e => setEditTitle(e.target.value)}
-                          onKeyDown={e => e.key === 'Enter' && saveEditing(routine.id)}
-                          autoFocus
-                          style={{ flex: 1 }}
-                        />
-                        <input 
-                          type="text" 
-                          className="routine-edit-input" 
-                          value={editTime}
-                          onChange={e => setEditTime(e.target.value)}
-                          onKeyDown={e => e.key === 'Enter' && saveEditing(routine.id)}
-                          style={{ width: '70px', textAlign: 'center' }}
-                        />
-                      </>
+                  <div className="today-score-text">
+                    {mentalScore >= 100 ? (
+                      <div className="victory-message">
+                        <h4 className="gradient-text">Bravo Champion 🏆</h4>
+                        <p>Tu as accompli toutes tes routines. Repose-toi bien.</p>
+                      </div>
                     ) : (
                       <>
-                        <span className="routine-title">{routine.title}</span>
-                        <span className="routine-time">{routine.time}</span>
+                        <h4>Score Actuel</h4>
+                        <p>Complète tes routines pour atteindre 100%.</p>
                       </>
                     )}
                   </div>
-                  {editingId === routine.id ? (
-                    <button className="routine-edit-btn" onClick={() => saveEditing(routine.id)}>
-                      <CheckCircle2 size={14} color="#3b82f6" />
-                    </button>
-                  ) : (
-                    <button className="routine-edit-btn" onClick={() => startEditing(routine)}>
-                      <Pencil size={14} />
-                    </button>
-                  )}
                 </div>
-              ))}
+              )}
+              {activeChartTab === 'week' && (
+                <div className="chart-bars">
+                  {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map((day, i) => {
+                    const height = Math.random() * 80 + 20;
+                    const isToday = i === new Date().getDay() - 1;
+                    return (
+                      <div key={day} className={`bar-col ${isToday ? 'active' : ''}`}>
+                        <div className="bar-track glass-panel">
+                          <div className="bar-fill" style={{ height: `${height}%`, background: isToday ? 'linear-gradient(to top, #3b82f6, #60a5fa)' : 'rgba(255,255,255,0.1)' }}></div>
+                        </div>
+                        <span className="bar-label">{day}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {activeChartTab === 'trend' && (
+                <div className="trend-view" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--secondary)' }}>
+                  <TrendingUp size={48} opacity={0.2} />
+                  <span style={{ marginLeft: '15px' }}>Données insuffisantes pour la tendance mensuelle.</span>
+                </div>
+              )}
+            </div>
+          </section>
 
-              <button className="add-routine-btn" onClick={addNewRoutine}>
-                <Plus size={18} />
-                Ajouter une routine
-              </button>
+          {/* Heatmap Section */}
+          <section className="heatmap-section glass-panel glass-panel-interactive pulse-glow fade-in delay-2" style={{ transition: 'all 0.3s ease', cursor: 'pointer' }}>
+            <div className="section-header-flex" style={{ marginBottom: '8px' }}>
+              <h3 className="section-title" style={{ fontSize: '1.2rem', margin: 0 }}>
+                <Calendar size={18} /> Ton Année (Régularité)
+              </h3>
+            </div>
+            <p style={{ fontSize: '0.85rem', color: 'var(--secondary)', marginBottom: '24px', lineHeight: 1.4 }}>
+              Ce graphique montre ta régularité sur l'année (comme sur GitHub). Chaque carré représente un jour. Plus tu complètes tes routines, plus le carré brille fort. L'objectif : <strong style={{color: '#10b981'}}>ne jamais briser la chaîne lumineuse !</strong>
+            </p>
+            <div className="heatmap-grid">
+              {getLastNDays(84).reverse().map((dateStr, i) => {
+                const scores = loadDailyScores();
+                const score = scores[dateStr] || 0;
+                let levelClass = 'level-0';
+                if (score >= 100) levelClass = 'level-4';
+                else if (score >= 50) levelClass = 'level-3';
+                else if (score >= 20) levelClass = 'level-2';
+                else if (score > 0) levelClass = 'level-1';
+                
+                return (
+                  <div 
+                    key={i} 
+                    className={`heatmap-cell ${levelClass}`}
+                    title={`${dateStr}: ${score} pts`}
+                  />
+                );
+              })}
+            </div>
+            <div className="heatmap-legend">
+              <span>Moins</span>
+              <div className="heatmap-cell level-0"></div>
+              <div className="heatmap-cell level-1"></div>
+              <div className="heatmap-cell level-2"></div>
+              <div className="heatmap-cell level-3"></div>
+              <div className="heatmap-cell level-4"></div>
+              <span>Plus</span>
+            </div>
+          </section>
+        </div>
+        
+        <div className="dashboard-right-col">
+          {/* Stats Row */}
+          <div className="stats-row">
+            <div className="glass-panel stat-card streak-card glass-panel-interactive">
+              <div className="streak-glow"></div>
+              <div className="stat-icon purple"><Zap size={28} /></div>
+              <div className="stat-info">
+                <span className="stat-label">Série de focus</span>
+                <span className="stat-value highlight-streak">
+                  {streak} Jour{streak > 1 ? 's' : ''} <span className="fire-emoji animated">🔥</span>
+                </span>
+                <span className="streak-hint">{getStreakMessage()}</span>
+              </div>
+            </div>
+            <div className="glass-panel stat-card glass-panel-interactive">
+              <div className="stat-icon blue"><Trophy size={22} /></div>
+              <div className="stat-info">
+                <span className="stat-label">Objectifs atteints</span>
+                <span className="stat-value">{microDone}/{microTotal} terminés</span>
+                {microTotal > 0 && (
+                  <div className="obj-progress-bar">
+                    <div className="obj-progress-fill" style={{ width: `${(microDone / microTotal) * 100}%` }}></div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-          
-          <div className="carousel-dots">
-            {routineGroups.map((_: any, idx: number) => (
-              <span 
-                key={idx} 
-                className={`carousel-dot ${idx === currentRoutineIndex ? 'active' : ''}`}
-                onClick={() => {
-                  if (idx !== currentRoutineIndex && !isAnimating) {
-                    setIsAnimating(true);
-                    
-                    // Switch immediately, only play ONE animation
-                    setCurrentRoutineIndex(idx);
-                    setSlideDirection(idx > currentRoutineIndex ? 'slide-in-right' : 'slide-in-left');
-                    
-                    setTimeout(() => {
-                      setSlideDirection('none');
-                      setIsAnimating(false);
-                    }, 300);
-                  }
-                }}
-              />
-            ))}
-          </div>
-        </section>
+  
+          <section className="glass-panel routines-section">
+            <div className="section-header routine-carousel-header">
+              <button className="carousel-nav-btn" onClick={prevRoutine} disabled={isAnimating}><ChevronLeft size={24} /></button>
+              <div className="routine-title-container">
+                <h3 className={slideDirection}>{currentGroup.title}</h3>
+              </div>
+              <button className="carousel-nav-btn" onClick={nextRoutine} disabled={isAnimating}><ChevronRight size={24} /></button>
+            </div>
+            
+            <div className={`routine-transition-wrapper ${slideDirection}`}>
+              <p className="section-desc mb-3" style={{ textAlign: 'center', width: '100%' }}>{currentGroup.desc}</p>
+              <div className="routine-list">
+                <span className="time-est glass-badge mb-3" style={{ alignSelf: 'center' }}>
+                  {Array.isArray(currentGroup.items) ? currentGroup.items.filter((r: any) => !r.done).length : 0} tâche(s) restante(s)
+                </span>
+                
+                {Array.isArray(currentGroup.items) && currentGroup.items.map((routine: any) => (
+                  <div key={routine.id} className={`routine-item ${routine.done ? 'done' : ''} glass-panel-interactive`}>
+                    <div className="routine-checkbox" onClick={(e) => toggleRoutine(e, routine.id)}>
+                      {routine.done ? <CheckCircle2 size={18} /> : <Circle size={18} color="rgba(255,255,255,0.4)" />}
+                    </div>
+                    <div className="routine-content" style={{ display: 'flex', flex: 1, gap: '10px', alignItems: 'center' }}>
+                      {editingId === routine.id ? (
+                        <>
+                          <input 
+                            type="text" 
+                            className="routine-edit-input" 
+                            value={editTitle}
+                            onChange={e => setEditTitle(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && saveEditing(routine.id)}
+                            autoFocus
+                            style={{ flex: 1 }}
+                          />
+                          <input 
+                            type="text" 
+                            className="routine-edit-input" 
+                            value={editTime}
+                            onChange={e => setEditTime(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && saveEditing(routine.id)}
+                            style={{ width: '70px', textAlign: 'center' }}
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <span className="routine-title">{routine.title}</span>
+                          <span className="routine-time">{routine.time}</span>
+                        </>
+                      )}
+                    </div>
+                    {editingId === routine.id ? (
+                      <button className="routine-edit-btn" onClick={() => saveEditing(routine.id)}>
+                        <CheckCircle2 size={14} color="#3b82f6" />
+                      </button>
+                    ) : (
+                      <button className="routine-edit-btn" onClick={() => startEditing(routine)}>
+                        <Pencil size={14} />
+                      </button>
+                    )}
+                  </div>
+                ))}
 
-        {/* Heatmap Section */}
-        <section className="heatmap-section glass-panel glass-panel-interactive pulse-glow fade-in delay-2" style={{ transition: 'all 0.3s ease', cursor: 'pointer' }}>
-          <div className="section-header-flex" style={{ marginBottom: '8px' }}>
-            <h3 className="section-title" style={{ fontSize: '1.2rem', margin: 0 }}>
-              <Calendar size={18} /> Ton Année (Régularité)
-            </h3>
-          </div>
-          <p style={{ fontSize: '0.85rem', color: 'var(--secondary)', marginBottom: '24px', lineHeight: 1.4 }}>
-            Ce graphique montre ta régularité sur l'année (comme sur GitHub). Chaque carré représente un jour. Plus tu complètes tes routines, plus le carré brille fort. L'objectif : <strong style={{color: '#10b981'}}>ne jamais briser la chaîne lumineuse !</strong>
-          </p>
-          <div className="heatmap-grid">
-            {getLastNDays(84).reverse().map((dateStr, i) => {
-              const scores = loadDailyScores();
-              const score = scores[dateStr] || 0;
-              let levelClass = 'level-0';
-              if (score >= 100) levelClass = 'level-4';
-              else if (score >= 50) levelClass = 'level-3';
-              else if (score >= 20) levelClass = 'level-2';
-              else if (score > 0) levelClass = 'level-1';
-              
-              return (
+                <button className="add-routine-btn" onClick={addNewRoutine}>
+                  <Plus size={16} /> Ajouter une tâche
+                </button>
+              </div>
+            </div>
+
+            <div className="carousel-dots">
+              {routineGroups.map((_, idx) => (
                 <div 
-                  key={i} 
-                  className={`heatmap-cell ${levelClass}`}
-                  title={`${dateStr}: ${score} pts`}
+                  key={idx} 
+                  className={`carousel-dot ${idx === currentRoutineIndex ? 'active' : ''}`}
+                  onClick={() => {
+                    if (idx !== currentRoutineIndex && !isAnimating) {
+                      setIsAnimating(true);
+                      setCurrentRoutineIndex(idx);
+                      setSlideDirection(idx > currentRoutineIndex ? 'slide-in-right' : 'slide-in-left');
+                      
+                      setTimeout(() => {
+                        setSlideDirection('none');
+                        setIsAnimating(false);
+                      }, 300);
+                    }
+                  }}
                 />
-              );
-            })}
-          </div>
-          <div className="heatmap-legend">
-            <span>Moins</span>
-            <div className="heatmap-cell level-0"></div>
-            <div className="heatmap-cell level-1"></div>
-            <div className="heatmap-cell level-2"></div>
-            <div className="heatmap-cell level-3"></div>
-            <div className="heatmap-cell level-4"></div>
-            <span>Plus</span>
-          </div>
-        </section>
+              ))}
+            </div>
+          </section>
+        </div>
       </div>
     </div>
   );
