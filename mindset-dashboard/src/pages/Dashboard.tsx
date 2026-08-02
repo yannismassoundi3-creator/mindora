@@ -593,25 +593,69 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
               Ce graphique montre ta régularité sur l'année (comme sur GitHub). Fais défiler horizontalement pour voir tes 365 derniers jours ! Chaque carré représente un jour. Plus tu complètes tes routines, plus le carré brille fort. L'objectif : <strong style={{color: '#10b981'}}>ne jamais briser la chaîne lumineuse !</strong>
             </p>
             <div className="heatmap-container" ref={heatmapRef}>
-              <div className="heatmap-grid">
-                {getLastNDays(365).reverse().map((dateStr, i) => {
-                  const scores = loadDailyScores();
-                  const score = scores[dateStr] || 0;
-                  let levelClass = 'level-0';
-                  if (score >= 100) levelClass = 'level-4';
-                  else if (score >= 50) levelClass = 'level-3';
-                  else if (score >= 20) levelClass = 'level-2';
-                  else if (score > 0) levelClass = 'level-1';
-                  
-                  return (
-                    <div 
-                      key={i} 
-                      className={`heatmap-cell ${levelClass}`}
-                      title={`${dateStr}: ${score} pts`}
-                    />
-                  );
-                })}
-              </div>
+              {(() => {
+                const heatmapDays = getLastNDays(365).reverse();
+                const firstDate = new Date(heatmapDays[0]);
+                const emptyCellsCount = firstDate.getDay() === 0 ? 6 : firstDate.getDay() - 1;
+                
+                const monthLabels: { month: string, colIndex: number }[] = [];
+                let currentMonth = -1;
+                let totalCells = emptyCellsCount;
+                
+                heatmapDays.forEach((dateStr) => {
+                  const d = new Date(dateStr);
+                  const m = d.getMonth();
+                  if (m !== currentMonth) {
+                    if (currentMonth !== -1) {
+                      monthLabels.push({ month: d.toLocaleDateString('fr-FR', { month: 'short' }), colIndex: Math.floor(totalCells / 7) });
+                    }
+                    currentMonth = m;
+                  }
+                  totalCells++;
+                });
+
+                const scores = loadDailyScores();
+
+                return (
+                  <div style={{ padding: '0 10px' }}>
+                    <div className="heatmap-months-row" style={{ position: 'relative', height: '20px', marginBottom: '4px', fontSize: '0.75rem', color: 'var(--secondary)' }}>
+                      {monthLabels.map((lbl, i) => (
+                        <span key={i} style={{ position: 'absolute', left: `calc(28px + ${lbl.colIndex} * 19px)`, textTransform: 'capitalize' }}>
+                          {lbl.month}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="heatmap-body" style={{ display: 'flex', gap: '8px' }}>
+                      <div className="heatmap-days-col" style={{ display: 'grid', gridTemplateRows: 'repeat(7, 1fr)', fontSize: '0.7rem', color: 'var(--secondary)', textAlign: 'right', gap: '5px' }}>
+                        <span style={{ gridRow: 2, transform: 'translateY(-2px)' }}>Lun</span>
+                        <span style={{ gridRow: 4, transform: 'translateY(-2px)' }}>Mer</span>
+                        <span style={{ gridRow: 6, transform: 'translateY(-2px)' }}>Ven</span>
+                      </div>
+                      <div className="heatmap-grid">
+                        {Array.from({ length: emptyCellsCount }).map((_, i) => (
+                          <div key={`empty-${i}`} className="heatmap-cell" style={{ background: 'transparent' }} />
+                        ))}
+                        {heatmapDays.map((dateStr, i) => {
+                          const score = scores[dateStr] || 0;
+                          let levelClass = 'level-0';
+                          if (score >= 100) levelClass = 'level-4';
+                          else if (score >= 50) levelClass = 'level-3';
+                          else if (score >= 20) levelClass = 'level-2';
+                          else if (score > 0) levelClass = 'level-1';
+                          
+                          return (
+                            <div 
+                              key={i} 
+                              className={`heatmap-cell ${levelClass}`}
+                              title={`${dateStr}: ${score} pts`}
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
             <div className="heatmap-legend">
               <span>Moins</span>
