@@ -148,7 +148,7 @@
   }
 
   .content-scroll-area {
-    padding: 20px 4px 120px; /* Minimal edge space */
+    padding: 20px 10px 120px; /* Safe edge space for curved screens */
   }
 
   .bottom-nav {
