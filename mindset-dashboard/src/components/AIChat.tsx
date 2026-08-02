@@ -14,11 +14,14 @@ interface Message {
 }
 
 export const AIChat: React.FC = () => {
+  const aiName = localStorage.getItem('mindset_ai_name') || 'Coach IA';
+
   const [messages, setMessages] = useState<Message[]>(() => {
     const saved = localStorage.getItem('mindset_ai_chat_history');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (parsed.length > 0) return parsed;
       } catch (e) {
         console.error("Erreur parsing chat history", e);
       }
@@ -26,7 +29,7 @@ export const AIChat: React.FC = () => {
     return [
       {
         id: 1,
-        text: `Bonjour, comment je peux t'aider aujourd'hui ?`,
+        text: `Bonjour, je suis ${aiName}. Comment je peux t'aider aujourd'hui ?`,
         sender: 'ai',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       }
@@ -52,7 +55,6 @@ export const AIChat: React.FC = () => {
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const aiName = localStorage.getItem('mindset_ai_name') || 'Coach IA';
 
   const playTTS = async (msg: Message) => {
     if (playingAudioId === msg.id) {
