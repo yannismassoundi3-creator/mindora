@@ -281,16 +281,34 @@
   border-radius: 24px;
 }
 
+.heatmap-container {
+  width: 100%;
+  overflow-x: auto;
+  padding-bottom: 16px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.2) transparent;
+}
+
+.heatmap-container::-webkit-scrollbar {
+  height: 6px;
+}
+.heatmap-container::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.2);
+  border-radius: 10px;
+}
+
 .heatmap-grid {
   display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  gap: 6px;
-  margin-bottom: 16px;
+  grid-template-rows: repeat(7, 1fr);
+  grid-auto-flow: column;
+  gap: 5px;
+  min-width: max-content; /* Force grid to expand horizontally */
 }
 
 .heatmap-cell {
-  aspect-ratio: 1;
-  border-radius: 4px;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
   background: rgba(255, 255, 255, 0.05);
   transition: all 0.2s;
   cursor: pointer;

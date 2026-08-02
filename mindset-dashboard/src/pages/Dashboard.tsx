@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, Area, AreaChart } from 'recharts';
 import { Play, CheckCircle2, TrendingUp, Zap, Sparkles, Pencil, Coins, Circle, ChevronLeft, ChevronRight, Plus, Trophy, Calendar } from 'lucide-react';
 import { AiNotification } from '../components/AiNotification';
@@ -113,9 +113,17 @@ interface DashboardProps {
 
 export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   const [currentDate, setCurrentDate] = useState('');
+  const heatmapRef = useRef<HTMLDivElement>(null);
+  
   useEffect(() => {
     const options: Intl.DateTimeFormatOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
     setCurrentDate(new Date().toLocaleDateString('fr-FR', options));
+    
+    setTimeout(() => {
+      if (heatmapRef.current) {
+        heatmapRef.current.scrollLeft = heatmapRef.current.scrollWidth;
+      }
+    }, 100);
     
     // Demander la permission push au chargement du dashboard
     setTimeout(() => {
@@ -582,26 +590,28 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
               </h3>
             </div>
             <p style={{ fontSize: '0.85rem', color: 'var(--secondary)', marginBottom: '24px', lineHeight: 1.4 }}>
-              Ce graphique montre ta régularité sur l'année (comme sur GitHub). Chaque carré représente un jour. Plus tu complètes tes routines, plus le carré brille fort. L'objectif : <strong style={{color: '#10b981'}}>ne jamais briser la chaîne lumineuse !</strong>
+              Ce graphique montre ta régularité sur l'année (comme sur GitHub). Fais défiler horizontalement pour voir tes 365 derniers jours ! Chaque carré représente un jour. Plus tu complètes tes routines, plus le carré brille fort. L'objectif : <strong style={{color: '#10b981'}}>ne jamais briser la chaîne lumineuse !</strong>
             </p>
-            <div className="heatmap-grid">
-              {getLastNDays(84).reverse().map((dateStr, i) => {
-                const scores = loadDailyScores();
-                const score = scores[dateStr] || 0;
-                let levelClass = 'level-0';
-                if (score >= 100) levelClass = 'level-4';
-                else if (score >= 50) levelClass = 'level-3';
-                else if (score >= 20) levelClass = 'level-2';
-                else if (score > 0) levelClass = 'level-1';
-                
-                return (
-                  <div 
-                    key={i} 
-                    className={`heatmap-cell ${levelClass}`}
-                    title={`${dateStr}: ${score} pts`}
-                  />
-                );
-              })}
+            <div className="heatmap-container" ref={heatmapRef}>
+              <div className="heatmap-grid">
+                {getLastNDays(365).reverse().map((dateStr, i) => {
+                  const scores = loadDailyScores();
+                  const score = scores[dateStr] || 0;
+                  let levelClass = 'level-0';
+                  if (score >= 100) levelClass = 'level-4';
+                  else if (score >= 50) levelClass = 'level-3';
+                  else if (score >= 20) levelClass = 'level-2';
+                  else if (score > 0) levelClass = 'level-1';
+                  
+                  return (
+                    <div 
+                      key={i} 
+                      className={`heatmap-cell ${levelClass}`}
+                      title={`${dateStr}: ${score} pts`}
+                    />
+                  );
+                })}
+              </div>
             </div>
             <div className="heatmap-legend">
               <span>Moins</span>
