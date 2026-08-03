@@ -116,9 +116,15 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
           </div>
 
           <button className={`btn-subscribe ${loading ? 'loading' : ''}`} onClick={handlePurchase} disabled={loading}>
-            {loading ? 'Connexion sécurisée (Stripe)...' : (selectedPlan === 'monthly' ? "S'abonner (9.99€/mois)" : "Acheter (99.99€)")}
+            {loading ? 'Connexion sécurisée (Stripe)...' : (selectedPlan === 'monthly' ? "Essai gratuit 7 jours (puis 9.99€/mois)" : "Acheter à vie (99.99€)")}
           </button>
-          <p className="secure-text"><Shield size={14}/> Paiement 100% sécurisé via Stripe</p>
+          {selectedPlan === 'monthly' ? (
+            <p className="secure-text" style={{ color: '#10b981', fontWeight: 600 }}>
+              <Shield size={14} style={{ marginRight: '4px' }}/> 7 jours 100% gratuits. Annulable à tout moment.
+            </p>
+          ) : (
+            <p className="secure-text"><Shield size={14} style={{ marginRight: '4px' }}/> Paiement unique sécurisé via Stripe</p>
+          )}
         </div>
       </div>
     </div>
