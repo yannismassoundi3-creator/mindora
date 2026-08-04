@@ -50,7 +50,7 @@ body {
 }
 
 /* Premium Liquid Glass Hover for all interactive cards and buttons */
-.glass-panel-interactive:hover, .reward-card:hover, .dressing-card:hover, .routine-item:hover, button:not(:disabled):hover {
+.glass-panel-interactive:hover, .reward-card:hover, .dressing-card:hover, .routine-item:hover, button:not(:disabled):hover, .ai-notification-banner:hover, .chat-header:hover, .stat-box:hover, .profile-card:hover {
   transform: translateY(-4px) scale(1.02);
   background: rgba(40, 40, 40, 0.55);
   border-top: 1px solid rgba(255, 255, 255, 0.3);
@@ -61,10 +61,11 @@ body {
     inset 0 10px 20px rgba(255, 255, 255, 0.05),
     0 0 20px var(--accent-glow);
   filter: brightness(1.1);
+  cursor: pointer;
 }
 
 /* Premium Liquid Glass Active (Press/Touch) */
-button:not(:disabled):active, .nav-item:active, .bottom-nav-item:active, .glass-panel-interactive:active, .routine-item:active, .reward-card:active, .dressing-card:active {
+button:not(:disabled):active, .nav-item:active, .bottom-nav-item:active, .glass-panel-interactive:active, .routine-item:active, .reward-card:active, .dressing-card:active, .ai-notification-banner:active, .chat-header:active, .stat-box:active, .profile-card:active {
   transform: translateY(2px) scale(0.96) !important;
   box-shadow: 
     0 5px 15px rgba(0, 0, 0, 0.4), 
@@ -73,7 +74,7 @@ button:not(:disabled):active, .nav-item:active, .bottom-nav-item:active, .glass-
   filter: brightness(0.9);
 }
 
-button, .nav-item, .bottom-nav-item, .routine-item, .ai-fab, .reward-card, .dressing-card {
+button, .nav-item, .bottom-nav-item, .routine-item, .ai-fab, .reward-card, .dressing-card, .ai-notification-banner, .chat-header, .stat-box, .profile-card {
   -webkit-tap-highlight-color: transparent !important;
   transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
