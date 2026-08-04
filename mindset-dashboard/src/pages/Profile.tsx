@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Shield, Lock, HardDrive, AlertTriangle, Save, CheckCircle, Database, Palette, FileText, X, Crown, LogOut } from 'lucide-react';
+import { User, Shield, Lock, HardDrive, AlertTriangle, Save, CheckCircle, Database, Palette, FileText, X, Crown, LogOut, Sparkles } from 'lucide-react';
 import { PricingScreen } from './PricingScreen';
 import { playHoverSound, playClickSound, playToggleSound, playLevelUpSound } from '../utils/sounds';
 import { api } from '../services/api';
@@ -36,6 +36,9 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
   const [encryption, setEncryption] = useState(() => localStorage.getItem('mindset_sec_encryption') !== 'false');
   const [biometric, setBiometric] = useState(() => localStorage.getItem('mindset_sec_biometric') === 'true');
   const [localHistory, setLocalHistory] = useState(() => localStorage.getItem('mindset_sec_local') !== 'false');
+  
+  // Visual
+  const [particlesEnabled, setParticlesEnabled] = useState(() => localStorage.getItem('mindset_particles') !== 'false');
 
   const [savedStatus, setSavedStatus] = useState(false);
   const [legalModal, setLegalModal] = useState<'legal' | 'cgu' | 'privacy' | null>(null);
@@ -99,6 +102,14 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
       setBiometric(false);
       playToggleSound(false);
     }
+  };
+
+  const handleParticlesToggle = () => {
+    const newVal = !particlesEnabled;
+    setParticlesEnabled(newVal);
+    localStorage.setItem('mindset_particles', newVal.toString());
+    window.dispatchEvent(new Event('particlesChanged'));
+    playToggleSound(newVal);
   };
 
   const handleSave = async () => {
@@ -258,6 +269,19 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
                   {t.value === 'default' && <span style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: '10px', color: 'var(--bg-dark)' }}>Auto</span>}
                 </button>
               ))}
+            </div>
+
+            <div style={{ marginTop: '24px' }}>
+              <div className="setting-item" style={{ background: 'rgba(255,255,255,0.02)', padding: '12px 16px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <div className="setting-info" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div className="setting-title" style={{ fontWeight: 600, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}><Sparkles size={16} color="var(--accent-blue)"/> Particules d'ambiance</div>
+                  <div className="setting-desc" style={{ fontSize: '0.8rem', color: 'var(--secondary)' }}>Désactive pour économiser la batterie.</div>
+                </div>
+                <label className="toggle-switch">
+                  <input type="checkbox" checked={particlesEnabled} onChange={handleParticlesToggle} />
+                  <span className="slider"></span>
+                </label>
+              </div>
             </div>
 
             <div style={{ marginTop: '32px', paddingTop: '24px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>

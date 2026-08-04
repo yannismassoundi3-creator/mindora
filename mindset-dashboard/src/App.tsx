@@ -16,6 +16,7 @@ import { LevelUpOverlay } from './components/LevelUpOverlay';
 import { StreakBrokenOverlay } from './components/StreakBrokenOverlay';
 import { LockScreen } from './components/LockScreen';
 import { SkeletonGlow } from './components/SkeletonGlow';
+import { ParticlesBackground } from './components/ParticlesBackground';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { registerSW } from 'virtual:pwa-register';
 import './styles/global.css';
@@ -60,6 +61,7 @@ function App() {
   const IS_BETA_TEST_PHASE = false; // Activer la phase de test gratuite
   const hasToken = !!localStorage.getItem('mindset_token');
   const [isAuthenticated, setIsAuthenticated] = useState(hasToken);
+  const [particlesEnabled, setParticlesEnabled] = useState(() => localStorage.getItem('mindset_particles') !== 'false');
 
   // App Theme Management
   useEffect(() => {
@@ -91,6 +93,18 @@ function App() {
     return () => {
       window.removeEventListener('storage', applyTheme);
       window.removeEventListener('themeChanged', applyTheme);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleParticles = () => {
+      setParticlesEnabled(localStorage.getItem('mindset_particles') !== 'false');
+    };
+    window.addEventListener('storage', handleParticles);
+    window.addEventListener('particlesChanged', handleParticles);
+    return () => {
+      window.removeEventListener('storage', handleParticles);
+      window.removeEventListener('particlesChanged', handleParticles);
     };
   }, []);
 
@@ -221,6 +235,7 @@ function App() {
 
   return (
     <ErrorBoundary>
+      {particlesEnabled && <ParticlesBackground />}
       <Layout 
         activeView={currentView} 
         setView={handleSetView}

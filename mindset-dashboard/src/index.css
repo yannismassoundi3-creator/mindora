@@ -47,6 +47,17 @@ body {
 
 button {
   font-family: var(--font-main);
+  transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  filter: brightness(1.1);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(1px) scale(0.98);
 }
 /* Premium Liquid Glass Effect for AI Avatars */
 /* Super Premium iOS Liquid Glass Effect for AI Avatars */
