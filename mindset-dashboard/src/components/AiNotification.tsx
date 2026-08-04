@@ -51,13 +51,16 @@ export function AiNotification({ type }: AiNotificationProps) {
   const latestNotif = notifications[0];
 
   return (
-    <div className="ai-notification-banner glass-panel fade-in">
+    <div 
+      className="ai-notification-banner glass-panel fade-in" 
+      onClick={() => dismissNotification(latestNotif.id)}
+    >
       <div className="ai-notification-icon pulse-glow">
         <Sparkles size={16} />
       </div>
       <div className="ai-notification-content">
         <p>{latestNotif.message}</p>
-        <div className="ai-notification-action-btn" onClick={() => dismissNotification(latestNotif.id)}>
+        <div className="ai-notification-action-btn">
           <span>Compris</span>
           <ChevronRight size={14} />
         </div>
