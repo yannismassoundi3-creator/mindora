@@ -37,6 +37,11 @@ export class SubscriptionsService {
             quantity: 1,
           },
         ],
+        ...(planType !== 'lifetime' && {
+          subscription_data: {
+            trial_period_days: 7,
+          },
+        }),
         success_url: `${frontendUrl}/?success=true`,
         cancel_url: `${frontendUrl}/?canceled=true`,
         client_reference_id: userId,

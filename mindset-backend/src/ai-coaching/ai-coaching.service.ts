@@ -58,10 +58,10 @@ export class AiCoachingService {
   }
 
   async chatWithAi(prompt: string, history: any[] = [], userContext?: any) {
-    const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey || apiKey === 'YOUR_GROQ_API_KEY') {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
       return { 
-        reply: "Mon moteur d'intelligence (Groq) est déconnecté. ⚠️\n\nPour me donner vie, ajoute ta clé API dans le fichier `.env` du backend à la ligne `GROQ_API_KEY=...` (et sur Render) puis redémarre le serveur." 
+        reply: "Mon moteur d'intelligence (Gemini) est déconnecté. ⚠️\n\nPour me donner vie, ajoute ta clé API dans le fichier `.env` du backend à la ligne `GEMINI_API_KEY=...` puis redémarre le serveur." 
       };
     }
 
@@ -98,83 +98,54 @@ RÈGLES DE COMPORTEMENT :
 4. Tu STRUCTURES tes réponses avec du **texte en gras** pour les mots-clés.
 5. Tu connais les données de l'utilisateur ci-dessous. Utilise-les pour personnaliser tes réponses.
 6. Quand on te demande d'analyser les objectifs, tu les listes et tu donnes des conseils actionnables.
-10. Tu ne mentionnes JAMAIS que tu es une IA, un modèle de langage ou que tu as des limitations techniques. Tu es Jarvis.
-11. Tu réponds TOUJOURS en français.
-12. **MODE GÉNÉRATION DE PLAN (À UTILISER UNIQUEMENT SI DEMANDÉ)** :
-    NE GÉNÈRE JAMAIS de plan par défaut si on te dit juste "bonjour".
-    Si l'utilisateur te demande explicitement de générer un plan (ex: "Je souhaite générer un nouveau plan..."), tu passes en MODE INTERVIEW :
-    Étape 1 : Pose UNE seule question à la fois pour comprendre ses besoins (ex: niveau, temps disponible, objectifs). Ne pose pas tout d'un coup.
-    Étape 2 : Quand tu as récolté TOUTES les infos nécessaires, et SEULEMENT À CE MOMENT LÀ, tu peux finaliser le plan.
-    Étape 3 : Pour finaliser le plan, tu dois OBLIGATOIREMENT inclure à la toute fin de ton message un bloc de code JSON valide avec le format exact suivant :
-    \`\`\`json
-    {
-      "action": "REPLACE", // "REPLACE" pour effacer l'ancien plan et créer un tout nouveau de zéro. "APPEND" pour juste rajouter des choses sans supprimer ce qui existe déjà.
-      "newHabits": [
-        { "name": "Titre habitude", "description": "Desc", "frequency": "daily" }
-      ],
-      "newRoutines": [
-        {
-          "type": "MORNING",
-          "tasks": [ { "title": "Méditation", "duration": 10, "priority": "HIGH" } ]
-        }
-      ],
-      "newObjectives": [
-        { "title": "Titre objectif (micro)", "category": "Mindset", "deadline": "2 semaines" }
-      ],
-      "newMacroObjectives": [
-        { "title": "Titre objectif (macro)", "category": "Vision", "deadline": "Déc 2026" }
-      ]
-    }
-    \`\`\`
-    NE METS SURTOUT PAS CE BLOC JSON TANT QUE L'INTERVIEW N'EST PAS TERMINÉE !
+7. Tu ne mentionnes JAMAIS que tu es une IA, un modèle de langage ou que tu as des limitations techniques. Tu es Jarvis.
+8. Tu réponds TOUJOURS en français.
+9. **GÉRER LES HABITUDES ET ROUTINES (TRÈS IMPORTANT)** :
+   L'utilisateur peut te demander d'ajouter ou de modifier une habitude, une routine ou un objectif à n'importe quel moment (ex: "mets ça dans ma routine", "ajoute la lecture", "nouveau plan").
+   Dès qu'il le demande, tu DOIS inclure à la toute fin de ta réponse un bloc de code JSON valide avec le format exact suivant pour que l'application l'ajoute automatiquement :
+   \`\`\`json
+   {
+     "action": "APPEND", // "REPLACE" pour effacer l'ancien plan, "APPEND" pour juste rajouter
+     "newHabits": [
+       { "name": "Titre habitude", "description": "Desc", "frequency": "daily" }
+     ],
+     "newRoutines": [
+       {
+         "type": "MORNING", // MORNING, MIDDAY, ou EVENING
+         "tasks": [ { "title": "Méditation", "duration": 10 } ]
+       }
+     ],
+     "newObjectives": [
+       { "title": "Titre objectif", "category": "Mindset", "deadline": "2 semaines" }
+     ]
+   }
+   \`\`\`
+   Si l'utilisateur ne demande rien de spécifique, réponds normalement sans le bloc JSON.
 
 ${contextString}`;
 
     try {
-      console.log('[Groq] 🔄 Tentative avec Llama 3.3 70B (Groq)...');
+      console.log('[Gemini] 🔄 Tentative avec Gemini 1.5 Flash...');
       
-      const messages = [
-        { role: 'system', content: systemInstruction }
-      ];
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
+      let fullPrompt = systemInstruction + "\n\n--- HISTORIQUE DE CONVERSATION ---\n";
       for (const msg of history) {
-        messages.push({
-          role: msg.sender === 'user' ? 'user' : 'assistant',
-          content: msg.text
-        });
+        fullPrompt += `${msg.sender === 'user' ? 'Yannis' : 'Jarvis'}: ${msg.text}\n`;
       }
+      fullPrompt += `\nYannis: ${prompt}\nJarvis:`;
 
-      messages.push({ role: 'user', content: prompt });
-
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          messages: messages,
-          temperature: 0.8,
-          max_tokens: 1024
-        })
-      });
-
-      if (!response.ok) {
-        const errBody = await response.text();
-        throw new Error(`Groq API Error: ${response.status} ${response.statusText} - ${errBody}`);
-      }
-
-      const data = await response.json();
-      const reply = data.choices?.[0]?.message?.content;
+      const result = await model.generateContent(fullPrompt);
+      const reply = result.response.text();
       
-      if (!reply) throw new Error('Empty response from Groq');
+      if (!reply) throw new Error('Empty response from Gemini');
       
-      console.log(`[Groq] ✅ Réponse Llama 3.3 70B reçue (${reply.length} chars)`);
+      console.log(`[Gemini] ✅ Réponse reçue (${reply.length} chars)`);
       return { reply };
 
     } catch (error: any) {
-      console.error("[Groq] ❌ Erreur Groq API — activation du fallback immersif:", error.message);
+      console.error("[Gemini] ❌ Erreur Gemini API — activation du fallback immersif:", error.message);
       
       const lowerPrompt = prompt.toLowerCase();
       let fallbackReply: string;
@@ -189,7 +160,7 @@ ${contextString}`;
       } else if (lowerPrompt.includes('bonjour') || lowerPrompt.includes('salut') || lowerPrompt.includes('hey')) {
         fallbackReply = `👋 **Bonjour Yannis !** Tes systèmes sont au vert.\n\n📈 Score Mental : **${userContext?.mentalScore ?? 0}%** | 💰 Coins : **${userContext?.coins ?? 0}**`;
       } else if (lowerPrompt.includes('routine') || lowerPrompt.includes('habitude') || lowerPrompt.includes('programme')) {
-        fallbackReply = "⚡ Pour booster ta discipline, ajoute **une routine de 10 min** de méditation. Chaque routine validée booste ton **Score Mental** !";
+        fallbackReply = "⚡ Pour booster ta discipline, ajoute **une routine de 10 min** de méditation. Chaque routine validée booste ton **Score Mental** !\n```json\n{\"action\":\"APPEND\",\"newRoutines\":[{\"type\":\"MORNING\",\"tasks\":[{\"title\":\"Méditation\",\"duration\":10}]}]}\n```";
       } else if (lowerPrompt.includes('score') || lowerPrompt.includes('coin') || lowerPrompt.includes('point')) {
         fallbackReply = `📊 **Récap** :\n\n🧠 Score Mental : **${userContext?.mentalScore ?? 0}%**\n💰 Coins : **${userContext?.coins ?? 0}**`;
       } else {
