@@ -160,7 +160,7 @@ ${contextString}`;
           model: 'llama-3.3-70b-versatile',
           messages: messages,
           temperature: 0.8,
-          max_tokens: 4096
+          max_tokens: 2500
         })
       });
 
