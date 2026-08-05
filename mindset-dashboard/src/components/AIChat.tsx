@@ -344,7 +344,7 @@ export const AIChat: React.FC = () => {
 
       const data = await api.post('/ai-coaching/chat', { 
         prompt: currentInput,
-        history: messages.slice(1),
+        history: messages.slice(-4), // Prevent Payload Too Large by only sending recent context
         context: userContext
       });
 
