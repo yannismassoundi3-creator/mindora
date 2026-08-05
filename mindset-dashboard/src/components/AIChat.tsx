@@ -137,15 +137,25 @@ export const AIChat: React.FC = () => {
     // REPLACE = effacer l'ancien (défaut), APPEND = garder l'ancien et rajouter
     const action = planData.action === 'APPEND' ? 'APPEND' : 'REPLACE';
     
+    if (action === 'REPLACE') {
+      localStorage.setItem('mindset_habits', '[]');
+      localStorage.setItem('mindset_micro_obj', '[]');
+      localStorage.setItem('mindset_macro_obj', '[]');
+      localStorage.setItem('mindset_routines', JSON.stringify([
+        { id: 'morning', title: 'Routine Matinale', icon: 'sun', items: [] },
+        { id: 'midday', title: 'Routine de Midi', icon: 'sun', items: [] },
+        { id: 'evening', title: 'Routine du Soir', icon: 'moon', items: [] }
+      ]));
+      localStorage.setItem('mindset_nutrition', '[]');
+    }
+
     const habitsList = planData.newHabits || planData.habits;
     if (habitsList && Array.isArray(habitsList) && habitsList.length > 0) {
       let existingHabits: any[] = [];
-      if (action === 'APPEND') {
-        try {
-          const parsed = JSON.parse(localStorage.getItem('mindset_habits') || '[]');
-          existingHabits = Array.isArray(parsed) ? parsed : [];
-        } catch {}
-      }
+      try {
+        const parsed = JSON.parse(localStorage.getItem('mindset_habits') || '[]');
+        existingHabits = Array.isArray(parsed) ? parsed : [];
+      } catch {}
       
       const newEntries = habitsList.map((h: any) => {
         const colors = ['#3b82f6', '#ec4899', '#8b5cf6', '#10b981', '#fcd34d', '#ef4444'];
@@ -167,18 +177,14 @@ export const AIChat: React.FC = () => {
     const routinesList = planData.newRoutines || planData.routines;
     if (routinesList && Array.isArray(routinesList) && routinesList.length > 0) {
       let existingRoutines: any[] = [];
-      if (action === 'APPEND') {
-        try {
-          const saved = JSON.parse(localStorage.getItem('mindset_routines') || '[]');
-          existingRoutines = Array.isArray(saved) ? saved : [];
-        } catch {}
-      } else {
-        existingRoutines = [
+      try {
+        const saved = JSON.parse(localStorage.getItem('mindset_routines') || '[]');
+        existingRoutines = Array.isArray(saved) && saved.length > 0 ? saved : [
           { id: 'morning', title: 'Routine Matinale', icon: 'sun', items: [] },
           { id: 'midday', title: 'Routine de Midi', icon: 'sun', items: [] },
           { id: 'evening', title: 'Routine du Soir', icon: 'moon', items: [] }
         ];
-      }
+      } catch {}
       
       routinesList.forEach((r: any) => {
         const typeMap: Record<string, string> = { 'MORNING': 'morning', 'MATIN': 'morning', 'MIDDAY': 'midday', 'MIDI': 'midday', 'APRÈS-MIDI': 'midday', 'EVENING': 'evening', 'SOIR': 'evening', 'SOIRÉE': 'evening' };
@@ -192,15 +198,11 @@ export const AIChat: React.FC = () => {
         }
         
         if (r.tasks && Array.isArray(r.tasks)) {
-          if (action === 'REPLACE') {
-            targetRoutine.items = [];
-          } else if (!targetRoutine.items) {
-            targetRoutine.items = [];
-          }
-          r.tasks.forEach((t: any) => {
+          if (!targetRoutine.items) targetRoutine.items = [];
+          r.tasks.forEach((t: any, idx: number) => {
             const taskTitle = t.title || t.name || t.description || t.task || t.tache || 'Nouvelle tâche';
             targetRoutine.items.push({
-              id: Date.now() + Math.floor(Math.random() * 100000),
+              id: Date.now() + Math.floor(Math.random() * 100000) + idx,
               title: taskTitle,
               time: `${t.duration || 15} min`,
               done: false
@@ -210,60 +212,78 @@ export const AIChat: React.FC = () => {
       });
       localStorage.setItem('mindset_routines', JSON.stringify(existingRoutines));
       addAiNotification('routine', `✨ ${aiName} a mis à jour tes routines pour t'aider à atteindre tes objectifs.`);
-      }
-      
-      const objectivesList = planData.newObjectives || planData.objectives || planData.microObjectives || planData.goals;
-      if (objectivesList && Array.isArray(objectivesList) && objectivesList.length > 0) {
-        let existingMicro: any[] = [];
-        if (action === 'APPEND') {
-          try {
-            const saved = JSON.parse(localStorage.getItem('mindset_micro_obj') || '[]');
-            existingMicro = Array.isArray(saved) ? saved : [];
-          } catch {}
-        }
-        
-        const newEntries = objectivesList.map((o: any) => {
-          const objTitle = o.title || o.name || o.description || o.objectif || o.objective || o.goal || 'Nouvel Objectif';
-          return {
-            id: Date.now() + Math.floor(Math.random() * 100000),
-            title: objTitle,
-            category: o.category || 'Mindset',
-            progress: 0,
-            total: 7,
-            done: false
-          };
-        });
-        localStorage.setItem('mindset_micro_obj', JSON.stringify([...existingMicro, ...newEntries]));
-        addAiNotification('objective', `✨ ${aiName} a défini de nouveaux objectifs d'évolution pour toi.`);
-      }
+    }
 
-      const macroList = planData.newMacroObjectives || planData.macroObjectives || planData.vision;
-      if (macroList && Array.isArray(macroList) && macroList.length > 0) {
-        let existingMacro: any[] = [];
-        if (action === 'APPEND') {
-          try {
-            const saved = JSON.parse(localStorage.getItem('mindset_macro_obj') || '[]');
-            existingMacro = Array.isArray(saved) ? saved : [];
-          } catch {}
-        }
-        
-        const GRADIENTS = [
-          'linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%)',
-          'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-          'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        ];
-        const newMacros = macroList.map((m: any, idx: number) => {
-          const mTitle = m.title || m.name || m.description || m.objectif || m.objective || m.goal || 'Nouvelle Vision';
-          return {
-            id: Date.now() + Math.floor(Math.random() * 100000) + idx,
-            title: mTitle,
-            category: m.category || 'Vision',
-            deadline: m.deadline || m.date || 'Déc 2026',
-            bgGradient: GRADIENTS[idx % GRADIENTS.length]
-          };
-        });
-        localStorage.setItem('mindset_macro_obj', JSON.stringify([...existingMacro, ...newMacros]));
-      }
+    const nutritionList = planData.newNutrition || planData.nutrition;
+    if (nutritionList && Array.isArray(nutritionList) && nutritionList.length > 0) {
+      let existingNutrition: any[] = [];
+      try {
+        const saved = JSON.parse(localStorage.getItem('mindset_nutrition') || '[]');
+        existingNutrition = Array.isArray(saved) ? saved : [];
+      } catch {}
+
+      const newEntries = nutritionList.map((n: any, idx: number) => {
+        const title = n.meal || n.title || 'Repas / Objectif';
+        const details = n.details || n.description || 'À définir';
+        return {
+          id: Date.now() + Math.floor(Math.random() * 100000) + idx,
+          title: title,
+          details: details,
+          done: false
+        };
+      });
+      localStorage.setItem('mindset_nutrition', JSON.stringify([...existingNutrition, ...newEntries]));
+      addAiNotification('objective', `🍏 ${aiName} a planifié ton alimentation.`);
+    }
+      
+    const objectivesList = planData.newObjectives || planData.objectives || planData.microObjectives || planData.goals;
+    if (objectivesList && Array.isArray(objectivesList) && objectivesList.length > 0) {
+      let existingMicro: any[] = [];
+      try {
+        const saved = JSON.parse(localStorage.getItem('mindset_micro_obj') || '[]');
+        existingMicro = Array.isArray(saved) ? saved : [];
+      } catch {}
+      
+      const newEntries = objectivesList.map((o: any, idx: number) => {
+        const objTitle = o.title || o.name || o.description || o.objectif || o.objective || o.goal || 'Nouvel Objectif';
+        return {
+          id: Date.now() + Math.floor(Math.random() * 100000) + idx,
+          title: objTitle,
+          category: o.category || 'Mindset',
+          progress: 0,
+          total: 7,
+          done: false
+        };
+      });
+      localStorage.setItem('mindset_micro_obj', JSON.stringify([...existingMicro, ...newEntries]));
+      addAiNotification('objective', `✨ ${aiName} a défini de nouveaux objectifs d'évolution pour toi.`);
+    }
+
+    const macroList = planData.newMacroObjectives || planData.macroObjectives || planData.vision;
+    if (macroList && Array.isArray(macroList) && macroList.length > 0) {
+      let existingMacro: any[] = [];
+      try {
+        const saved = JSON.parse(localStorage.getItem('mindset_macro_obj') || '[]');
+        existingMacro = Array.isArray(saved) ? saved : [];
+      } catch {}
+      
+      const GRADIENTS = [
+        'linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%)',
+        'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+        'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      ];
+      const newMacros = macroList.map((m: any, idx: number) => {
+        const mTitle = m.title || m.name || m.description || m.objectif || m.objective || m.goal || 'Nouvelle Vision';
+        return {
+          id: Date.now() + Math.floor(Math.random() * 100000) + idx,
+          title: mTitle,
+          category: m.category || 'Vision',
+          deadline: m.deadline || m.date || 'Déc 2026',
+          bgGradient: GRADIENTS[idx % GRADIENTS.length]
+        };
+      });
+      localStorage.setItem('mindset_macro_obj', JSON.stringify([...existingMacro, ...newMacros]));
+    }
 
       // Force API sync if needed
     window.dispatchEvent(new Event('storage'));
