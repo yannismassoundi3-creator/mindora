@@ -861,7 +861,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
                 {nutritionList.length === 0 ? (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '200px', color: 'var(--secondary)' }}>
                     <p style={{ fontSize: '0.9rem', textAlign: 'center', margin: '20px 0' }}>
-                      Aucun plan nutritionnel défini.<br/>Demande à Jarvis !
+                      Aucun plan nutritionnel défini.<br/>Demande à {aiName} !
                     </p>
                   </div>
                 ) : (
