@@ -47,6 +47,7 @@ export const api = {
         if (data.micro_objectives) localStorage.setItem('mindset_micro_obj', JSON.stringify(data.micro_objectives));
         if (data.macro_objectives) localStorage.setItem('mindset_macro_obj', JSON.stringify(data.macro_objectives));
         if (data.habits) localStorage.setItem('mindset_habits', JSON.stringify(data.habits));
+        if (data.nutrition) localStorage.setItem('mindset_nutrition', JSON.stringify(data.nutrition));
         if (data.points !== undefined) localStorage.setItem('mindset_points', data.points.toString());
         if (data.mental_score !== undefined) localStorage.setItem('mental_score', data.mental_score.toString());
         if (data.bonus_score !== undefined) localStorage.setItem('bonus_mental_score', data.bonus_score.toString());
@@ -79,6 +80,7 @@ export const api = {
         micro_objectives: JSON.parse(localStorage.getItem('mindset_micro_obj') || '[]'),
         macro_objectives: JSON.parse(localStorage.getItem('mindset_macro_obj') || '[]'),
         habits: JSON.parse(localStorage.getItem('mindset_habits') || '[]'),
+        nutrition: JSON.parse(localStorage.getItem('mindset_nutrition') || '[]'),
         points: parseInt(localStorage.getItem('mindset_points') || '0', 10),
         mental_score: parseInt(localStorage.getItem('mental_score') || '0', 10),
         bonus_score: parseInt(localStorage.getItem('bonus_mental_score') || '0', 10),
@@ -188,8 +190,13 @@ try {
 
   // Force sync when page is hidden/closed to prevent data loss
   window.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden' && localStorage.getItem('mindset_token')) {
-      api.syncStateToCloud();
+    if (localStorage.getItem('mindset_token')) {
+      if (document.visibilityState === 'hidden') {
+        api.syncStateToCloud();
+      } else if (document.visibilityState === 'visible') {
+        // Automatically fetch latest data when opening the app/switching tabs
+        api.downloadCloudState();
+      }
     }
   });
 } catch (e) {

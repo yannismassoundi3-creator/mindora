@@ -206,6 +206,7 @@ model SyncData {
   micro_objectives Json?
   macro_objectives Json?
   habits           Json?
+  nutrition        Json?
   points           Int      @default(0)
   mental_score     Int      @default(0)
   bonus_score       Int      @default(0)
