@@ -291,6 +291,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
 
   // --- STREAK & HARDCORE MODE ---
   const [streak, setStreak] = useState(0);
+  const [activeRightTab, setActiveRightTab] = useState<'routines' | 'nutrition'>('routines');
+
   useEffect(() => {
     const currentStreak = calculateStreak();
     setStreak(currentStreak);
@@ -745,158 +747,176 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
             </div>
           </div>
   
-          <section className="glass-panel routines-section">
-            <div className="section-header routine-carousel-header">
-              <button className="carousel-nav-btn" onClick={prevRoutine} disabled={isAnimating}><ChevronLeft size={24} /></button>
-              <div className="routine-title-container">
-                <h3 className={slideDirection}>{currentGroup.title}</h3>
-              </div>
-              <button className="carousel-nav-btn" onClick={nextRoutine} disabled={isAnimating}><ChevronRight size={24} /></button>
-            </div>
-            
-            <div className={`routine-transition-wrapper ${slideDirection}`}>
-              <p className="section-desc mb-3" style={{ textAlign: 'center', width: '100%' }}>{currentGroup.desc}</p>
-              <div className="routine-list">
-                <span className="time-est glass-badge mb-3" style={{ alignSelf: 'center' }}>
-                  {Array.isArray(currentGroup.items) ? currentGroup.items.filter((r: any) => !r.done).length : 0} tâche(s) restante(s)
-                </span>
-                
-                {Array.isArray(currentGroup.items) && currentGroup.items.map((routine: any) => (
-                  <div key={routine.id} className={`routine-item ${routine.done ? 'done' : ''} glass-panel-interactive`}>
-                    <div className="routine-checkbox" onClick={(e) => toggleRoutine(e, routine.id)}>
-                      {routine.done ? <CheckCircle2 size={18} /> : <Circle size={18} color="rgba(255,255,255,0.4)" />}
-                    </div>
-                    <div className="routine-content" style={{ display: 'flex', flex: 1, gap: '10px', alignItems: 'center' }}>
-                      {editingId === routine.id ? (
-                        <>
-                          <input 
-                            type="text" 
-                            className="routine-edit-input" 
-                            value={editTitle}
-                            onChange={e => setEditTitle(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && saveEditing(routine.id)}
-                            autoFocus
-                            style={{ flex: 1 }}
-                          />
-                          <input 
-                            type="text" 
-                            className="routine-edit-input" 
-                            value={editTime}
-                            onChange={e => setEditTime(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && saveEditing(routine.id)}
-                            style={{ width: '70px', textAlign: 'center' }}
-                          />
-                        </>
-                      ) : (
-                        <>
-                          <span className="routine-title">{routine.title}</span>
-                          <span className="routine-time">{routine.time}</span>
-                        </>
-                      )}
-                    </div>
-                    {editingId === routine.id ? (
-                      <button className="routine-edit-btn" onClick={() => saveEditing(routine.id)}>
-                        <CheckCircle2 size={14} color="#3b82f6" />
-                      </button>
-                    ) : (
-                      <button className="routine-edit-btn" onClick={() => startEditing(routine)}>
-                        <Pencil size={14} />
-                      </button>
-                    )}
-                  </div>
-                ))}
-
-                <button className="add-routine-btn" onClick={addNewRoutine}>
-                  <Plus size={16} /> Ajouter une tâche
+          <section className="glass-panel routines-section" style={{ display: 'flex', flexDirection: 'column' }}>
+            <div className="section-header" style={{ marginBottom: '20px' }}>
+              <div className="chart-tabs" style={{ width: '100%', display: 'flex' }}>
+                <button 
+                  className={`chart-tab ${activeRightTab === 'routines' ? 'active' : ''}`} 
+                  onClick={() => { playClickSound(); setActiveRightTab('routines'); }} 
+                  style={{ flex: 1, textAlign: 'center', fontSize: '0.95rem' }}>
+                  ⚡ Routines
+                </button>
+                <button 
+                  className={`chart-tab ${activeRightTab === 'nutrition' ? 'active' : ''}`} 
+                  onClick={() => { playClickSound(); setActiveRightTab('nutrition'); }} 
+                  style={{ flex: 1, textAlign: 'center', fontSize: '0.95rem' }}>
+                  🍏 Alimentation
                 </button>
               </div>
             </div>
 
-            <div className="carousel-dots">
-              {routineGroups.map((_, idx) => (
-                <div 
-                  key={idx} 
-                  className={`carousel-dot ${idx === currentRoutineIndex ? 'active' : ''}`}
-                  onClick={() => {
-                    if (idx !== currentRoutineIndex && !isAnimating) {
-                      setIsAnimating(true);
-                      setCurrentRoutineIndex(idx);
-                      setSlideDirection(idx > currentRoutineIndex ? 'slide-in-right' : 'slide-in-left');
-                      
-                      setTimeout(() => {
-                        setSlideDirection('none');
-                        setIsAnimating(false);
-                      }, 300);
-                    }
-                  }}
-                />
-              ))}
-            </div>
-          </section>
+            {activeRightTab === 'routines' && (
+              <>
+                <div className="section-header routine-carousel-header">
+                  <button className="carousel-nav-btn" onClick={prevRoutine} disabled={isAnimating}><ChevronLeft size={24} /></button>
+                  <div className="routine-title-container">
+                    <h3 className={slideDirection}>{currentGroup.title}</h3>
+                  </div>
+                  <button className="carousel-nav-btn" onClick={nextRoutine} disabled={isAnimating}><ChevronRight size={24} /></button>
+                </div>
+                
+                <div className={`routine-transition-wrapper ${slideDirection}`}>
+                  <p className="section-desc mb-3" style={{ textAlign: 'center', width: '100%' }}>{currentGroup.desc}</p>
+                  <div className="routine-list" style={{ maxHeight: '350px', overflowY: 'auto', paddingRight: '4px' }}>
+                    <span className="time-est glass-badge mb-3" style={{ alignSelf: 'center' }}>
+                      {Array.isArray(currentGroup.items) ? currentGroup.items.filter((r: any) => !r.done).length : 0} tâche(s) restante(s)
+                    </span>
+                    
+                    {Array.isArray(currentGroup.items) && currentGroup.items.map((routine: any) => (
+                      <div key={routine.id} className={`routine-item ${routine.done ? 'done' : ''} glass-panel-interactive`}>
+                        <div className="routine-checkbox" onClick={(e) => toggleRoutine(e, routine.id)}>
+                          {routine.done ? <CheckCircle2 size={18} /> : <Circle size={18} color="rgba(255,255,255,0.4)" />}
+                        </div>
+                        <div className="routine-content" style={{ display: 'flex', flex: 1, gap: '10px', alignItems: 'center' }}>
+                          {editingId === routine.id ? (
+                            <>
+                              <input 
+                                type="text" 
+                                className="routine-edit-input" 
+                                value={editTitle}
+                                onChange={e => setEditTitle(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && saveEditing(routine.id)}
+                                autoFocus
+                                style={{ flex: 1 }}
+                              />
+                              <input 
+                                type="text" 
+                                className="routine-edit-input" 
+                                value={editTime}
+                                onChange={e => setEditTime(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && saveEditing(routine.id)}
+                                style={{ width: '70px', textAlign: 'center' }}
+                              />
+                            </>
+                          ) : (
+                            <>
+                              <span className="routine-title">{routine.title}</span>
+                              <span className="routine-time">{routine.time}</span>
+                            </>
+                          )}
+                        </div>
+                        {editingId === routine.id ? (
+                          <button className="routine-edit-btn" onClick={() => saveEditing(routine.id)}>
+                            <CheckCircle2 size={14} color="#3b82f6" />
+                          </button>
+                        ) : (
+                          <button className="routine-edit-btn" onClick={() => startEditing(routine)}>
+                            <Pencil size={14} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
 
-          {/* Alimentation Section */}
-          <section className="glass-panel routines-section mt-4" style={{ marginTop: '20px' }}>
-            <div className="section-header" style={{ marginBottom: '15px' }}>
-              <h3 className="section-title">🍏 Alimentation & Macros</h3>
-            </div>
-            
-            <div className="routine-list">
-              {nutritionList.length === 0 ? (
-                <p style={{ color: 'var(--secondary)', fontSize: '0.9rem', textAlign: 'center', margin: '20px 0' }}>
-                  Aucun plan nutritionnel défini. Demande à Jarvis !
-                </p>
-              ) : (
-                nutritionList.map((item: any) => (
-                  <div key={item.id} className={`routine-item ${item.done ? 'done' : ''} glass-panel-interactive`} style={{ minHeight: '65px' }}>
-                    <div className="routine-checkbox" onClick={(e) => toggleNutrition(e, item.id)}>
-                      {item.done ? <CheckCircle2 size={18} /> : <Circle size={18} color="rgba(255,255,255,0.4)" />}
-                    </div>
-                    <div className="routine-content" style={{ display: 'flex', flexDirection: 'column', flex: 1, gap: '6px' }}>
+                    <button className="add-routine-btn" onClick={addNewRoutine}>
+                      <Plus size={16} /> Ajouter une tâche
+                    </button>
+                  </div>
+                </div>
+
+                <div className="carousel-dots" style={{ marginTop: 'auto', paddingTop: '15px' }}>
+                  {routineGroups.map((_, idx) => (
+                    <div 
+                      key={idx} 
+                      className={`carousel-dot ${idx === currentRoutineIndex ? 'active' : ''}`}
+                      onClick={() => {
+                        if (idx !== currentRoutineIndex && !isAnimating) {
+                          setIsAnimating(true);
+                          setCurrentRoutineIndex(idx);
+                          setSlideDirection(idx > currentRoutineIndex ? 'slide-in-right' : 'slide-in-left');
+                          
+                          setTimeout(() => {
+                            setSlideDirection('none');
+                            setIsAnimating(false);
+                          }, 300);
+                        }
+                      }}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+
+            {activeRightTab === 'nutrition' && (
+              <div className="routine-list" style={{ flex: 1, maxHeight: '420px', overflowY: 'auto', paddingRight: '4px' }}>
+                {nutritionList.length === 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '200px', color: 'var(--secondary)' }}>
+                    <p style={{ fontSize: '0.9rem', textAlign: 'center', margin: '20px 0' }}>
+                      Aucun plan nutritionnel défini.<br/>Demande à Jarvis !
+                    </p>
+                  </div>
+                ) : (
+                  nutritionList.map((item: any) => (
+                    <div key={item.id} className={`routine-item ${item.done ? 'done' : ''} glass-panel-interactive`} style={{ minHeight: '65px' }}>
+                      <div className="routine-checkbox" onClick={(e) => toggleNutrition(e, item.id)}>
+                        {item.done ? <CheckCircle2 size={18} /> : <Circle size={18} color="rgba(255,255,255,0.4)" />}
+                      </div>
+                      <div className="routine-content" style={{ display: 'flex', flexDirection: 'column', flex: 1, gap: '6px' }}>
+                        {editingId === item.id ? (
+                          <>
+                            <input 
+                              type="text" 
+                              className="routine-edit-input" 
+                              value={editTitle}
+                              onChange={e => setEditTitle(e.target.value)}
+                              onKeyDown={e => e.key === 'Enter' && saveNutritionEditing(item.id)}
+                              autoFocus
+                              style={{ width: '100%', marginBottom: '4px' }}
+                              placeholder="Titre du repas"
+                            />
+                            <input 
+                              type="text" 
+                              className="routine-edit-input" 
+                              value={editTime}
+                              onChange={e => setEditTime(e.target.value)}
+                              onKeyDown={e => e.key === 'Enter' && saveNutritionEditing(item.id)}
+                              style={{ width: '100%', fontSize: '0.8rem', color: 'var(--secondary)' }}
+                              placeholder="Détails (ex: 500 kcal, 40g prot)"
+                            />
+                          </>
+                        ) : (
+                          <>
+                            <span className="routine-title" style={{ fontSize: '1rem', fontWeight: 600 }}>{item.title}</span>
+                            <span className="routine-time" style={{ fontSize: '0.85rem', color: 'var(--secondary)' }}>{item.details}</span>
+                          </>
+                        )}
+                      </div>
                       {editingId === item.id ? (
-                        <>
-                          <input 
-                            type="text" 
-                            className="routine-edit-input" 
-                            value={editTitle}
-                            onChange={e => setEditTitle(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && saveNutritionEditing(item.id)}
-                            autoFocus
-                            style={{ width: '100%', marginBottom: '4px' }}
-                            placeholder="Titre du repas"
-                          />
-                          <input 
-                            type="text" 
-                            className="routine-edit-input" 
-                            value={editTime}
-                            onChange={e => setEditTime(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && saveNutritionEditing(item.id)}
-                            style={{ width: '100%', fontSize: '0.8rem', color: 'var(--secondary)' }}
-                            placeholder="Détails (ex: 500 kcal, 40g prot)"
-                          />
-                        </>
+                        <button className="routine-edit-btn" onClick={() => saveNutritionEditing(item.id)}>
+                          <CheckCircle2 size={14} color="#3b82f6" />
+                        </button>
                       ) : (
-                        <>
-                          <span className="routine-title" style={{ fontSize: '1rem', fontWeight: 600 }}>{item.title}</span>
-                          <span className="routine-time" style={{ fontSize: '0.85rem', color: 'var(--secondary)' }}>{item.details}</span>
-                        </>
+                        <button className="routine-edit-btn" onClick={() => { setEditingId(item.id); setEditTitle(item.title); setEditTime(item.details); }}>
+                          <Pencil size={14} />
+                        </button>
                       )}
                     </div>
-                    {editingId === item.id ? (
-                      <button className="routine-edit-btn" onClick={() => saveNutritionEditing(item.id)}>
-                        <CheckCircle2 size={14} color="#3b82f6" />
-                      </button>
-                    ) : (
-                      <button className="routine-edit-btn" onClick={() => { setEditingId(item.id); setEditTitle(item.title); setEditTime(item.details); }}>
-                        <Pencil size={14} />
-                      </button>
-                    )}
-                  </div>
-                ))
-              )}
-              <button className="add-routine-btn" onClick={addNewNutrition} style={{ marginTop: '10px' }}>
-                <Plus size={16} /> Ajouter un repas
-              </button>
-            </div>
+                  ))
+                )}
+                <button className="add-routine-btn" onClick={addNewNutrition} style={{ marginTop: '10px' }}>
+                  <Plus size={16} /> Ajouter un repas
+                </button>
+              </div>
+            )}
           </section>
         </div>
       </div>
