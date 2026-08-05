@@ -178,29 +178,10 @@ ${contextString}`;
       return { reply };
 
     } catch (error: any) {
-      console.error("[Groq] ❌ Erreur Groq API — activation du fallback immersif:", error.message);
-      
-      const lowerPrompt = prompt.toLowerCase();
-      let fallbackReply: string;
-      
-      if (lowerPrompt.includes('objectif') || lowerPrompt.includes('vision') || lowerPrompt.includes('goal')) {
-        if (userContext?.macroObjectives?.length > 0) {
-          const objectifsList = userContext.macroObjectives.map((o: any) => `• **${o.title || o.name}**`).join('\n');
-          fallbackReply = `📊 Yannis, voici tes grandes visions que j'ai en mémoire :\n\n${objectifsList}\n\n🔥 Reste concentré sur ces piliers. Continue !`;
-        } else {
-          fallbackReply = "🎯 Yannis, je vois que tu n'as pas encore défini de macro-objectifs. Va dans l'onglet **Objectifs** pour créer ta première grande vision.";
-        }
-      } else if (lowerPrompt.includes('bonjour') || lowerPrompt.includes('salut') || lowerPrompt.includes('hey')) {
-        fallbackReply = `👋 **Bonjour Yannis !** Tes systèmes sont au vert.\n\n📈 Score Mental : **${userContext?.mentalScore ?? 0}%** | 💰 Coins : **${userContext?.coins ?? 0}**`;
-      } else if (lowerPrompt.includes('routine') || lowerPrompt.includes('habitude') || lowerPrompt.includes('programme')) {
-        fallbackReply = "⚡ Pour booster ta discipline, ajoute **une routine de 10 min** de méditation. Chaque routine validée booste ton **Score Mental** !\n```json\n{\"action\":\"APPEND\",\"newRoutines\":[{\"type\":\"MORNING\",\"tasks\":[{\"title\":\"Méditation\",\"duration\":10}]}]}\n```";
-      } else if (lowerPrompt.includes('score') || lowerPrompt.includes('coin') || lowerPrompt.includes('point')) {
-        fallbackReply = `📊 **Récap** :\n\n🧠 Score Mental : **${userContext?.mentalScore ?? 0}%**\n💰 Coins : **${userContext?.coins ?? 0}**`;
-      } else {
-        fallbackReply = `🧠 **C'est noté, Yannis.**\n\nTon Score Mental actuel est de **${userContext?.mentalScore ?? 0}%**.\n\nReste focus sur tes objectifs et exécute tes habitudes du jour.`;
-      }
-      
-      return { reply: fallbackReply };
+      console.error("[Groq] ❌ Erreur Groq API:", error.message);
+      return { 
+        reply: `❌ **Mon cerveau externe est temporairement déconnecté.**\n\nImpossible de joindre l'API Groq. Voici l'erreur technique pour le développeur :\n\n\`${error.message}\`\n\n*(Vérifie que ta variable d'environnement GROQ_API_KEY est bien configurée sur Render, et que tu n'as pas dépassé tes quotas de requêtes)*.` 
+      };
     }
   }
 
