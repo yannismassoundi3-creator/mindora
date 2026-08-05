@@ -129,6 +129,7 @@ RÈGLES DE COMPORTEMENT :
    \`\`\`
    Si l'utilisateur dit de "tout supprimer" ou "remplacer", utilise l'action "REPLACE" et donne les NOUVELLES données (ou laisse vide si tu veux vraiment tout effacer sans remplacer).
    Si l'utilisateur ne demande rien de spécifique à modifier, réponds normalement sans le bloc JSON.
+10. **RÈGLE ABSOLUE POUR LE JSON** : Si tu dois inclure le bloc JSON, il doit OBLIGATOIREMENT être encadré par les balises Markdown \`\`\`json et \`\`\`. Il ne doit pas y avoir de texte introductif juste avant le JSON comme "Voici le plan". Le JSON doit être prêt à être parsé informatiquement.
 
 ${contextString}`;
 

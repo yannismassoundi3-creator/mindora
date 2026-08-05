@@ -187,7 +187,11 @@ export const AIChat: React.FC = () => {
       } catch {}
       
       routinesList.forEach((r: any) => {
-        const typeMap: Record<string, string> = { 'MORNING': 'morning', 'MATIN': 'morning', 'MIDDAY': 'midday', 'MIDI': 'midday', 'APRÈS-MIDI': 'midday', 'EVENING': 'evening', 'SOIR': 'evening', 'SOIRÉE': 'evening' };
+        const typeMap: Record<string, string> = { 
+          'MORNING': 'morning', 'MATIN': 'morning', 
+          'MIDDAY': 'midday', 'MIDI': 'midday', 'APRÈS-MIDI': 'midday', 'AFTERNOON': 'midday',
+          'EVENING': 'evening', 'SOIR': 'evening', 'SOIRÉE': 'evening' 
+        };
         const rawType = (r.type || 'MORNING').toUpperCase();
         const mappedType = typeMap[rawType] || 'morning';
         
@@ -352,13 +356,37 @@ export const AIChat: React.FC = () => {
 
       let replyText = data.reply || "Erreur lors de la génération.";
 
-      const jsonMatch = replyText.match(/```json\n([\s\S]*?)\n```/);
+      // Try robust JSON extraction (with or without backticks)
+      let jsonStr = "";
+      const jsonMatch = replyText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      
       if (jsonMatch) {
+        jsonStr = jsonMatch[1];
+        // Remove the backticks block from the reply text
+        replyText = replyText.replace(/```(?:json)?\s*[\s\S]*?\s*```/, '').trim();
+      } else {
+        // Fallback: look for raw JSON object if AI forgot backticks
+        const firstBrace = replyText.indexOf('{');
+        const lastBrace = replyText.lastIndexOf('}');
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+          try {
+            jsonStr = replyText.substring(firstBrace, lastBrace + 1);
+            // Test if it's valid JSON
+            JSON.parse(jsonStr);
+            // If valid, remove it from the reply text and also remove "Voici le plan..." strings
+            replyText = replyText.replace(jsonStr, '').trim();
+            replyText = replyText.replace(/Voici le plan.*?JSON.*?:/ig, '').trim();
+          } catch {
+            jsonStr = ""; // Invalid JSON, reset
+          }
+        }
+      }
+
+      if (jsonStr) {
         try {
-          const planData = JSON.parse(jsonMatch[1]);
+          const planData = JSON.parse(jsonStr);
           applyPlanData(planData);
-          replyText = replyText.replace(/```json\n[\s\S]*?\n```/, '').trim();
-          replyText += "\n\n✅ **Plan appliqué avec succès ! Tes habitudes et routines ont été mises à jour.**";
+          replyText += "\n\n✅ **Plan appliqué avec succès ! L'interface a été mise à jour.**";
         } catch(e) {
           console.error("Failed to parse plan JSON", e);
         }
