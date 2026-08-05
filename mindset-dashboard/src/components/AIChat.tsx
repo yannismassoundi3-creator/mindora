@@ -16,25 +16,14 @@ interface Message {
 export const AIChat: React.FC = () => {
   const aiName = localStorage.getItem('mindset_ai_name') || 'Coach IA';
 
-  const [messages, setMessages] = useState<Message[]>(() => {
-    const saved = localStorage.getItem('mindset_ai_chat_history');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (parsed.length > 0) return parsed;
-      } catch (e) {
-        console.error("Erreur parsing chat history", e);
-      }
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: 1,
+      text: `Bonjour, je suis ${aiName}. Comment je peux t'aider aujourd'hui ?`,
+      sender: 'ai',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
-    return [
-      {
-        id: 1,
-        text: `Bonjour, je suis ${aiName}. Comment je peux t'aider aujourd'hui ?`,
-        sender: 'ai',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      }
-    ];
-  });
+  ]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isAiAwake, setIsAiAwake] = useState(true);
@@ -108,7 +97,6 @@ export const AIChat: React.FC = () => {
 
   useEffect(() => {
     scrollToBottom();
-    localStorage.setItem('mindset_ai_chat_history', JSON.stringify(messages));
   }, [messages, isTyping]);
 
   const addAiNotification = (type: string, message: string) => {
