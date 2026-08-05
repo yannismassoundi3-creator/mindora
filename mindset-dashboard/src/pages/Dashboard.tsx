@@ -765,8 +765,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
               </div>
             </div>
 
-            <div style={{ display: activeRightTab === 'routines' ? 'block' : 'none', flex: 1, display: activeRightTab === 'routines' ? 'flex' : 'none', flexDirection: 'column' }}>
-              <div className="section-header routine-carousel-header">
+            <div style={{ display: activeRightTab === 'routines' ? 'flex' : 'none', flex: 1, flexDirection: 'column', minHeight: 0 }}>
+              <div className="section-header routine-carousel-header" style={{ flexShrink: 0 }}>
                 <button className="carousel-nav-btn" onClick={prevRoutine} disabled={isAnimating}><ChevronLeft size={24} /></button>
                 <div className="routine-title-container">
                   <h3 className={slideDirection}>{currentGroup.title}</h3>
@@ -774,9 +774,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
                 <button className="carousel-nav-btn" onClick={nextRoutine} disabled={isAnimating}><ChevronRight size={24} /></button>
               </div>
               
-              <div className={`routine-transition-wrapper ${slideDirection}`} style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-                <p className="section-desc mb-3" style={{ textAlign: 'center', width: '100%' }}>{currentGroup.desc}</p>
-                <div className="routine-list" style={{ flex: 1, maxHeight: '350px', overflowY: 'auto', paddingRight: '4px' }}>
+              <div className={`routine-transition-wrapper ${slideDirection}`} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+                <p className="section-desc mb-3" style={{ textAlign: 'center', width: '100%', flexShrink: 0 }}>{currentGroup.desc}</p>
+                <div className="routine-list" style={{ flex: 1, overflowY: 'auto', paddingRight: '4px', paddingBottom: '10px' }}>
                   <span className="time-est glass-badge mb-3" style={{ alignSelf: 'center', display: 'flex', margin: '0 auto', width: 'fit-content' }}>
                     {Array.isArray(currentGroup.items) ? currentGroup.items.filter((r: any) => !r.done).length : 0} tâche(s) restante(s)
                   </span>
@@ -832,7 +832,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
                 </div>
               </div>
 
-              <div className="carousel-dots" style={{ marginTop: 'auto', paddingTop: '15px' }}>
+              <div className="carousel-dots" style={{ flexShrink: 0, marginTop: 'auto', paddingTop: '15px' }}>
                 {routineGroups.map((_, idx) => (
                   <div 
                     key={idx} 
@@ -854,8 +854,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
               </div>
             </div>
 
-            <div style={{ display: activeRightTab === 'nutrition' ? 'block' : 'none', flex: 1 }}>
-              <div className="routine-list" style={{ flex: 1, maxHeight: '420px', overflowY: 'auto', paddingRight: '4px' }}>
+            <div style={{ display: activeRightTab === 'nutrition' ? 'flex' : 'none', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+              <div className="routine-list" style={{ flex: 1, overflowY: 'auto', paddingRight: '4px', paddingBottom: '10px' }}>
                 {nutritionList.length === 0 ? (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '200px', color: 'var(--secondary)' }}>
                     <p style={{ fontSize: '0.9rem', textAlign: 'center', margin: '20px 0' }}>
