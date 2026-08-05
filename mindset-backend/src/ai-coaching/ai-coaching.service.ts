@@ -58,10 +58,10 @@ export class AiCoachingService {
   }
 
   async chatWithAi(prompt: string, history: any[] = [], userContext?: any) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey || apiKey === 'YOUR_GROQ_API_KEY') {
       return { 
-        reply: "Mon moteur d'intelligence (Gemini) est déconnecté. ⚠️\n\nPour me donner vie, ajoute ta clé API dans le fichier `.env` du backend à la ligne `GEMINI_API_KEY=...` puis redémarre le serveur." 
+        reply: "Mon moteur d'intelligence (Groq) est déconnecté. ⚠️\n\nPour me donner vie, ajoute ta clé API dans le fichier `.env` du backend à la ligne `GROQ_API_KEY=...` (et sur Render) puis redémarre le serveur." 
       };
     }
 
@@ -125,27 +125,50 @@ RÈGLES DE COMPORTEMENT :
 ${contextString}`;
 
     try {
-      console.log('[Gemini] 🔄 Tentative avec Gemini 1.5 Flash...');
+      console.log('[Groq] 🔄 Tentative avec Llama 3.3 70B (Groq)...');
       
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const messages = [
+        { role: 'system', content: systemInstruction }
+      ];
 
-      let fullPrompt = systemInstruction + "\n\n--- HISTORIQUE DE CONVERSATION ---\n";
       for (const msg of history) {
-        fullPrompt += `${msg.sender === 'user' ? 'Yannis' : 'Jarvis'}: ${msg.text}\n`;
+        messages.push({
+          role: msg.sender === 'user' ? 'user' : 'assistant',
+          content: msg.text
+        });
       }
-      fullPrompt += `\nYannis: ${prompt}\nJarvis:`;
 
-      const result = await model.generateContent(fullPrompt);
-      const reply = result.response.text();
+      messages.push({ role: 'user', content: prompt });
+
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          messages: messages,
+          temperature: 0.8,
+          max_tokens: 1024
+        })
+      });
+
+      if (!response.ok) {
+        const errBody = await response.text();
+        throw new Error(`Groq API Error: ${response.status} ${response.statusText} - ${errBody}`);
+      }
+
+      const data = await response.json();
+      const reply = data.choices?.[0]?.message?.content;
       
-      if (!reply) throw new Error('Empty response from Gemini');
+      if (!reply) throw new Error('Empty response from Groq');
       
-      console.log(`[Gemini] ✅ Réponse reçue (${reply.length} chars)`);
+      console.log(`[Groq] ✅ Réponse Llama 3.3 70B reçue (${reply.length} chars)`);
       return { reply };
 
     } catch (error: any) {
-      console.error("[Gemini] ❌ Erreur Gemini API — activation du fallback immersif:", error.message);
+      console.error("[Groq] ❌ Erreur Groq API — activation du fallback immersif:", error.message);
       
       const lowerPrompt = prompt.toLowerCase();
       let fallbackReply: string;
