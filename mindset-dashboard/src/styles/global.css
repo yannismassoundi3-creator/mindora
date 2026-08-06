@@ -50,7 +50,7 @@ body {
 }
 
 /* Premium Liquid Glass Hover for all interactive cards and buttons */
-.glass-panel-interactive:hover, .reward-card:hover, .dressing-card:hover, .routine-item:hover, button:not(:disabled):hover, .ai-notification-banner:hover, .chat-header:hover, .stat-box:hover, .profile-card:hover {
+.glass-panel-interactive:not(.btn-primary):hover, .reward-card:hover, .dressing-card:hover, .routine-item:hover, button:not(:disabled):not(.btn-primary):hover, .ai-notification-banner:hover, .chat-header:hover, .stat-box:hover, .profile-card:hover {
   transform: translateY(-4px) scale(1.02);
   background: rgba(40, 40, 40, 0.55);
   border-top: 1px solid rgba(255, 255, 255, 0.3);
