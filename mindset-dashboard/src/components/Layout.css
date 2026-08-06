@@ -94,6 +94,8 @@
   overflow-x: hidden;
   padding: 40px;
   max-width: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 /* BOTTOM NAV (MOBILE) */
