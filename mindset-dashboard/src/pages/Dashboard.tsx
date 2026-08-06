@@ -45,30 +45,36 @@ function saveDailyScore(dateKey: string, score: number) {
 function calculateStreak(): number {
   const scores = loadDailyScores();
   let streak = 0;
-  const today = getTodayKey();
-  let consecutiveMisses = 0;
   
-  if (!scores[today] || scores[today] === 0) {
-    consecutiveMisses++;
-  } else {
-    streak++;
-  }
+  // Use local time for dates to avoid UTC mismatches
+  const today = new Date();
+  const getLocalKey = (d: Date) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
   
-  for (let i = 1; i <= 365; i++) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    const key = d.toISOString().slice(0, 10);
-    
+  // Count past streak from yesterday backwards
+  const checkingDate = new Date(today);
+  checkingDate.setDate(checkingDate.getDate() - 1);
+  
+  for (let i = 0; i < 365; i++) {
+    const key = getLocalKey(checkingDate);
     if (scores[key] && scores[key] > 0) {
       streak++;
-      consecutiveMisses = 0;
+      checkingDate.setDate(checkingDate.getDate() - 1);
     } else {
-      consecutiveMisses++;
-      if (consecutiveMisses >= 2) {
-        break;
-      }
+      break; // Streak is only broken if a PAST day was missed
     }
   }
+
+  // Add today if completed
+  const todayKey = getLocalKey(today);
+  if (scores[todayKey] && scores[todayKey] > 0) {
+    streak++;
+  }
+
   return streak;
 }
 
@@ -299,7 +305,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
 
     const savedPreviousStreak = parseInt(localStorage.getItem('mindset_previous_streak') || '0', 10);
     
-    if (currentStreak === 0 && savedPreviousStreak > 0) {
+    // Vérifier si la série a vraiment été brisée (c'est-à-dire qu'hier a été raté)
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yYear = yesterday.getFullYear();
+    const yMonth = String(yesterday.getMonth() + 1).padStart(2, '0');
+    const yDay = String(yesterday.getDate()).padStart(2, '0');
+    const yesterdayKey = `${yYear}-${yMonth}-${yDay}`;
+    
+    const scores = loadDailyScores();
+    const missedYesterday = !scores[yesterdayKey] || scores[yesterdayKey] === 0;
+    
+    if (currentStreak === 0 && savedPreviousStreak > 0 && missedYesterday) {
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent('streakBroken', { detail: { lostStreak: savedPreviousStreak } }));
         
