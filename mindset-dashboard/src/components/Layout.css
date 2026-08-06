@@ -35,10 +35,26 @@
 
 .sidebar-logo h2 {
   font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 1.5rem;
-  letter-spacing: -0.05em;
+  font-weight: 900;
+  font-size: 1.6rem;
+  letter-spacing: -0.02em;
   margin: 0;
+  
+  /* Liquid Glass / Chrome Effect */
+  background: linear-gradient(
+    to bottom,
+    #ffffff 0%,
+    #a1a1aa 35%,
+    #3f3f46 50%,
+    #e4e4e7 60%,
+    #ffffff 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  
+  /* Neon filter */
+  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.5)) drop-shadow(0 0 12px rgba(139, 92, 246, 0.7));
 }
 
 .sidebar-nav {
