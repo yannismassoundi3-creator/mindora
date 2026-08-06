@@ -35,7 +35,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, setView })
       {/* Sidebar (Desktop) */}
       <aside className="sidebar glass-panel">
         <div className="sidebar-logo">
-          <span className="logo-dot"></span>
+          <img src="/disciplix_tiktok_pp.jpg" alt="Logo Disciplix" className="app-logo-img" />
           <h2>disciplix</h2>
         </div>
         
@@ -93,7 +93,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, setView })
       <main className="main-content">
         <header className="mobile-header glass-panel">
           <div className="sidebar-logo">
-            <span className="logo-dot"></span>
+            <img src="/disciplix_tiktok_pp.jpg" alt="Logo Disciplix" className="app-logo-img" />
             <h2>disciplix</h2>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
