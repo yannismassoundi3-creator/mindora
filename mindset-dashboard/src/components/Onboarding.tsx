@@ -62,7 +62,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
               <Sparkles size={32} color="#fff" />
             </div>
             <h1 className="onboarding-title">Salut. Je suis ton Coach IA.</h1>
-            <p className="onboarding-subtitle">Je vais t'aider à reprogrammer ton esprit pour atteindre l'excellence. Commençons par faire connaissance.</p>
+            <p className="onboarding-subtitle">Je vais t'aider à forger ta discipline pour atteindre l'excellence. Commençons par faire connaissance.</p>
             <button className="btn-primary onboarding-btn" disabled={isAnimating} onClick={nextStep}>
               C'est parti <ArrowRight size={18} />
             </button>
