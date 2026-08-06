@@ -492,15 +492,19 @@
   }
 
   .points-badge {
-    width: 100%;
+    width: 92%;
+    margin: 0 auto;
     justify-content: center;
     box-sizing: border-box;
   }
 
   .btn-primary {
-    width: 100%;
+    width: 92%;
+    margin: 0 auto;
     justify-content: center;
     box-sizing: border-box;
+    font-size: 0.9rem;
+    padding: 12px 16px;
   }
 
   .dashboard-grid {
