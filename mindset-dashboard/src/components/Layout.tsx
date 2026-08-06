@@ -113,6 +113,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, setView })
         
         <div className="content-scroll-area">
           {children}
+          <div style={{ height: '160px', width: '100%', flexShrink: 0 }}></div>
         </div>
       </main>
 
