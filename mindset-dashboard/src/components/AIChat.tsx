@@ -144,20 +144,18 @@ export const AIChat: React.FC = () => {
     // Si l'IA a imbriqué les données dans un objet "plan" ou "actionPlan"
     const planData = rawPlanData.plan || rawPlanData.actionPlan || rawPlanData;
     
-    // REPLACE = effacer l'ancien (défaut), APPEND = garder l'ancien et rajouter
-    const action = planData.action === 'APPEND' ? 'APPEND' : 'REPLACE';
-    
-    if (action === 'REPLACE') {
-      localStorage.setItem('mindset_habits', '[]');
-      localStorage.setItem('mindset_micro_obj', '[]');
-      localStorage.setItem('mindset_macro_obj', '[]');
+    // Remplacement granulaire basé sur les nouveaux flags (pour éviter de tout supprimer par erreur)
+    if (planData.replaceHabits === true) localStorage.setItem('mindset_habits', '[]');
+    if (planData.replaceMicroObjectives === true) localStorage.setItem('mindset_micro_obj', '[]');
+    if (planData.replaceMacroObjectives === true) localStorage.setItem('mindset_macro_obj', '[]');
+    if (planData.replaceRoutines === true) {
       localStorage.setItem('mindset_routines', JSON.stringify([
         { id: 'morning', title: 'Routine Matinale', icon: 'sun', items: [] },
         { id: 'midday', title: 'Routine de Midi', icon: 'sun', items: [] },
         { id: 'evening', title: 'Routine du Soir', icon: 'moon', items: [] }
       ]));
-      localStorage.setItem('mindset_nutrition', '[]');
     }
+    if (planData.replaceNutrition === true) localStorage.setItem('mindset_nutrition', '[]');
 
     const habitsList = planData.newHabits || planData.habits;
     if (habitsList && Array.isArray(habitsList) && habitsList.length > 0) {

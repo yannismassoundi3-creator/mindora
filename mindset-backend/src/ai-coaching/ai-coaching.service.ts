@@ -130,31 +130,32 @@ RÈGLES DE COMPORTEMENT :
     Quand tu dois générer un plan, voici le format exact du JSON que tu dois fournir à la toute fin de ta réponse :
     \`\`\`json
     {
-      "action": "REPLACE", // "REPLACE" si l'utilisateur veut "tout supprimer", "tout remplacer" ou "nouveau plan". "APPEND" pour rajouter.
-     "newHabits": [
-       { "name": "Titre habitude", "description": "Desc", "frequency": "daily" }
-     ],
-     "newRoutines": [
-       { "type": "MORNING", "tasks": [ { "title": "Méditation", "duration": 10 } ] },
-       { "type": "MIDDAY", "tasks": [ { "title": "Marche", "duration": 15 } ] },
-       { "type": "EVENING", "tasks": [ { "title": "Étirements", "duration": 10 } ] }
-     ],
-     "newNutrition": [
-       { "meal": "Petit-déjeuner", "details": "Flocons d'avoine, œufs - 500 kcal, 30g rep" },
-       { "meal": "Déjeuner", "details": "Poulet, riz, brocolis - 700 kcal, 50g prot" },
-       { "meal": "Objectif Journalier", "details": "2200 kcal, 150g de protéines" }
-     ],
-     "newObjectives": [
-       { "title": "Micro-objectif actionnable", "category": "Mindset", "deadline": "2 semaines" }
-     ],
-     "newMacroObjectives": [
-       { "title": "Vision long terme (ex: Corps de Rêve)", "category": "Physique", "deadline": "6 mois" }
-     ]
-   }
-   \`\`\`
-   Si l'utilisateur dit de "tout supprimer" ou "remplacer", utilise l'action "REPLACE" et donne les NOUVELLES données (ou laisse vide si tu veux vraiment tout effacer sans remplacer).
-   Si l'utilisateur ne demande rien de spécifique à modifier, réponds normalement sans le bloc JSON.
-10. **RÈGLE ABSOLUE POUR LE JSON** : Si tu dois inclure le bloc JSON, il doit OBLIGATOIREMENT être encadré par les balises Markdown \`\`\`json et \`\`\`. Il ne doit pas y avoir de texte introductif juste avant le JSON comme "Voici le plan". Le JSON doit être prêt à être parsé informatiquement.
+      "replaceHabits": false, // Mets "true" UNIQUEMENT si l'utilisateur veut supprimer ou écraser toutes ses habitudes existantes
+      "replaceRoutines": false, // Mets "true" UNIQUEMENT si l'utilisateur veut supprimer ou écraser toutes ses routines existantes
+      "replaceNutrition": false, // Mets "true" UNIQUEMENT si l'utilisateur veut supprimer ou écraser son alimentation existante
+      "replaceMacroObjectives": false, // Mets "true" UNIQUEMENT si l'utilisateur veut supprimer ou écraser ses macro-objectifs
+      "replaceMicroObjectives": false, // Mets "true" UNIQUEMENT si l'utilisateur veut supprimer ou écraser ses micro-objectifs
+      "newHabits": [
+        { "name": "Titre habitude", "description": "Desc", "frequency": "daily" }
+      ],
+      "newRoutines": [
+        { "type": "MORNING", "tasks": [ { "title": "Méditation", "duration": 10 } ] },
+        { "type": "MIDDAY", "tasks": [ { "title": "Marche", "duration": 15 } ] },
+        { "type": "EVENING", "tasks": [ { "title": "Étirements", "duration": 10 } ] }
+      ],
+      "newNutrition": [
+        { "meal": "Petit-déjeuner", "details": "Flocons d'avoine, œufs - 500 kcal, 30g rep" },
+        { "meal": "Déjeuner", "details": "Poulet, riz, brocolis - 700 kcal, 50g prot" },
+        { "meal": "Objectif Journalier", "details": "2200 kcal, 150g de protéines" }
+      ],
+      "newMacroObjectives": [
+        { "title": "Vision long terme (ex: Corps de Rêve)", "category": "Physique", "deadline": "6 mois" }
+      ]
+    }
+    \`\`\`
+    Si l'utilisateur dit de "tout supprimer" ou "remplacer" UNE catégorie spécifique (ex: l'alimentation), mets SEULEMENT le flag correspondant (ex: "replaceNutrition": true) et laisse les autres à false. Ainsi, tu ne détruiras pas le reste de son plan.
+    Si l'utilisateur ne demande rien de spécifique à modifier, réponds normalement sans le bloc JSON.
+11. **RÈGLE ABSOLUE POUR LE JSON** : Si tu dois inclure le bloc JSON, il doit OBLIGATOIREMENT être encadré par les balises Markdown \`\`\`json et \`\`\`. Il ne doit pas y avoir de texte introductif juste avant le JSON comme "Voici le plan". Le JSON doit être prêt à être parsé informatiquement.
 
 ${contextString}`;
 
