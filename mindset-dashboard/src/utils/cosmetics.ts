@@ -34,7 +34,11 @@ export const AI_COSMETICS: Cosmetic[] = [
   { id: 't_cyberpunk', title: 'Thème Cyberpunk', description: 'Bleu Néon et Noir Absolu.', cost: 1500, type: 'app_theme', value: 'theme-cyberpunk', rarity: 'epique' },
   { id: 't_matrix', title: 'Thème Matrix', description: 'Vert Code et Hacker.', cost: 1200, type: 'app_theme', value: 'theme-matrix', rarity: 'rare' },
   { id: 't_synthwave', title: 'Thème Synthwave', description: 'Violet Rétro et Coucher de Soleil.', cost: 1800, type: 'app_theme', value: 'theme-synthwave', rarity: 'epique' },
-  { id: 't_deepspace', title: 'Thème Deep Space', description: 'Bleu Nuit Profond et Argent.', cost: 2000, type: 'app_theme', value: 'theme-deepspace', rarity: 'legendaire' }
+  { id: 't_deepspace', title: 'Thème Deep Space', description: 'Bleu Nuit Profond et Argent.', cost: 2000, type: 'app_theme', value: 'theme-deepspace', rarity: 'legendaire' },
+  { id: 't_monolight', title: 'Monochrome Light', description: 'Blanc pur, écriture noire.', cost: 1200, type: 'app_theme', value: 'theme-monochrome-light', rarity: 'rare' },
+  { id: 't_monodark', title: 'Monochrome Dark', description: 'Noir absolu, écriture blanche.', cost: 1200, type: 'app_theme', value: 'theme-monochrome-dark', rarity: 'rare' },
+  { id: 't_gold', title: 'Prestige Or', description: 'Onyx et éclats dorés.', cost: 2500, type: 'app_theme', value: 'theme-gold', rarity: 'legendaire' },
+  { id: 't_inferno', title: 'Inferno', description: 'Magma, Lave et Noir Profond.', cost: 2500, type: 'app_theme', value: 'theme-inferno', rarity: 'legendaire' }
 ];
 
 // Helper to get today's shop items based on the date seed

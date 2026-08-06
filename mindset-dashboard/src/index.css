@@ -176,6 +176,54 @@ body.theme-deepspace {
   --accent-glow: rgba(59, 130, 246, 0.2);
 }
 
+body.theme-monochrome-light {
+  --bg-dark: #f8fafc;
+  --bg-panel: rgba(255, 255, 255, 0.8);
+  --primary: #0f172a;
+  --secondary: #475569;
+  --accent-purple: #1e293b;
+  --accent-blue: #334155;
+  --accent-glow: rgba(0, 0, 0, 0.05);
+  color: #0f172a;
+}
+body.theme-monochrome-light .glass-panel {
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.05) !important;
+}
+body.theme-monochrome-light h1, body.theme-monochrome-light h2, body.theme-monochrome-light h3, body.theme-monochrome-light p {
+  color: #0f172a;
+}
+
+body.theme-monochrome-dark {
+  --bg-dark: #000000;
+  --bg-panel: rgba(10, 10, 10, 0.85);
+  --primary: #ffffff;
+  --secondary: #a1a1aa;
+  --accent-purple: #f4f4f5;
+  --accent-blue: #e4e4e7;
+  --accent-glow: rgba(255, 255, 255, 0.1);
+}
+
+body.theme-gold {
+  --bg-dark: #0a0a0a;
+  --bg-panel: rgba(15, 15, 15, 0.85);
+  --primary: #fbbf24;
+  --secondary: #fcd34d;
+  --accent-purple: #d97706;
+  --accent-blue: #f59e0b;
+  --accent-glow: rgba(251, 191, 36, 0.2);
+}
+
+body.theme-inferno {
+  --bg-dark: #0a0000;
+  --bg-panel: rgba(20, 0, 0, 0.85);
+  --primary: #ef4444;
+  --secondary: #f97316;
+  --accent-purple: #dc2626;
+  --accent-blue: #ea580c;
+  --accent-glow: rgba(239, 68, 68, 0.2);
+}
+
 /* Radical Background Overrides for Liquid Glass Themes */
 body.theme-cyberpunk .bg-glow-effect { background: radial-gradient(circle, rgba(255, 0, 60, 0.3) 0%, transparent 70%); filter: blur(80px); }
 body.theme-cyberpunk .bg-glow-effect-right { background: radial-gradient(circle, rgba(0, 240, 255, 0.3) 0%, transparent 70%); filter: blur(80px); }
@@ -188,6 +236,15 @@ body.theme-synthwave .bg-glow-effect-right { background: radial-gradient(circle,
 
 body.theme-deepspace .bg-glow-effect { background: radial-gradient(circle, rgba(59, 130, 246, 0.25) 0%, transparent 70%); filter: blur(60px); }
 body.theme-deepspace .bg-glow-effect-right { background: radial-gradient(circle, rgba(129, 140, 248, 0.2) 0%, transparent 70%); filter: blur(60px); }
+
+body.theme-monochrome-light .bg-glow-effect, body.theme-monochrome-light .bg-glow-effect-right { display: none; }
+body.theme-monochrome-dark .bg-glow-effect, body.theme-monochrome-dark .bg-glow-effect-right { display: none; }
+
+body.theme-gold .bg-glow-effect { background: radial-gradient(circle, rgba(251, 191, 36, 0.2) 0%, transparent 70%); filter: blur(70px); }
+body.theme-gold .bg-glow-effect-right { background: radial-gradient(circle, rgba(245, 158, 11, 0.15) 0%, transparent 70%); filter: blur(70px); }
+
+body.theme-inferno .bg-glow-effect { background: radial-gradient(circle, rgba(239, 68, 68, 0.25) 0%, transparent 70%); filter: blur(80px); }
+body.theme-inferno .bg-glow-effect-right { background: radial-gradient(circle, rgba(249, 115, 22, 0.2) 0%, transparent 70%); filter: blur(80px); }
 
 /* Légendaire : Effet de Particules (Étoiles) pour Deep Space */
 body.theme-deepspace::before {
@@ -315,4 +372,53 @@ body.theme-synthwave::after {
 @keyframes synthGrid {
   0% { background-position: 0 0; }
   100% { background-position: 0 30px; }
+}
+
+/* --- Gold Theme --- */
+body.theme-gold::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; width: 100vw; height: 100vh;
+  pointer-events: none;
+  z-index: -2;
+  background-image: radial-gradient(rgba(251, 191, 36, 0.1) 2px, transparent 2px);
+  background-size: 50px 50px;
+}
+body.theme-gold::after {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; width: 100vw; height: 100vh;
+  pointer-events: none;
+  z-index: -1;
+  background: radial-gradient(circle at 50% 0%, rgba(251, 191, 36, 0.08) 0%, transparent 50%);
+  animation: goldPulse 4s ease-in-out infinite alternate;
+}
+@keyframes goldPulse {
+  0% { opacity: 0.5; transform: scale(1); }
+  100% { opacity: 1; transform: scale(1.1); }
+}
+
+/* --- Inferno Theme --- */
+body.theme-inferno::before {
+  content: '';
+  position: fixed;
+  bottom: 0; left: 0; width: 100vw; height: 100vh;
+  pointer-events: none;
+  z-index: -2;
+  background: radial-gradient(circle at 50% 100%, rgba(239, 68, 68, 0.15) 0%, transparent 60%);
+}
+body.theme-inferno::after {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; width: 100vw; height: 100vh;
+  pointer-events: none;
+  z-index: -1;
+  background-image: radial-gradient(rgba(249, 115, 22, 0.4) 1px, transparent 1px);
+  background-size: 15px 15px;
+  animation: embersRise 10s linear infinite;
+  opacity: 0.15;
+}
+@keyframes embersRise {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 -150px; }
 }
