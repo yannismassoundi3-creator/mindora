@@ -14,7 +14,7 @@ interface Message {
 }
 
 export const AIChat: React.FC = () => {
-  const aiName = localStorage.getItem('mindset_ai_name') || 'Coach IA';
+  const aiName = localStorage.getItem('mindset_ai_name') || 'FAYWA';
 
   const [messages, setMessages] = useState<Message[]>(() => {
     const today = new Date().toLocaleDateString();
