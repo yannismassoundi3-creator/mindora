@@ -16,14 +16,36 @@ interface Message {
 export const AIChat: React.FC = () => {
   const aiName = localStorage.getItem('mindset_ai_name') || 'Coach IA';
 
-  const [messages, setMessages] = useState<Message[]>([
-    {
+  const [messages, setMessages] = useState<Message[]>(() => {
+    const today = new Date().toLocaleDateString();
+    const savedDate = localStorage.getItem('mindset_ai_chat_date');
+    const defaultMessage = {
       id: 1,
       text: `Bonjour, je suis ${aiName}. Comment je peux t'aider aujourd'hui ?`,
-      sender: 'ai',
+      sender: 'ai' as const,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+    
+    if (savedDate !== today) {
+      localStorage.setItem('mindset_ai_chat_date', today);
+      localStorage.removeItem('mindset_ai_chat_history');
+      return [defaultMessage];
     }
-  ]);
+    
+    const savedHistory = localStorage.getItem('mindset_ai_chat_history');
+    if (savedHistory) {
+      try {
+        const parsed = JSON.parse(savedHistory);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    
+    return [defaultMessage];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('mindset_ai_chat_history', JSON.stringify(messages));
+  }, [messages]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isAiAwake, setIsAiAwake] = useState(true);
