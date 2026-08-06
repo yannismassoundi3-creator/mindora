@@ -128,15 +128,19 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: max(16px, env(safe-area-inset-top)) 10px 16px;
-    margin: 0;
-    border-radius: 0 0 24px 24px;
+    padding: 8px 12px;
+    margin: max(12px, env(safe-area-inset-top)) auto 16px auto;
+    width: 95%;
+    max-width: 400px;
+    border-radius: 32px;
     z-index: 50;
     background: rgba(20, 20, 25, 0.85);
     backdrop-filter: blur(20px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
     position: sticky;
-    top: 0;
+    top: max(12px, env(safe-area-inset-top));
   }
 
   .mobile-header .sidebar-logo {
