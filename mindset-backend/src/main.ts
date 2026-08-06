@@ -27,8 +27,8 @@ async function bootstrap() {
 
   // Configuration Swagger (Documentation)
   const config = new DocumentBuilder()
-    .setTitle('Mindora API')
-    .setDescription('API du backend de Mindora - Coaching IA et Productivité')
+    .setTitle('Disciplix API')
+    .setDescription('API du backend de Disciplix - Coaching IA et Productivité')
     .setVersion('1.0')
     .addBearerAuth()
     .build();
@@ -38,7 +38,7 @@ async function bootstrap() {
   // Lancement du serveur
   const port = process.env.PORT || 3002;
   await app.listen(port);
-  console.log(`🚀 Mindora Backend is running on: http://localhost:${port}`);
+  console.log(`🚀 Disciplix Backend is running on: http://localhost:${port}`);
   console.log(`📄 Swagger documentation is available at: http://localhost:${port}/api/docs`);
 }
 bootstrap();

@@ -10,7 +10,7 @@ export class AppController {
   checkHealth() {
     return {
       status: 'ok',
-      message: 'Mindora API is operational',
+      message: 'Disciplix API is operational',
       timestamp: new Date().toISOString()
     };
   }

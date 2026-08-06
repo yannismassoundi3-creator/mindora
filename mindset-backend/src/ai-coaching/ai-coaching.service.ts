@@ -110,7 +110,7 @@ ${microList}
 --- FIN DES DONNÉES ---`;
     }
 
-    const systemInstruction = `Tu es Jarvis, l'IA de coaching exclusive de l'application Mindora. Tu es l'assistant personnel de Yannis.
+    const systemInstruction = `Tu es Jarvis, l'IA de coaching exclusive de l'application Disciplix. Tu es l'assistant personnel de Yannis.
 
 RÈGLES DE COMPORTEMENT :
 1. Ton ton est premium, inspirant, direct et légèrement futuriste — comme un mentor d'élite.

@@ -50,7 +50,7 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
         <div className="pricing-header">
           <Sparkles className="pricing-sparkle" size={48} />
           <h1>Passez au niveau supérieur</h1>
-          <p>Débloquez la puissance totale de Mindora. Accédez au suivi des habitudes et à {aiName} 24/7.</p>
+          <p>Débloquez la puissance totale de Disciplix. Accédez au suivi des habitudes et à {aiName} 24/7.</p>
         </div>
 
       <div className="pricing-toggle">
@@ -71,7 +71,7 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
       <div className="pricing-cards">
         <div className="pricing-card glass-panel premium-card">
           <div className="pricing-card-header">
-            <h3>Mindora Pro</h3>
+            <h3>Disciplix Pro</h3>
             <div className="pricing-price">
               {selectedPlan === 'monthly' ? (
                 <>

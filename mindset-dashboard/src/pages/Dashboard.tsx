@@ -522,7 +522,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   };
 
   const userName = localStorage.getItem('mindset_user_name') || 'Utilisateur';
-  const aiName = localStorage.getItem('mindset_ai_name') || 'MINDORA OS';
+  const aiName = localStorage.getItem('mindset_ai_name') || 'DISCIPLIX OS';
 
   return (
     <div className="dashboard-container">

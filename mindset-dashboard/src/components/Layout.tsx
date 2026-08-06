@@ -36,7 +36,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, setView })
       <aside className="sidebar glass-panel">
         <div className="sidebar-logo">
           <span className="logo-dot"></span>
-          <h2>mindora</h2>
+          <h2>disciplix</h2>
         </div>
         
         <nav className="sidebar-nav">
@@ -94,7 +94,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, setView })
         <header className="mobile-header glass-panel">
           <div className="sidebar-logo">
             <span className="logo-dot"></span>
-            <h2>mindora</h2>
+            <h2>disciplix</h2>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button className="coin-balance-btn glass-panel-interactive pulse-glow" onClick={() => { playClickSound(); setView('inventory'); }} style={{ background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 255, 255, 0.2)', padding: '6px 12px', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--primary)', fontSize: '0.9rem', cursor: 'pointer' }}>

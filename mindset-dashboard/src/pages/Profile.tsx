@@ -67,7 +67,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
         const credential = await navigator.credentials.create({
           publicKey: {
             challenge,
-            rp: { name: "Mindora", id: window.location.hostname },
+            rp: { name: "Disciplix", id: window.location.hostname },
             user: {
               id: new Uint8Array(16),
               name: userName,
@@ -163,15 +163,15 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
             <p><strong>Directeur de la publication :</strong> Yannis</p>
             <p><strong>Contact :</strong> mindoraappli@gmail.com</p>
             <p><strong>Hébergement :</strong> L'application est hébergée sur des serveurs sécurisés (Vercel et Render). Conformément à l'Article 6 de la Loi n°2004-575 du 21 juin 2004 pour la confiance dans l'économie numérique, les utilisateurs sont informés de l'identité des intervenants.</p>
-            <p><strong>Propriété intellectuelle :</strong> Mindora et tous ses éléments (code, interface, charte graphique, algorithmes locaux) sont la propriété exclusive de son éditeur. Toute reproduction, modification ou distribution est interdite.</p>
+            <p><strong>Propriété intellectuelle :</strong> Disciplix et tous ses éléments (code, interface, charte graphique, algorithmes locaux) sont la propriété exclusive de son éditeur. Toute reproduction, modification ou distribution est interdite.</p>
           </>
         );
       case 'cgu':
         return (
           <>
             <h2 className="modal-title">Conditions Générales d'Utilisation et de Vente (CGU/CGV)</h2>
-            <p><strong>1. Objet :</strong> Les présentes CGU/CGV encadrent l'accès à l'application Mindora, outil de productivité et de coaching par IA.</p>
-            <p><strong>2. Vente et Abonnements (Mindora Pro) :</strong> L'abonnement Premium (Mensuel ou À vie) offre l'accès illimité à l'IA Jarvis et au suivi holographique. Le paiement est géré de manière sécurisée par Stripe. <em>Conformément à l'Article L221-28 du Code de la consommation, le droit de rétractation ne peut être exercé pour la fourniture d'un contenu numérique non fourni sur un support matériel dont l'exécution a commencé après accord préalable exprès du consommateur.</em></p>
+            <p><strong>1. Objet :</strong> Les présentes CGU/CGV encadrent l'accès à l'application Disciplix, outil de productivité et de coaching par IA.</p>
+            <p><strong>2. Vente et Abonnements (Disciplix Pro) :</strong> L'abonnement Premium (Mensuel ou À vie) offre l'accès illimité à l'IA Jarvis et au suivi holographique. Le paiement est géré de manière sécurisée par Stripe. <em>Conformément à l'Article L221-28 du Code de la consommation, le droit de rétractation ne peut être exercé pour la fourniture d'un contenu numérique non fourni sur un support matériel dont l'exécution a commencé après accord préalable exprès du consommateur.</em></p>
             <p><strong>3. Utilisation de l'IA :</strong> Le Coach IA est un outil d'assistance automatisé. Ses conseils ne remplacent en aucun cas l'avis d'un professionnel (médical, financier, psychologique). L'éditeur décline toute responsabilité liée aux actions entreprises suite aux conseils de l'IA.</p>
             <p><strong>4. Disponibilité :</strong> L'éditeur s'efforce de maintenir un accès 24/7 mais n'est tenu qu'à une obligation de moyens. L'accès peut être suspendu pour maintenance sans préavis.</p>
             <p><strong>5. Gamification :</strong> Les "Coins" et "Niveaux" sont strictement virtuels et n'ont aucune valeur monétaire.</p>
@@ -291,7 +291,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
               
               {isSubscribed ? (
                 <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-                  <p style={{ color: '#10b981', fontWeight: 600, marginBottom: '8px' }}>✓ Mindora Pro Actif</p>
+                  <p style={{ color: '#10b981', fontWeight: 600, marginBottom: '8px' }}>✓ Disciplix Pro Actif</p>
                   <p style={{ fontSize: '0.85rem', color: 'var(--secondary)', marginBottom: '16px' }}>
                     Vous bénéficiez de l'accès illimité à l'IA Jarvis, du Dashboard holographique et du double de Coins par habitude.
                   </p>
@@ -316,7 +316,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
                 <div style={{ background: 'rgba(255, 255, 255, 0.05)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
                   <p style={{ color: 'var(--primary)', fontWeight: 600, marginBottom: '8px' }}>Statut : Formule Gratuite</p>
                   <p style={{ fontSize: '0.85rem', color: 'var(--secondary)', marginBottom: '16px' }}>
-                    Débloquez {aiName} 24/7 et la Gamification holographique avec Mindora Pro.
+                    Débloquez {aiName} 24/7 et la Gamification holographique avec Disciplix Pro.
                   </p>
                   <button 
                     onClick={() => { playClickSound(); setShowPricingModal(true); }}

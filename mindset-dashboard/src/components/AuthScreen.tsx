@@ -128,7 +128,7 @@ export const AuthScreen = ({ onComplete }: { onComplete: () => void }) => {
     <div className="auth-container glass-panel">
       <div className="auth-logo">
         <Brain size={48} className="text-primary pulse" />
-        <h1>mindora</h1>
+        <h1>disciplix</h1>
       </div>
       
       <h2>{isLogin ? 'Bon retour !' : 'Créer un compte'}</h2>

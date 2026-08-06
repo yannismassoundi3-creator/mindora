@@ -175,7 +175,7 @@ export class AuthService {
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload),
       this.jwtService.signAsync(payload, {
-        secret: this.configService.get<string>('JWT_REFRESH_SECRET') || 'default-refresh-secret-mindora',
+        secret: this.configService.get<string>('JWT_REFRESH_SECRET') || 'default-refresh-secret-disciplix',
         expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRATION') || '7d',
       }),
     ]);

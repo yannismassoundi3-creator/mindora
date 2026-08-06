@@ -8,7 +8,7 @@ interface WelcomeScreenProps {
 
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onComplete }) => {
   const [isFadingOut, setIsFadingOut] = useState(false);
-  const aiName = localStorage.getItem('mindset_ai_name') || 'MINDORA OS';
+  const aiName = localStorage.getItem('mindset_ai_name') || 'DISCIPLIX OS';
   const userName = localStorage.getItem('mindset_user_name');
 
   const welcomeMessage = userName 

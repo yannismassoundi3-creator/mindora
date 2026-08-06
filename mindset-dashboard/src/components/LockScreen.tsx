@@ -54,7 +54,7 @@ export const LockScreen: React.FC<LockScreenProps> = ({ onUnlock }) => {
         <div className="lock-icon-wrapper pulse-glow">
           <Lock size={48} className="lock-icon" />
         </div>
-        <h1 className="lock-title">Mindora</h1>
+        <h1 className="lock-title">Disciplix</h1>
         <p className="lock-subtitle">Application verrouillée</p>
         
         {error && <p className="lock-error">{error}</p>}
