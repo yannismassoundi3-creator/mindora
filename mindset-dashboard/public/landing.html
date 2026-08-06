@@ -1802,7 +1802,7 @@
         document.querySelectorAll('a[href="#cta"], a[href="#"], .open-modal-btn, #hero-cta-primary, #final-cta-primary').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
-                window.location.href = "http://localhost:3001";
+                window.location.href = "/";
             });
         });
 
@@ -1810,7 +1810,7 @@
         document.querySelectorAll('.open-login-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
-                window.location.href = "http://localhost:3001";
+                window.location.href = "/";
             });
         });
 
@@ -2033,7 +2033,7 @@
 
                 if (response.ok) {
                     // Connexion réussie, redirection vers l'app
-                    window.location.href = "http://localhost:3001";
+                    window.location.href = "/";
                 } else {
                     const errData = await response.json();
                     errorDiv.textContent = errData.message || "Code invalide.";
