@@ -458,11 +458,10 @@
 /* --- RESPONSIVE --- */
 @media (max-width: 900px) {
   .dashboard-container {
-    width: 100%;
-    max-width: 100%;
+    width: 92%;
     margin: 0 auto;
     padding: 0;
-    overflow-x: hidden;
+    overflow-x: visible; /* Changed from hidden to visible */
     box-sizing: border-box;
   }
 
@@ -472,7 +471,7 @@
     gap: 16px;
     width: 100%;
     max-width: 100%;
-    padding: 0 8px;
+    padding: 0; /* Removed padding */
     box-sizing: border-box;
   }
   
@@ -492,15 +491,13 @@
   }
 
   .points-badge {
-    width: 92%;
-    margin: 0 auto;
+    width: 100%;
     justify-content: center;
     box-sizing: border-box;
   }
 
   .btn-primary {
-    width: 92%;
-    margin: 0 auto;
+    width: 100%;
     justify-content: center;
     box-sizing: border-box;
     font-size: 0.9rem;

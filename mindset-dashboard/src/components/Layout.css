@@ -148,7 +148,14 @@
   }
 
   .content-scroll-area {
-    padding: 20px 10px 160px; /* Safe edge space for curved screens + bottom nav clearance */
+    padding: 20px 10px; 
+  }
+
+  .content-scroll-area::after {
+    content: "";
+    display: block;
+    height: 160px;
+    width: 100%;
   }
 
   .bottom-nav {
