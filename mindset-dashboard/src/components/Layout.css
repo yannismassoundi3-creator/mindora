@@ -141,8 +141,17 @@
 
   .mobile-header .sidebar-logo {
     margin-bottom: 0;
-    padding-left: 4px;
-    gap: 8px;
+    padding-left: 2px;
+    gap: 4px;
+  }
+
+  .mobile-header .app-logo-img {
+    width: 22px;
+    height: 22px;
+  }
+
+  .mobile-header .sidebar-logo h2 {
+    font-size: 1.15rem;
   }
 
   .user-avatar-btn {
@@ -152,16 +161,16 @@
   }
 
   .user-avatar {
-    width: 40px;
-    height: 40px;
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
     background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
     color: var(--primary);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: 600;
-    font-size: 0.9rem;
+    font-weight: 700;
+    font-size: 0.75rem;
   }
 
   .content-scroll-area {
