@@ -240,9 +240,9 @@ body.theme-cyberpunk::before {
   top: 0; left: 0; width: 100vw; height: 100vh;
   pointer-events: none;
   z-index: -2;
-  background-image: radial-gradient(rgba(0, 240, 255, 0.15) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(0, 240, 255, 0.05) 1px, transparent 1px);
   background-size: 30px 30px;
-  opacity: 0.4;
+  opacity: 0.15;
 }
 body.theme-cyberpunk::after {
   content: '';
@@ -250,7 +250,7 @@ body.theme-cyberpunk::after {
   top: 0; left: 0; width: 100vw; height: 100vh;
   pointer-events: none;
   z-index: -1;
-  background: linear-gradient(0deg, transparent 0%, rgba(0, 240, 255, 0.05) 50%, transparent 100%);
+  background: linear-gradient(0deg, transparent 0%, rgba(0, 240, 255, 0.02) 50%, transparent 100%);
   background-size: 100% 10px;
   animation: cyberScan 4s linear infinite;
 }
@@ -267,10 +267,10 @@ body.theme-matrix::before {
   pointer-events: none;
   z-index: -2;
   background-image: 
-    linear-gradient(rgba(0, 255, 65, 0.1) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 255, 65, 0.1) 1px, transparent 1px);
+    linear-gradient(rgba(0, 255, 65, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 65, 0.05) 1px, transparent 1px);
   background-size: 40px 40px;
-  opacity: 0.3;
+  opacity: 0.15;
 }
 body.theme-matrix::after {
   content: '';
@@ -278,7 +278,7 @@ body.theme-matrix::after {
   top: 0; left: 0; width: 100vw; height: 100vh;
   pointer-events: none;
   z-index: -1;
-  background: repeating-linear-gradient(180deg, transparent 0, rgba(0,255,65,0.05) 10%, transparent 20%);
+  background: repeating-linear-gradient(180deg, transparent 0, rgba(0,255,65,0.02) 10%, transparent 20%);
   background-size: 100% 200%;
   animation: matrixRain 3s linear infinite;
 }
@@ -295,12 +295,13 @@ body.theme-synthwave::before {
   pointer-events: none;
   z-index: -2;
   background-image: 
-    linear-gradient(rgba(255, 0, 255, 0.4) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 255, 255, 0.4) 1px, transparent 1px);
+    linear-gradient(rgba(255, 0, 255, 0.15) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 255, 0.15) 1px, transparent 1px);
   background-size: 50px 30px;
   transform: perspective(600px) rotateX(60deg);
   transform-origin: top center;
   animation: synthGrid 2s linear infinite;
+  opacity: 0.3;
 }
 body.theme-synthwave::after {
   content: '';
@@ -309,7 +310,7 @@ body.theme-synthwave::after {
   pointer-events: none;
   z-index: -3;
   /* Retro sun / deep space sunset mix */
-  background: radial-gradient(circle at 50% 70%, rgba(255, 153, 0, 0.15) 0%, rgba(255, 0, 255, 0.05) 40%, transparent 80%);
+  background: radial-gradient(circle at 50% 70%, rgba(255, 153, 0, 0.08) 0%, rgba(255, 0, 255, 0.03) 40%, transparent 80%);
 }
 @keyframes synthGrid {
   0% { background-position: 0 0; }
