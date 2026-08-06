@@ -76,10 +76,31 @@ export class AiCoachingService {
         .map((o: any) => `• ${o.title || o.name} — ${o.done ? '✅ Complété' : '⬜ En cours'} (catégorie: ${o.category || 'non définie'})`)
         .join('\n') || 'Aucun micro-objectif défini';
 
+      const routinesList = (userContext.routines || [])
+        .map((r: any) => `• ${r.title}: ` + (r.items || []).map((t: any) => `${t.title} (${t.done ? '✅' : '⬜'})`).join(', '))
+        .join('\n') || 'Aucune routine';
+
+      const habitsList = (userContext.habits || [])
+        .map((h: any) => `• ${h.title || h.name} (Niveau ${h.level || 1})`)
+        .join('\n') || 'Aucune habitude';
+
+      const nutritionList = (userContext.nutrition || [])
+        .map((n: any) => `• ${n.title}: ${n.details} (${n.done ? '✅' : '⬜'})`)
+        .join('\n') || 'Aucun repas défini';
+
       contextString = `
 --- DONNÉES TEMPS RÉEL DE L'UTILISATEUR ---
 Score Mental du jour : ${userContext.mentalScore ?? 0}%
 Mindset Coins accumulés : ${userContext.coins ?? 0}
+
+ROUTINES ET TÂCHES DU JOUR :
+${routinesList}
+
+HABITUDES :
+${habitsList}
+
+ALIMENTATION :
+${nutritionList}
 
 MACRO-OBJECTIFS (Visions long terme) :
 ${macroList}

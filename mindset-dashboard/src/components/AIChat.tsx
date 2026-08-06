@@ -300,15 +300,22 @@ export const AIChat: React.FC = () => {
     setIsTyping(true);
 
     try {
-      // Gather context
       const macroObj = localStorage.getItem('mindset_macro_obj') || '[]';
       const microObj = localStorage.getItem('mindset_micro_obj') || '[]';
       const coins = localStorage.getItem('mindset_points') || '0';
       const score = localStorage.getItem('mental_score') || '0';
+      const routines = localStorage.getItem('mindset_routines') || '[]';
+      const habits = localStorage.getItem('mindset_habits') || '[]';
+      const nutrition = localStorage.getItem('mindset_nutrition') || '[]';
+      const dailyScores = localStorage.getItem('mindset_daily_scores') || '{}';
 
       const userContext = {
         macroObjectives: JSON.parse(macroObj),
         microObjectives: JSON.parse(microObj),
+        routines: JSON.parse(routines),
+        habits: JSON.parse(habits),
+        nutrition: JSON.parse(nutrition),
+        dailyScores: JSON.parse(dailyScores),
         coins: parseInt(coins),
         mentalScore: parseInt(score),
         userName: localStorage.getItem('mindset_user_name') || 'Utilisateur',
