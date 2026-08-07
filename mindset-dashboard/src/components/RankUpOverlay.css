@@ -137,3 +137,24 @@
   80% { opacity: 0; transform: scale(3) rotate(270deg); }
   100% { opacity: 0; transform: scale(4) rotate(360deg); }
 }
+
+@media (max-width: 768px) {
+  .rank-up-title {
+    font-size: 2rem;
+    letter-spacing: 5px;
+  }
+  .rank-up-name {
+    font-size: 2rem;
+    letter-spacing: 3px;
+    text-align: center;
+  }
+  .rank-up-emblem {
+    width: 160px;
+    height: 160px;
+  }
+  .rank-up-emblem svg {
+    width: 80px !important;
+    height: 80px !important;
+  }
+}
+
