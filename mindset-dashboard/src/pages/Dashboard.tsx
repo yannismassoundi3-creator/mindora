@@ -144,6 +144,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   const rank = getRankForLevel(level);
 
   const handleRankClick = () => {
+    try {
+      const userStr = localStorage.getItem('mindset_user');
+      const user = userStr ? JSON.parse(userStr) : null;
+      const email = user?.email?.toLowerCase() || '';
+      const isAdmin = user?.role === 'admin' || email.includes('massoundi') || email.includes('yanni') || email === 'mindoraappli@gmail.com';
+      if (!isAdmin) return; // Only allow admin/developer to cheat ranks
+    } catch(e) {
+      return;
+    }
+
     const currentRankIndex = RANKS.findIndex(r => r.name === rank.name);
     const nextRank = RANKS[(currentRankIndex + 1) % RANKS.length];
     const targetLevel = nextRank.minLevel;
