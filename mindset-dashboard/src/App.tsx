@@ -67,7 +67,11 @@ function App() {
   // App Theme Management
   useEffect(() => {
     const applyTheme = () => {
-      const themeId = localStorage.getItem('mindset_app_theme_id');
+      let themeId = localStorage.getItem('mindset_app_theme_id');
+      if (themeId === null) {
+        themeId = 'theme-monochrome-dark';
+        localStorage.setItem('mindset_app_theme_id', themeId);
+      }
       document.body.className = themeId || '';
     };
 
