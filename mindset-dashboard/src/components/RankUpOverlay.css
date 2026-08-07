@@ -45,6 +45,8 @@
 }
 
 .rank-up-emblem {
+  position: relative;
+  overflow: hidden;
   font-size: 10rem;
   width: 250px;
   height: 250px;

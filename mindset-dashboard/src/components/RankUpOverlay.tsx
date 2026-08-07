@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './RankUpOverlay.css';
 import { getRankForLevel, type Rank } from '../utils/ranks';
 import { playLevelUpSound } from '../utils/sounds';
+import { RankIcon } from './RankIcon';
 
 export const RankUpOverlay: React.FC = () => {
   const [show, setShow] = useState(false);
@@ -39,7 +40,9 @@ export const RankUpOverlay: React.FC = () => {
       <div className="rank-up-content">
         <h2 className="rank-up-title">PROMOTION !</h2>
         <div className={`rank-up-emblem ${rank.cssClass || ''}`}>
-          <span className="rank-up-icon">{rank.icon}</span>
+          <div style={{ filter: `drop-shadow(0 0 20px ${rank.color}) drop-shadow(0 0 40px ${rank.color})` }}>
+            <RankIcon iconName={rank.iconName} size={120} color={rank.color} />
+          </div>
         </div>
         <h1 className="rank-up-name" style={{ color: rank.color, textShadow: `0 0 20px ${rank.color}` }}>
           RANG {rank.name.toUpperCase()}

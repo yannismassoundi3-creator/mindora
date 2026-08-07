@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, Area, AreaChart } from 'recharts';
 import { Play, CheckCircle2, TrendingUp, Zap, Sparkles, Pencil, Coins, Circle, ChevronLeft, ChevronRight, Plus, Trophy, Calendar, Trash2 } from 'lucide-react';
 import { AiNotification } from '../components/AiNotification';
+import { RankIcon } from '../components/RankIcon';
 import confetti from 'canvas-confetti';
 import { api } from '../services/api';
 import { RANKS, getRankForLevel } from '../utils/ranks';
@@ -586,7 +587,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
                 fontSize: '0.85rem', fontWeight: 600, backdropFilter: 'blur(10px)',
                 cursor: 'pointer', transition: 'all 0.3s'
               }}>
-                <span>{rank.icon}</span> Rang {rank.name}
+                <RankIcon iconName={rank.iconName} size={16} /> Rang {rank.name}
               </div>
             </div>
             <p style={{ marginTop: '8px' }}>L'assistant IA est prêt. Dominons cette journée.</p>

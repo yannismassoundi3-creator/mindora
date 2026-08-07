@@ -3,6 +3,7 @@ import { User, Shield, Lock, HardDrive, AlertTriangle, Save, CheckCircle, Databa
 import { PricingScreen } from './PricingScreen';
 import { playHoverSound, playClickSound, playToggleSound, playLevelUpSound } from '../utils/sounds';
 import { api } from '../services/api';
+import { RankIcon } from '../components/RankIcon';
 import { getRankForLevel } from '../utils/ranks';
 import { bufferToBase64url } from '../utils/webauthn';
 import './Profile.css';
@@ -220,7 +221,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
                 <span className="stat-value">Lvl {level}</span>
                 <span className="stat-label">Niveau Global</span>
                 <div style={{ marginTop: '8px', fontSize: '0.9rem', color: rank.color, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                  <span>{rank.icon}</span> {rank.name}
+                  <RankIcon iconName={rank.iconName} size={16} /> {rank.name}
                 </div>
               </div>
               <div className="stat-box">
