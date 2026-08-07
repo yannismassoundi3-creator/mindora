@@ -19,7 +19,7 @@ import { LockScreen } from './components/LockScreen';
 import { SkeletonGlow } from './components/SkeletonGlow';
 import { ParticlesBackground } from './components/ParticlesBackground';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { registerSW } from 'virtual:pwa-register';
+import { useRegisterSW } from 'virtual:pwa-register/react';
 import './styles/global.css';
 import './index.css';
 
@@ -46,19 +46,19 @@ if (currentVersion !== APP_VERSION) {
   }, 100);
 }
 
-// Enregistrement du Service Worker avec mise à jour forcée pour éviter le cache bloqué
-const updateSW = registerSW({
-  onNeedRefresh() {
-    console.log("Nouvelle version détectée, mise à jour...");
-    updateSW(true);
-  },
-  onOfflineReady() {
-    console.log("App prête pour le mode hors ligne");
-  },
-});
-
-
 function App() {
+  const {
+    needRefresh: [needRefresh, setNeedRefresh],
+    updateServiceWorker,
+  } = useRegisterSW({
+    onRegistered(r) {
+      console.log('SW Registered: ' + r);
+    },
+    onRegisterError(error) {
+      console.log('SW registration error', error);
+    },
+  });
+
   const IS_BETA_TEST_PHASE = false; // Activer la phase de test gratuite
   const hasToken = !!localStorage.getItem('mindset_token');
   const [isAuthenticated, setIsAuthenticated] = useState(hasToken);
@@ -283,6 +283,49 @@ function App() {
         <LevelUpOverlay />
         <RankUpOverlay />
         <StreakBrokenOverlay />
+
+        {/* PWA Update Prompt */}
+        {needRefresh && (
+          <div className="pwa-update-toast fade-in" style={{
+            position: 'fixed',
+            bottom: '20px',
+            right: '20px',
+            background: 'var(--glass-bg)',
+            border: '1px solid var(--accent-purple)',
+            boxShadow: '0 0 20px rgba(236,72,153,0.3)',
+            padding: '20px',
+            borderRadius: '16px',
+            zIndex: 99999,
+            backdropFilter: 'blur(10px)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px'
+          }}>
+            <div style={{fontWeight: 'bold', color: 'white'}}>Nouvelle version disponible 🚀</div>
+            <div style={{fontSize: '0.9rem', color: 'var(--secondary)'}}>Une mise à jour vient d'être téléchargée.</div>
+            <div style={{display: 'flex', gap: '10px', marginTop: '5px'}}>
+              <button onClick={() => updateServiceWorker(true)} style={{
+                background: 'linear-gradient(135deg, var(--accent-blue), var(--accent-purple))',
+                color: 'white',
+                border: 'none',
+                padding: '8px 16px',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                flex: 1
+              }}>Mettre à jour</button>
+              <button onClick={() => setNeedRefresh(false)} style={{
+                background: 'rgba(255,255,255,0.1)',
+                color: 'white',
+                border: 'none',
+                padding: '8px 16px',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                flex: 1
+              }}>Plus tard</button>
+            </div>
+          </div>
+        )}
       </Layout>
     </ErrorBoundary>
   );
