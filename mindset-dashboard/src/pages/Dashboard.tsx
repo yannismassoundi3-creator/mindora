@@ -145,10 +145,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
 
   const handleRankClick = () => {
     try {
-      const userStr = localStorage.getItem('mindset_user');
-      const user = userStr ? JSON.parse(userStr) : null;
-      const email = user?.email?.toLowerCase() || '';
-      const isAdmin = user?.role === 'admin' || email.includes('massoundi') || email.includes('yanni') || email === 'mindoraappli@gmail.com';
+      const userName = localStorage.getItem('mindset_user_name')?.toLowerCase() || '';
+      const isAdmin = userName.includes('yannis') || userName.includes('admin') || userName.includes('mindora');
       if (!isAdmin) return; // Only allow admin/developer to cheat ranks
     } catch(e) {
       return;
