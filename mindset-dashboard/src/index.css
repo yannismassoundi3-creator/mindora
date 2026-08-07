@@ -177,13 +177,13 @@ body.theme-deepspace {
 }
 
 body.theme-monochrome-light {
-  --bg-dark: #f8fafc;
-  --bg-panel: rgba(255, 255, 255, 0.8);
-  --primary: #0f172a;
+  --bg-dark: #e5e5e5;
+  --bg-panel: rgba(230, 230, 230, 0.8);
+  --primary: #0a0a0a;
   --secondary: #475569;
-  --accent-purple: #1e293b;
-  --accent-blue: #334155;
-  --accent-glow: rgba(0, 0, 0, 0.05);
+  --accent-purple: #050505;
+  --accent-blue: #000000;
+  --accent-glow: rgba(0, 0, 0, 0.5);
   color: #0f172a;
 }
 body.theme-monochrome-light .glass-panel {
@@ -193,15 +193,26 @@ body.theme-monochrome-light .glass-panel {
 body.theme-monochrome-light h1, body.theme-monochrome-light h2, body.theme-monochrome-light h3, body.theme-monochrome-light p {
   color: #0f172a;
 }
+body.theme-monochrome-light .btn-primary {
+  color: #ffffff !important;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5) !important;
+}
 
 body.theme-monochrome-dark {
   --bg-dark: #000000;
   --bg-panel: rgba(10, 10, 10, 0.85);
   --primary: #ffffff;
   --secondary: #a1a1aa;
-  --accent-purple: #f4f4f5;
-  --accent-blue: #e4e4e7;
-  --accent-glow: rgba(255, 255, 255, 0.1);
+  --accent-purple: rgba(255, 255, 255, 0.1);
+  --accent-blue: rgba(255, 255, 255, 0.15);
+  --accent-glow: rgba(255, 255, 255, 0.3);
+}
+body.theme-monochrome-dark .btn-primary {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.15) !important;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.3) !important;
 }
 
 body.theme-gold {
