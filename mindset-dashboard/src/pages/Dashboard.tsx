@@ -149,8 +149,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
     const pointsNeeded = 50 * Math.pow(targetLevel - 1, 2) + 50;
     setPoints(pointsNeeded);
     localStorage.setItem('mindset_points', pointsNeeded.toString());
-    playLevelUpSound();
-    confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+    window.dispatchEvent(new CustomEvent('pointsChanged', { detail: pointsNeeded }));
   };
 
 

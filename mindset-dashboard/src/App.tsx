@@ -13,6 +13,7 @@ import { Profile } from './pages/Profile';
 import { Inventory } from './pages/Inventory';
 import { PricingScreen } from './pages/PricingScreen';
 import { LevelUpOverlay } from './components/LevelUpOverlay';
+import { RankUpOverlay } from './components/RankUpOverlay';
 import { StreakBrokenOverlay } from './components/StreakBrokenOverlay';
 import { LockScreen } from './components/LockScreen';
 import { SkeletonGlow } from './components/SkeletonGlow';
@@ -265,6 +266,7 @@ function App() {
           />
         )}
         <LevelUpOverlay />
+        <RankUpOverlay />
         <StreakBrokenOverlay />
       </Layout>
     </ErrorBoundary>

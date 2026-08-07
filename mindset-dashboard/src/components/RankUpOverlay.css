@@ -1,0 +1,102 @@
+.rank-up-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.rank-up-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at center, var(--rank-color) 0%, rgba(0,0,0,0.95) 60%);
+  opacity: 0;
+  animation: rankBackdropFade 4.5s ease-in-out forwards;
+}
+
+.rank-up-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.rank-up-title {
+  color: #fff;
+  font-size: 3.5rem;
+  letter-spacing: 15px;
+  text-transform: uppercase;
+  font-weight: 900;
+  opacity: 0;
+  transform: translateY(-50px);
+  animation: rankTitleSlam 4.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  text-shadow: 0 0 20px rgba(255,255,255,0.5);
+}
+
+.rank-up-emblem {
+  font-size: 10rem;
+  width: 250px;
+  height: 250px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.6);
+  border-radius: 50%;
+  border: 4px solid var(--rank-color);
+  box-shadow: 0 0 50px var(--rank-color);
+  opacity: 0;
+  transform: scale(0.1);
+  animation: rankEmblemSlam 4.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.rank-up-name {
+  font-size: 4rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 8px;
+  opacity: 0;
+  transform: translateY(50px);
+  animation: rankNameSlam 4.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes rankBackdropFade {
+  0% { opacity: 0; }
+  10% { opacity: 0.85; }
+  85% { opacity: 0.85; }
+  100% { opacity: 0; }
+}
+
+@keyframes rankTitleSlam {
+  0% { opacity: 0; transform: translateY(-50px); }
+  15% { opacity: 1; transform: translateY(0); }
+  85% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-50px); }
+}
+
+@keyframes rankEmblemSlam {
+  0% { opacity: 0; transform: scale(4); }
+  15% { opacity: 1; transform: scale(1); box-shadow: 0 0 100px var(--rank-color), inset 0 0 50px var(--rank-color); }
+  20% { transform: scale(1.15); box-shadow: 0 0 250px var(--rank-color), inset 0 0 150px var(--rank-color); }
+  25% { transform: scale(1); box-shadow: 0 0 150px var(--rank-color), inset 0 0 80px var(--rank-color); }
+  85% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.1); }
+}
+
+@keyframes rankNameSlam {
+  0% { opacity: 0; transform: translateY(50px); }
+  25% { opacity: 0; transform: translateY(50px); }
+  35% { opacity: 1; transform: translateY(0); }
+  85% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(50px); }
+}
