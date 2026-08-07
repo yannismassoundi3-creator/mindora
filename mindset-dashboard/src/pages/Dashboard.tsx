@@ -674,16 +674,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
                     {mentalScore >= 100 && <div className="victory-flare"></div>}
                   </div>
                   <div className="today-score-text">
-                    {mentalScore >= 100 ? (
+                    {mentalScore >= 100 && (
                       <div className="victory-message">
-                        <h4 className="gradient-text">Bravo Champion 🏆</h4>
+                        <h4 className="gradient-text">Bravo Champion 🔥</h4>
                         <p>Tu as accompli toutes tes routines. Repose-toi bien.</p>
                       </div>
-                    ) : (
-                      <>
-                        <h4>Score Actuel</h4>
-                        <p>Complète tes routines pour atteindre 100%.</p>
-                      </>
                     )}
                   </div>
                 </div>
