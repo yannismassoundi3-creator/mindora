@@ -19,6 +19,7 @@ import { LockScreen } from './components/LockScreen';
 import { SkeletonGlow } from './components/SkeletonGlow';
 import { ParticlesBackground } from './components/ParticlesBackground';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { PwaInstallPrompt } from './components/PwaInstallPrompt';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import './styles/global.css';
 import './index.css';
@@ -283,6 +284,7 @@ function App() {
         <LevelUpOverlay />
         <RankUpOverlay />
         <StreakBrokenOverlay />
+        <PwaInstallPrompt />
 
         {/* PWA Update Prompt */}
         {needRefresh && (
