@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, Area, AreaChart } from 'recharts';
-import { Play, CheckCircle2, TrendingUp, Zap, Sparkles, Pencil, Coins, Circle, ChevronLeft, ChevronRight, Plus, Trophy, Calendar } from 'lucide-react';
+import { Play, CheckCircle2, TrendingUp, Zap, Sparkles, Pencil, Coins, Circle, ChevronLeft, ChevronRight, Plus, Trophy, Calendar, Trash2 } from 'lucide-react';
 import { AiNotification } from '../components/AiNotification';
 import confetti from 'canvas-confetti';
 import { api } from '../services/api';
@@ -249,6 +249,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
     setNutritionList(updated);
     localStorage.setItem('mindset_nutrition', JSON.stringify(updated));
     setEditingId(null);
+  };
+
+  const deleteNutrition = (id: number) => {
+    const updated = nutritionList.filter((n: any) => n.id !== id);
+    setNutritionList(updated);
+    localStorage.setItem('mindset_nutrition', JSON.stringify(updated));
   };
 
   const addNewNutrition = () => {
@@ -506,6 +512,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
     });
     setRoutineGroups(newGroups);
     setEditingId(null);
+  };
+
+  const deleteRoutine = (id: number) => {
+    const newGroups = (Array.isArray(routineGroups) ? routineGroups : []).map((group: any) => {
+      const newItems = (Array.isArray(group.items) ? group.items : []).filter((item: any) => item.id !== id);
+      return { ...group, items: newItems };
+    });
+    setRoutineGroups(newGroups);
   };
 
   const addNewRoutine = () => {
@@ -832,9 +846,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
                         )}
                       </div>
                       {editingId === routine.id ? (
-                        <button className="routine-edit-btn" onClick={() => saveEditing(routine.id)}>
-                          <CheckCircle2 size={14} color="#3b82f6" />
-                        </button>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          <button className="routine-edit-btn" onClick={() => saveEditing(routine.id)}>
+                            <CheckCircle2 size={14} color="#3b82f6" />
+                          </button>
+                          <button className="routine-edit-btn" onClick={() => deleteRoutine(routine.id)}>
+                            <Trash2 size={14} color="#ef4444" />
+                          </button>
+                        </div>
                       ) : (
                         <button className="routine-edit-btn" onClick={() => startEditing(routine)}>
                           <Pencil size={14} />
@@ -916,9 +935,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
                         )}
                       </div>
                       {editingId === item.id ? (
-                        <button className="routine-edit-btn" onClick={() => saveNutritionEditing(item.id)}>
-                          <CheckCircle2 size={14} color="#3b82f6" />
-                        </button>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          <button className="routine-edit-btn" onClick={() => saveNutritionEditing(item.id)}>
+                            <CheckCircle2 size={14} color="#3b82f6" />
+                          </button>
+                          <button className="routine-edit-btn" onClick={() => deleteNutrition(item.id)}>
+                            <Trash2 size={14} color="#ef4444" />
+                          </button>
+                        </div>
                       ) : (
                         <button className="routine-edit-btn" onClick={() => { setEditingId(item.id); setEditTitle(item.title); setEditTime(item.details); }}>
                           <Pencil size={14} />
