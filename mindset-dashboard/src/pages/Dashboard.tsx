@@ -4,6 +4,7 @@ import { Play, CheckCircle2, TrendingUp, Zap, Sparkles, Pencil, Coins, Circle, C
 import { AiNotification } from '../components/AiNotification';
 import confetti from 'canvas-confetti';
 import { api } from '../services/api';
+import { getRankForLevel } from '../utils/ranks';
 import { playClickSound, playBloopSound, playLevelUpSound } from '../utils/sounds';
 import './Dashboard.css';
 
@@ -138,6 +139,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   }, []);
 
   const [points, setPoints] = useState(() => parseInt(localStorage.getItem('mindset_points') || '0', 10));
+  const level = Math.floor(Math.sqrt(points / 50)) + 1;
+  const rank = getRankForLevel(level);
 
 
 
@@ -558,11 +561,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   return (
     <div className="dashboard-container">
       <header className="dashboard-header">
-        <div>
-          <p className="current-date">{currentDate}</p>
-          <h1 className="greeting">Bonjour, {userName} 👋</h1>
-          <p className="subtitle">L'assistant IA est prêt. Dominons cette journée.</p>
-        </div>
+          <div>
+            <p className="date-display">{currentDate.toUpperCase()}</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              <h1>Bonjour, {localStorage.getItem('mindset_user_name') || 'Champion'} 👋</h1>
+              <div style={{ 
+                display: 'inline-flex', alignItems: 'center', gap: '6px', 
+                background: 'rgba(0,0,0,0.3)', padding: '4px 12px', 
+                borderRadius: '20px', border: `1px solid ${rank.color}60`, 
+                color: rank.color, boxShadow: `0 0 15px ${rank.color}40`, 
+                fontSize: '0.85rem', fontWeight: 600, backdropFilter: 'blur(10px)'
+              }}>
+                <span>{rank.icon}</span> Rang {rank.name}
+              </div>
+            </div>
+            <p style={{ marginTop: '8px' }}>L'assistant IA est prêt. Dominons cette journée.</p>
+          </div>
         
         <div className="header-actions">
           <div className="points-badge glass-panel">
