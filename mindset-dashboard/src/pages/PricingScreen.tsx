@@ -34,8 +34,7 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
       }
     } catch (error: any) {
       console.error('Erreur lors du paiement:', error);
-      const errorMsg = error.response?.data?.message || error.message || "Erreur inconnue";
-      alert("⚠️ Erreur Stripe : " + errorMsg + "\n\n(Vérifie que tes clés dans Render commencent bien par 'price_' et non 'prod_')");
+      alert("Une erreur est survenue lors de la connexion au serveur de paiement. Veuillez réessayer plus tard.");
     } finally {
       setLoading(false);
     }
