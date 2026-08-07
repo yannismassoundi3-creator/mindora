@@ -183,19 +183,32 @@ body.theme-monochrome-light {
   --secondary: #475569;
   --accent-purple: #050505;
   --accent-blue: #000000;
-  --accent-glow: rgba(0, 0, 0, 0.5);
+  --accent-glow: rgba(0, 0, 0, 0.15);
   color: #0f172a;
 }
 body.theme-monochrome-light .glass-panel {
-  border: 1px solid rgba(0, 0, 0, 0.1) !important;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.05) !important;
+  border: 1px solid rgba(0, 0, 0, 0.15) !important;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.15) !important; /* Black neon for panels */
 }
 body.theme-monochrome-light h1, body.theme-monochrome-light h2, body.theme-monochrome-light h3, body.theme-monochrome-light p {
   color: #0f172a;
 }
+body.theme-monochrome-light button, 
+body.theme-monochrome-light .nav-item, 
+body.theme-monochrome-light .routine-item {
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.1) !important;
+  border-radius: 12px;
+}
+body.theme-monochrome-light button:hover, 
+body.theme-monochrome-light .nav-item:hover, 
+body.theme-monochrome-light .nav-item.active,
+body.theme-monochrome-light .routine-item:hover {
+  box-shadow: 0 0 25px rgba(0, 0, 0, 0.3) !important;
+  background: rgba(0, 0, 0, 0.05);
+}
 body.theme-monochrome-light .btn-primary {
   color: #ffffff !important;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5) !important;
+  box-shadow: 0 0 25px rgba(0, 0, 0, 0.5) !important;
 }
 
 body.theme-monochrome-dark {
@@ -205,14 +218,27 @@ body.theme-monochrome-dark {
   --secondary: #a1a1aa;
   --accent-purple: rgba(255, 255, 255, 0.1);
   --accent-blue: rgba(255, 255, 255, 0.15);
-  --accent-glow: rgba(255, 255, 255, 0.3);
+  --accent-glow: rgba(255, 255, 255, 0.15);
+}
+body.theme-monochrome-dark button, 
+body.theme-monochrome-dark .nav-item, 
+body.theme-monochrome-dark .routine-item {
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.1) !important;
+  border-radius: 12px;
+}
+body.theme-monochrome-dark button:hover, 
+body.theme-monochrome-dark .nav-item:hover, 
+body.theme-monochrome-dark .nav-item.active,
+body.theme-monochrome-dark .routine-item:hover {
+  box-shadow: 0 0 25px rgba(255, 255, 255, 0.3) !important;
+  background: rgba(255, 255, 255, 0.05);
 }
 body.theme-monochrome-dark .btn-primary {
   color: #ffffff !important;
   background: rgba(255, 255, 255, 0.15) !important;
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 0 20px rgba(255, 255, 255, 0.3) !important;
+  box-shadow: 0 0 30px rgba(255, 255, 255, 0.4) !important;
 }
 
 body.theme-gold {
