@@ -22,7 +22,7 @@ export const RankUpOverlay: React.FC = () => {
         if (newRank.minLevel > prevRank.minLevel) {
           playLevelUpSound();
           setShow(true);
-          setTimeout(() => setShow(false), 4500); // 4.5 seconds duration
+          setTimeout(() => setShow(false), 5500); // Increased timeout to 5.5s for smooth fade
         }
         return newRank;
       });
@@ -37,6 +37,14 @@ export const RankUpOverlay: React.FC = () => {
   return (
     <div className="rank-up-overlay" style={{ '--rank-color': rank.color } as any}>
       <div className="rank-up-backdrop"></div>
+      
+      {/* Liquid Glass Waves */}
+      <div className="liquid-waves-container">
+        <div className="liquid-wave lw1"></div>
+        <div className="liquid-wave lw2"></div>
+        <div className="liquid-wave lw3"></div>
+      </div>
+
       <div className="rank-up-content">
         <h2 className="rank-up-title">PROMOTION !</h2>
         <div className={`rank-up-emblem ${rank.cssClass || ''}`}>
