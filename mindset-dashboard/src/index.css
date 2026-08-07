@@ -191,31 +191,30 @@ body.theme-monochrome-light .glass-panel-interactive,
 body.theme-monochrome-light .reward-card,
 body.theme-monochrome-light .dressing-card,
 body.theme-monochrome-light .habit-card {
-  border: 1px solid rgba(255, 255, 255, 0.6) !important;
-  box-shadow: 0 0 20px rgba(255, 255, 255, 0.6) !important;
+  border: 1px solid rgba(0, 0, 0, 0.15) !important;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.15) !important;
 }
 body.theme-monochrome-light .glass-panel-interactive:hover,
 body.theme-monochrome-light .reward-card:hover,
 body.theme-monochrome-light .dressing-card:hover,
 body.theme-monochrome-light .habit-card:hover {
-  box-shadow: 0 0 35px rgba(255, 255, 255, 1) !important;
-  border-color: rgba(255, 255, 255, 1) !important;
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.3) !important;
+  border-color: rgba(0, 0, 0, 0.25) !important;
 }
 body.theme-monochrome-light h1, body.theme-monochrome-light h2, body.theme-monochrome-light h3, body.theme-monochrome-light p {
   color: #0f172a;
 }
 body.theme-monochrome-light button {
-  box-shadow: 0 0 15px rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.1) !important;
   border-radius: 12px;
 }
 body.theme-monochrome-light button:hover {
-  box-shadow: 0 0 25px rgba(255, 255, 255, 1) !important;
-  background: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 0 25px rgba(0, 0, 0, 0.3) !important;
+  background: rgba(0, 0, 0, 0.05);
 }
 body.theme-monochrome-light .btn-primary {
   color: #ffffff !important;
-  box-shadow: 0 0 30px rgba(255, 255, 255, 0.8) !important;
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 0 25px rgba(0, 0, 0, 0.5) !important;
 }
 
 body.theme-monochrome-dark {
