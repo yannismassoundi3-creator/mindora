@@ -32,8 +32,10 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
           window.location.href = res.checkoutUrl;
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erreur lors du paiement:', error);
+      const errorMsg = error.response?.data?.message || error.message || "Erreur inconnue";
+      alert("⚠️ Erreur Stripe : " + errorMsg + "\n\n(Vérifie que tes clés dans Render commencent bien par 'price_' et non 'prod_')");
     } finally {
       setLoading(false);
     }
