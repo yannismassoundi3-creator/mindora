@@ -4,7 +4,7 @@ import { Play, CheckCircle2, TrendingUp, Zap, Sparkles, Pencil, Coins, Circle, C
 import { AiNotification } from '../components/AiNotification';
 import confetti from 'canvas-confetti';
 import { api } from '../services/api';
-import { getRankForLevel } from '../utils/ranks';
+import { RANKS, getRankForLevel } from '../utils/ranks';
 import { playClickSound, playBloopSound, playLevelUpSound } from '../utils/sounds';
 import './Dashboard.css';
 
@@ -141,6 +141,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   const [points, setPoints] = useState(() => parseInt(localStorage.getItem('mindset_points') || '0', 10));
   const level = Math.floor(Math.sqrt(points / 50)) + 1;
   const rank = getRankForLevel(level);
+
+  const handleRankClick = () => {
+    const currentRankIndex = RANKS.findIndex(r => r.name === rank.name);
+    const nextRank = RANKS[(currentRankIndex + 1) % RANKS.length];
+    const targetLevel = nextRank.minLevel;
+    const pointsNeeded = 50 * Math.pow(targetLevel - 1, 2) + 50;
+    setPoints(pointsNeeded);
+    localStorage.setItem('mindset_points', pointsNeeded.toString());
+    playLevelUpSound();
+    confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+  };
 
 
 
@@ -565,12 +576,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
             <p className="date-display">{currentDate.toUpperCase()}</p>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
               <h1>Bonjour, {localStorage.getItem('mindset_user_name') || 'Champion'} 👋</h1>
-              <div style={{ 
+              <div 
+                className={`rank-badge ${rank.cssClass || ''}`}
+                onClick={handleRankClick}
+                style={{ 
                 display: 'inline-flex', alignItems: 'center', gap: '6px', 
                 background: 'rgba(0,0,0,0.3)', padding: '4px 12px', 
                 borderRadius: '20px', border: `1px solid ${rank.color}60`, 
                 color: rank.color, boxShadow: `0 0 15px ${rank.color}40`, 
-                fontSize: '0.85rem', fontWeight: 600, backdropFilter: 'blur(10px)'
+                fontSize: '0.85rem', fontWeight: 600, backdropFilter: 'blur(10px)',
+                cursor: 'pointer', transition: 'all 0.3s'
               }}>
                 <span>{rank.icon}</span> Rang {rank.name}
               </div>

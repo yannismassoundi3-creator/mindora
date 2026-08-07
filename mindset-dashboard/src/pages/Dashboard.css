@@ -1182,3 +1182,57 @@
   border-radius: 3px;
   transition: width 0.6s ease-out;
 }
+
+/* RANK ANIMATIONS */
+.rank-badge {
+  position: relative;
+  overflow: hidden;
+}
+
+.rank-elite {
+  animation: eliteShimmer 3s infinite linear;
+}
+
+@keyframes eliteShimmer {
+  0% { box-shadow: 0 0 10px rgba(251, 191, 36, 0.4); }
+  50% { box-shadow: 0 0 20px rgba(251, 191, 36, 0.8); }
+  100% { box-shadow: 0 0 10px rgba(251, 191, 36, 0.4); }
+}
+
+.rank-maitre {
+  animation: maitrePulse 2s infinite alternate;
+}
+
+@keyframes maitrePulse {
+  0% { box-shadow: 0 0 15px rgba(59, 130, 246, 0.4); border-color: rgba(59, 130, 246, 0.6); }
+  100% { box-shadow: 0 0 30px rgba(59, 130, 246, 1); border-color: rgba(59, 130, 246, 1); }
+}
+
+.rank-legende {
+  animation: legendeGlow 1.5s infinite alternate;
+  background: linear-gradient(45deg, rgba(0,0,0,0.4), rgba(139,92,246,0.3)) !important;
+}
+
+.rank-legende::after {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(to right, transparent, rgba(255,255,255,0.6), transparent);
+  transform: rotate(45deg);
+  animation: legendeShine 3s infinite linear;
+  pointer-events: none;
+}
+
+@keyframes legendeGlow {
+  0% { box-shadow: 0 0 20px rgba(139, 92, 246, 0.6), 0 0 40px rgba(239, 68, 68, 0.4); }
+  100% { box-shadow: 0 0 40px rgba(139, 92, 246, 1), 0 0 80px rgba(239, 68, 68, 1); border-color: rgba(239, 68, 68, 1); }
+}
+
+@keyframes legendeShine {
+  0% { left: -150%; }
+  100% { left: 150%; }
+}
+
