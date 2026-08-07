@@ -115,9 +115,9 @@ export class AuthService {
           'content-type': 'application/json'
         },
         body: JSON.stringify({
-          sender: { name: 'Mindset Sécurité', email: senderEmail },
+          sender: { name: 'Disciplix OS', email: senderEmail },
           to: [{ email: email }],
-          subject: 'Votre code de sécurité Mindset',
+          subject: 'Votre code de sécurité Disciplix OS',
           htmlContent: htmlContent
         })
       });
