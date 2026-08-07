@@ -188,21 +188,16 @@ body.theme-monochrome-light {
 }
 body.theme-monochrome-light .glass-panel {
   border: 1px solid rgba(0, 0, 0, 0.15) !important;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.15) !important; /* Black neon for panels */
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.15) !important;
 }
 body.theme-monochrome-light h1, body.theme-monochrome-light h2, body.theme-monochrome-light h3, body.theme-monochrome-light p {
   color: #0f172a;
 }
-body.theme-monochrome-light button, 
-body.theme-monochrome-light .nav-item, 
-body.theme-monochrome-light .routine-item {
+body.theme-monochrome-light button {
   box-shadow: 0 0 15px rgba(0, 0, 0, 0.1) !important;
   border-radius: 12px;
 }
-body.theme-monochrome-light button:hover, 
-body.theme-monochrome-light .nav-item:hover, 
-body.theme-monochrome-light .nav-item.active,
-body.theme-monochrome-light .routine-item:hover {
+body.theme-monochrome-light button:hover {
   box-shadow: 0 0 25px rgba(0, 0, 0, 0.3) !important;
   background: rgba(0, 0, 0, 0.05);
 }
@@ -220,16 +215,15 @@ body.theme-monochrome-dark {
   --accent-blue: rgba(255, 255, 255, 0.15);
   --accent-glow: rgba(255, 255, 255, 0.15);
 }
-body.theme-monochrome-dark button, 
-body.theme-monochrome-dark .nav-item, 
-body.theme-monochrome-dark .routine-item {
+body.theme-monochrome-dark .glass-panel {
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.15) !important; /* White neon for panels */
+}
+body.theme-monochrome-dark button {
   box-shadow: 0 0 15px rgba(255, 255, 255, 0.1) !important;
   border-radius: 12px;
 }
-body.theme-monochrome-dark button:hover, 
-body.theme-monochrome-dark .nav-item:hover, 
-body.theme-monochrome-dark .nav-item.active,
-body.theme-monochrome-dark .routine-item:hover {
+body.theme-monochrome-dark button:hover {
   box-shadow: 0 0 25px rgba(255, 255, 255, 0.3) !important;
   background: rgba(255, 255, 255, 0.05);
 }

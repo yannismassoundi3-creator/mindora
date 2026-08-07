@@ -1091,8 +1091,8 @@
 }
 
 @keyframes pulseGlow {
-  0% { box-shadow: 0 8px 20px rgba(139, 92, 246, 0.3); }
-  100% { box-shadow: 0 8px 30px rgba(139, 92, 246, 0.6); }
+  0% { box-shadow: 0 8px 20px var(--accent-glow); }
+  100% { box-shadow: 0 8px 35px var(--accent-glow); }
 }
 
 /* Streak Hint */
