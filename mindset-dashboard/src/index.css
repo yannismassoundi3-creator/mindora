@@ -186,9 +186,20 @@ body.theme-monochrome-light {
   --accent-glow: rgba(0, 0, 0, 0.15);
   color: #0f172a;
 }
-body.theme-monochrome-light .glass-panel {
+body.theme-monochrome-light .glass-panel,
+body.theme-monochrome-light .glass-panel-interactive,
+body.theme-monochrome-light .reward-card,
+body.theme-monochrome-light .dressing-card,
+body.theme-monochrome-light .habit-card {
   border: 1px solid rgba(0, 0, 0, 0.15) !important;
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.15) !important;
+}
+body.theme-monochrome-light .glass-panel-interactive:hover,
+body.theme-monochrome-light .reward-card:hover,
+body.theme-monochrome-light .dressing-card:hover,
+body.theme-monochrome-light .habit-card:hover {
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.3) !important;
+  border-color: rgba(0, 0, 0, 0.25) !important;
 }
 body.theme-monochrome-light h1, body.theme-monochrome-light h2, body.theme-monochrome-light h3, body.theme-monochrome-light p {
   color: #0f172a;
@@ -215,9 +226,20 @@ body.theme-monochrome-dark {
   --accent-blue: rgba(255, 255, 255, 0.15);
   --accent-glow: rgba(255, 255, 255, 0.15);
 }
-body.theme-monochrome-dark .glass-panel {
+body.theme-monochrome-dark .glass-panel,
+body.theme-monochrome-dark .glass-panel-interactive,
+body.theme-monochrome-dark .reward-card,
+body.theme-monochrome-dark .dressing-card,
+body.theme-monochrome-dark .habit-card {
   border: 1px solid rgba(255, 255, 255, 0.15) !important;
-  box-shadow: 0 0 20px rgba(255, 255, 255, 0.15) !important; /* White neon for panels */
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.15) !important;
+}
+body.theme-monochrome-dark .glass-panel-interactive:hover,
+body.theme-monochrome-dark .reward-card:hover,
+body.theme-monochrome-dark .dressing-card:hover,
+body.theme-monochrome-dark .habit-card:hover {
+  box-shadow: 0 0 35px rgba(255, 255, 255, 0.3) !important;
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
 }
 body.theme-monochrome-dark button {
   box-shadow: 0 0 15px rgba(255, 255, 255, 0.1) !important;
