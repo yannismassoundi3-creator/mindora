@@ -626,30 +626,64 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
             <div className="chart-container">
               {activeChartTab === 'today' && (
                 <div className="today-score-view">
-                  <div className="circular-progress-container glass-liquid">
-                    <svg width="180" height="180" viewBox="0 0 160 160">
+                  <div className="futuristic-gauge-container">
+                    <svg width="200" height="200" viewBox="0 0 200 200" className="gauge-svg">
                       <defs>
-                        <linearGradient id="scoreGradient" x1="0" y1="0" x2="1" y2="1">
-                          <stop offset="0%" stopColor="#3b82f6" />
-                          <stop offset="100%" stopColor="#ec4899" />
+                        <linearGradient id="scoreGradientLow" x1="0" y1="0" x2="1" y2="1">
+                          <stop offset="0%" stopColor="#00f2fe" />
+                          <stop offset="100%" stopColor="#4facfe" />
                         </linearGradient>
+                        <linearGradient id="scoreGradientMid" x1="0" y1="0" x2="1" y2="1">
+                          <stop offset="0%" stopColor="#f83600" />
+                          <stop offset="100%" stopColor="#f9d423" />
+                        </linearGradient>
+                        <linearGradient id="scoreGradientMax" x1="0" y1="0" x2="1" y2="1">
+                          <stop offset="0%" stopColor="#ff0844" />
+                          <stop offset="100%" stopColor="#ffb199" />
+                        </linearGradient>
+                        <filter id="gaugeGlow">
+                           <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+                           <feMerge>
+                              <feMergeNode in="coloredBlur"/>
+                              <feMergeNode in="SourceGraphic"/>
+                           </feMerge>
+                        </filter>
                       </defs>
-                      <circle cx="80" cy="80" r={radius} fill="transparent" stroke="rgba(255,255,255,0.05)" strokeWidth="12" />
+                      
+                      {/* Outer rotating dashed ring */}
+                      <circle cx="100" cy="100" r="90" fill="transparent" stroke="rgba(255,255,255,0.15)" strokeWidth="2" strokeDasharray="4 8" className="spin-slow" />
+                      
+                      {/* Inner thin rotating ring */}
+                      <circle cx="100" cy="100" r="60" fill="transparent" stroke="rgba(255,255,255,0.2)" strokeWidth="1" strokeDasharray="15 10 5 10" className="spin-slow-reverse" />
+                      
+                      {/* Background track */}
+                      <circle cx="100" cy="100" r="75" fill="transparent" stroke="rgba(255,255,255,0.05)" strokeWidth="12" />
+                      
+                      {/* Main Progress Ring */}
                       <circle 
-                        cx="80" cy="80" r={radius} 
+                        cx="100" cy="100" r="75" 
                         fill="transparent" 
-                        stroke="url(#scoreGradient)" 
+                        stroke={mentalScore >= 100 ? "url(#scoreGradientMax)" : mentalScore > 60 ? "url(#scoreGradientMid)" : "url(#scoreGradientLow)"} 
                         strokeWidth="12" 
                         strokeLinecap="round"
-                        strokeDasharray={circumference}
-                        strokeDashoffset={strokeDashoffset}
-                        style={{ transition: 'stroke-dashoffset 1s ease-out' }}
-                        transform="rotate(-90 80 80)"
+                        strokeDasharray={471}
+                        strokeDashoffset={471 - (471 * mentalScore) / 100}
+                        style={{ transition: 'stroke-dashoffset 1.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), stroke 0.5s' }}
+                        transform="rotate(-90 100 100)"
+                        filter="url(#gaugeGlow)"
                       />
                     </svg>
-                    <div className="circular-score-content">
-                      <span className="score-number">{mentalScore}</span>
+                    
+                    <div className="gauge-center-content">
+                      <span className="gauge-score" style={{ 
+                        color: mentalScore >= 100 ? '#ffb199' : mentalScore > 60 ? '#f9d423' : '#4facfe',
+                        textShadow: `0 0 15px ${mentalScore >= 100 ? '#ff0844' : mentalScore > 60 ? '#f83600' : '#00f2fe'}`
+                      }}>{mentalScore}</span>
+                      <span className="gauge-label">%</span>
                     </div>
+
+                    {/* Core particle effects when maxed out */}
+                    {mentalScore >= 100 && <div className="gauge-core-glow"></div>}
                   </div>
                   <div className="today-score-text">
                     {mentalScore >= 100 ? (

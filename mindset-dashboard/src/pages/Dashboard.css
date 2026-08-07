@@ -655,14 +655,17 @@
     box-sizing: border-box;
   }
 
-  .circular-progress-container svg {
-    width: 76px;
-    height: 76px;
+  .futuristic-gauge-container svg {
+    width: 90px;
+    height: 90px;
     flex-shrink: 0;
   }
 
-  .score-number {
-    font-size: 1.4rem;
+  .gauge-score {
+    font-size: 1.6rem;
+  }
+  .gauge-label {
+    font-size: 0.6rem;
   }
 
   .today-score-text {
@@ -786,15 +789,39 @@
   gap: 40px;
 }
 
-.circular-progress-container {
+.futuristic-gauge-container {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  filter: drop-shadow(0 0 15px rgba(236, 72, 153, 0.3));
+  filter: drop-shadow(0 0 20px rgba(0, 242, 254, 0.2));
 }
 
-.circular-score-content {
+.gauge-svg {
+  filter: drop-shadow(0 0 10px rgba(255,255,255,0.1));
+}
+
+.spin-slow {
+  transform-origin: 100px 100px;
+  animation: spinSlow 15s linear infinite;
+}
+
+.spin-slow-reverse {
+  transform-origin: 100px 100px;
+  animation: spinSlowReverse 10s linear infinite;
+}
+
+@keyframes spinSlow {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes spinSlowReverse {
+  0% { transform: rotate(360deg); }
+  100% { transform: rotate(0deg); }
+}
+
+.gauge-center-content {
   position: absolute;
   top: 50%;
   left: 50%;
@@ -803,6 +830,43 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  z-index: 2;
+}
+
+.gauge-score {
+  font-size: 2.8rem;
+  font-weight: 900;
+  line-height: 1;
+  font-family: 'Orbitron', 'Inter', sans-serif;
+  letter-spacing: -2px;
+}
+
+.gauge-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--secondary);
+  text-transform: uppercase;
+  margin-top: -2px;
+}
+
+.gauge-core-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 8, 68, 0.4) 0%, transparent 70%);
+  z-index: 1;
+  animation: corePulse 2s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes corePulse {
+  0% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.5; filter: blur(10px); }
+  100% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; filter: blur(20px); box-shadow: 0 0 50px rgba(255, 177, 153, 0.8); }
 }
 
 .score-number {

@@ -72,6 +72,17 @@ function App() {
         themeId = 'theme-monochrome-dark';
         localStorage.setItem('mindset_app_theme_id', themeId);
       }
+      
+      // Unlock the black theme as a gift for all users
+      try {
+        const ownedStr = localStorage.getItem('mindset_owned_cosmetics') || '[]';
+        const owned = JSON.parse(ownedStr);
+        if (!owned.includes('t_monodark')) {
+          owned.push('t_monodark');
+          localStorage.setItem('mindset_owned_cosmetics', JSON.stringify(owned));
+        }
+      } catch (e) {}
+
       document.body.className = themeId || '';
     };
 
