@@ -33,11 +33,11 @@
   width: 50vw;
   height: 50vw;
   border-radius: 50%;
-  border: 4px solid rgba(0, 255, 255, 0.4);
+  border: 4px solid rgba(255, 255, 255, 0.6);
   animation: shockwave-expand 0.5s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
 }
-.cyber-shockwave.delay-1 { animation-delay: 0.1s; border-color: rgba(255, 0, 85, 0.4); }
-.cyber-shockwave.delay-2 { animation-delay: 0.2s; border-color: rgba(0, 255, 255, 0.2); }
+.cyber-shockwave.delay-1 { animation-delay: 0.1s; border-color: rgba(255, 255, 255, 0.2); }
+.cyber-shockwave.delay-2 { animation-delay: 0.2s; border-color: rgba(255, 255, 255, 0.8); }
 
 @keyframes shockwave-expand {
   0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
@@ -53,14 +53,14 @@
 .glitch-line {
   position: absolute;
   height: 3px;
-  background: #0ff;
-  box-shadow: 0 0 15px #0ff;
+  background: #fff;
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.9);
   opacity: 0;
   animation: line-flash 0.1s infinite alternate;
 }
 .glitch-line:nth-child(even) {
-  background: #ff0055;
-  box-shadow: 0 0 15px #ff0055;
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
 }
 
 @keyframes line-flash {
@@ -79,13 +79,13 @@
   top: 0; left: 0; right: 0; bottom: 0;
   border-radius: 50%;
   border: 20px solid #fff;
-  box-shadow: 0 0 40px #0ff, inset 0 0 40px #0ff;
+  box-shadow: 0 0 40px rgba(255, 255, 255, 0.8), inset 0 0 40px rgba(255, 255, 255, 0.8);
   animation: ring-glitch 0.1s infinite;
   clip-path: polygon(0 0, 100% 0, 100% 30%, 0 30%, 0 40%, 100% 40%, 100% 60%, 0 60%, 0 70%, 100% 70%, 100% 100%, 0 100%);
 }
 
 .cyber-ring.cyan-split {
-  border-color: #0ff;
+  border-color: rgba(255, 255, 255, 0.5);
   box-shadow: none;
   transform: translateX(-20px);
   mix-blend-mode: screen;
@@ -93,7 +93,7 @@
 }
 
 .cyber-ring.red-split {
-  border-color: #ff0055;
+  border-color: rgba(255, 255, 255, 0.2);
   box-shadow: none;
   transform: translateX(20px);
   mix-blend-mode: screen;
