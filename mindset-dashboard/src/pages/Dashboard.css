@@ -316,32 +316,7 @@
 .routine-list {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  max-height: 55vh;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 30px 20px; /* Huge padding to completely prevent clipping of neon shadows */
-  margin: -30px -20px; /* Offset the padding so layout doesn't shift */
-  /* Firefox Scrollbar */
-  scrollbar-width: thin;
-  scrollbar-color: var(--accent-purple) transparent;
-}
-
-/* Custom Neon Scrollbar for Webkit (Chrome/Edge/Safari) */
-.routine-list::-webkit-scrollbar {
-  width: 4px;
-}
-.routine-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-.routine-list::-webkit-scrollbar-thumb {
-  background: var(--accent-purple);
-  border-radius: 10px;
-  box-shadow: 0 0 10px var(--accent-purple), 0 0 20px var(--accent-purple);
-}
-.routine-list::-webkit-scrollbar-thumb:hover {
-  background: var(--accent-blue);
-  box-shadow: 0 0 10px var(--accent-blue), 0 0 20px var(--accent-blue);
+  gap: 16px;
 }
 
 .routine-item {

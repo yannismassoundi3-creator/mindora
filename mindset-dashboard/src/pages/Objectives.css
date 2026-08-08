@@ -111,36 +111,7 @@
 .macro-cards-container {
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  max-height: 55vh;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 30px 20px; /* Huge padding to completely prevent clipping of neon shadows */
-  margin: -30px -20px; /* Offset the padding */
-  /* Firefox Scrollbar */
-  scrollbar-width: thin;
-  scrollbar-color: var(--accent-purple) transparent;
-}
-
-/* Custom Neon Scrollbar for Webkit */
-.macro-cards-container::-webkit-scrollbar,
-.micro-list::-webkit-scrollbar {
-  width: 4px;
-}
-.macro-cards-container::-webkit-scrollbar-track,
-.micro-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-.macro-cards-container::-webkit-scrollbar-thumb,
-.micro-list::-webkit-scrollbar-thumb {
-  background: var(--accent-purple);
-  border-radius: 10px;
-  box-shadow: 0 0 10px var(--accent-purple), 0 0 20px var(--accent-purple);
-}
-.macro-cards-container::-webkit-scrollbar-thumb:hover,
-.micro-list::-webkit-scrollbar-thumb:hover {
-  background: var(--accent-blue);
-  box-shadow: 0 0 10px var(--accent-blue), 0 0 20px var(--accent-blue);
+  gap: 20px;
 }
 
 .macro-card {
@@ -240,15 +211,9 @@
   border-color: rgba(255,255,255,0.3);
 }
 
+/* MICRO LIST */
 .micro-list {
-  padding: 30px 20px;
-  margin: -6px -20px; /* Offset horizontal padding to prevent clipping without shifting layout */
-  max-height: 55vh;
-  overflow-y: auto;
-  overflow-x: hidden;
-  /* Firefox Scrollbar */
-  scrollbar-width: thin;
-  scrollbar-color: var(--accent-purple) transparent;
+  padding: 24px 0; /* Remove horizontal padding so it aligns with headers */
 }
 
 .micro-item {
