@@ -112,6 +112,29 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
+  max-height: 55vh;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+/* Custom Scrollbar */
+.macro-cards-container::-webkit-scrollbar,
+.micro-list::-webkit-scrollbar {
+  width: 6px;
+}
+.macro-cards-container::-webkit-scrollbar-track,
+.micro-list::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 10px;
+}
+.macro-cards-container::-webkit-scrollbar-thumb,
+.micro-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+.macro-cards-container::-webkit-scrollbar-thumb:hover,
+.micro-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .macro-card {
@@ -214,6 +237,9 @@
 /* MICRO LIST */
 .micro-list {
   padding: 24px 0; /* Remove horizontal padding so it aligns with headers */
+  max-height: 55vh;
+  overflow-y: auto;
+  padding-right: 8px;
 }
 
 .micro-item {
