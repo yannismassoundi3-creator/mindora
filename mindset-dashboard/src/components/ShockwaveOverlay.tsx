@@ -17,7 +17,7 @@ export const ShockwaveOverlay: React.FC = () => {
         id: Date.now() + Math.random(),
         x: e.detail.x,
         y: e.detail.y,
-        color: e.detail.color || 'var(--accent-purple)'
+        color: '#ffffff' // Force white neon
       };
       
       setShockwaves(prev => [...prev, newShockwave]);
