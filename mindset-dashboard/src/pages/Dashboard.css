@@ -316,26 +316,29 @@
 .routine-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
   max-height: 55vh;
   overflow-y: auto;
-  padding-right: 8px;
+  overflow-x: hidden;
+  padding: 15px; /* Prevent clipping of neon shadows */
+  margin: -15px; /* Offset the padding so layout doesn't shift */
 }
 
-/* Custom Scrollbar for Routine List */
+/* Custom Neon Scrollbar for Routine List */
 .routine-list::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
 }
 .routine-list::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: 10px;
+  background: transparent;
 }
 .routine-list::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--accent-purple);
   border-radius: 10px;
+  box-shadow: 0 0 10px var(--accent-purple), 0 0 20px var(--accent-purple);
 }
 .routine-list::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--accent-blue);
+  box-shadow: 0 0 10px var(--accent-blue), 0 0 20px var(--accent-blue);
 }
 
 .routine-item {
