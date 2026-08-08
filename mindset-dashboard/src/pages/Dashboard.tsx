@@ -261,6 +261,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
     if ('vibrate' in navigator) navigator.vibrate([15, 10, 15]);
     
     playClickSound();
+    
+    // Shockwave effect
+    window.dispatchEvent(new CustomEvent('triggerShockwave', { 
+      detail: { x: e.clientX, y: e.clientY, color: '#ffffff' } 
+    }));
+
     const updated = nutritionList.map((n: any) => n.id === id ? { ...n, done: !n.done } : n);
     setNutritionList(updated);
     localStorage.setItem('mindset_nutrition', JSON.stringify(updated));
@@ -477,6 +483,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   const toggleRoutine = (e: React.MouseEvent, id: number) => {
     // Haptic feedback
     if ('vibrate' in navigator) navigator.vibrate([15, 10, 15]);
+
+    // Shockwave effect
+    window.dispatchEvent(new CustomEvent('triggerShockwave', { 
+      detail: { x: e.clientX, y: e.clientY, color: '#ffffff' } 
+    }));
 
     let itemWasDone = false;
     let newlyDoneCount = 0;
