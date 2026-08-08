@@ -3,6 +3,7 @@ import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, LineCh
 import { Play, CheckCircle2, TrendingUp, Zap, Sparkles, Pencil, Coins, Circle, ChevronLeft, ChevronRight, Plus, Trophy, Calendar, Trash2 } from 'lucide-react';
 import { AiNotification } from '../components/AiNotification';
 import { RankIcon } from '../components/RankIcon';
+import { VictoryGlitchOverlay } from '../components/VictoryGlitchOverlay';
 import { api } from '../services/api';
 import { RANKS, getRankForLevel } from '../utils/ranks';
 import { playClickSound, playBloopSound, playLevelUpSound } from '../utils/sounds';
@@ -324,6 +325,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   const baseScore = Math.round((doneRoutines / (totalRoutines || 1)) * 100);
   const mentalScore = Math.min(100, baseScore + bonusScore);
 
+  const [showVictoryOverlay, setShowVictoryOverlay] = useState(false);
+  const prevMentalScore = useRef(mentalScore);
+
+  useEffect(() => {
+    if (prevMentalScore.current < 100 && mentalScore >= 100) {
+      setShowVictoryOverlay(true);
+    }
+    prevMentalScore.current = mentalScore;
+  }, [mentalScore]);
+
   useEffect(() => {
     localStorage.setItem('mental_score', mentalScore.toString());
     saveDailyScore(getTodayKey(), mentalScore);
@@ -589,6 +600,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
 
   return (
     <div className="dashboard-container">
+      {showVictoryOverlay && <VictoryGlitchOverlay onClose={() => setShowVictoryOverlay(false)} />}
       <header className="dashboard-header">
           <div>
             <p className="date-display">{currentDate.toUpperCase()}</p>
@@ -688,8 +700,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
                       <span className="gauge-label">ÉNERGIE</span>
                     </div>
 
-                    {/* Completion particles */}
-                    {mentalScore >= 100 && <div className="victory-flare"></div>}
                   </div>
                   <div className="today-score-text">
                     {mentalScore >= 100 && (
