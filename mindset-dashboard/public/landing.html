@@ -1223,16 +1223,16 @@
         </div>
         <div class="hero-metrics">
             <div class="metric">
-                <div class="metric-value" id="metric-users">1500+</div>
-                <div class="metric-label">Utilisateurs actifs</div>
+                <div class="metric-value" id="metric-users">100</div>
+                <div class="metric-label">Places Bêta</div>
             </div>
             <div class="metric">
-                <div class="metric-value">4.4/5</div>
-                <div class="metric-label">Note moyenne</div>
+                <div class="metric-value">24/7</div>
+                <div class="metric-label">Coaching IA</div>
             </div>
             <div class="metric">
-                <div class="metric-value">93%</div>
-                <div class="metric-label">Taux de rétention</div>
+                <div class="metric-value">100%</div>
+                <div class="metric-label">Discipline</div>
             </div>
         </div>
     </section>
@@ -1779,7 +1779,7 @@
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
                     const el = document.getElementById('metric-users');
-                    animateCounter(el, 1500, '+');
+                    animateCounter(el, 100, '');
                     metricsObserver.unobserve(entry.target);
                 }
             });
