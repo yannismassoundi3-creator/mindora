@@ -10,19 +10,19 @@
     transform: scale(1.02); 
   }
   25% { 
-    filter: url(#svg-macro-glitch) hue-rotate(90deg); 
-    transform: scale(1.05) translate(20px, -10px); 
+    filter: url(#svg-macro-glitch); 
+    transform: scale(1.05) translate(10px, -5px); 
   }
   50% { 
-    filter: url(#svg-macro-glitch) invert(0.8); 
-    transform: scale(1.01) translate(-10px, 20px); 
+    filter: url(#svg-macro-glitch); 
+    transform: scale(1.01) translate(-10px, 10px); 
   }
   75% { 
-    filter: url(#svg-macro-glitch) saturate(300%) contrast(150%); 
+    filter: url(#svg-macro-glitch); 
     transform: scale(1.03) translate(5px, -5px); 
   }
   100% { 
-    filter: url(#svg-macro-glitch); 
+    filter: none; 
     transform: scale(1) translate(0); 
   }
 }

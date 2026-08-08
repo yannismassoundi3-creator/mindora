@@ -27,24 +27,29 @@ export const VictoryGlitchOverlay: React.FC<VictoryGlitchOverlayProps> = ({ onCl
   return (
     <svg style={{ position: 'fixed', width: 0, height: 0, pointerEvents: 'none', zIndex: -1 }}>
       <filter id="svg-macro-glitch">
-        {/* Gnre un bruit trs grand (basses frquences) */}
-        <feTurbulence type="fractalNoise" baseFrequency="0.015 0.02" numOctaves="1" result="noise" />
-        
-        {/* Transforme le bruit fluide en blocs carrs / paliers (macro-blocking) */}
-        <feComponentTransfer in="noise" result="steppedNoise">
-           <feFuncR type="discrete" tableValues="0 0.3 0.6 0.9 1" />
-           <feFuncG type="discrete" tableValues="0 0.3 0.6 0.9 1" />
+        {/* 1. Dformation "Espace-Temps" en carrs */}
+        <feTurbulence type="fractalNoise" baseFrequency="0.02 0.02" numOctaves="1" result="blocks" />
+        <feComponentTransfer in="blocks" result="steppedBlocks">
+          <feFuncR type="discrete" tableValues="0 0.5 1" />
+          <feFuncG type="discrete" tableValues="0 0.5 1" />
         </feComponentTransfer>
-        
-        {/* Dcale l'image violemment en utilisant ces gros blocs */}
-        <feDisplacementMap in="SourceGraphic" in2="steppedNoise" scale="250" xChannelSelector="R" yChannelSelector="G" result="displaced" />
-        
-        {/* Applique une corruption de couleur style JPEG/MP4 cass */}
-        <feColorMatrix in="displaced" type="matrix" values="
-          1.5 0   0   0 -0.2
-          0   0.5 0.8 0 -0.1
-          0.2 0   1.2 0 -0.1
-          0   0   0   1  0" />
+        <feDisplacementMap in="SourceGraphic" in2="steppedBlocks" scale="80" xChannelSelector="R" yChannelSelector="G" result="square-displaced" />
+
+        {/* 2. Bandes Horizontales Coupe (Style VHS / Image envoy) */}
+        <feTurbulence type="fractalNoise" baseFrequency="0.001 0.15" numOctaves="1" result="strips" />
+        <feComponentTransfer in="strips" result="steppedStrips">
+          <feFuncR type="discrete" tableValues="0 0.3 0.7 1" />
+        </feComponentTransfer>
+        <feDisplacementMap in="square-displaced" in2="steppedStrips" scale="200" xChannelSelector="R" yChannelSelector="R" result="final-displaced" />
+
+        {/* 3. Sparation RVB massive (Rouge/Cyan) */}
+        <feColorMatrix in="final-displaced" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="red" />
+        <feOffset in="red" dx="-40" dy="0" result="red-shifted" />
+
+        <feColorMatrix in="final-displaced" type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 1 0" result="cyan" />
+        <feOffset in="cyan" dx="40" dy="0" result="cyan-shifted" />
+
+        <feBlend mode="screen" in="red-shifted" in2="cyan-shifted" result="rgb-split" />
       </filter>
     </svg>
   );
