@@ -198,3 +198,46 @@ export const playShatterSound = () => {
     noise.start();
   } catch(e) {}
 };
+
+// 8. Son de Glitch Systeme
+export const playGlitchSound = () => {
+  vibrate([50, 30, 50, 30, 100]); // Vibrations saccadees
+  try {
+    const ctx = getContext();
+    const bufferSize = ctx.sampleRate * 0.4; // 0.4 seconds of noise
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    
+    // Generate harsh noise
+    for (let i = 0; i < bufferSize; i++) {
+      // intermittent drops to create "stutter"
+      if (Math.random() > 0.1) {
+        data[i] = (Math.random() * 2 - 1) * 0.8; 
+      } else {
+        data[i] = 0;
+      }
+    }
+    
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+    
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.setValueAtTime(1000, ctx.currentTime);
+    
+    // Quick flutter/stutter effect with gain
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.6, ctx.currentTime);
+    gain.gain.setValueAtTime(0, ctx.currentTime + 0.05);
+    gain.gain.setValueAtTime(0.8, ctx.currentTime + 0.06);
+    gain.gain.setValueAtTime(0, ctx.currentTime + 0.1);
+    gain.gain.setValueAtTime(0.6, ctx.currentTime + 0.12);
+    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.4);
+    
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+    
+    noise.start();
+  } catch(e) {}
+};

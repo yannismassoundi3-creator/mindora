@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import './VictoryGlitchOverlay.css';
-import { playShatterSound, vibrate } from '../utils/sounds';
+import { playGlitchSound, vibrate } from '../utils/sounds';
 
 interface VictoryGlitchOverlayProps {
   onClose: () => void;
@@ -11,8 +11,7 @@ export const VictoryGlitchOverlay: React.FC<VictoryGlitchOverlayProps> = ({ onCl
 
   useEffect(() => {
     // 1. Initial shock & shatter
-    playShatterSound();
-    vibrate([100, 200, 100, 300]);
+    playGlitchSound();
     
     setStage('glitch');
     
