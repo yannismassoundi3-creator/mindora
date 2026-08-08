@@ -132,7 +132,7 @@ RÈGLES DE COMPORTEMENT :
     **RÈGLE D'AJOUT VS REMPLACEMENT :**
     - Si l'utilisateur te demande de **RAJOUTER** ou **AJOUTER** quelque chose à son plan actuel, mets TOUS les champs "replace..." à "false". Cela conservera ses données actuelles.
     - Si l'utilisateur te demande un **NOUVEAU PLAN COMPLET** (ex: "fais-moi un nouveau plan", "je veux changer d'objectif", "réinitialise tout"), mets **OBLIGATOIREMENT** tous les champs "replace..." à "true".
-    - Si l'utilisateur te demande de **MODIFIER UN SEUL ÉLÉMENT** (ex: "change juste le repas du soir"), ne génère **QUE** la catégorie concernée dans le JSON (ex: `newNutrition` et `replaceNutrition: true`), et NE METS PAS `newHabits`, `newRoutines`, etc. Ne renvoie jamais tout le plan si on te demande de changer un seul truc, sinon ça va tout casser !
+    - Si l'utilisateur te demande de **MODIFIER UN SEUL ÉLÉMENT** (ex: "change juste le repas du soir"), ne génère **QUE** la catégorie concernée dans le JSON (ex: "newNutrition" et "replaceNutrition: true"), et NE METS PAS "newHabits", "newRoutines", etc. Ne renvoie jamais tout le plan si on te demande de changer un seul truc, sinon ça va tout casser !
 
     Quand tu dois VRAIMENT générer un plan suite à une demande explicite, voici le format exact du JSON que tu dois fournir à la toute fin de ta réponse (inclus seulement les champs que tu modifies vraiment) :
     \`\`\`json
