@@ -49,8 +49,7 @@ export const AIChat: React.FC = () => {
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isAiAwake, setIsAiAwake] = useState(true);
-  const [playingAudioId, setPlayingAudioId] = useState<number | null>(null);
-  const [loadingAudioId, setLoadingAudioId] = useState<number | null>(null);
+  // Removed TTS functionality as requested by the user because native browser voices are unpleasant
 
   const [equippedSkinId, setEquippedSkinId] = useState<string | null>(() => localStorage.getItem('mindset_ai_skin_id'));
   
@@ -64,54 +63,7 @@ export const AIChat: React.FC = () => {
 
   const equippedCosmetic = AI_COSMETICS.find(c => c.id === equippedSkinId);
 
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const playTTS = async (msg: Message) => {
-    if (playingAudioId === msg.id) {
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
-      setPlayingAudioId(null);
-      return;
-    }
-    
-    setLoadingAudioId(msg.id);
-    try {
-      const textToSpeak = msg.text.replace(/[*#]/g, '');
-      const data = await api.post('/ai-coaching/tts', { text: textToSpeak }); 
-      if (data.audioBase64) {
-        if (audioRef.current) {
-           audioRef.current.pause();
-        }
-        const audio = new Audio(`data:audio/mp3;base64,${data.audioBase64}`);
-        audio.onended = () => setPlayingAudioId(null);
-        audioRef.current = audio;
-        audio.play();
-        setPlayingAudioId(msg.id);
-      }
-    } catch (e) {
-      console.error('Failed to play TTS from backend, falling back to browser TTS', e);
-      // Fallback: Browser native TTS
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel(); // Stop any ongoing speech
-        const utterance = new SpeechSynthesisUtterance(msg.text.replace(/[*#]/g, ''));
-        utterance.lang = 'fr-FR';
-        utterance.rate = 1.0;
-        
-        utterance.onend = () => setPlayingAudioId(null);
-        utterance.onerror = () => setPlayingAudioId(null);
-        
-        window.speechSynthesis.speak(utterance);
-        setPlayingAudioId(msg.id);
-      }
-    } finally {
-      setLoadingAudioId(null);
-    }
-  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -505,10 +457,6 @@ export const AIChat: React.FC = () => {
                 {msg.sender === 'ai' && (
                   <div className="message-ai-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div className="message-ai-name">{aiName}</div>
-                    <button className="tts-play-btn" onClick={() => playTTS(msg)} title="Écouter">
-                       {loadingAudioId === msg.id ? <Loader size={14} className="spin" /> : 
-                        playingAudioId === msg.id ? <Square size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
-                    </button>
                   </div>
                 )}
                 <div className="message-content">
