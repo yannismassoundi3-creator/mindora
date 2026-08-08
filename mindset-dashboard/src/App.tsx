@@ -6,12 +6,6 @@ import { Onboarding } from './components/Onboarding';
 import { AIChat } from './components/AIChat';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { AuthScreen } from './components/AuthScreen';
-import { Shop } from './pages/Shop';
-import { Objectives } from './pages/Objectives';
-import { Habits } from './pages/Habits';
-import { Profile } from './pages/Profile';
-import { Inventory } from './pages/Inventory';
-import { PricingScreen } from './pages/PricingScreen';
 import { LevelUpOverlay } from './components/LevelUpOverlay';
 import { RankUpOverlay } from './components/RankUpOverlay';
 import { StreakBrokenOverlay } from './components/StreakBrokenOverlay';
@@ -23,6 +17,14 @@ import { PwaInstallPrompt } from './components/PwaInstallPrompt';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import './styles/global.css';
 import './index.css';
+
+// Lazy load heavy pages for code-splitting
+const Shop = React.lazy(() => import('./pages/Shop').then(module => ({ default: module.Shop })));
+const Objectives = React.lazy(() => import('./pages/Objectives').then(module => ({ default: module.Objectives })));
+const Habits = React.lazy(() => import('./pages/Habits').then(module => ({ default: module.Habits })));
+const Profile = React.lazy(() => import('./pages/Profile').then(module => ({ default: module.Profile })));
+const Inventory = React.lazy(() => import('./pages/Inventory').then(module => ({ default: module.Inventory })));
+const PricingScreen = React.lazy(() => import('./pages/PricingScreen').then(module => ({ default: module.PricingScreen })));
 
 const APP_VERSION = '1.0.5'; // Change this string to force a global cache clear
 const currentVersion = localStorage.getItem('mindset_app_version');
@@ -263,7 +265,7 @@ function App() {
               <SkeletonGlow rows={4} />
             </div>
           ) : (
-            <>
+            <React.Suspense fallback={<div style={{ padding: '20px' }}><SkeletonGlow rows={4} /></div>}>
               {currentView === 'dashboard' && <Dashboard onOpenChat={tryOpenChat} />}
               {currentView === 'chat' && <AIChat />}
               {currentView === 'objectives' && <Objectives onOpenChat={tryOpenChat} />}
@@ -271,7 +273,7 @@ function App() {
               {currentView === 'profile' && <Profile onNameChange={() => window.location.reload()} />}
               {currentView === 'shop' && <Shop />}
               {currentView === 'inventory' && <Inventory />}
-            </>
+            </React.Suspense>
           )}
         </div>
         

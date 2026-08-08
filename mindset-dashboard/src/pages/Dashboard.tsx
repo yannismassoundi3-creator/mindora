@@ -258,6 +258,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
 
   const toggleNutrition = (e: React.MouseEvent, id: number) => {
     e.stopPropagation();
+    // Haptic feedback
+    if ('vibrate' in navigator) navigator.vibrate([15, 10, 15]);
+    
     playClickSound();
     const updated = nutritionList.map((n: any) => n.id === id ? { ...n, done: !n.done } : n);
     setNutritionList(updated);
@@ -477,6 +480,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   };
 
   const toggleRoutine = (e: React.MouseEvent, id: number) => {
+    // Haptic feedback
+    if ('vibrate' in navigator) navigator.vibrate([15, 10, 15]);
+
     let itemWasDone = false;
     let newlyDoneCount = 0;
 

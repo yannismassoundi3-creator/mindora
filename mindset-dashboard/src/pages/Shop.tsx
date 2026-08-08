@@ -96,6 +96,9 @@ export const Shop: React.FC = () => {
       localStorage.setItem('mindset_inventory_rewards', JSON.stringify(updatedInventory));
       window.dispatchEvent(new Event('storage')); // trigger sync
       
+      // Haptic feedback for purchase
+      if ('vibrate' in navigator) navigator.vibrate([30, 20, 30]);
+
       setPurchasedId(reward.id);
       playLevelUpSound();
       setTimeout(() => setPurchasedId(null), 2000);
@@ -126,6 +129,10 @@ export const Shop: React.FC = () => {
       const updatedOwned = [...ownedCosmetics, cosmetic.id];
       setOwnedCosmetics(updatedOwned);
       localStorage.setItem('mindset_owned_cosmetics', JSON.stringify(updatedOwned));
+      
+      // Haptic feedback for purchase
+      if ('vibrate' in navigator) navigator.vibrate([30, 20, 30]);
+
       setPurchasedId(cosmetic.id);
       playLevelUpSound();
       

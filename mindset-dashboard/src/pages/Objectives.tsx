@@ -180,6 +180,9 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
   };
 
   const toggleMicro = (id: number) => {
+    // Haptic feedback
+    if ('vibrate' in navigator) navigator.vibrate([15, 10, 15]);
+    
     setMicroObjectives(prev => prev.map(obj => {
       if (obj.id === id) {
         const isNowDone = !obj.done;
@@ -248,6 +251,10 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
   const toggleMacro = (id: number, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    
+    // Haptic feedback
+    if ('vibrate' in navigator) navigator.vibrate([15, 10, 15]);
+
     setMacroObjectives(prev => prev.map(m => {
       if (m.id === id) {
         const isNowDone = !m.done;

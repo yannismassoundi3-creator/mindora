@@ -253,9 +253,20 @@ export const AIChat: React.FC = () => {
     window.dispatchEvent(new Event('storage'));
   };
 
-  const handleSend = async (e?: React.FormEvent, customText?: string) => {
+  const handleSend = async (e?: React.FormEvent, directMessage?: string) => {
     if (e) e.preventDefault();
-    const currentInput = customText || inputValue;
+    
+    if (!navigator.onLine) {
+      setMessages(prev => [...prev, {
+        id: Date.now(),
+        text: "📶 **Hors-Ligne**\nJe ne peux pas me connecter au réseau. Vérifiez votre connexion internet et réessayez.",
+        sender: 'ai',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }]);
+      return;
+    }
+
+    const currentInput = directMessage || inputValue;
     if (!currentInput.trim()) return;
 
     playBloopSound();

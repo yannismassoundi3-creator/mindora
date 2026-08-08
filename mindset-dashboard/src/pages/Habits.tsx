@@ -144,6 +144,11 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
   };
 
   const toggleHabitToday = (e: React.MouseEvent, habitId: string) => {
+    // Haptic feedback for satisfaction
+    if ('vibrate' in navigator) {
+      navigator.vibrate([15, 10, 15]);
+    }
+
     const today = getTodayKey();
     let habitCompletedNow = false;
     let leveledUp = false;
