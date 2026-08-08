@@ -51,13 +51,6 @@ export const VictoryGlitchOverlay: React.FC<VictoryGlitchOverlayProps> = ({ onCl
           }}></div>
         ))}
       </div>
-      
-      {/* Central Glitch Ring */}
-      <div className="cyber-ring-container">
-         <div className="cyber-ring red-split"></div>
-         <div className="cyber-ring cyan-split"></div>
-         <div className="cyber-ring main-ring"></div>
-      </div>
     </div>
   );
 };

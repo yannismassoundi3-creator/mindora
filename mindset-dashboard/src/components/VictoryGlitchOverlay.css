@@ -33,11 +33,11 @@
   width: 50vw;
   height: 50vw;
   border-radius: 50%;
-  border: 4px solid rgba(255, 255, 255, 0.6);
+  border: 4px solid rgba(130, 210, 255, 0.6);
   animation: shockwave-expand 0.5s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
 }
-.cyber-shockwave.delay-1 { animation-delay: 0.1s; border-color: rgba(255, 255, 255, 0.2); }
-.cyber-shockwave.delay-2 { animation-delay: 0.2s; border-color: rgba(255, 255, 255, 0.8); }
+.cyber-shockwave.delay-1 { animation-delay: 0.1s; border-color: rgba(100, 180, 255, 0.2); }
+.cyber-shockwave.delay-2 { animation-delay: 0.2s; border-color: rgba(180, 230, 255, 0.8); }
 
 @keyframes shockwave-expand {
   0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
@@ -53,55 +53,17 @@
 .glitch-line {
   position: absolute;
   height: 3px;
-  background: #fff;
-  box-shadow: 0 0 15px rgba(255, 255, 255, 0.9);
+  background: #d4f0ff;
+  box-shadow: 0 0 15px rgba(130, 210, 255, 0.9);
   opacity: 0;
   animation: line-flash 0.1s infinite alternate;
 }
 .glitch-line:nth-child(even) {
-  background: rgba(255, 255, 255, 0.7);
-  box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
+  background: rgba(200, 240, 255, 0.7);
+  box-shadow: 0 0 15px rgba(100, 180, 255, 0.4);
 }
 
 @keyframes line-flash {
   0% { opacity: 0; transform: translateX(-40px); }
   100% { opacity: 1; transform: translateX(40px); }
-}
-
-.cyber-ring-container {
-  position: relative;
-  width: 250px;
-  height: 250px;
-}
-
-.cyber-ring {
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  border-radius: 50%;
-  border: 20px solid #fff;
-  box-shadow: 0 0 40px rgba(255, 255, 255, 0.8), inset 0 0 40px rgba(255, 255, 255, 0.8);
-  animation: ring-glitch 0.1s infinite;
-  clip-path: polygon(0 0, 100% 0, 100% 30%, 0 30%, 0 40%, 100% 40%, 100% 60%, 0 60%, 0 70%, 100% 70%, 100% 100%, 0 100%);
-}
-
-.cyber-ring.cyan-split {
-  border-color: rgba(255, 255, 255, 0.5);
-  box-shadow: none;
-  transform: translateX(-20px);
-  mix-blend-mode: screen;
-  clip-path: polygon(0 15%, 100% 15%, 100% 25%, 0 25%, 0 50%, 100% 50%, 100% 80%, 0 80%);
-}
-
-.cyber-ring.red-split {
-  border-color: rgba(255, 255, 255, 0.2);
-  box-shadow: none;
-  transform: translateX(20px);
-  mix-blend-mode: screen;
-  clip-path: polygon(0 5%, 100% 5%, 100% 45%, 0 45%, 0 65%, 100% 65%, 100% 90%, 0 90%);
-}
-
-@keyframes ring-glitch {
-  0% { transform: translateX(3px) scale(1.02); }
-  50% { transform: translateX(-4px) scale(0.98); }
-  100% { transform: translateX(2px) scale(1); }
 }
