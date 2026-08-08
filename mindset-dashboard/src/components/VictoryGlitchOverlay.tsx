@@ -15,7 +15,7 @@ export const VictoryGlitchOverlay: React.FC<VictoryGlitchOverlayProps> = ({ onCl
     const t = setTimeout(() => {
       document.body.classList.remove('cyber-glitch-active');
       onClose();
-    }, 500);
+    }, 800);
 
     return () => {
       clearTimeout(t);
