@@ -523,12 +523,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
       setPoints(newPoints);
       localStorage.setItem('mindset_points', newPoints.toString());
       window.dispatchEvent(new CustomEvent('pointsChanged', { detail: newPoints }));
-
-      if (newlyDoneCount === totalRoutines) {
-        playLevelUpSound();
-        setTimeout(() => triggerDopamine(), 500);
-        setTimeout(() => triggerDopamine(), 1000);
-      }
     } else {
       const newPoints = Math.max(0, points - 5);
       setPoints(newPoints);
