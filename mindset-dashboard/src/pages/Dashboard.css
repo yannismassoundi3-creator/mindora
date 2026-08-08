@@ -320,11 +320,14 @@
   max-height: 55vh;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 15px; /* Prevent clipping of neon shadows */
-  margin: -15px; /* Offset the padding so layout doesn't shift */
+  padding: 30px 20px; /* Huge padding to completely prevent clipping of neon shadows */
+  margin: -30px -20px; /* Offset the padding so layout doesn't shift */
+  /* Firefox Scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-purple) transparent;
 }
 
-/* Custom Neon Scrollbar for Routine List */
+/* Custom Neon Scrollbar for Webkit (Chrome/Edge/Safari) */
 .routine-list::-webkit-scrollbar {
   width: 4px;
 }
