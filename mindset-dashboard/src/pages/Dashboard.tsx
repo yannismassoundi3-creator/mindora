@@ -144,12 +144,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   const rank = getRankForLevel(level);
 
   const handleRankClick = () => {
-    try {
-      const userName = localStorage.getItem('mindset_user_name')?.toLowerCase() || '';
-      const isAdmin = userName.includes('yannis') || userName.includes('admin') || userName.includes('mindora');
-      if (!isAdmin) return; // Only allow admin/developer to cheat ranks
-    } catch(e) {
-      return;
+    // SECURITY: The only way to trigger this cheat is to manually type 
+    // localStorage.setItem('dev_mode', 'true') in the browser console.
+    if (localStorage.getItem('dev_mode') !== 'true') {
+      return; 
     }
 
     const currentRankIndex = RANKS.findIndex(r => r.name === rank.name);
