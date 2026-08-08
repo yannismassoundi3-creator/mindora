@@ -65,12 +65,20 @@ export const AIChat: React.FC = () => {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const isInitialMount = useRef(true);
+
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+    messagesEndRef.current?.scrollIntoView({ behavior });
   };
 
   useEffect(() => {
-    scrollToBottom();
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      scrollToBottom('auto');
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'auto' });
+    } else {
+      scrollToBottom('smooth');
+    }
   }, [messages, isTyping]);
 
   const addAiNotification = (type: string, message: string) => {
