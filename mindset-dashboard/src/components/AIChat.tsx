@@ -279,7 +279,7 @@ export const AIChat: React.FC = () => {
     };
 
     setMessages(prev => [...prev, newUserMsg]);
-    if (!customText) setInputValue('');
+    if (!directMessage) setInputValue('');
     setIsTyping(true);
 
     try {
