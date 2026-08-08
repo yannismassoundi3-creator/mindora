@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Target, Flag, Trophy, Plus, CheckCircle2, Circle, Sparkles, Pencil, Trash2, X } from 'lucide-react';
-import confetti from 'canvas-confetti';
 import { playClickSound, playLevelUpSound } from '../utils/sounds';
 import { AI_COSMETICS } from '../utils/cosmetics';
 import { AiNotification } from '../components/AiNotification';
@@ -189,7 +188,9 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
         
         if (isNowDone) {
           playLevelUpSound();
-          confetti({ particleCount: 80, spread: 60, origin: { y: 0.8 }, colors: ['#3b82f6', '#ec4899', '#fcd34d'] });
+          window.dispatchEvent(new CustomEvent('triggerShockwave', { 
+            detail: { x: window.innerWidth / 2, y: window.innerHeight / 2, color: '#3b82f6' } 
+          }));
           awardCoins(5);
         } else {
           playClickSound();
@@ -224,7 +225,9 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
           newProgress = obj.total;
           isNowDone = true;
           playLevelUpSound();
-          confetti({ particleCount: 80, spread: 60, origin: { y: 0.8 }, colors: ['#3b82f6', '#ec4899', '#fcd34d'] });
+          window.dispatchEvent(new CustomEvent('triggerShockwave', { 
+            detail: { x: window.innerWidth / 2, y: window.innerHeight / 2, color: '#3b82f6' } 
+          }));
           awardCoins(5);
         }
         
@@ -260,7 +263,9 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
         const isNowDone = !m.done;
         if (isNowDone) {
           playLevelUpSound();
-          confetti({ particleCount: 150, spread: 100, origin: { y: 0.6 }, colors: ['#f59e0b', '#ec4899', '#3b82f6', '#8b5cf6'] });
+          window.dispatchEvent(new CustomEvent('triggerShockwave', { 
+            detail: { x: window.innerWidth / 2, y: window.innerHeight / 2, color: '#f59e0b' } 
+          }));
           awardCoins(5);
         } else {
           playClickSound();

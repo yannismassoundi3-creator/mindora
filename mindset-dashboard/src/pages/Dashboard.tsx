@@ -3,7 +3,6 @@ import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, LineCh
 import { Play, CheckCircle2, TrendingUp, Zap, Sparkles, Pencil, Coins, Circle, ChevronLeft, ChevronRight, Plus, Trophy, Calendar, Trash2 } from 'lucide-react';
 import { AiNotification } from '../components/AiNotification';
 import { RankIcon } from '../components/RankIcon';
-import confetti from 'canvas-confetti';
 import { api } from '../services/api';
 import { RANKS, getRankForLevel } from '../utils/ranks';
 import { playClickSound, playBloopSound, playLevelUpSound } from '../utils/sounds';
@@ -464,19 +463,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   };
 
   const triggerDopamine = (e?: React.MouseEvent) => {
-    let x = 0.5;
-    let y = 0.5;
+    let x = window.innerWidth / 2;
+    let y = window.innerHeight / 2;
     if (e) {
-      const rect = (e.target as HTMLElement).getBoundingClientRect();
-      x = (rect.left + rect.width / 2) / window.innerWidth;
-      y = (rect.top + rect.height / 2) / window.innerHeight;
+      x = e.clientX;
+      y = e.clientY;
     }
-    confetti({
-      particleCount: 80,
-      spread: 80,
-      origin: { x, y },
-      colors: ['#ec4899', '#3b82f6', '#8b5cf6', '#fcd34d']
-    });
+    window.dispatchEvent(new CustomEvent('triggerShockwave', { 
+      detail: { x, y, color: '#ec4899' } 
+    }));
   };
 
   const toggleRoutine = (e: React.MouseEvent, id: number) => {

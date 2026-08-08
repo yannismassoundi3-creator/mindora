@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { CheckCircle, Zap, Shield, Crown, Sparkles, X } from 'lucide-react';
-import confetti from 'canvas-confetti';
 import { playLevelUpSound } from '../utils/sounds';
 import { api } from '../services/api';
 import './PricingScreen.css';
@@ -24,8 +23,9 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
       const res = await api.post('/subscriptions/checkout', { planType: selectedPlan });
       if (res.checkoutUrl) {
         if (res.checkoutUrl.includes('mock=true')) {
-          // Mode développement sans clé Stripe
-          confetti({ particleCount: 150, spread: 100, origin: { y: 0.6 }, colors: ['#3b82f6', '#8b5cf6', '#ec4899'] });
+          window.dispatchEvent(new CustomEvent('triggerShockwave', { 
+            detail: { x: window.innerWidth / 2, y: window.innerHeight / 2, color: '#8b5cf6' } 
+          }));
           onSubscribe();
         } else {
           // Redirection vers la vraie page Stripe

@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Trophy, TrendingUp, Calendar, Zap, AlertTriangle, Play, Edit2, Pencil, Trash2, Plus, Target, BookOpen, Dumbbell, Brain, Coffee, Sparkles, X } from 'lucide-react';
-import confetti from 'canvas-confetti';
 import { playLevelUpSound, playClickSound, playErrorSound, playBloopSound } from '../utils/sounds';
 import { AiNotification } from '../components/AiNotification';
 import './Habits.css';
@@ -136,11 +135,14 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
     
     if (isLevelUp) {
       playLevelUpSound();
-      confetti({ particleCount: 150, spread: 100, origin: { y: 0.6 }, colors: [color, '#fcd34d', '#ffffff'] });
     } else {
       playBloopSound();
-      confetti({ particleCount: 40, spread: 50, origin: { x, y }, colors: [color, '#ffffff'] });
     }
+
+    // Trigger shockwave effect instead of confetti
+    window.dispatchEvent(new CustomEvent('triggerShockwave', { 
+      detail: { x, y, color } 
+    }));
   };
 
   const toggleHabitToday = (e: React.MouseEvent, habitId: string) => {

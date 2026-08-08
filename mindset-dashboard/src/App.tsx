@@ -14,6 +14,7 @@ import { SkeletonGlow } from './components/SkeletonGlow';
 import { ParticlesBackground } from './components/ParticlesBackground';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { PwaInstallPrompt } from './components/PwaInstallPrompt';
+import { ShockwaveOverlay } from './components/ShockwaveOverlay';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import './styles/global.css';
 import './index.css';
@@ -158,14 +159,11 @@ function App() {
           localStorage.setItem('mindset_is_subscribed', subscribed ? 'true' : 'false');
 
           if (urlParams.get('success') === 'true') {
-            import('canvas-confetti').then((confetti) => {
-              confetti.default({
-                particleCount: 150,
-                spread: 100,
-                origin: { y: 0.6 },
-                colors: ['#3b82f6', '#8b5cf6', '#ec4899']
-              });
-            });
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('triggerShockwave', { 
+                detail: { x: window.innerWidth / 2, y: window.innerHeight / 2, color: '#3b82f6' } 
+              }));
+            }, 500); // Small delay to let the app render
             window.history.replaceState({}, document.title, window.location.pathname);
           }
         }
@@ -286,6 +284,7 @@ function App() {
         <LevelUpOverlay />
         <RankUpOverlay />
         <StreakBrokenOverlay />
+        <ShockwaveOverlay />
         <PwaInstallPrompt />
 
         {/* PWA Update Prompt */}
