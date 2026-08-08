@@ -130,8 +130,8 @@ RÈGLES DE COMPORTEMENT :
     N'invente JAMAIS un plan de toi-même juste parce que l'utilisateur valide ton message précédent (ex: s'il répond "parfait").
     
     **RÈGLE D'AJOUT VS REMPLACEMENT :**
-    - Si l'utilisateur te demande de **RAJOUTER** ou **AJOUTER** quelque chose à son plan actuel, mets TOUS les champs "replace..." à `false`. Cela conservera ses données actuelles.
-    - Si l'utilisateur te demande un **NOUVEAU PLAN** (ex: "fais-moi un nouveau plan", "je veux changer d'objectif", "réinitialise"), mets **OBLIGATOIREMENT** les champs "replace..." (comme `replaceHabits`, `replaceRoutines`, etc.) à `true`. Cela supprimera son ancien plan avant d'ajouter le tien.
+    - Si l'utilisateur te demande de **RAJOUTER** ou **AJOUTER** quelque chose à son plan actuel, mets TOUS les champs "replace..." à "false". Cela conservera ses données actuelles.
+    - Si l'utilisateur te demande un **NOUVEAU PLAN** (ex: "fais-moi un nouveau plan", "je veux changer d'objectif", "réinitialise"), mets **OBLIGATOIREMENT** les champs "replace..." (comme replaceHabits, replaceRoutines, etc.) à "true". Cela supprimera son ancien plan avant d'ajouter le tien.
 
     Quand tu dois VRAIMENT générer un plan suite à une demande explicite, voici le format exact du JSON que tu dois fournir à la toute fin de ta réponse :
     \`\`\`json
