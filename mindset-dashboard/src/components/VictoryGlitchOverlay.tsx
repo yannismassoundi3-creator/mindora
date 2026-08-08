@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import './VictoryGlitchOverlay.css';
 import { playGlitchSound } from '../utils/sounds';
 
@@ -10,47 +10,54 @@ export const VictoryGlitchOverlay: React.FC<VictoryGlitchOverlayProps> = ({ onCl
   useEffect(() => {
     playGlitchSound();
     
-    // Appliquer le glitch sur TOUT le corps du document
-    document.body.classList.add('global-glitch-active');
+    document.body.classList.add('cyber-glitch-active');
     
     const t = setTimeout(() => {
-      document.body.classList.remove('global-glitch-active');
+      document.body.classList.remove('cyber-glitch-active');
       onClose();
     }, 500);
 
     return () => {
       clearTimeout(t);
-      document.body.classList.remove('global-glitch-active');
+      document.body.classList.remove('cyber-glitch-active');
     };
   }, [onClose]);
 
+  // Generate random lines only once per mount
+  const lines = useMemo(() => {
+    return [...Array(25)].map((_, i) => ({
+      top: `${Math.random() * 100}%`,
+      left: `${Math.random() * 100}%`,
+      width: `${Math.random() * 150 + 30}px`,
+      delay: `${Math.random() * 0.2}s`
+    }));
+  }, []);
+
   return (
-    <svg style={{ position: 'fixed', width: 0, height: 0, pointerEvents: 'none', zIndex: -1 }}>
-      <filter id="svg-macro-glitch">
-        {/* 1. Dformation "Espace-Temps" en carrs */}
-        <feTurbulence type="fractalNoise" baseFrequency="0.02 0.02" numOctaves="1" result="blocks" />
-        <feComponentTransfer in="blocks" result="steppedBlocks">
-          <feFuncR type="discrete" tableValues="0 0.5 1" />
-          <feFuncG type="discrete" tableValues="0 0.5 1" />
-        </feComponentTransfer>
-        <feDisplacementMap in="SourceGraphic" in2="steppedBlocks" scale="80" xChannelSelector="R" yChannelSelector="G" result="square-displaced" />
-
-        {/* 2. Bandes Horizontales Coupe (Style VHS / Image envoy) */}
-        <feTurbulence type="fractalNoise" baseFrequency="0.001 0.15" numOctaves="1" result="strips" />
-        <feComponentTransfer in="strips" result="steppedStrips">
-          <feFuncR type="discrete" tableValues="0 0.3 0.7 1" />
-        </feComponentTransfer>
-        <feDisplacementMap in="square-displaced" in2="steppedStrips" scale="200" xChannelSelector="R" yChannelSelector="R" result="final-displaced" />
-
-        {/* 3. Sparation RVB massive (Rouge/Cyan) */}
-        <feColorMatrix in="final-displaced" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="red" />
-        <feOffset in="red" dx="-40" dy="0" result="red-shifted" />
-
-        <feColorMatrix in="final-displaced" type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 1 0" result="cyan" />
-        <feOffset in="cyan" dx="40" dy="0" result="cyan-shifted" />
-
-        <feBlend mode="screen" in="red-shifted" in2="cyan-shifted" result="rgb-split" />
-      </filter>
-    </svg>
+    <div className="cyber-glitch-container">
+      {/* Concentric shockwaves */}
+      <div className="cyber-shockwave"></div>
+      <div className="cyber-shockwave delay-1"></div>
+      <div className="cyber-shockwave delay-2"></div>
+      
+      {/* Random glowing horizontal lines */}
+      <div className="glitch-lines">
+        {lines.map((style, i) => (
+          <div key={i} className="glitch-line" style={{
+            top: style.top,
+            left: style.left,
+            width: style.width,
+            animationDelay: style.delay
+          }}></div>
+        ))}
+      </div>
+      
+      {/* Central Glitch Ring */}
+      <div className="cyber-ring-container">
+         <div className="cyber-ring red-split"></div>
+         <div className="cyber-ring cyan-split"></div>
+         <div className="cyber-ring main-ring"></div>
+      </div>
+    </div>
   );
 };
