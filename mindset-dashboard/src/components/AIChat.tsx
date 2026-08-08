@@ -400,8 +400,22 @@ export const AIChat: React.FC = () => {
       if (jsonStr) {
         try {
           const planData = JSON.parse(jsonStr);
-          applyPlanData(planData);
-          replyText += "\n\n✅ **Plan appliqué avec succès ! L'interface a été mise à jour.**";
+          
+          // Check if it's actually an actionable plan and not just random JSON
+          const isActionable = 
+            (planData.newHabits && planData.newHabits.length > 0) ||
+            (planData.newRoutines && planData.newRoutines.length > 0) ||
+            (planData.newNutrition && planData.newNutrition.length > 0) ||
+            (planData.newMacroObjectives && planData.newMacroObjectives.length > 0) ||
+            (planData.newObjectives && planData.newObjectives.length > 0) ||
+            (planData.newMicroObjectives && planData.newMicroObjectives.length > 0) ||
+            planData.replaceHabits || planData.replaceRoutines || planData.replaceNutrition || 
+            planData.replaceMacroObjectives || planData.replaceMicroObjectives;
+
+          if (isActionable) {
+            applyPlanData(planData);
+            replyText += "\n\n✅ **Plan appliqué avec succès ! L'interface a été mise à jour.**";
+          }
         } catch(e) {
           console.error("Failed to parse plan JSON", e);
         }
