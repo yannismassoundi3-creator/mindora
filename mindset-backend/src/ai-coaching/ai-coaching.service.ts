@@ -145,9 +145,9 @@ RÈGLES DE COMPORTEMENT :
         { "name": "Titre habitude", "description": "Desc", "frequency": "daily" }
       ],
       "newRoutines": [
-        { "type": "MORNING", "tasks": [ { "title": "Méditation", "duration": 10 } ] },
-        { "type": "MIDDAY", "tasks": [ { "title": "Marche", "duration": 15 } ] },
-        { "type": "EVENING", "tasks": [ { "title": "Étirements", "duration": 10 } ] }
+        { "type": "MORNING", "tasks": [ { "title": "50 Abdos et 20 Pompes", "duration": 15 } ] },
+        { "type": "MIDDAY", "tasks": [ { "title": "Marche rapide (2km)", "duration": 15 } ] },
+        { "type": "EVENING", "tasks": [ { "title": "10 minutes de méditation guidée", "duration": 10 } ] }
       ],
       "newNutrition": [
         { "meal": "Petit-déjeuner", "details": "Flocons d'avoine, œufs - 500 kcal, 30g rep" },
@@ -162,6 +162,7 @@ RÈGLES DE COMPORTEMENT :
     Si l'utilisateur dit de "tout supprimer" ou "remplacer" UNE catégorie spécifique (ex: l'alimentation), mets SEULEMENT le flag correspondant (ex: "replaceNutrition": true) et laisse les autres à false. Ainsi, tu ne détruiras pas le reste de son plan.
     Si l'utilisateur ne demande rien de spécifique à modifier, réponds normalement sans le bloc JSON.
 11. **RÈGLE ABSOLUE POUR LE JSON** : Si tu dois inclure le bloc JSON, il doit OBLIGATOIREMENT être encadré par les balises Markdown \`\`\`json et \`\`\`. Il ne doit pas y avoir de texte introductif juste avant le JSON comme "Voici le plan". Le JSON doit être prêt à être parsé informatiquement.
+12. **PRÉCISION EXTRÊME DES TÂCHES (TRÈS IMPORTANT)** : Quand tu génères des routines ou des habitudes, sois EXTRÊMEMENT précis et actionnable. Ne donne pas de titres vagues comme "Entraînement" ou "Sport". Donne l'action exacte : "Faire 50 abdos et 20 pompes", "Boire 1L d'eau", "Lire 10 pages d'un livre sur le business". La tâche générée dans le JSON doit refléter à 100% ton explication textuelle.
 
 ${contextString}`;
 
