@@ -124,15 +124,15 @@
   justify-content: flex-end;
   padding: 24px;
   color: var(--primary);
+  background: var(--bg-panel);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   cursor: pointer;
   box-shadow: 0 10px 30px rgba(0,0,0,0.3);
 }
 
-.macro-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 15px 40px rgba(0,0,0,0.5);
-}
+
 
 .macro-card .edit-hint {
   position: absolute;
@@ -154,12 +154,6 @@
   opacity: 1;
 }
 
-.macro-overlay {
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%);
-  z-index: 1;
-}
 
 .macro-content {
   position: relative;

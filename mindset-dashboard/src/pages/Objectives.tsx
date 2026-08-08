@@ -341,10 +341,9 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
               <div 
                 key={macro.id} 
                 className={`macro-card glass-panel-interactive ${macro.done ? 'done' : ''}`} 
-                style={{ background: macro.bgGradient, opacity: macro.done ? 0.6 : 1 }}
+                style={{ opacity: macro.done ? 0.6 : 1 }}
                 onClick={() => openMacroModal(macro)}
               >
-                <div className="macro-overlay"></div>
                 <div className="macro-content">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <span className="macro-category">{macro.category}</span>
