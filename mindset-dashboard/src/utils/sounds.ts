@@ -14,7 +14,7 @@ const getContext = () => {
 };
 
 // --- HAPTIC FEEDBACK ---
-const vibrate = (pattern: number | number[]) => {
+export const vibrate = (pattern: number | number[]) => {
   try {
     if ('vibrate' in navigator) {
       navigator.vibrate(pattern);
