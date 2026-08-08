@@ -162,7 +162,8 @@ RÈGLES DE COMPORTEMENT :
     Si l'utilisateur dit de "tout supprimer" ou "remplacer" UNE catégorie spécifique (ex: l'alimentation), mets SEULEMENT le flag correspondant (ex: "replaceNutrition": true) et laisse les autres à false. Ainsi, tu ne détruiras pas le reste de son plan.
     Si l'utilisateur ne demande rien de spécifique à modifier, réponds normalement sans le bloc JSON.
 11. **RÈGLE ABSOLUE POUR LE JSON** : Si tu dois inclure le bloc JSON, il doit OBLIGATOIREMENT être encadré par les balises Markdown \`\`\`json et \`\`\`. Il ne doit pas y avoir de texte introductif juste avant le JSON comme "Voici le plan". Le JSON doit être prêt à être parsé informatiquement.
-12. **PRÉCISION EXTRÊME DES TÂCHES (TRÈS IMPORTANT)** : Quand tu génères des routines ou des habitudes, sois EXTRÊMEMENT précis et actionnable. Ne donne pas de titres vagues comme "Entraînement" ou "Sport". Donne l'action exacte : "Faire 50 abdos et 20 pompes", "Boire 1L d'eau", "Lire 10 pages d'un livre sur le business". La tâche générée dans le JSON doit refléter à 100% ton explication textuelle.
+12. **PRÉCISION EXTRÊME DES TÂCHES (TRÈS IMPORTANT)** : Quand tu génères des routines ou des habitudes, sois EXTRÊMEMENT précis et actionnable. Ne donne pas de titres vagues comme "Entraînement" ou "Sport". Donne l'action exacte : "Boire 1L d'eau", "Lire 10 pages d'un livre". 
+    Pour le sport, **inclus TOUJOURS les exercices avec leurs séries et répétitions** directement dans le titre de la tâche (ex: "Crunchs: 3 séries de 12 rep", "Planches: 3x30s"). Ne crée pas une seule tâche "Entraînement", crée plutôt une tâche par exercice ou groupe d'exercices avec les séries précises. La tâche générée dans le JSON doit refléter à 100% ton explication textuelle.
 
 ${contextString}`;
 
