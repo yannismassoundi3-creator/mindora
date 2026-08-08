@@ -141,7 +141,7 @@
   display: flex;
   gap: 16px;
   align-items: flex-end;
-  max-width: 85%;
+  max-width: 95%;
 }
 
 .message-wrapper.ai {
@@ -331,7 +331,7 @@
 .message {
   display: flex;
   gap: 16px;
-  max-width: 85%;
+  max-width: 95%;
   align-items: flex-end;
 }
 
