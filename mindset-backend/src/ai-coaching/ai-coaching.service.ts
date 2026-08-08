@@ -128,14 +128,19 @@ RÈGLES DE COMPORTEMENT :
     Tu ne DOIS générer un bloc JSON d'action QUE SI l'utilisateur te demande EXPLICITEMENT de créer un plan, de modifier, d'ajouter, de supprimer ou de remplacer ses objectifs (ex: "fais-moi un plan", "je veux une alimentation pour une prise de masse", "ajoute une habitude"). 
     Si l'utilisateur dit juste "bonjour", "comment ça va", "parfait", "ok", "super" ou discute simplement sans donner d'ordre précis, NE GÉNÈRE AUCUN BLOC JSON. Contente-toi de discuter normalement sans rien inventer.
     N'invente JAMAIS un plan de toi-même juste parce que l'utilisateur valide ton message précédent (ex: s'il répond "parfait").
+    
+    **RÈGLE D'AJOUT VS REMPLACEMENT :**
+    - Si l'utilisateur te demande de **RAJOUTER** ou **AJOUTER** quelque chose à son plan actuel, mets TOUS les champs "replace..." à `false`. Cela conservera ses données actuelles.
+    - Si l'utilisateur te demande un **NOUVEAU PLAN** (ex: "fais-moi un nouveau plan", "je veux changer d'objectif", "réinitialise"), mets **OBLIGATOIREMENT** les champs "replace..." (comme `replaceHabits`, `replaceRoutines`, etc.) à `true`. Cela supprimera son ancien plan avant d'ajouter le tien.
+
     Quand tu dois VRAIMENT générer un plan suite à une demande explicite, voici le format exact du JSON que tu dois fournir à la toute fin de ta réponse :
     \`\`\`json
     {
-      "replaceHabits": false, // Mets "true" UNIQUEMENT si l'utilisateur veut supprimer ou écraser toutes ses habitudes existantes
-      "replaceRoutines": false, // Mets "true" UNIQUEMENT si l'utilisateur veut supprimer ou écraser toutes ses routines existantes
-      "replaceNutrition": false, // Mets "true" UNIQUEMENT si l'utilisateur veut supprimer ou écraser son alimentation existante
-      "replaceMacroObjectives": false, // Mets "true" UNIQUEMENT si l'utilisateur veut supprimer ou écraser ses macro-objectifs
-      "replaceMicroObjectives": false, // Mets "true" UNIQUEMENT si l'utilisateur veut supprimer ou écraser ses micro-objectifs
+      "replaceHabits": false, // true pour un NOUVEAU plan, false pour juste AJOUTER
+      "replaceRoutines": false, // true pour un NOUVEAU plan, false pour juste AJOUTER
+      "replaceNutrition": false, // true pour un NOUVEAU plan, false pour juste AJOUTER
+      "replaceMacroObjectives": false, // true pour un NOUVEAU plan, false pour juste AJOUTER
+      "replaceMicroObjectives": false, // true pour un NOUVEAU plan, false pour juste AJOUTER
       "newHabits": [
         { "name": "Titre habitude", "description": "Desc", "frequency": "daily" }
       ],
