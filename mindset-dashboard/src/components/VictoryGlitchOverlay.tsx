@@ -26,24 +26,25 @@ export const VictoryGlitchOverlay: React.FC<VictoryGlitchOverlayProps> = ({ onCl
 
   return (
     <svg style={{ position: 'fixed', width: 0, height: 0, pointerEvents: 'none', zIndex: -1 }}>
-      {/* Glitch 1: Grosse distorsion horizontale + sparation RVB */}
-      <filter id="svg-glitch-1">
-        <feTurbulence type="fractalNoise" baseFrequency="0.001 0.4" numOctaves="1" result="warp" />
-        <feDisplacementMap in="SourceGraphic" in2="warp" scale="80" xChannelSelector="R" yChannelSelector="G" result="displaced" />
+      <filter id="svg-macro-glitch">
+        {/* Gnre un bruit trs grand (basses frquences) */}
+        <feTurbulence type="fractalNoise" baseFrequency="0.015 0.02" numOctaves="1" result="noise" />
         
-        <feColorMatrix in="displaced" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="red" />
-        <feOffset in="red" dx="15" dy="0" result="red-offset" />
+        {/* Transforme le bruit fluide en blocs carrs / paliers (macro-blocking) */}
+        <feComponentTransfer in="noise" result="steppedNoise">
+           <feFuncR type="discrete" tableValues="0 0.3 0.6 0.9 1" />
+           <feFuncG type="discrete" tableValues="0 0.3 0.6 0.9 1" />
+        </feComponentTransfer>
         
-        <feColorMatrix in="displaced" type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 1 0" result="cyan" />
-        <feOffset in="cyan" dx="-15" dy="0" result="cyan-offset" />
+        {/* Dcale l'image violemment en utilisant ces gros blocs */}
+        <feDisplacementMap in="SourceGraphic" in2="steppedNoise" scale="250" xChannelSelector="R" yChannelSelector="G" result="displaced" />
         
-        <feBlend mode="screen" in="red-offset" in2="cyan-offset" />
-      </filter>
-
-      {/* Glitch 2: Bruit haute frquence, dcalage brutal */}
-      <filter id="svg-glitch-2">
-        <feTurbulence type="fractalNoise" baseFrequency="0.01 0.1" numOctaves="2" result="warp" />
-        <feDisplacementMap in="SourceGraphic" in2="warp" scale="30" xChannelSelector="R" yChannelSelector="G" />
+        {/* Applique une corruption de couleur style JPEG/MP4 cass */}
+        <feColorMatrix in="displaced" type="matrix" values="
+          1.5 0   0   0 -0.2
+          0   0.5 0.8 0 -0.1
+          0.2 0   1.2 0 -0.1
+          0   0   0   1  0" />
       </filter>
     </svg>
   );
