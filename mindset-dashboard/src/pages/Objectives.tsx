@@ -373,9 +373,9 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
           </div>
           <p className="section-desc">Les petites victoires qui mènent à la grande.</p>
 
-          <div className="micro-list glass-panel">
+          <div className="micro-list">
             {microObjectives.map(micro => (
-              <div key={micro.id} className={`micro-item ${micro.done ? 'done' : ''}`}>
+              <div key={micro.id} className={`micro-item glass-panel-interactive ${micro.done ? 'done' : ''}`}>
                 {editingMicroId === micro.id ? (
                   <div className="micro-edit-form">
                     <input 
