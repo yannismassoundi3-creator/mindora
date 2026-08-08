@@ -22,7 +22,7 @@
   justify-content: center;
   align-items: center;
   pointer-events: none;
-  background: rgba(0, 5, 10, 0.4);
+  background: transparent;
   animation: glitch-fade-in-out 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
