@@ -41,6 +41,18 @@ export function AiNotification({ type }: AiNotificationProps) {
     return () => window.removeEventListener('storage', handleStorage);
   }, [type]);
 
+  const [isHiding, setIsHiding] = useState(false);
+
+  useEffect(() => {
+    if (notifications.length > 0) {
+      setIsHiding(false);
+      const timer = setTimeout(() => {
+        handleDismiss(notifications[0].id);
+      }, 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [notifications]);
+
   const dismissNotification = (id: string) => {
     try {
       const saved = JSON.parse(localStorage.getItem('mindset_ai_notifications') || '[]');
@@ -52,15 +64,21 @@ export function AiNotification({ type }: AiNotificationProps) {
     } catch {}
   };
 
+  const handleDismiss = (id: string) => {
+    setIsHiding(true);
+    setTimeout(() => {
+      dismissNotification(id);
+    }, 300);
+  };
+
   if (notifications.length === 0) return null;
 
-  // On affiche uniquement la plus récente pour ne pas encombrer
   const latestNotif = notifications[0];
 
   return (
     <div 
-      className="ai-notification-banner glass-panel fade-in" 
-      onClick={() => dismissNotification(latestNotif.id)}
+      className={`ai-notification-banner ${isHiding ? 'hiding' : ''}`} 
+      onClick={() => handleDismiss(latestNotif.id)}
     >
       <div className="ai-notification-icon-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {equippedCosmetic?.type === 'icon' ? (
@@ -77,13 +95,10 @@ export function AiNotification({ type }: AiNotificationProps) {
       <div className="ai-notification-content">
         <p>{latestNotif.message}</p>
         <div className="ai-notification-action-btn">
-          <span>Compris</span>
+          <span>Ouvrir</span>
           <ChevronRight size={14} />
         </div>
       </div>
-      <button className="ai-notification-close" onClick={() => dismissNotification(latestNotif.id)}>
-        <X size={14} />
-      </button>
     </div>
   );
 }
