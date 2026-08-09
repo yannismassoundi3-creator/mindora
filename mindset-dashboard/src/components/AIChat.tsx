@@ -403,33 +403,38 @@ export const AIChat: React.FC = () => {
 
       let jsonStr = "";
       
-      const codeBlockRegex = /```[a-zA-Z]*\s*([\s\S]*?)\s*```/g;
-      
-      replyText = replyText.replace(codeBlockRegex, (match, content) => {
-        if (content.includes('newHabits') || content.includes('newRoutines') || content.includes('replaceNutrition') || content.includes('newNutrition') || content.includes('macroObjectives')) {
-          if (!jsonStr) {
-            const start = content.indexOf('{');
-            const end = content.lastIndexOf('}');
-            if (start !== -1 && end !== -1) {
-              jsonStr = content.substring(start, end + 1);
-            } else {
-              // S'il manque les accolades principales, on essaie de les rajouter
-              jsonStr = "{" + content + "}";
+      const planMatch = replyText.match(/<PLAN>([\s\S]*?)<\/PLAN>/i);
+      if (planMatch) {
+        jsonStr = planMatch[1];
+        replyText = replyText.replace(/<PLAN>[\s\S]*?<\/PLAN>/i, '').trim();
+      } else {
+        const codeBlockRegex = /```[a-zA-Z]*\s*([\s\S]*?)\s*```/g;
+        
+        replyText = replyText.replace(codeBlockRegex, (match, content) => {
+          if (content.includes('newHabits') || content.includes('newRoutines') || content.includes('replaceNutrition') || content.includes('newNutrition') || content.includes('macroObjectives')) {
+            if (!jsonStr) {
+              const start = content.indexOf('{');
+              const end = content.lastIndexOf('}');
+              if (start !== -1 && end !== -1) {
+                jsonStr = content.substring(start, end + 1);
+              } else {
+                jsonStr = "{" + content + "}";
+              }
             }
+            return '';
           }
-          return ''; // On cache toujours ce bloc de l'UI
-        }
-        return match;
-      });
+          return match;
+        });
 
-      if (!jsonStr) {
-        const firstBrace = replyText.indexOf('{');
-        const lastBrace = replyText.lastIndexOf('}');
-        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-          const potentialJson = replyText.substring(firstBrace, lastBrace + 1);
-          if (potentialJson.includes('newHabits') || potentialJson.includes('newRoutines') || potentialJson.includes('replaceNutrition')) {
-            jsonStr = potentialJson;
-            replyText = replyText.replace(potentialJson, '').trim();
+        if (!jsonStr) {
+          const firstBrace = replyText.indexOf('{');
+          const lastBrace = replyText.lastIndexOf('}');
+          if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+            const potentialJson = replyText.substring(firstBrace, lastBrace + 1);
+            if (potentialJson.includes('newHabits') || potentialJson.includes('newRoutines') || potentialJson.includes('replaceNutrition')) {
+              jsonStr = potentialJson;
+              replyText = replyText.replace(potentialJson, '').trim();
+            }
           }
         }
       }
