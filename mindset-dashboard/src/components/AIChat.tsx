@@ -43,11 +43,31 @@ export const AIChat: React.FC = () => {
     return [defaultMessage];
   });
 
+  const cleanMessageText = (text: string) => {
+    let cleaned = text;
+    // Aggressive scrubbing to remove any leaked JSON or code blocks
+    cleaned = cleaned.replace(/```json\s*\{[\s\S]*?\}\s*```/ig, '');
+    cleaned = cleaned.replace(/```\s*\{[\s\S]*?\}\s*```/g, (match) => {
+      if (match.includes('"newHabits"') || match.includes('"newRoutines"') || match.includes('"replace')) return '';
+      return match;
+    });
+    // Match any block starting with { and containing our keywords, up to the last }
+    cleaned = cleaned.replace(/\{[\s\S]*?"(newHabits|newRoutines|newNutrition|newObjectives|newMacroObjectives|replaceRoutines|replaceHabits)"[\s\S]*?\}/g, '');
+    
+    cleaned = cleaned.replace(/Voici le.*?JSON.*?:/ig, '').trim();
+    cleaned = cleaned.replace(/Voici .*?plan.*?:/ig, '').trim();
+    return cleaned;
+  };
+
   useEffect(() => {
     // Fetch persistent history from backend
     api.get('/ai-coaching/history').then((data: any) => {
       if (Array.isArray(data) && data.length > 0) {
-        setMessages(data);
+        const cleanedData = data.map((m: any) => ({
+          ...m,
+          text: cleanMessageText(m.text)
+        }));
+        setMessages(cleanedData);
       }
     }).catch(e => console.error("Could not fetch persistent chat history", e));
   }, []);
@@ -439,16 +459,7 @@ export const AIChat: React.FC = () => {
         }
       }
       
-      // Aggressive scrubbing to remove any leaked JSON or code blocks that the AI might have hallucinated outside of the <PLAN> tags
-      replyText = replyText.replace(/```json\s*\{[\s\S]*?\}\s*```/ig, '');
-      replyText = replyText.replace(/```\s*\{[\s\S]*?\}\s*```/g, (match) => {
-        if (match.includes('"newHabits"') || match.includes('"newRoutines"') || match.includes('"replace')) return '';
-        return match;
-      });
-      replyText = replyText.replace(/\{[\s\S]*?"(newHabits|newRoutines|newNutrition|newObjectives|newMacroObjectives|replaceRoutines|replaceHabits)"[\s\S]*?\}/g, '');
-      
-      replyText = replyText.replace(/Voici le.*?JSON.*?:/ig, '').trim();
-      replyText = replyText.replace(/Voici .*?plan.*?:/ig, '').trim();
+      replyText = cleanMessageText(replyText);
 
       if (jsonStr) {
         try {
