@@ -367,13 +367,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
     const yMonth = String(yesterday.getMonth() + 1).padStart(2, '0');
     const yDay = String(yesterday.getDate()).padStart(2, '0');
     const yesterdayKey = `${yYear}-${yMonth}-${yDay}`;
-    
     const scores = loadDailyScores();
     const missedYesterday = !scores[yesterdayKey] || scores[yesterdayKey] === 0;
     
     if (currentStreak === 0 && savedPreviousStreak > 0 && missedYesterday) {
       setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('streakBroken', { detail: { lostStreak: savedPreviousStreak } }));
+        const aiName = localStorage.getItem('mindset_ai_name') || 'FAYWA';
+        const savedHistory = localStorage.getItem('mindset_ai_chat_history');
+        let parsed = [];
+        try { parsed = savedHistory ? JSON.parse(savedHistory) : []; } catch {}
+        
+        parsed.push({
+          id: Date.now(),
+          text: `⚠️ **Alerte Discipline** : J'ai remarqué que tu as brisé ta série de ${savedPreviousStreak} jours hier. \n\nL'échec fait partie du processus d'apprentissage. Ne te décourage pas, on s'y remet dès aujourd'hui !`,
+          sender: 'ai',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        });
+        localStorage.setItem('mindset_ai_chat_history', JSON.stringify(parsed));
+        window.dispatchEvent(new Event('storage'));
         
         const currentPoints = parseInt(localStorage.getItem('mindset_points') || '0', 10);
         const newPoints = Math.max(0, currentPoints - 50);

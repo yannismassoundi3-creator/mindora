@@ -8,7 +8,6 @@ import { WelcomeScreen } from './components/WelcomeScreen';
 import { AuthScreen } from './components/AuthScreen';
 import { LevelUpOverlay } from './components/LevelUpOverlay';
 import { RankUpOverlay } from './components/RankUpOverlay';
-import { StreakBrokenOverlay } from './components/StreakBrokenOverlay';
 import { LockScreen } from './components/LockScreen';
 import { SkeletonGlow } from './components/SkeletonGlow';
 import { ParticlesBackground } from './components/ParticlesBackground';
@@ -283,7 +282,6 @@ function App() {
         )}
         <LevelUpOverlay />
         <RankUpOverlay />
-        <StreakBrokenOverlay />
         <ShockwaveOverlay />
         <PwaInstallPrompt />
 
