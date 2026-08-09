@@ -17,20 +17,12 @@ export const AIChat: React.FC = () => {
   const aiName = localStorage.getItem('mindset_ai_name') || 'FAYWA';
 
   const [messages, setMessages] = useState<Message[]>(() => {
-    const today = new Date().toLocaleDateString();
-    const savedDate = localStorage.getItem('mindset_ai_chat_date');
     const defaultMessage = {
       id: 1,
       text: `Bonjour, je suis ${aiName}. Comment je peux t'aider aujourd'hui ?`,
       sender: 'ai' as const,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
-    
-    if (savedDate !== today) {
-      localStorage.setItem('mindset_ai_chat_date', today);
-      localStorage.removeItem('mindset_ai_chat_history');
-      return [defaultMessage];
-    }
     
     const savedHistory = localStorage.getItem('mindset_ai_chat_history');
     if (savedHistory) {
@@ -42,6 +34,15 @@ export const AIChat: React.FC = () => {
     
     return [defaultMessage];
   });
+
+  useEffect(() => {
+    // Fetch persistent history from backend
+    api.get('/ai-coaching/history').then((data: any) => {
+      if (Array.isArray(data) && data.length > 0) {
+        setMessages(data);
+      }
+    }).catch(e => console.error("Could not fetch persistent chat history", e));
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('mindset_ai_chat_history', JSON.stringify(messages));
@@ -330,7 +331,6 @@ export const AIChat: React.FC = () => {
 
       const data = await api.post('/ai-coaching/chat', { 
         prompt: currentInput,
-        history: messages.slice(-4), // Prevent Payload Too Large by only sending recent context
         context: userContext
       });
 

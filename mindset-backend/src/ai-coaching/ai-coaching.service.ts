@@ -57,12 +57,63 @@ export class AiCoachingService {
     return { message: 'Routine générée avec succès.', routine };
   }
 
-  async chatWithAi(prompt: string, history: any[] = [], userContext?: any) {
+  async getChatHistory(userId: string) {
+    if (!userId || userId === 'demo-user') return [];
+    try {
+      const messages = await this.prisma.chatMessage.findMany({
+        where: { user_id: userId },
+        orderBy: { created_at: 'asc' },
+        take: 100 // Get up to 100 past messages for UI
+      });
+      return messages.map((m: any) => ({
+        id: m.id,
+        text: m.text,
+        sender: m.sender,
+        timestamp: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }));
+    } catch (e) {
+      console.error("Erreur lors de la récupération de l'historique:", e);
+      return [];
+    }
+  }
+
+  async chatWithAi(userId: string, prompt: string, userContext?: any) {
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey || apiKey === 'YOUR_GROQ_API_KEY') {
       return { 
         reply: "Mon moteur d'intelligence (Groq) est déconnecté. ⚠️\n\nPour me donner vie, ajoute ta clé API dans le fichier `.env` du backend à la ligne `GROQ_API_KEY=...` (et sur Render) puis redémarre le serveur." 
       };
+    }
+
+    // 1. Sauvegarder le message de l'utilisateur
+    if (userId && userId !== 'demo-user') {
+      try {
+        await this.prisma.chatMessage.create({
+          data: { user_id: userId, sender: 'user', text: prompt }
+        });
+      } catch (e) {
+        console.error("Impossible de sauvegarder le message utilisateur", e);
+      }
+    }
+
+    // 2. Récupérer l'historique récent (limité à 20 pour ne pas saturer l'IA)
+    let history: any[] = [];
+    if (userId && userId !== 'demo-user') {
+      try {
+        const dbHistory = await this.prisma.chatMessage.findMany({
+          where: { user_id: userId },
+          orderBy: { created_at: 'desc' },
+          take: 21 // 20 anciens + le nouveau qu'on vient d'ajouter
+        });
+        history = dbHistory.reverse().map((m: any) => ({
+          sender: m.sender,
+          text: m.text
+        }));
+        // On retire le dernier (qui est le prompt actuel) car il est ajouté manuellement plus bas
+        history.pop();
+      } catch (e) {
+        console.error("Impossible de récupérer l'historique", e);
+      }
     }
 
     // Build rich context from user data
@@ -210,6 +261,18 @@ ${contextString}`;
       if (!reply) throw new Error('Empty response from Groq');
       
       console.log(`[Groq] ✅ Réponse Llama 3.3 70B reçue (${reply.length} chars)`);
+      
+      // 3. Sauvegarder la réponse de l'IA
+      if (userId && userId !== 'demo-user') {
+        try {
+          await this.prisma.chatMessage.create({
+            data: { user_id: userId, sender: 'ai', text: reply }
+          });
+        } catch (e) {
+          console.error("Impossible de sauvegarder la réponse IA", e);
+        }
+      }
+
       return { reply };
 
     } catch (error: any) {

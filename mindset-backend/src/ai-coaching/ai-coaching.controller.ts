@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Req } from '@nestjs/common';
+import { Controller, Post, Get, Body, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AiCoachingService } from './ai-coaching.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -27,8 +27,16 @@ export class AiCoachingController {
 
   @Post('chat')
   @ApiOperation({ summary: 'Discuter avec le Coach IA' })
-  async chat(@Body() body: { prompt: string, history?: any[], context?: any }) {
-    return this.aiCoachingService.chatWithAi(body.prompt, body.history || [], body.context);
+  async chat(@Req() req: Request, @Body() body: { prompt: string, context?: any }) {
+    const userId = (req.user as any)?.userId;
+    return this.aiCoachingService.chatWithAi(userId, body.prompt, body.context);
+  }
+
+  @Get('history')
+  @ApiOperation({ summary: 'Récupérer l\'historique des conversations avec l\'IA' })
+  async getHistory(@Req() req: Request) {
+    const userId = (req.user as any)?.userId;
+    return this.aiCoachingService.getChatHistory(userId);
   }
 
   @Post('tts')

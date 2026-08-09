@@ -32,6 +32,7 @@ model User {
   achievements       UserAchievement[]
   push_subscriptions PushSubscription[]
   two_factor_codes   TwoFactorCode[]
+  chat_messages      ChatMessage[]
 }
 
 model RefreshToken {
@@ -263,4 +264,16 @@ model TwoFactorCode {
   user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([user_id])
+}
+
+model ChatMessage {
+  id         String   @id @default(uuid())
+  user_id    String
+  sender     String   // "user" or "ai"
+  text       String
+  created_at DateTime @default(now())
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([created_at])
 }
