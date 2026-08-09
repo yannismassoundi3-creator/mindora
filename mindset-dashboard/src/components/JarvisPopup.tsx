@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { MessageSquarePlus } from 'lucide-react';
+import { AI_COSMETICS } from '../utils/cosmetics';
 import './JarvisPopup.css';
 
 export interface JarvisPopupData {
@@ -18,6 +19,17 @@ interface JarvisPopupProps {
 export const JarvisPopup: React.FC<JarvisPopupProps> = ({ data, onClose, onChatNavigate }) => {
   const [isHiding, setIsHiding] = useState(false);
   const aiName = localStorage.getItem('mindset_ai_name') || 'FAYWA';
+  const [equippedSkinId, setEquippedSkinId] = useState<string | null>(() => localStorage.getItem('mindset_ai_skin_id'));
+  
+  useEffect(() => {
+    const handleStorage = () => {
+      setEquippedSkinId(localStorage.getItem('mindset_ai_skin_id'));
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
+  const equippedCosmetic = AI_COSMETICS.find(c => c.id === equippedSkinId);
 
   useEffect(() => {
     // Auto-hide after 5 seconds
@@ -50,7 +62,14 @@ export const JarvisPopup: React.FC<JarvisPopupProps> = ({ data, onClose, onChatN
       style={{ left: `${data.x}px`, top: `${data.y}px` }}
     >
       <div className="jarvis-popup-orb-container">
-        <div className="jarvis-popup-orb"></div>
+        {equippedCosmetic?.type === 'icon' ? (
+          <div className="status-icon-skin-large" style={{ fontSize: '20px' }}>{equippedCosmetic.value}</div>
+        ) : (
+          <div 
+            className="jarvis-popup-orb liquid-glass-orb"
+            style={equippedCosmetic?.type === 'color' ? { background: equippedCosmetic.value } : {}}
+          ></div>
+        )}
       </div>
       
       <div className="jarvis-popup-bubble" onClick={handleActionClick}>

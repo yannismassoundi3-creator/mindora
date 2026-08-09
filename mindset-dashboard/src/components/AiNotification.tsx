@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Sparkles, X, ChevronRight } from 'lucide-react';
+import { AI_COSMETICS } from '../utils/cosmetics';
 import './AiNotification.css';
 
 interface AiNotificationProps {
@@ -15,6 +16,9 @@ interface NotificationData {
 
 export function AiNotification({ type }: AiNotificationProps) {
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
+  const [equippedSkinId, setEquippedSkinId] = useState<string | null>(() => localStorage.getItem('mindset_ai_skin_id'));
+
+  const equippedCosmetic = AI_COSMETICS.find(c => c.id === equippedSkinId);
 
   const loadNotifications = () => {
     try {
@@ -29,7 +33,10 @@ export function AiNotification({ type }: AiNotificationProps) {
 
   useEffect(() => {
     loadNotifications();
-    const handleStorage = () => loadNotifications();
+    const handleStorage = () => {
+      loadNotifications();
+      setEquippedSkinId(localStorage.getItem('mindset_ai_skin_id'));
+    };
     window.addEventListener('storage', handleStorage);
     return () => window.removeEventListener('storage', handleStorage);
   }, [type]);
@@ -55,8 +62,17 @@ export function AiNotification({ type }: AiNotificationProps) {
       className="ai-notification-banner glass-panel fade-in" 
       onClick={() => dismissNotification(latestNotif.id)}
     >
-      <div className="ai-notification-icon pulse-glow">
-        <Sparkles size={16} />
+      <div className="ai-notification-icon-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {equippedCosmetic?.type === 'icon' ? (
+          <div className="status-icon-skin-large" style={{ fontSize: '18px' }}>{equippedCosmetic.value}</div>
+        ) : (
+          <div 
+            className="ai-notification-icon pulse-glow liquid-glass-orb"
+            style={equippedCosmetic?.type === 'color' ? { background: equippedCosmetic.value, width: '24px', height: '24px', borderRadius: '50%' } : {}}
+          >
+            {!equippedCosmetic && <Sparkles size={16} />}
+          </div>
+        )}
       </div>
       <div className="ai-notification-content">
         <p>{latestNotif.message}</p>
