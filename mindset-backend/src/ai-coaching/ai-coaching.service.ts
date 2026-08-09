@@ -60,8 +60,16 @@ export class AiCoachingService {
   async getChatHistory(userId: string) {
     if (!userId || userId === 'demo-user') return [];
     try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
       const messages = await this.prisma.chatMessage.findMany({
-        where: { user_id: userId },
+        where: { 
+          user_id: userId,
+          created_at: {
+            gte: today // Seulement les messages du jour
+          }
+        },
         orderBy: { created_at: 'asc' },
         take: 100 // Get up to 100 past messages for UI
       });

@@ -24,6 +24,14 @@ export const AIChat: React.FC = () => {
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
     
+    const today = new Date().toLocaleDateString();
+    const savedDate = localStorage.getItem('mindset_ai_chat_date');
+    if (savedDate !== today) {
+      localStorage.setItem('mindset_ai_chat_date', today);
+      localStorage.removeItem('mindset_ai_chat_history');
+      return [defaultMessage];
+    }
+    
     const savedHistory = localStorage.getItem('mindset_ai_chat_history');
     if (savedHistory) {
       try {
