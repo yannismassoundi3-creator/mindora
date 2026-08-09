@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Trophy, TrendingUp, Calendar, Zap, AlertTriangle, Play, Edit2, Pencil, Trash2, Plus, Target, BookOpen, Dumbbell, Brain, Coffee, Sparkles, X } from 'lucide-react';
 import { playLevelUpSound, playClickSound, playErrorSound, playBloopSound } from '../utils/sounds';
-import { AiNotification } from '../components/AiNotification';
 import './Habits.css';
 
 interface HabitsProps {
@@ -294,8 +293,19 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
   };
 
   return (
-    <div className="habits-container">
-      <AiNotification type="habit" />
+    <div className="habits-container fade-in">
+      {jarvisPopup && (
+        <JarvisPopup 
+          data={jarvisPopup} 
+          onClose={() => setJarvisPopup(null)} 
+          onChatNavigate={(msg) => {
+            localStorage.setItem('mindset_pending_chat_msg', msg);
+            window.dispatchEvent(new CustomEvent('mindset_pending_chat_msg', { detail: msg }));
+            onOpenChat();
+          }} 
+        />
+      )}
+      
       {/* AI Commentary Notification */}
       <div className={`ai-commentary-toast glass-panel ${aiMessage.visible ? 'visible' : ''}`}>
         <div className="ai-jarvis-orb tiny pulsing-orb"></div>

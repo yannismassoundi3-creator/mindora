@@ -4,7 +4,7 @@ import { AI_COSMETICS } from '../utils/cosmetics';
 import './AiNotification.css';
 
 interface AiNotificationProps {
-  type: 'routine' | 'habit' | 'objective';
+  onNavigate?: (view: string) => void;
 }
 
 interface NotificationData {
@@ -14,7 +14,7 @@ interface NotificationData {
   timestamp: string;
 }
 
-export function AiNotification({ type }: AiNotificationProps) {
+export function AiNotification({ onNavigate }: AiNotificationProps) {
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
   const [equippedSkinId, setEquippedSkinId] = useState<string | null>(() => localStorage.getItem('mindset_ai_skin_id'));
 
@@ -23,9 +23,8 @@ export function AiNotification({ type }: AiNotificationProps) {
   const loadNotifications = () => {
     try {
       const saved = JSON.parse(localStorage.getItem('mindset_ai_notifications') || '[]');
-      // Filtrer par type et prendre la plus récente
-      const relevantNotifs = saved.filter((n: NotificationData) => n.type === type).reverse();
-      setNotifications(relevantNotifs);
+      // On prend toutes les notifications (on reverse pour avoir la plus récente)
+      setNotifications(saved.reverse());
     } catch {
       setNotifications([]);
     }
@@ -39,7 +38,7 @@ export function AiNotification({ type }: AiNotificationProps) {
     };
     window.addEventListener('storage', handleStorage);
     return () => window.removeEventListener('storage', handleStorage);
-  }, [type]);
+  }, []);
 
   const [isHiding, setIsHiding] = useState(false);
 
@@ -64,8 +63,16 @@ export function AiNotification({ type }: AiNotificationProps) {
     } catch {}
   };
 
-  const handleDismiss = (id: string) => {
+  const handleDismiss = (id: string, type: string, navigate: boolean) => {
     setIsHiding(true);
+    if (navigate && onNavigate) {
+      let targetView = 'dashboard';
+      if (type === 'habit') targetView = 'habits';
+      if (type === 'objective') targetView = 'objectives';
+      if (type === 'routine') targetView = 'dashboard';
+      onNavigate(targetView);
+    }
+    
     setTimeout(() => {
       dismissNotification(id);
     }, 300);
@@ -78,7 +85,7 @@ export function AiNotification({ type }: AiNotificationProps) {
   return (
     <div 
       className={`ai-notification-banner ${isHiding ? 'hiding' : ''}`} 
-      onClick={() => handleDismiss(latestNotif.id)}
+      onClick={() => handleDismiss(latestNotif.id, latestNotif.type, true)}
     >
       <div className="ai-notification-icon-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {equippedCosmetic?.type === 'icon' ? (

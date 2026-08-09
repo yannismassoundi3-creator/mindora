@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Target, Flag, Trophy, Plus, CheckCircle2, Circle, Sparkles, Pencil, Trash2, X } from 'lucide-react';
 import { playClickSound, playLevelUpSound } from '../utils/sounds';
 import { AI_COSMETICS } from '../utils/cosmetics';
-import { AiNotification } from '../components/AiNotification';
 import './Objectives.css';
 
 interface ObjectivesProps {
@@ -279,7 +278,6 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
 
   return (
     <div className="objectives-container">
-      <AiNotification type="objective" />
       {/* Header (Same style as Dashboard) */}
       <header className="dashboard-header objectives-header-bar">
         <div>
