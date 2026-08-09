@@ -4,7 +4,8 @@ import { Play, CheckCircle2, TrendingUp, Zap, Sparkles, Pencil, Coins, Circle, C
 import { AiNotification } from '../components/AiNotification';
 import { RankIcon } from '../components/RankIcon';
 import { VictoryGlitchOverlay } from '../components/VictoryGlitchOverlay';
-import { JarvisPopup, JarvisPopupData } from '../components/JarvisPopup';
+import { JarvisPopup } from '../components/JarvisPopup';
+import type { JarvisPopupData } from '../components/JarvisPopup';
 import { api } from '../services/api';
 import { RANKS, getRankForLevel } from '../utils/ranks';
 import { playClickSound, playBloopSound, playLevelUpSound } from '../utils/sounds';
