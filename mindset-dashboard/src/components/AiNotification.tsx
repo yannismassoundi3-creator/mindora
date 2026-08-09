@@ -52,11 +52,15 @@ export function AiNotification({ onNavigate }: AiNotificationProps) {
     }
   }, [notifications]);
 
-  const dismissNotification = (id: string) => {
+  const dismissNotification = (id: string, clearAll: boolean = false) => {
     try {
-      const saved = JSON.parse(localStorage.getItem('mindset_ai_notifications') || '[]');
-      const filtered = saved.filter((n: NotificationData) => n.id !== id);
-      localStorage.setItem('mindset_ai_notifications', JSON.stringify(filtered));
+      if (clearAll) {
+        localStorage.setItem('mindset_ai_notifications', '[]');
+      } else {
+        const saved = JSON.parse(localStorage.getItem('mindset_ai_notifications') || '[]');
+        const filtered = saved.filter((n: NotificationData) => n.id !== id);
+        localStorage.setItem('mindset_ai_notifications', JSON.stringify(filtered));
+      }
       loadNotifications();
       // Notify other tabs
       window.dispatchEvent(new Event('storage'));
@@ -74,7 +78,7 @@ export function AiNotification({ onNavigate }: AiNotificationProps) {
     }
     
     setTimeout(() => {
-      dismissNotification(id);
+      dismissNotification(id, navigate); // Clear all if navigating to avoid spam
     }, 300);
   };
 
