@@ -439,6 +439,14 @@ export const AIChat: React.FC = () => {
         }
       }
       
+      // Aggressive scrubbing to remove any leaked JSON or code blocks that the AI might have hallucinated outside of the <PLAN> tags
+      replyText = replyText.replace(/```json\s*\{[\s\S]*?\}\s*```/ig, '');
+      replyText = replyText.replace(/```\s*\{[\s\S]*?\}\s*```/g, (match) => {
+        if (match.includes('"newHabits"') || match.includes('"newRoutines"') || match.includes('"replace')) return '';
+        return match;
+      });
+      replyText = replyText.replace(/\{[\s\S]*?"(newHabits|newRoutines|newNutrition|newObjectives|newMacroObjectives|replaceRoutines|replaceHabits)"[\s\S]*?\}/g, '');
+      
       replyText = replyText.replace(/Voici le.*?JSON.*?:/ig, '').trim();
       replyText = replyText.replace(/Voici .*?plan.*?:/ig, '').trim();
 
