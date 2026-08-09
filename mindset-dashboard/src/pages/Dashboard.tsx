@@ -783,7 +783,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
               </h3>
             </div>
             <p style={{ fontSize: '0.85rem', color: 'var(--secondary)', marginBottom: '24px', lineHeight: 1.4 }}>
-              Ce graphique montre ta régularité sur l'année (comme sur GitHub). Fais défiler horizontalement pour voir tes 365 derniers jours ! Chaque carré représente un jour. Plus tu complètes tes routines, plus le carré brille fort. L'objectif : <strong style={{color: '#10b981'}}>ne jamais briser la chaîne lumineuse !</strong>
+              Ce graphique montre ta régularité sur l'année. Fais défiler horizontalement pour voir tes 365 derniers jours ! Chaque carré représente un jour. Plus tu complètes tes routines, plus le carré brille fort. L'objectif : <strong style={{color: '#10b981'}}>ne jamais briser la chaîne lumineuse !</strong>
             </p>
             <div className="heatmap-container" ref={heatmapRef}>
               {(() => {
