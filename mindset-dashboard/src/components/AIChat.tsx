@@ -401,31 +401,41 @@ export const AIChat: React.FC = () => {
 
       let replyText = data.reply || "Erreur lors de la génération.";
 
-      // Try robust JSON extraction (with or without backticks)
       let jsonStr = "";
-      const jsonMatch = replyText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
       
-      if (jsonMatch) {
-        jsonStr = jsonMatch[1];
-        // Remove the backticks block from the reply text
-        replyText = replyText.replace(/```(?:json)?\s*[\s\S]*?\s*```/, '').trim();
-      } else {
-        // Fallback: look for raw JSON object if AI forgot backticks
+      const codeBlockRegex = /```[a-zA-Z]*\s*([\s\S]*?)\s*```/g;
+      
+      replyText = replyText.replace(codeBlockRegex, (match, content) => {
+        if (content.includes('newHabits') || content.includes('newRoutines') || content.includes('replaceNutrition') || content.includes('newNutrition') || content.includes('macroObjectives')) {
+          if (!jsonStr) {
+            const start = content.indexOf('{');
+            const end = content.lastIndexOf('}');
+            if (start !== -1 && end !== -1) {
+              jsonStr = content.substring(start, end + 1);
+            } else {
+              // S'il manque les accolades principales, on essaie de les rajouter
+              jsonStr = "{" + content + "}";
+            }
+          }
+          return ''; // On cache toujours ce bloc de l'UI
+        }
+        return match;
+      });
+
+      if (!jsonStr) {
         const firstBrace = replyText.indexOf('{');
         const lastBrace = replyText.lastIndexOf('}');
         if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-          try {
-            jsonStr = replyText.substring(firstBrace, lastBrace + 1);
-            // Test if it's valid JSON
-            JSON.parse(jsonStr);
-            // If valid, remove it from the reply text and also remove "Voici le plan..." strings
-            replyText = replyText.replace(jsonStr, '').trim();
-            replyText = replyText.replace(/Voici le plan.*?JSON.*?:/ig, '').trim();
-          } catch {
-            jsonStr = ""; // Invalid JSON, reset
+          const potentialJson = replyText.substring(firstBrace, lastBrace + 1);
+          if (potentialJson.includes('newHabits') || potentialJson.includes('newRoutines') || potentialJson.includes('replaceNutrition')) {
+            jsonStr = potentialJson;
+            replyText = replyText.replace(potentialJson, '').trim();
           }
         }
       }
+      
+      replyText = replyText.replace(/Voici le.*?JSON.*?:/ig, '').trim();
+      replyText = replyText.replace(/Voici .*?plan.*?:/ig, '').trim();
 
       if (jsonStr) {
         try {
