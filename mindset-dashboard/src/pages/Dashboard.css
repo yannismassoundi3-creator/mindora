@@ -368,9 +368,9 @@
 }
 
 .routine-item.done .routine-checkbox {
-  background: #10b981;
-  border-color: #10b981;
-  color: var(--primary);
+  background: #000 !important;
+  border-color: #000 !important;
+  color: #fff !important;
 }
 
 .routine-item.active {
@@ -380,9 +380,9 @@
 }
 
 .routine-item.active .routine-checkbox {
-  background: var(--accent-purple);
-  border-color: var(--accent-purple);
-  color: var(--primary);
+  background: #000 !important;
+  border-color: #000 !important;
+  color: #fff !important;
 }
 .routine-item.active .routine-title {
   border-radius: 4px;
@@ -692,9 +692,9 @@
   width: 100%;
   padding: 12px;
   margin-top: 8px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px dashed rgba(255, 255, 255, 0.2);
-  color: var(--secondary);
+  background: #000 !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  color: #fff !important;
   border-radius: 12px;
   font-family: var(--font-main);
   font-weight: 600;
@@ -703,10 +703,9 @@
 }
 
 .add-routine-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: var(--primary);
-  color: var(--primary);
+  background: #111 !important;
   transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.5);
 }
 
 /* Glass Liquid Effect */

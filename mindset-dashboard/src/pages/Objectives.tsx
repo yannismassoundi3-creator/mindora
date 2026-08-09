@@ -438,7 +438,7 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
                       {!micro.done && micro.total > 1 && (
                         <button 
                           onClick={(e) => { e.stopPropagation(); incrementMicro(micro.id, micro.step || 1); }}
-                          style={{ background: 'rgba(59, 130, 246, 0.2)', border: '1px solid rgba(59, 130, 246, 0.4)', borderRadius: '5px', padding: '4px 8px', color: '#3b82f6', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', fontWeight: 600 }}
+                          style={{ background: '#000', border: '1px solid rgba(255, 255, 255, 0.2)', borderRadius: '5px', padding: '4px 8px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', fontWeight: 600 }}
                         >
                           <Plus size={12} /> {micro.step || 1}
                         </button>

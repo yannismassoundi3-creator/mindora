@@ -377,9 +377,10 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
                   className={`btn-habit-complete ${isDoneToday ? 'completed' : ''}`}
                   onClick={(e) => toggleHabitToday(e, habit.id)}
                   style={{ 
-                    backgroundColor: isDoneToday ? habit.color : 'transparent',
-                    borderColor: habit.color,
-                    color: isDoneToday ? '#000' : habit.color 
+                    backgroundColor: '#000',
+                    borderColor: isDoneToday ? habit.color : 'rgba(255,255,255,0.2)',
+                    color: '#fff',
+                    boxShadow: isDoneToday ? `0 0 15px ${habit.color}40` : 'none'
                   }}
                 >
                   {isDoneToday ? 'Validé pour aujourd\'hui' : 'Valider'}
