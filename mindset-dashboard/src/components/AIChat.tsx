@@ -126,6 +126,21 @@ export const AIChat: React.FC = () => {
     }
   }, [messages, isTyping]);
 
+  useEffect(() => {
+    const handlePendingMsg = (e?: any) => {
+      const msg = e?.detail || localStorage.getItem('mindset_pending_chat_msg');
+      if (msg) {
+        localStorage.removeItem('mindset_pending_chat_msg');
+        setTimeout(() => handleSend(undefined, msg), 500);
+      }
+    };
+    
+    window.addEventListener('mindset_pending_chat_msg', handlePendingMsg);
+    handlePendingMsg(); // Check on mount
+    
+    return () => window.removeEventListener('mindset_pending_chat_msg', handlePendingMsg);
+  }, []);
+
   const addAiNotification = (type: string, message: string) => {
     try {
       const notifs = JSON.parse(localStorage.getItem('mindset_ai_notifications') || '[]');

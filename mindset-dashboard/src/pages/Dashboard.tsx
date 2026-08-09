@@ -4,6 +4,7 @@ import { Play, CheckCircle2, TrendingUp, Zap, Sparkles, Pencil, Coins, Circle, C
 import { AiNotification } from '../components/AiNotification';
 import { RankIcon } from '../components/RankIcon';
 import { VictoryGlitchOverlay } from '../components/VictoryGlitchOverlay';
+import { JarvisPopup, JarvisPopupData } from '../components/JarvisPopup';
 import { api } from '../services/api';
 import { RANKS, getRankForLevel } from '../utils/ranks';
 import { playClickSound, playBloopSound, playLevelUpSound } from '../utils/sounds';
@@ -122,6 +123,7 @@ interface DashboardProps {
 export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   const [currentDate, setCurrentDate] = useState('');
   const heatmapRef = useRef<HTMLDivElement>(null);
+  const [jarvisPopup, setJarvisPopup] = useState<JarvisPopupData | null>(null);
   
   useEffect(() => {
     const options: Intl.DateTimeFormatOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
@@ -268,7 +270,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
       detail: { x: e.clientX, y: e.clientY, color: '#ffffff' } 
     }));
 
-    const updated = nutritionList.map((n: any) => n.id === id ? { ...n, done: !n.done } : n);
+    const updated = nutritionList.map((n: any) => {
+      if (n.id === id) {
+        if (!n.done) {
+          setJarvisPopup({ x: e.clientX, y: e.clientY, title: n.title || 'Nutrition', itemType: 'objective' });
+        }
+        return { ...n, done: !n.done };
+      }
+      return n;
+    });
     setNutritionList(updated);
     localStorage.setItem('mindset_nutrition', JSON.stringify(updated));
   };
@@ -502,12 +512,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
 
     let itemWasDone = false;
     let newlyDoneCount = 0;
+    let toggledItem: any = null;
 
     const newGroups = (Array.isArray(routineGroups) ? routineGroups : []).map((group: any) => {
       const newItems = (Array.isArray(group.items) ? group.items : []).map((item: any) => {
         if (item.id === id) {
           itemWasDone = item.done;
           if (!itemWasDone) newlyDoneCount++;
+          toggledItem = item;
           return { ...item, done: !item.done };
         }
         if (item.done) newlyDoneCount++;
@@ -523,6 +535,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
       setPoints(newPoints);
       localStorage.setItem('mindset_points', newPoints.toString());
       window.dispatchEvent(new CustomEvent('pointsChanged', { detail: newPoints }));
+      
+      if (toggledItem) {
+        setJarvisPopup({
+          x: e.clientX,
+          y: e.clientY,
+          title: toggledItem.title || 'Tâche',
+          itemType: 'routine'
+        });
+      }
     } else {
       const newPoints = Math.max(0, points - 5);
       setPoints(newPoints);
@@ -594,6 +615,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
 
   return (
     <div className="dashboard-container">
+      {jarvisPopup && (
+        <JarvisPopup 
+          data={jarvisPopup} 
+          onClose={() => setJarvisPopup(null)} 
+          onChatNavigate={(msg) => {
+            localStorage.setItem('mindset_pending_chat_msg', msg);
+            window.dispatchEvent(new CustomEvent('mindset_pending_chat_msg', { detail: msg }));
+            onOpenChat();
+          }} 
+        />
+      )}
       {showVictoryOverlay && <VictoryGlitchOverlay onClose={() => setShowVictoryOverlay(false)} />}
       <header className="dashboard-header">
           <div>

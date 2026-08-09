@@ -1,0 +1,111 @@
+.jarvis-popup-container {
+  position: fixed;
+  z-index: 10000;
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  pointer-events: none; /* Container doesn't block clicks */
+  transform: translate(-50%, -120%);
+  animation: jarvisPopIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  max-width: 300px;
+}
+
+.jarvis-popup-container.hiding {
+  animation: jarvisPopOut 0.3s forwards;
+}
+
+@keyframes jarvisPopIn {
+  0% { transform: translate(-50%, -100%) scale(0.5); opacity: 0; }
+  100% { transform: translate(-50%, -120%) scale(1); opacity: 1; }
+}
+
+@keyframes jarvisPopOut {
+  0% { transform: translate(-50%, -120%) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -100%) scale(0.8); opacity: 0; }
+}
+
+.jarvis-popup-orb-container {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.jarvis-popup-orb {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--accent-blue) 0%, var(--accent-purple) 100%);
+  box-shadow: 0 0 10px var(--accent-purple);
+  animation: orbPulse 2s infinite ease-in-out;
+}
+
+@keyframes orbPulse {
+  0% { box-shadow: 0 0 5px var(--accent-blue); }
+  50% { box-shadow: 0 0 15px var(--accent-purple); }
+  100% { box-shadow: 0 0 5px var(--accent-blue); }
+}
+
+.jarvis-popup-bubble {
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(236, 72, 153, 0.8);
+  border-radius: 16px;
+  border-bottom-left-radius: 4px;
+  color: var(--white);
+  box-shadow: 0 0 25px rgba(236, 72, 153, 0.4), inset 0 0 15px rgba(236, 72, 153, 0.2);
+  text-shadow: 0 0 1px rgba(255, 255, 255, 0.2);
+  padding: 12px 16px;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  cursor: pointer;
+  pointer-events: auto; /* Make the bubble clickable */
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.jarvis-popup-bubble:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 35px rgba(236, 72, 153, 0.6), inset 0 0 20px rgba(236, 72, 153, 0.4);
+  border-color: #ec4899;
+}
+
+.jarvis-popup-header {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--accent-purple);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.jarvis-popup-text {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.jarvis-popup-action {
+  font-size: 0.75rem;
+  color: var(--secondary);
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0.8;
+  font-weight: 600;
+}
+
+.jarvis-popup-action svg {
+  transition: transform 0.2s ease;
+}
+
+.jarvis-popup-bubble:hover .jarvis-popup-action svg {
+  transform: translateX(4px);
+  color: #ec4899;
+}
