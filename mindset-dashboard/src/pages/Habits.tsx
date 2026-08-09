@@ -294,17 +294,6 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
 
   return (
     <div className="habits-container fade-in">
-      {jarvisPopup && (
-        <JarvisPopup 
-          data={jarvisPopup} 
-          onClose={() => setJarvisPopup(null)} 
-          onChatNavigate={(msg) => {
-            localStorage.setItem('mindset_pending_chat_msg', msg);
-            window.dispatchEvent(new CustomEvent('mindset_pending_chat_msg', { detail: msg }));
-            onOpenChat();
-          }} 
-        />
-      )}
       
       {/* AI Commentary Notification */}
       <div className={`ai-commentary-toast glass-panel ${aiMessage.visible ? 'visible' : ''}`}>
