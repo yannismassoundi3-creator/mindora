@@ -3,6 +3,7 @@ import { Send, User, Sparkles, Play, Square, Loader } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { playBloopSound, playErrorSound } from '../utils/sounds';
 import { AI_COSMETICS } from '../utils/cosmetics';
+import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
 import './AIChat.css';
 import { api } from '../services/api';
 
@@ -389,7 +390,7 @@ export const AIChat: React.FC = () => {
     try {
       const macroObj = localStorage.getItem('mindset_macro_obj') || '[]';
       const microObj = localStorage.getItem('mindset_micro_obj') || '[]';
-      const coins = localStorage.getItem('mindset_points') || '0';
+      const coins = getSecurePoints().toString();
       const score = localStorage.getItem('mental_score') || '0';
       const routines = localStorage.getItem('mindset_routines') || '[]';
       const habits = localStorage.getItem('mindset_habits') || '[]';
@@ -410,7 +411,7 @@ export const AIChat: React.FC = () => {
       };
 
       // Système de Coins
-      const currentPoints = parseInt(localStorage.getItem('mindset_points') || '0', 10);
+      const currentPoints = getSecurePoints();
       
       if (currentPoints < 10) {
         setIsTyping(false);
@@ -430,7 +431,7 @@ export const AIChat: React.FC = () => {
       });
 
       // Déduction des Coins uniquement si le backend répond
-      localStorage.setItem('mindset_points', (currentPoints - 10).toString());
+      setSecurePoints(currentPoints - 10);
       window.dispatchEvent(new Event('storage'));
       
       setIsAiAwake(true);

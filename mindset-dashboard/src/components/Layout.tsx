@@ -3,6 +3,8 @@ import { Home, Brain, Target, Calendar, User, ShoppingBag, Coins, Backpack } fro
 import { playHoverSound, playClickSound } from '../utils/sounds';
 import './Layout.css';
 
+import { getSecurePoints } from '../utils/secureStorage';
+
 interface LayoutProps {
   children: React.ReactNode;
   activeView: string;
@@ -10,14 +12,46 @@ interface LayoutProps {
 }
 
 export const Layout: React.FC<LayoutProps> = ({ children, activeView, setView }) => {
-  const [points, setPoints] = useState(() => parseInt(localStorage.getItem('mindset_points') || '0', 10));
+  const [points, setPoints] = useState(() => getSecurePoints());
 
   useEffect(() => {
+    // Global Points Sync
     const handleStorage = () => {
-      setPoints(parseInt(localStorage.getItem('mindset_points') || '0', 10));
+      setPoints(getSecurePoints());
     };
     window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
+    window.addEventListener('mindset_points_updated', handleStorage);
+
+    // Weekly Reset Logic (Micro Objectives)
+    const getWeekNumber = (d: Date) => {
+      const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+      date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
+      const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+      return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+    };
+    
+    const currentWeekStr = `${new Date().getFullYear()}-W${getWeekNumber(new Date())}`;
+    const lastResetWeek = localStorage.getItem('mindset_last_reset_week');
+
+    if (lastResetWeek !== currentWeekStr) {
+      const savedMicro = localStorage.getItem('mindset_micro_obj');
+      if (savedMicro) {
+        try {
+          const parsed = JSON.parse(savedMicro);
+          if (Array.isArray(parsed)) {
+            const reset = parsed.map((m: any) => ({ ...m, progress: 0, done: false, awardedDate: undefined }));
+            localStorage.setItem('mindset_micro_obj', JSON.stringify(reset));
+            setTimeout(() => window.dispatchEvent(new Event('storage')), 100);
+          }
+        } catch (e) {}
+      }
+      localStorage.setItem('mindset_last_reset_week', currentWeekStr);
+    }
+
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('mindset_points_updated', handleStorage);
+    };
   }, []);
 
   const handleNavClick = (e: React.MouseEvent, viewId: string) => {

@@ -20,24 +20,27 @@ const DEFAULT_REWARDS: Reward[] = [
 ];
 
 export const Shop: React.FC = () => {
-  const [points, setPoints] = useState(() => parseInt(localStorage.getItem('mindset_points') || '0', 10));
+  const [points, setPoints] = useState(() => getSecurePoints());
   const [ownedCosmetics, setOwnedCosmetics] = useState<string[]>(() => JSON.parse(localStorage.getItem('mindset_owned_cosmetics') || '[]'));
   const [equippedSkin, setEquippedSkin] = useState<string | null>(() => localStorage.getItem('mindset_ai_skin_id'));
   const [timeLeft, setTimeLeft] = useState('');
 
   useEffect(() => {
     const handleStorage = () => {
-      setPoints(parseInt(localStorage.getItem('mindset_points') || '0', 10));
+      setPoints(getSecurePoints());
       setOwnedCosmetics(JSON.parse(localStorage.getItem('mindset_owned_cosmetics') || '[]'));
       setEquippedSkin(localStorage.getItem('mindset_ai_skin_id'));
     };
     window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
+    window.addEventListener('mindset_points_updated', handleStorage);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('mindset_points_updated', handleStorage);
+    };
   }, []);
 
   const handlePointsUpdate = (newPoints: number) => {
-    localStorage.setItem('mindset_points', newPoints.toString());
-    window.dispatchEvent(new Event('storage'));
+    setSecurePoints(newPoints);
   };
 
   const [rewards, setRewards] = useState<Reward[]>(() => {

@@ -1,3 +1,5 @@
+import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
+
 const API_URL = import.meta.env.VITE_API_URL || 'https://mindora-backend-haku.onrender.com'; // NestJS Backend
 
 export const api = {
@@ -48,7 +50,7 @@ export const api = {
         if (data.macro_objectives) localStorage.setItem('mindset_macro_obj', JSON.stringify(data.macro_objectives));
         if (data.habits) localStorage.setItem('mindset_habits', JSON.stringify(data.habits));
         if (data.nutrition) localStorage.setItem('mindset_nutrition', JSON.stringify(data.nutrition));
-        if (data.points !== undefined) localStorage.setItem('mindset_points', data.points.toString());
+        if (data.points !== undefined) setSecurePoints(data.points);
         if (data.mental_score !== undefined) localStorage.setItem('mental_score', data.mental_score.toString());
         if (data.bonus_score !== undefined) localStorage.setItem('bonus_mental_score', data.bonus_score.toString());
         if (data.daily_scores) localStorage.setItem('mindset_daily_scores', JSON.stringify(data.daily_scores));
@@ -81,7 +83,7 @@ export const api = {
         macro_objectives: JSON.parse(localStorage.getItem('mindset_macro_obj') || '[]'),
         habits: JSON.parse(localStorage.getItem('mindset_habits') || '[]'),
         nutrition: JSON.parse(localStorage.getItem('mindset_nutrition') || '[]'),
-        points: parseInt(localStorage.getItem('mindset_points') || '0', 10),
+        points: getSecurePoints(),
         mental_score: parseInt(localStorage.getItem('mental_score') || '0', 10),
         bonus_score: parseInt(localStorage.getItem('bonus_mental_score') || '0', 10),
         daily_scores: JSON.parse(localStorage.getItem('mindset_daily_scores') || '{}'),

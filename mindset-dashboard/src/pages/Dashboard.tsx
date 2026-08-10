@@ -7,6 +7,7 @@ import { VictoryGlitchOverlay } from '../components/VictoryGlitchOverlay';
 import { JarvisPopup } from '../components/JarvisPopup';
 import type { JarvisPopupData } from '../components/JarvisPopup';
 import { api } from '../services/api';
+import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
 import { RANKS, getRankForLevel } from '../utils/ranks';
 import { playClickSound, playBloopSound, playLevelUpSound } from '../utils/sounds';
 import './Dashboard.css';
@@ -146,7 +147,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
     }, 2000);
   }, []);
 
-  const [points, setPoints] = useState(() => parseInt(localStorage.getItem('mindset_points') || '0', 10));
+  const [points, setPoints] = useState(() => getSecurePoints());
   const level = Math.floor(Math.sqrt(points / 50)) + 1;
   const rank = getRankForLevel(level);
 
@@ -162,7 +163,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
     const targetLevel = nextRank.minLevel;
     const pointsNeeded = 50 * Math.pow(targetLevel - 1, 2) + 50;
     setPoints(pointsNeeded);
-    localStorage.setItem('mindset_points', pointsNeeded.toString());
+    setSecurePoints(pointsNeeded);
     window.dispatchEvent(new CustomEvent('pointsChanged', { detail: pointsNeeded }));
   };
 
@@ -408,7 +409,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
     const scores = loadDailyScores();
     const missedYesterday = !scores[yesterdayKey] || scores[yesterdayKey] === 0;
     
-    if (currentStreak === 0 && savedPreviousStreak > 0 && missedYesterday) {
+    if (currentStreak <= 1 && savedPreviousStreak > 1 && missedYesterday) {
+      localStorage.setItem('mindset_lost_streak', savedPreviousStreak.toString());
+      
       setTimeout(() => {
         const aiName = localStorage.getItem('mindset_ai_name') || 'FAYWA';
         const savedHistory = localStorage.getItem('mindset_ai_chat_history');
@@ -424,16 +427,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
         localStorage.setItem('mindset_ai_chat_history', JSON.stringify(parsed));
         window.dispatchEvent(new Event('storage'));
         
-        const currentPoints = parseInt(localStorage.getItem('mindset_points') || '0', 10);
+        const currentPoints = getSecurePoints();
         const newPoints = Math.max(0, currentPoints - 50);
         setPoints(newPoints);
-        localStorage.setItem('mindset_points', newPoints.toString());
+        setSecurePoints(newPoints);
         window.dispatchEvent(new CustomEvent('pointsChanged', { detail: newPoints }));
       }, 500); // 500ms delay to ensure all components are mounted
       
-      localStorage.setItem('mindset_previous_streak', '0');
-    } else if (currentStreak > 0) {
       localStorage.setItem('mindset_previous_streak', currentStreak.toString());
+    } else if (currentStreak > 1) {
+      localStorage.setItem('mindset_previous_streak', currentStreak.toString());
+      localStorage.removeItem('mindset_lost_streak'); // Clean up when streak is back on track
     }
   }, [mentalScore]);
 
@@ -582,7 +586,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
       triggerDopamine(e);
       const newPoints = points + 5;
       setPoints(newPoints);
-      localStorage.setItem('mindset_points', newPoints.toString());
+      setSecurePoints(newPoints);
       window.dispatchEvent(new CustomEvent('pointsChanged', { detail: newPoints }));
       
       if (toggledItem) {
@@ -596,7 +600,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
     } else {
       const newPoints = Math.max(0, points - 5);
       setPoints(newPoints);
-      localStorage.setItem('mindset_points', newPoints.toString());
+      setSecurePoints(newPoints);
       window.dispatchEvent(new CustomEvent('pointsChanged', { detail: newPoints }));
     }
 
@@ -657,6 +661,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
     if (streak < 14) return "Impressionnant ! Tu es en mode champion.";
     if (streak < 30) return "Incroyable ! Très peu de gens tiennent aussi longtemps.";
     return "Légendaire ! Tu es un vrai warrior du mindset.";
+  };
+
+  const getFlameStyle = (streakValue: number): React.CSSProperties => {
+    if (streakValue <= 1) {
+      return { filter: 'grayscale(100%)', opacity: 0.3, animation: 'none' };
+    }
+    if (streakValue >= 365) {
+      return { filter: 'grayscale(100%) brightness(0) drop-shadow(0 0 8px rgba(255,255,255,0.8))' };
+    }
+    if (streakValue >= 100) {
+      return { filter: 'hue-rotate(240deg) saturate(2) brightness(1.2)' };
+    }
+    const progress = (streakValue - 2) / 98;
+    const hueShift = -45 * progress;
+    const saturate = 1 + progress;
+    return { filter: `hue-rotate(${hueShift}deg) saturate(${saturate})` };
   };
 
   const userName = localStorage.getItem('mindset_user_name') || 'Utilisateur';
@@ -902,16 +922,29 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
         <div className="dashboard-right-col">
           {/* Stats Row */}
           <div className="stats-row">
-            <div className="glass-panel stat-card streak-card glass-panel-interactive">
+            <div className="glass-panel stat-card streak-card glass-panel-interactive" style={{ position: 'relative', overflow: 'visible' }}>
               <div className="streak-glow"></div>
               <div className="stat-icon purple"><Zap size={28} /></div>
               <div className="stat-info">
                 <span className="stat-label">Série de focus</span>
-                <span className="stat-value highlight-streak">
-                  {streak} Jour{streak > 1 ? 's' : ''} <span className="fire-emoji animated">🔥</span>
-                </span>
+                <div className="stat-value highlight-streak">
+                  <span className="streak-text">
+                    {streak} Jour{streak > 1 ? 's' : ''}
+                  </span>
+                  <span className={streak > 1 ? 'animated' : ''}>
+                    <span className="fire-emoji" style={getFlameStyle(streak)}>🔥</span>
+                  </span>
+                </div>
                 <span className="streak-hint">{getStreakMessage()}</span>
               </div>
+
+              {streak <= 1 && parseInt(localStorage.getItem('mindset_lost_streak') || '0', 10) > 1 && (
+                <div className="ai-streak-warning">
+                  <div className="ai-warning-bubble">
+                    <strong>Coach IA</strong> : Tu as perdu ta série de {localStorage.getItem('mindset_lost_streak')} jours. Reprends-toi en main, on reconstruit ça dès aujourd'hui !
+                  </div>
+                </div>
+              )}
             </div>
             <div className="glass-panel stat-card glass-panel-interactive">
               <div className="stat-icon blue"><Trophy size={22} /></div>

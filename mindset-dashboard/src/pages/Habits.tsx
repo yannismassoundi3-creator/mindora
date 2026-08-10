@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Trophy, TrendingUp, Calendar, Zap, AlertTriangle, Play, Edit2, Pencil, Trash2, Plus, Target, BookOpen, Dumbbell, Brain, Coffee, Sparkles, X } from 'lucide-react';
 import { playLevelUpSound, playClickSound, playErrorSound, playBloopSound } from '../utils/sounds';
+import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
 import './Habits.css';
 
 interface HabitsProps {
@@ -94,7 +95,7 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
     ];
   });
 
-  const [points, setPoints] = useState(() => parseInt(localStorage.getItem('mindset_points') || '450', 10));
+  const [points, setPoints] = useState(() => getSecurePoints());
   const aiName = localStorage.getItem('mindset_ai_name') || 'Coach IA';
   const heatmapDays = generateHeatmapDays(14);
 
@@ -192,7 +193,7 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
       triggerHabitCompleteEffect(e, habitColor, leveledUp);
       const newPoints = points + pointsGained;
       setPoints(newPoints);
-      localStorage.setItem('mindset_points', newPoints.toString());
+      setSecurePoints(newPoints);
       window.dispatchEvent(new CustomEvent('pointsChanged', { detail: newPoints }));
 
       // AI Commentary logic
@@ -217,7 +218,7 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
     } else {
       const newPoints = Math.max(0, points - pointsGained);
       setPoints(newPoints);
-      localStorage.setItem('mindset_points', newPoints.toString());
+      setSecurePoints(newPoints);
       window.dispatchEvent(new CustomEvent('pointsChanged', { detail: newPoints }));
     }
   };

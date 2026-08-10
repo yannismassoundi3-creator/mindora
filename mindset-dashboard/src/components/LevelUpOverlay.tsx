@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import './LevelUpOverlay.css';
 import { playLevelUpSound } from '../utils/sounds';
+import { getSecurePoints } from '../utils/secureStorage';
 
 export const LevelUpOverlay: React.FC = () => {
   const [show, setShow] = useState(false);
   const [level, setLevel] = useState(() => {
-    const points = parseInt(localStorage.getItem('mindset_points') || '0', 10);
+    const points = getSecurePoints();
     return Math.floor(Math.sqrt(points / 50)) + 1;
   });
 

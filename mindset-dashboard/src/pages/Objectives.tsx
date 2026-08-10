@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Target, Flag, Trophy, Plus, CheckCircle2, Circle, Sparkles, Pencil, Trash2, X } from 'lucide-react';
 import { playClickSound, playLevelUpSound } from '../utils/sounds';
 import { AI_COSMETICS } from '../utils/cosmetics';
+import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
 import './Objectives.css';
 
 interface ObjectivesProps {
@@ -94,23 +95,7 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
     return () => window.removeEventListener('storage', handleStorage);
   }, []);
 
-  // Weekly Reset Logic
-  useEffect(() => {
-    const getWeekNumber = (d: Date) => {
-      const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-      date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
-      const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
-      return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-    };
-    
-    const currentWeekStr = `${new Date().getFullYear()}-W${getWeekNumber(new Date())}`;
-    const lastResetWeek = localStorage.getItem('mindset_last_reset_week');
 
-    if (lastResetWeek !== currentWeekStr) {
-      setMicroObjectives(prev => prev.map(m => ({ ...m, progress: 0, done: false, awardedDate: undefined })));
-      localStorage.setItem('mindset_last_reset_week', currentWeekStr);
-    }
-  }, []);
 
   // -- MACRO MODAL STATE --
   const [macroModalOpen, setMacroModalOpen] = useState(false);
@@ -171,9 +156,9 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
   };
 
   const awardCoins = (amount: number) => {
-    const currentPoints = parseInt(localStorage.getItem('mindset_points') || '0', 10);
+    const currentPoints = getSecurePoints();
     const newPoints = Math.max(0, currentPoints + amount);
-    localStorage.setItem('mindset_points', newPoints.toString());
+    setSecurePoints(newPoints);
     window.dispatchEvent(new CustomEvent('pointsChanged', { detail: newPoints }));
   };
 

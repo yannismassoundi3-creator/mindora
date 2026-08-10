@@ -3,11 +3,12 @@ import './RankUpOverlay.css';
 import { getRankForLevel, type Rank } from '../utils/ranks';
 import { playLevelUpSound } from '../utils/sounds';
 import { RankIcon } from './RankIcon';
+import { getSecurePoints } from '../utils/secureStorage';
 
 export const RankUpOverlay: React.FC = () => {
   const [show, setShow] = useState(false);
   const [rank, setRank] = useState<Rank>(() => {
-    const points = parseInt(localStorage.getItem('mindset_points') || '0', 10);
+    const points = getSecurePoints();
     const level = Math.floor(Math.sqrt(points / 50)) + 1;
     return getRankForLevel(level);
   });

@@ -5,6 +5,7 @@ import { playHoverSound, playClickSound, playToggleSound, playLevelUpSound } fro
 import { api } from '../services/api';
 import { RankIcon } from '../components/RankIcon';
 import { getRankForLevel } from '../utils/ranks';
+import { getSecurePoints, removeSecurePoints } from '../utils/secureStorage';
 import { bufferToBase64url } from '../utils/webauthn';
 import './Profile.css';
 
@@ -45,7 +46,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
   const [savedStatus, setSavedStatus] = useState(false);
   const [legalModal, setLegalModal] = useState<'legal' | 'cgu' | 'privacy' | null>(null);
 
-  const points = parseInt(localStorage.getItem('mindset_points') || '450', 10);
+  const points = getSecurePoints();
   const level = Math.floor(Math.sqrt(points / 50)) + 1;
   const rank = getRankForLevel(level);
   const joinDate = localStorage.getItem('mindset_join_date') || new Date().toLocaleDateString('fr-FR');
@@ -150,7 +151,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
     if (confirmDelete) {
       localStorage.removeItem('mindset_habits');
       localStorage.removeItem('mindset_routines_data');
-      localStorage.removeItem('mindset_points');
+      removeSecurePoints();
       localStorage.removeItem('mindset_daily_scores');
       window.location.reload();
     }
@@ -390,7 +391,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
                 localStorage.removeItem('mindset_is_subscribed');
                 localStorage.removeItem('mindset_habits');
                 localStorage.removeItem('mindset_routines_data');
-                localStorage.removeItem('mindset_points');
+                removeSecurePoints();
                 localStorage.removeItem('mindset_daily_scores');
                 localStorage.removeItem('mindset_objectives');
                 localStorage.removeItem('mindset_user_name');

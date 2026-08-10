@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Backpack, CheckCircle2, Sparkles, CheckSquare } from 'lucide-react';
 import { playClickSound, playLevelUpSound, playBloopSound } from '../utils/sounds';
+import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
 import { api } from '../services/api';
 import { AI_COSMETICS } from '../utils/cosmetics';
 import type { Cosmetic } from '../utils/cosmetics';
@@ -52,8 +53,8 @@ export const Inventory: React.FC = () => {
     setAnimatingItemId(item.id);
     
     // Give 5 XP
-    let currentExp = parseInt(localStorage.getItem('mindset_points') || '0', 10);
-    localStorage.setItem('mindset_points', (currentExp + 5).toString());
+    let currentExp = getSecurePoints();
+    setSecurePoints(currentExp + 5);
     window.dispatchEvent(new Event('storage'));
 
     setTimeout(() => {
