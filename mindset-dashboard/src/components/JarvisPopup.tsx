@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { MessageSquarePlus } from 'lucide-react';
 import { AI_COSMETICS } from '../utils/cosmetics';
 import './JarvisPopup.css';
@@ -60,7 +61,7 @@ export const JarvisPopup: React.FC<JarvisPopupProps> = ({ data, onClose, onChatN
     return `"${data.title}" accompli. Bien joué !`;
   };
 
-  return (
+  return createPortal(
     <div 
       className={`jarvis-popup-container ${isHiding ? 'hiding' : ''}`}
     >
@@ -91,6 +92,7 @@ export const JarvisPopup: React.FC<JarvisPopupProps> = ({ data, onClose, onChatN
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
