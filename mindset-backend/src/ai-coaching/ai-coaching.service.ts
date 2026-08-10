@@ -235,7 +235,10 @@ ${contextString}`;
         { role: 'system', content: systemInstruction }
       ];
 
-      for (const msg of history) {
+      // Limit history to last 10 messages to avoid huge token usage
+      const recentHistory = history.slice(-10);
+
+      for (const msg of recentHistory) {
         messages.push({
           role: msg.sender === 'user' ? 'user' : 'assistant',
           content: msg.text
@@ -254,7 +257,7 @@ ${contextString}`;
           model: 'llama-3.3-70b-versatile',
           messages: messages,
           temperature: 0.8,
-          max_tokens: 2500
+          max_tokens: 1500
         })
       });
 
