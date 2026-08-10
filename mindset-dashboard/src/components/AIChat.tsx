@@ -185,10 +185,20 @@ export const AIChat: React.FC = () => {
     const dataObj = rawPlanData.plan || rawPlanData.actionPlan || rawPlanData;
     let planData = { ...dataObj };
 
-    if (planData.routineExplanation) {
-      localStorage.setItem('mindset_pending_ai_explanation', planData.routineExplanation);
-    }
-    
+    if (planData.routineExplanation) localStorage.setItem('mindset_pending_routine_explanation', planData.routineExplanation);
+    if (planData.habitExplanation) localStorage.setItem('mindset_pending_habit_explanation', planData.habitExplanation);
+    if (planData.objectiveExplanation) localStorage.setItem('mindset_pending_objective_explanation', planData.objectiveExplanation);
+    if (planData.nutritionExplanation) localStorage.setItem('mindset_pending_nutrition_explanation', planData.nutritionExplanation);
+    if (planData.planExplanation) localStorage.setItem('mindset_pending_ai_explanation', planData.planExplanation); // Fallback
+
+    const pushedTypes = new Set<string>();
+    const safeAddNotif = (type: string, msg: string) => {
+      if (!pushedTypes.has(type)) {
+        addAiNotification(type, msg);
+        pushedTypes.add(type);
+      }
+    };
+
     // Remplacement granulaire basé sur les nouveaux flags (pour éviter de tout supprimer par erreur)
     if (planData.replaceHabits === true) localStorage.setItem('mindset_habits', '[]');
     if (planData.replaceMicroObjectives === true) localStorage.setItem('mindset_micro_obj', '[]');
@@ -224,7 +234,7 @@ export const AIChat: React.FC = () => {
         };
       });
       localStorage.setItem('mindset_habits', JSON.stringify([...existingHabits, ...newEntries]));
-      addAiNotification('habit', `✨ ${aiName} a ajouté de nouvelles habitudes stratégiques pour toi.`);
+      safeAddNotif('habit', `✨ ${aiName} a ajouté de nouvelles habitudes stratégiques pour toi.`);
     }
     
     const routinesList = planData.newRoutines || planData.routines;
@@ -268,7 +278,7 @@ export const AIChat: React.FC = () => {
         }
       });
       localStorage.setItem('mindset_routines', JSON.stringify(existingRoutines));
-      addAiNotification('routine', `✨ ${aiName} a mis à jour tes routines pour t'aider à atteindre tes objectifs.`);
+      safeAddNotif('routine', `✨ ${aiName} a mis à jour tes routines pour t'aider à atteindre tes objectifs.`);
     }
 
     const nutritionList = planData.newNutrition || planData.nutrition;
@@ -290,7 +300,7 @@ export const AIChat: React.FC = () => {
         };
       });
       localStorage.setItem('mindset_nutrition', JSON.stringify([...existingNutrition, ...newEntries]));
-      addAiNotification('nutrition', `🍏 ${aiName} a planifié ton alimentation.`);
+      safeAddNotif('nutrition', `🍏 ${aiName} a planifié ton alimentation.`);
     }
       
     const objectivesList = planData.newMicroObjectives || planData.newObjectives || planData.objectives || planData.microObjectives || planData.goals;
@@ -313,7 +323,7 @@ export const AIChat: React.FC = () => {
         };
       });
       localStorage.setItem('mindset_micro_obj', JSON.stringify([...existingMicro, ...newEntries]));
-      addAiNotification('objective', `✨ ${aiName} a défini de nouveaux objectifs d'évolution pour toi.`);
+      safeAddNotif('objective', `✨ ${aiName} a défini de nouveaux objectifs d'évolution pour toi.`);
     }
 
     const macroList = planData.newMacroObjectives || planData.macroObjectives || planData.vision;
@@ -340,6 +350,7 @@ export const AIChat: React.FC = () => {
         };
       });
       localStorage.setItem('mindset_macro_obj', JSON.stringify([...existingMacro, ...newMacros]));
+      safeAddNotif('objective', `✨ ${aiName} a défini de nouveaux objectifs d'évolution pour toi.`);
     }
 
       // Force API sync if needed

@@ -81,7 +81,7 @@ export function AiNotification({ onNavigate }: AiNotificationProps) {
       }
       
       // Trigger the explanation modal since the user clicked the notification
-      localStorage.setItem('mindset_trigger_explanation', 'true');
+      localStorage.setItem('mindset_trigger_explanation', type);
       
       onNavigate(targetView);
     }

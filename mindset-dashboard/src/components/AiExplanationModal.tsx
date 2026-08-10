@@ -10,14 +10,29 @@ export const AiExplanationModal: React.FC = () => {
     // Check periodically for the trigger flag
     const checkExplanation = () => {
       const shouldTrigger = localStorage.getItem('mindset_trigger_explanation');
-      if (shouldTrigger === 'true') {
-        const explanation = localStorage.getItem('mindset_pending_ai_explanation');
+      if (shouldTrigger && shouldTrigger !== 'false') {
+        const type = shouldTrigger;
+        // Check if there is a specific explanation, otherwise fallback to the general one
+        const specificKey = `mindset_pending_${type}_explanation`;
+        let explanation = localStorage.getItem(specificKey);
+        
+        if (!explanation) {
+          // Fallback if the AI didn't provide a specific one
+          explanation = localStorage.getItem('mindset_pending_ai_explanation');
+        }
+
         if (explanation) {
           setPendingAiExplanation(explanation);
           // Clean up so it doesn't trigger again
           localStorage.removeItem('mindset_trigger_explanation');
-          localStorage.removeItem('mindset_pending_ai_explanation');
+          localStorage.removeItem(specificKey);
+          if (specificKey !== 'mindset_pending_ai_explanation') {
+            localStorage.removeItem('mindset_pending_ai_explanation');
+          }
           playBloopSound();
+        } else {
+          // If no explanation exists, clear the trigger
+          localStorage.removeItem('mindset_trigger_explanation');
         }
       }
       const savedName = localStorage.getItem('mindset_ai_name');
