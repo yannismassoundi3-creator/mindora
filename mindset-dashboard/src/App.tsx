@@ -27,6 +27,7 @@ const Habits = React.lazy(() => import('./pages/Habits').then(module => ({ defau
 const Profile = React.lazy(() => import('./pages/Profile').then(module => ({ default: module.Profile })));
 const Inventory = React.lazy(() => import('./pages/Inventory').then(module => ({ default: module.Inventory })));
 const PricingScreen = React.lazy(() => import('./pages/PricingScreen').then(module => ({ default: module.PricingScreen })));
+const AdminDashboard = React.lazy(() => import('./pages/AdminDashboard').then(module => ({ default: module.AdminDashboard })));
 
 const APP_VERSION = '1.0.7'; // Change this string to force a global cache clear
 const currentVersion = localStorage.getItem('mindset_app_version');
@@ -222,6 +223,15 @@ function App() {
       const isCompleted = localStorage.getItem('hasCompletedOnboarding') === 'true';
       setCurrentView(isCompleted ? 'dashboard' : 'onboarding');
     }} />;
+  }
+
+  const searchParams = new URLSearchParams(window.location.search);
+  if (searchParams.get('admin') === 'true') {
+    return (
+      <React.Suspense fallback={<SkeletonGlow />}>
+        <AdminDashboard />
+      </React.Suspense>
+    );
   }
 
   if (currentView === 'onboarding') {
