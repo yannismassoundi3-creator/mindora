@@ -19,6 +19,13 @@ export class AuthController {
     return this.authService.register(registerDto);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Post('claim-admin')
+  @ApiOperation({ summary: 'Devenir Admin avec la clé secrète' })
+  async claimAdmin(@Req() req: Request, @Body('secretKey') secretKey: string) {
+    return this.authService.claimAdmin((req.user as any).userId, secretKey);
+  }
+
 
   @Post('login')
   @HttpCode(HttpStatus.OK)

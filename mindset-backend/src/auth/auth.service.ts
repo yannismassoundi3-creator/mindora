@@ -44,6 +44,20 @@ export class AuthService {
     }
   }
 
+  async claimAdmin(userId: string, secretKey: string) {
+    const validKey = process.env.ADMIN_SECRET_KEY || 'mindset_admin_godmode_2026';
+    if (secretKey !== validKey) {
+      throw new UnauthorizedException('Clé secrète invalide.');
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { role: 'ADMIN' }
+    });
+
+    return { message: 'Félicitations, vous êtes maintenant Administrateur.' };
+  }
+
   async login(dto: LoginDto) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
