@@ -673,10 +673,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
     if (streakValue >= 100) {
       return { filter: 'hue-rotate(240deg) saturate(2) brightness(1.2)' };
     }
-    const progress = (streakValue - 2) / 98;
+    
+    // Entre le jour 2 et le jour 100
+    const progress = (streakValue - 2) / 98; // 0 à 1
+    
+    // Transition douce du gris vers la couleur (sur les 30 premiers jours)
+    let grayScale = 0;
+    let currentOpacity = 1;
+    if (streakValue < 30) {
+      const earlyProgress = (streakValue - 2) / 28; // 0 à 1
+      grayScale = 80 - (80 * earlyProgress); // Commence à 80% gris, descend à 0%
+      currentOpacity = 0.5 + (0.5 * earlyProgress); // Commence à 50% opaque, monte à 100%
+    }
+    
     const hueShift = -45 * progress;
     const saturate = 1 + progress;
-    return { filter: `hue-rotate(${hueShift}deg) saturate(${saturate})` };
+    
+    return { 
+      filter: `grayscale(${grayScale}%) hue-rotate(${hueShift}deg) saturate(${saturate})`,
+      opacity: currentOpacity
+    };
   };
 
   const userName = localStorage.getItem('mindset_user_name') || 'Utilisateur';
