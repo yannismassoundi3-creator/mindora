@@ -285,7 +285,7 @@ export const AIChat: React.FC = () => {
         };
       });
       localStorage.setItem('mindset_nutrition', JSON.stringify([...existingNutrition, ...newEntries]));
-      addAiNotification('objective', `🍏 ${aiName} a planifié ton alimentation.`);
+      addAiNotification('nutrition', `🍏 ${aiName} a planifié ton alimentation.`);
     }
       
     const objectivesList = planData.newObjectives || planData.objectives || planData.microObjectives || planData.goals;

@@ -356,6 +356,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   const [activeRightTab, setActiveRightTab] = useState<'routines' | 'nutrition'>('routines');
 
   useEffect(() => {
+    const handleTabSwitch = (e: any) => {
+      if (e.detail === 'nutrition' || e.detail === 'routines') {
+        setActiveRightTab(e.detail);
+      }
+    };
+    window.addEventListener('switch_dashboard_tab', handleTabSwitch);
+    return () => window.removeEventListener('switch_dashboard_tab', handleTabSwitch);
+  }, []);
+
+  useEffect(() => {
     const currentStreak = calculateStreak();
     setStreak(currentStreak);
 
