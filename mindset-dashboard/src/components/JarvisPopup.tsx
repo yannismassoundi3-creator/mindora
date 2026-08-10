@@ -41,8 +41,12 @@ export const JarvisPopup: React.FC<JarvisPopupProps> = ({ data, onClose, onChatN
     return () => clearTimeout(timer);
   }, [onClose]);
 
-  const handleActionClick = () => {
-    const chatMessage = `J'ai terminé : "${data.title}" (${data.itemType}). Ça s'est bien passé !`;
+  const handleActionClick = (e: React.MouseEvent, status: 'good' | 'bad') => {
+    e.stopPropagation();
+    const chatMessage = status === 'good'
+      ? `J'ai terminé : "${data.title}" (${data.itemType}). Ça s'est bien passé !`
+      : `J'ai terminé : "${data.title}" (${data.itemType}). C'était très difficile / Ça s'est mal passé.`;
+      
     setIsHiding(true);
     setTimeout(() => {
       onChatNavigate(chatMessage);
@@ -72,16 +76,20 @@ export const JarvisPopup: React.FC<JarvisPopupProps> = ({ data, onClose, onChatN
         )}
       </div>
       
-      <div className="jarvis-popup-bubble" onClick={handleActionClick}>
+      <div className="jarvis-popup-bubble">
         <div className="jarvis-popup-header">
           {aiName}
         </div>
         <p className="jarvis-popup-text">
           {getMessageText()}
         </p>
-        <div className="jarvis-popup-action">
-          <span>Ouvrir le chat</span>
-          <MessageSquarePlus size={14} />
+        <div className="jarvis-popup-actions-row">
+          <button className="jarvis-popup-btn success" onClick={(e) => handleActionClick(e, 'good')}>
+            👍 Facile
+          </button>
+          <button className="jarvis-popup-btn failure" onClick={(e) => handleActionClick(e, 'bad')}>
+            👎 Difficile
+          </button>
         </div>
       </div>
     </div>

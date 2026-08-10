@@ -61,7 +61,6 @@
   padding: 12px 16px;
   font-size: 0.95rem;
   line-height: 1.4;
-  cursor: pointer;
   pointer-events: auto; /* Make the bubble clickable */
   transition: all 0.2s ease;
   position: relative;
@@ -83,6 +82,51 @@
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.jarvis-popup-actions-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.jarvis-popup-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--white);
+}
+
+.jarvis-popup-btn.success {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #34d399;
+}
+
+.jarvis-popup-btn.success:hover {
+  background: rgba(16, 185, 129, 0.3);
+  transform: translateY(-2px);
+}
+
+.jarvis-popup-btn.failure {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #f87171;
+}
+
+.jarvis-popup-btn.failure:hover {
+  background: rgba(239, 68, 68, 0.3);
+  transform: translateY(-2px);
 }
 
 .jarvis-popup-text {
