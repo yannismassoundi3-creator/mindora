@@ -293,7 +293,7 @@ export const AIChat: React.FC = () => {
       addAiNotification('nutrition', `🍏 ${aiName} a planifié ton alimentation.`);
     }
       
-    const objectivesList = planData.newObjectives || planData.objectives || planData.microObjectives || planData.goals;
+    const objectivesList = planData.newMicroObjectives || planData.newObjectives || planData.objectives || planData.microObjectives || planData.goals;
     if (objectivesList && Array.isArray(objectivesList) && objectivesList.length > 0) {
       let existingMicro: any[] = [];
       try {
