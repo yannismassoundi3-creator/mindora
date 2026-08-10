@@ -7,13 +7,18 @@ export const AiExplanationModal: React.FC = () => {
   const [aiName, setAiName] = useState(() => localStorage.getItem('mindset_ai_name') || 'Faywa');
 
   useEffect(() => {
-    // Check periodically for pending explanation (as navigation might not re-mount App)
+    // Check periodically for the trigger flag
     const checkExplanation = () => {
-      const explanation = localStorage.getItem('mindset_pending_ai_explanation');
-      if (explanation) {
-        setPendingAiExplanation(explanation);
-        localStorage.removeItem('mindset_pending_ai_explanation');
-        playBloopSound();
+      const shouldTrigger = localStorage.getItem('mindset_trigger_explanation');
+      if (shouldTrigger === 'true') {
+        const explanation = localStorage.getItem('mindset_pending_ai_explanation');
+        if (explanation) {
+          setPendingAiExplanation(explanation);
+          // Clean up so it doesn't trigger again
+          localStorage.removeItem('mindset_trigger_explanation');
+          localStorage.removeItem('mindset_pending_ai_explanation');
+          playBloopSound();
+        }
       }
       const savedName = localStorage.getItem('mindset_ai_name');
       if (savedName && savedName !== aiName) {

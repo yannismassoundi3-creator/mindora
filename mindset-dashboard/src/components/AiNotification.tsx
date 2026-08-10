@@ -79,6 +79,10 @@ export function AiNotification({ onNavigate }: AiNotificationProps) {
         localStorage.setItem('mindset_dashboard_tab', 'nutrition');
         window.dispatchEvent(new Event('storage'));
       }
+      
+      // Trigger the explanation modal since the user clicked the notification
+      localStorage.setItem('mindset_trigger_explanation', 'true');
+      
       onNavigate(targetView);
     }
     
