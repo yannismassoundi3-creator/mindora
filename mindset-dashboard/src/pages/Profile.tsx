@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Shield, Lock, HardDrive, AlertTriangle, Save, CheckCircle, Database, Palette, FileText, X, Crown, LogOut, Sparkles, Bell } from 'lucide-react';
+import { User, Shield, Lock, HardDrive, AlertTriangle, Save, CheckCircle, Database, Palette, FileText, X, Crown, LogOut, Sparkles } from 'lucide-react';
 import { PricingScreen } from './PricingScreen';
 import { playHoverSound, playClickSound, playToggleSound, playLevelUpSound } from '../utils/sounds';
 import { api } from '../services/api';
@@ -368,26 +368,6 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
                   <input type="checkbox" checked={localHistory} onChange={() => { playToggleSound(!localHistory); setLocalHistory(!localHistory); }} />
                   <span className="slider"></span>
                 </label>
-              </div>
-
-              <div className="setting-item">
-                <div className="setting-info">
-                  <div className="setting-title"><Bell size={16}/> Tester les notifications</div>
-                  <div className="setting-desc">Vérifie que les notifications push fonctionnent.</div>
-                </div>
-                <button 
-                  className="btn-primary"
-                  style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '6px' }}
-                  onClick={async () => {
-                    try {
-                      await api.post('/push/test', {});
-                    } catch (e) {
-                      alert("Erreur: Vérifie que les notifications sont autorisées dans ton navigateur.");
-                    }
-                  }}
-                >
-                  Tester
-                </button>
               </div>
             </div>
           </div>
