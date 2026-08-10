@@ -372,8 +372,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
         setActiveRightTab(e.detail);
       }
     };
+    
+    const handleStorageSwitch = () => {
+      const saved = localStorage.getItem('mindset_dashboard_tab');
+      if (saved === 'nutrition' || saved === 'routines') {
+        setActiveRightTab(saved);
+        localStorage.removeItem('mindset_dashboard_tab');
+      }
+    };
+    
     window.addEventListener('switch_dashboard_tab', handleTabSwitch);
-    return () => window.removeEventListener('switch_dashboard_tab', handleTabSwitch);
+    window.addEventListener('storage', handleStorageSwitch);
+    // Call once to catch any missed updates
+    handleStorageSwitch();
+    
+    return () => {
+      window.removeEventListener('switch_dashboard_tab', handleTabSwitch);
+      window.removeEventListener('storage', handleStorageSwitch);
+    };
   }, []);
 
   useEffect(() => {

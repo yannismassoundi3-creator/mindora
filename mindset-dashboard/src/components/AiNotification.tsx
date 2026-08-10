@@ -77,6 +77,7 @@ export function AiNotification({ onNavigate }: AiNotificationProps) {
       if (type === 'nutrition') {
         targetView = 'dashboard';
         localStorage.setItem('mindset_dashboard_tab', 'nutrition');
+        window.dispatchEvent(new Event('storage'));
       }
       onNavigate(targetView);
     }
