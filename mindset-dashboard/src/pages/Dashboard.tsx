@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, Area, AreaChart } from 'recharts';
-import { Play, CheckCircle2, TrendingUp, Zap, Sparkles, Pencil, Coins, Circle, ChevronLeft, ChevronRight, Plus, Trophy, Calendar, Trash2 } from 'lucide-react';
+import { Play, CheckCircle2, TrendingUp, Zap, Sparkles, Pencil, Coins, Circle, ChevronLeft, ChevronRight, Plus, Trophy, Calendar, Trash2, X } from 'lucide-react';
 import { AiNotification } from '../components/AiNotification';
 import { RankIcon } from '../components/RankIcon';
 import { VictoryGlitchOverlay } from '../components/VictoryGlitchOverlay';
@@ -124,7 +124,29 @@ interface DashboardProps {
 export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   const [currentDate, setCurrentDate] = useState('');
   const heatmapRef = useRef<HTMLDivElement>(null);
+  const [isSubscribed, setIsSubscribed] = useState(() => localStorage.getItem('mindset_is_subscribed') === 'true');
+  const [showRankGlitch, setShowRankGlitch] = useState(false);
   const [jarvisPopup, setJarvisPopup] = useState<JarvisPopupData | null>(null);
+
+  // --- AI EXPLANATION MODAL ---
+  const [pendingAiExplanation, setPendingAiExplanation] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Check if there is a pending explanation when arriving on dashboard
+    const explanation = localStorage.getItem('mindset_pending_ai_explanation');
+    if (explanation) {
+      setTimeout(() => {
+        setPendingAiExplanation(explanation);
+        localStorage.removeItem('mindset_pending_ai_explanation');
+        playBloopSound();
+      }, 500);
+    }
+  }, []);
+
+  const closeAiExplanation = () => {
+    playClickSound();
+    setPendingAiExplanation(null);
+  };
   
   useEffect(() => {
     const options: Intl.DateTimeFormatOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
@@ -1081,6 +1103,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
           </section>
         </div>
       </div>
+      
+      {/* AI EXPLANATION MODAL */}
+      {pendingAiExplanation && (
+        <div className="ai-explanation-modal-overlay fade-in" onClick={closeAiExplanation}>
+          <div className="ai-explanation-modal scale-in" onClick={e => e.stopPropagation()}>
+            <div className="ai-explanation-header">
+              <div className="ai-avatar pulse-glow liquid-glass-orb"><Sparkles size={24} color="#fff" /></div>
+              <h3>{aiName}</h3>
+              <button className="close-btn" onClick={closeAiExplanation}><X size={20} /></button>
+            </div>
+            <div className="ai-explanation-body">
+              <p>{pendingAiExplanation}</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

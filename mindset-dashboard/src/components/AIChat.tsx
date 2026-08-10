@@ -182,7 +182,12 @@ export const AIChat: React.FC = () => {
     if (!rawPlanData) return;
     
     // Si l'IA a imbriqué les données dans un objet "plan" ou "actionPlan"
-    const planData = rawPlanData.plan || rawPlanData.actionPlan || rawPlanData;
+    const dataObj = rawPlanData.plan || rawPlanData.actionPlan || rawPlanData;
+    let planData = { ...dataObj };
+
+    if (planData.routineExplanation) {
+      localStorage.setItem('mindset_pending_ai_explanation', planData.routineExplanation);
+    }
     
     // Remplacement granulaire basé sur les nouveaux flags (pour éviter de tout supprimer par erreur)
     if (planData.replaceHabits === true) localStorage.setItem('mindset_habits', '[]');
@@ -464,6 +469,10 @@ export const AIChat: React.FC = () => {
       if (jsonStr) {
         try {
           const planData = JSON.parse(jsonStr);
+
+          if (planData.routineExplanation) {
+            localStorage.setItem('mindset_pending_ai_explanation', planData.routineExplanation);
+          }
           
           const isCreation = 
             (planData.newHabits && planData.newHabits.length > 0) ||
