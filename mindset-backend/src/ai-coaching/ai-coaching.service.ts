@@ -240,25 +240,9 @@ ${contextString}`;
       console.log('[Groq] 🔄 Tentative avec Llama 3.3 70B (Groq)...');
       
       const messages = [
-        { role: 'system', content: systemInstruction }
+        { role: 'system', content: systemInstruction },
+        { role: 'user', content: prompt }
       ];
-
-      // Limit history to last 10 messages to avoid huge token usage
-      const recentHistory = history.slice(-10);
-
-      for (const msg of recentHistory) {
-        // Nettoyage critique : On supprime les blocs <PLAN> générés par l'IA dans l'historique
-        // pour éviter qu'elle ne s'auto-influence avec des JSON mal formés de ses réponses précédentes.
-        let cleanContent = msg.text.replace(/<PLAN>[\s\S]*?<\/PLAN>/gi, '');
-        cleanContent = cleanContent.replace(/\*\*\s*<PLAN>[\s\S]*/gi, '');
-        
-        messages.push({
-          role: msg.sender === 'user' ? 'user' : 'assistant',
-          content: cleanContent.trim() || 'C\'est noté.'
-        });
-      }
-
-      messages.push({ role: 'user', content: prompt });
 
       const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
