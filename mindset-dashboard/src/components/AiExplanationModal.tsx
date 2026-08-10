@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Sparkles, X } from 'lucide-react';
-import { playClickSound, playBloopSound } from '../utils/audio';
+import { playClickSound, playBloopSound } from '../utils/sounds';
 
 export const AiExplanationModal: React.FC = () => {
   const [pendingAiExplanation, setPendingAiExplanation] = useState<string | null>(null);
