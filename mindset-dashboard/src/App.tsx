@@ -29,7 +29,7 @@ const Inventory = React.lazy(() => import('./pages/Inventory').then(module => ({
 const PricingScreen = React.lazy(() => import('./pages/PricingScreen').then(module => ({ default: module.PricingScreen })));
 const AdminDashboard = React.lazy(() => import('./pages/AdminDashboard').then(module => ({ default: module.AdminDashboard })));
 
-const APP_VERSION = '1.0.8'; // Change this string to force a global cache clear
+const APP_VERSION = '1.0.9'; // Change this string to force a global cache clear
 const currentVersion = localStorage.getItem('mindset_app_version');
 if (currentVersion !== APP_VERSION) {
   if ('caches' in window) {
