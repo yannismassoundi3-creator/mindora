@@ -208,7 +208,10 @@ RÈGLES DE COMPORTEMENT :
       "replaceNutrition": false, 
       "replaceMacroObjectives": false, 
       "replaceMicroObjectives": false, 
-      "planExplanation": "Une explication détaillée, vibrante et stylée de TOUT ce que tu as planifié (pourquoi ces exercices précis, ces habitudes, et ces micro-objectifs) en fonction du profil de l'utilisateur.",
+      "routineExplanation": "Explication vibrante et stylée des choix de routines et d'exercices.",
+      "habitExplanation": "Explication des nouvelles habitudes stratégiques choisies.",
+      "objectiveExplanation": "Explication des micro et macro objectifs définis.",
+      "nutritionExplanation": "Explication du plan alimentaire et des macros recommandés.",
       "newHabits": [
         { "name": "Titre habitude", "description": "Desc", "frequency": "daily" }
       ],
