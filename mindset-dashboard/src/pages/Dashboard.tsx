@@ -279,7 +279,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
     const updated = nutritionList.map((n: any) => {
       if (n.id === id) {
         if (!n.done) {
-          setJarvisPopup({ x: e.clientX, y: e.clientY, title: n.title || 'Nutrition', itemType: 'objective' });
+          const popupX = Math.min(e.clientX, window.innerWidth - 340);
+          setJarvisPopup({ x: popupX, y: e.clientY, title: n.title || 'Nutrition', itemType: 'objective' });
         }
         return { ...n, done: !n.done };
       }
@@ -590,8 +591,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
       window.dispatchEvent(new CustomEvent('pointsChanged', { detail: newPoints }));
       
       if (toggledItem) {
+        const popupX = Math.min(e.clientX, window.innerWidth - 340);
         setJarvisPopup({
-          x: e.clientX,
+          x: popupX,
           y: e.clientY,
           title: toggledItem.title || 'Tâche',
           itemType: 'routine'
