@@ -63,7 +63,6 @@ export const JarvisPopup: React.FC<JarvisPopupProps> = ({ data, onClose, onChatN
   return (
     <div 
       className={`jarvis-popup-container ${isHiding ? 'hiding' : ''}`}
-      style={{ left: `${data.x}px`, top: `${data.y}px` }}
     >
       <div className="jarvis-popup-orb-container">
         {equippedCosmetic?.type === 'icon' ? (
