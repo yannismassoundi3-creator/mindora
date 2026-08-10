@@ -247,9 +247,14 @@ ${contextString}`;
       const recentHistory = history.slice(-10);
 
       for (const msg of recentHistory) {
+        // Nettoyage critique : On supprime les blocs <PLAN> générés par l'IA dans l'historique
+        // pour éviter qu'elle ne s'auto-influence avec des JSON mal formés de ses réponses précédentes.
+        let cleanContent = msg.text.replace(/<PLAN>[\s\S]*?<\/PLAN>/gi, '');
+        cleanContent = cleanContent.replace(/\*\*\s*<PLAN>[\s\S]*/gi, '');
+        
         messages.push({
           role: msg.sender === 'user' ? 'user' : 'assistant',
-          content: msg.text
+          content: cleanContent.trim() || 'C\'est noté.'
         });
       }
 
