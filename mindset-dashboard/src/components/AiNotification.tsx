@@ -82,7 +82,7 @@ export function AiNotification({ onNavigate }: AiNotificationProps) {
     }
     
     setTimeout(() => {
-      dismissNotification(id, navigate); // Clear all if navigating to avoid spam
+      dismissNotification(id, false); // Don't clear all, allow queueing
     }, 300);
   };
 

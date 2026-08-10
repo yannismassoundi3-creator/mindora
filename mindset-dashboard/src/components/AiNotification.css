@@ -18,6 +18,14 @@
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), 0 0 20px rgba(139, 92, 246, 0.2);
   animation: slideDownIos 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
   cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.ai-notification-banner:active {
+  transform: translateX(-50%) scale(0.97);
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5), 0 0 10px rgba(139, 92, 246, 0.15);
 }
 
 .ai-notification-banner.hiding {

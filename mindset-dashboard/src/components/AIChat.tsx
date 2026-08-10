@@ -478,8 +478,8 @@ export const AIChat: React.FC = () => {
           
           const planData = JSON.parse(jsonStr);
 
-          if (planData.routineExplanation) {
-            localStorage.setItem('mindset_pending_ai_explanation', planData.routineExplanation);
+          if (planData.planExplanation || planData.routineExplanation) {
+            localStorage.setItem('mindset_pending_ai_explanation', planData.planExplanation || planData.routineExplanation);
           }
           
           const isCreation = 

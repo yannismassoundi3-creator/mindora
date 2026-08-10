@@ -128,25 +128,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   const [showRankGlitch, setShowRankGlitch] = useState(false);
   const [jarvisPopup, setJarvisPopup] = useState<JarvisPopupData | null>(null);
 
-  // --- AI EXPLANATION MODAL ---
-  const [pendingAiExplanation, setPendingAiExplanation] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Check if there is a pending explanation when arriving on dashboard
-    const explanation = localStorage.getItem('mindset_pending_ai_explanation');
-    if (explanation) {
-      setTimeout(() => {
-        setPendingAiExplanation(explanation);
-        localStorage.removeItem('mindset_pending_ai_explanation');
-        playBloopSound();
-      }, 500);
-    }
-  }, []);
-
-  const closeAiExplanation = () => {
-    playClickSound();
-    setPendingAiExplanation(null);
-  };
+  // --- STREAK & HARDCORE MODE ---
   
   useEffect(() => {
     const options: Intl.DateTimeFormatOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
@@ -1111,21 +1093,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
         </div>
       </div>
       
-      {/* AI EXPLANATION MODAL */}
-      {pendingAiExplanation && (
-        <div className="ai-explanation-modal-overlay fade-in" onClick={closeAiExplanation}>
-          <div className="ai-explanation-modal scale-in" onClick={e => e.stopPropagation()}>
-            <div className="ai-explanation-header">
-              <div className="ai-avatar pulse-glow liquid-glass-orb"><Sparkles size={24} color="#fff" /></div>
-              <h3>{aiName}</h3>
-              <button className="close-btn" onClick={closeAiExplanation}><X size={20} /></button>
-            </div>
-            <div className="ai-explanation-body">
-              <p>{pendingAiExplanation}</p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

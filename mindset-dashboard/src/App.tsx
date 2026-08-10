@@ -15,6 +15,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { PwaInstallPrompt } from './components/PwaInstallPrompt';
 import { ShockwaveOverlay } from './components/ShockwaveOverlay';
 import { AiNotification } from './components/AiNotification';
+import { AiExplanationModal } from './components/AiExplanationModal';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import './styles/global.css';
 import './index.css';
@@ -258,6 +259,7 @@ function App() {
         setView={handleSetView}
       >
         <AiNotification onNavigate={handleSetView} />
+        <AiExplanationModal />
         
         <div key={currentView} className={`view-transition-wrapper slide-${slideDirection}`}>
           {isInitializing && currentView !== 'welcome' && currentView !== 'auth' && currentView !== 'onboarding' ? (
