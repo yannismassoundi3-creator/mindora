@@ -24,8 +24,8 @@
 }
 
 .ai-notification-banner:active {
-  transform: translateX(-50%) scale(0.97);
   box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5), 0 0 10px rgba(139, 92, 246, 0.15);
+  filter: brightness(0.9);
 }
 
 .ai-notification-banner.hiding {

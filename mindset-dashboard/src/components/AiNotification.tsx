@@ -83,6 +83,7 @@ export function AiNotification({ onNavigate }: AiNotificationProps) {
     }
     
     setTimeout(() => {
+      setIsHiding(false); // Reset animation state before the next notification renders
       dismissNotification(id, false); // Don't clear all, allow queueing
     }, 300);
   };
@@ -94,7 +95,7 @@ export function AiNotification({ onNavigate }: AiNotificationProps) {
   return (
     <div 
       className={`ai-notification-banner ${isHiding ? 'hiding' : ''}`} 
-      onClick={() => handleDismiss(latestNotif.id, latestNotif.type, true)}
+      onPointerDown={() => handleDismiss(latestNotif.id, latestNotif.type, true)}
     >
       <div className="ai-notification-icon-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {equippedCosmetic?.type === 'icon' ? (
