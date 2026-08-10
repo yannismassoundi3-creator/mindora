@@ -249,7 +249,7 @@ RÈGLES DE COMPORTEMENT :
 ${contextString}`;
 
     try {
-      console.log('[Groq] 🔄 Tentative avec Mixtral 8x7B (Groq)...');
+      console.log('[Groq] 🔄 Tentative avec Llama 3.3 70B (Groq)...');
       
       const messages = [
         { role: 'system', content: systemInstruction },
@@ -263,7 +263,7 @@ ${contextString}`;
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'mixtral-8x7b-32768',
+          model: 'llama-3.3-70b-versatile',
           messages: messages,
           temperature: 0.8,
           max_tokens: 1500
