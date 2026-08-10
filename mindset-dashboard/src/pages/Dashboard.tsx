@@ -375,7 +375,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
 
   // --- STREAK & HARDCORE MODE ---
   const [streak, setStreak] = useState(0);
-  const [activeRightTab, setActiveRightTab] = useState<'routines' | 'nutrition'>('routines');
+  const [activeRightTab, setActiveRightTab] = useState<'routines' | 'nutrition'>(() => {
+    const saved = localStorage.getItem('mindset_dashboard_tab');
+    if (saved) {
+      localStorage.removeItem('mindset_dashboard_tab');
+      return saved as 'routines' | 'nutrition';
+    }
+    return 'routines';
+  });
 
   useEffect(() => {
     const handleTabSwitch = (e: any) => {

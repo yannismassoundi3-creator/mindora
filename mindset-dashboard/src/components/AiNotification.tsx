@@ -76,7 +76,7 @@ export function AiNotification({ onNavigate }: AiNotificationProps) {
       if (type === 'routine') targetView = 'dashboard';
       if (type === 'nutrition') {
         targetView = 'dashboard';
-        window.dispatchEvent(new CustomEvent('switch_dashboard_tab', { detail: 'nutrition' }));
+        localStorage.setItem('mindset_dashboard_tab', 'nutrition');
       }
       onNavigate(targetView);
     }

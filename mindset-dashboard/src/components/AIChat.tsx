@@ -468,6 +468,14 @@ export const AIChat: React.FC = () => {
 
       if (jsonStr) {
         try {
+          // Nettoyage agressif pour rattraper un JSON mal formaté par l'IA
+          jsonStr = jsonStr.trim();
+          const firstBrace = jsonStr.indexOf('{');
+          const lastBrace = jsonStr.lastIndexOf('}');
+          if (firstBrace !== -1 && lastBrace !== -1) {
+            jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
+          }
+          
           const planData = JSON.parse(jsonStr);
 
           if (planData.routineExplanation) {
