@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Gift, Coins, Plus, Trash2, CheckCircle2, Clock, Sparkles } from 'lucide-react';
 import { playClickSound, playLevelUpSound, playHoverSound, playBloopSound } from '../utils/sounds';
+import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
 import { api } from '../services/api';
 import { getDailyShopItems } from '../utils/cosmetics';
 import type { Cosmetic } from '../utils/cosmetics';
