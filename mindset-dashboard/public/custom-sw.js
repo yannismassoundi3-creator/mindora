@@ -5,8 +5,8 @@ self.addEventListener('push', function (event) {
       const title = data.title || 'Mindset Elite';
       const options = {
         body: data.body || 'Vous avez une nouvelle notification.',
-        icon: data.icon || '/pwa-192x192.png',
-        badge: '/pwa-192x192.png',
+        icon: data.icon || '/icon-192.png',
+        badge: '/icon-192.png',
         data: {
           url: data.url || '/'
         }

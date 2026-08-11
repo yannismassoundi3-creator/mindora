@@ -20,30 +20,41 @@ export class PushService implements OnModuleInit {
     }
   }
 
-  async saveSubscription(userId: string, subscription: any) {
-    const exists = await this.prisma.pushSubscription.findUnique({
-      where: { endpoint: subscription.endpoint }
-    });
-    
-    if (exists) {
-      await this.prisma.pushSubscription.update({
-        where: { endpoint: subscription.endpoint },
-        data: {
+  async saveSubscription(userId: string, subscription: any, deviceId?: string) {
+    // Un appareil ne doit avoir qu'une seule inscription active. Quand le navigateur
+    // recrée son abonnement, l'endpoint change : on purge d'abord les anciennes lignes
+    // du même appareil, sinon elles restent et l'utilisateur reçoit tout en double.
+    if (deviceId) {
+      await this.prisma.pushSubscription.deleteMany({
+        where: {
           user_id: userId,
-          p256dh: subscription.keys.p256dh,
-          auth: subscription.keys.auth
-        }
-      });
-    } else {
-      await this.prisma.pushSubscription.create({
-        data: {
-          user_id: userId,
-          endpoint: subscription.endpoint,
-          p256dh: subscription.keys.p256dh,
-          auth: subscription.keys.auth
-        }
+          // Les lignes sans device_id datent d'avant ce mécanisme : impossible de savoir
+          // à quel appareil elles appartiennent, et ce sont elles qui provoquent les
+          // doublons actuels. On les retire aussi. Un autre appareil encore sur
+          // l'ancienne version se réinscrira tout seul à sa prochaine ouverture.
+          OR: [{ device_id: deviceId }, { device_id: null }],
+          endpoint: { not: subscription.endpoint },
+        },
       });
     }
+
+    await this.prisma.pushSubscription.upsert({
+      where: { endpoint: subscription.endpoint },
+      update: {
+        user_id: userId,
+        device_id: deviceId ?? undefined,
+        p256dh: subscription.keys.p256dh,
+        auth: subscription.keys.auth,
+      },
+      create: {
+        user_id: userId,
+        endpoint: subscription.endpoint,
+        device_id: deviceId ?? null,
+        p256dh: subscription.keys.p256dh,
+        auth: subscription.keys.auth,
+      },
+    });
+
     this.logger.log(`Saved push subscription for user ${userId}`);
     return { success: true };
   }

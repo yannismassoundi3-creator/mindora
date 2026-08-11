@@ -12,9 +12,12 @@ export class PushController {
   @UseGuards(JwtAuthGuard)
   @Post('subscribe')
   @ApiOperation({ summary: 'Subscribe to web push notifications' })
-  async subscribe(@Request() req, @Body() subscription: any) {
+  async subscribe(@Request() req, @Body() body: any) {
     const userId = req.user.userId;
-    await this.pushService.saveSubscription(userId, subscription);
+    // Le client envoie { subscription, deviceId }. On accepte aussi l'ancien format
+    // (l'abonnement à plat) le temps que tous les navigateurs aient rechargé l'app.
+    const subscription = body?.subscription ?? body;
+    await this.pushService.saveSubscription(userId, subscription, body?.deviceId);
     return { success: true, message: 'Subscription saved.' };
   }
 

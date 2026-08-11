@@ -249,11 +249,18 @@ model PushSubscription {
   id         String   @id @default(uuid())
   user_id    String
   endpoint   String   @unique
+  /// Identifiant stable du navigateur, généré côté client. L'endpoint change dès que
+  /// le navigateur recrée son abonnement (mise à jour du service worker, données
+  /// effacées) : sans repère stable, l'ancienne ligne survit et le même appareil
+  /// reçoit la notification en double.
+  device_id  String?
   p256dh     String
   auth       String
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
   user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, device_id])
 }
 
 model TwoFactorCode {

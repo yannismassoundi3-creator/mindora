@@ -142,7 +142,16 @@ export const api = {
       });
     }
 
-    await api.post('/push/subscribe', subscription);
+    // Identifiant stable de ce navigateur. L'endpoint push, lui, change à chaque
+    // recréation de l'abonnement : sans ce repère, le serveur garde l'ancienne
+    // inscription en plus de la nouvelle et l'appareil reçoit tout en double.
+    let deviceId = localStorage.getItem('mindset_device_id');
+    if (!deviceId) {
+      deviceId = (crypto.randomUUID?.() ?? String(Date.now()) + Math.random().toString(36).slice(2));
+      localStorage.setItem('mindset_device_id', deviceId);
+    }
+
+    await api.post('/push/subscribe', { subscription, deviceId });
     return true;
   }
 };
