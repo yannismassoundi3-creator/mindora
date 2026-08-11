@@ -51,7 +51,7 @@ body {
 
 button {
   font-family: var(--font-main);
-  transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+  transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s cubic-bezier(0.25, 1, 0.5, 1), background-color 0.3s cubic-bezier(0.25, 1, 0.5, 1), border-color 0.3s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.3s cubic-bezier(0.25, 1, 0.5, 1), color 0.3s cubic-bezier(0.25, 1, 0.5, 1);
   cursor: pointer;
 }
 
@@ -75,7 +75,7 @@ button:active:not(:disabled) {
   border: 1px solid rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  transition: all 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+  transition: transform 0.5s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.5s cubic-bezier(0.25, 1, 0.5, 1), background-color 0.5s cubic-bezier(0.25, 1, 0.5, 1), border-color 0.5s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.5s cubic-bezier(0.25, 1, 0.5, 1), color 0.5s cubic-bezier(0.25, 1, 0.5, 1);
   overflow: hidden;
   animation: floatOrb 6s ease-in-out infinite !important;
 }
@@ -566,7 +566,7 @@ body.theme-inferno::after {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: transform 0.2s, opacity 0.2s, background-color 0.2s, border-color 0.2s, box-shadow 0.2s, color 0.2s;
 }
 
 .close-btn:hover {
@@ -583,4 +583,21 @@ body.theme-inferno::after {
 
 .ai-explanation-body p {
   margin: 0;
+}
+
+/* Respecte le réglage système « réduire les animations ». Il est activé par les
+   personnes sensibles au mouvement, mais aussi automatiquement par certains
+   téléphones en mode économie d'énergie — où l'app a justement le plus besoin
+   d'alléger le travail d'affichage. On neutralise sans casser : les transitions
+   deviennent quasi instantanées au lieu de disparaître, donc les changements
+   d'état restent visibles. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

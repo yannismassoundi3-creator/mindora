@@ -508,7 +508,7 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
                     gap: '10px',
                     background: editingMacro.done ? 'rgba(255,255,255,0.1)' : 'linear-gradient(135deg, #10b981, #059669)',
                     color: editingMacro.done ? 'rgba(255,255,255,0.6)' : '#fff',
-                    transition: 'all 0.3s',
+                    transition: 'transform 0.3s, opacity 0.3s, background-color 0.3s, border-color 0.3s, box-shadow 0.3s, color 0.3s',
                     boxShadow: editingMacro.done ? 'none' : '0 10px 20px rgba(16, 185, 129, 0.3)'
                   }}
                   onClick={() => {

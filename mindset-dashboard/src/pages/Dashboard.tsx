@@ -734,7 +734,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
                 borderRadius: '20px', border: `1px solid ${rank.color}60`, 
                 color: rank.color, boxShadow: `0 0 15px ${rank.color}40`, 
                 fontSize: '0.85rem', fontWeight: 600, backdropFilter: 'blur(10px)',
-                cursor: 'pointer', transition: 'all 0.3s'
+                cursor: 'pointer', transition: 'transform 0.3s, opacity 0.3s, background-color 0.3s, border-color 0.3s, box-shadow 0.3s, color 0.3s'
               }}>
                 <RankIcon iconName={rank.iconName} size={16} /> Rang {rank.name}
               </div>
@@ -758,7 +758,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
       <div className="dashboard-grid">
         <div className="dashboard-left-col">
           {/* Main Chart Section */}
-          <section className="glass-panel chart-section glass-panel-interactive pulse-glow" style={{ transition: 'all 0.3s ease', cursor: 'pointer' }}>
+          <section className="glass-panel chart-section glass-panel-interactive pulse-glow" style={{ transition: 'transform 0.3s ease, opacity 0.3s ease, background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, color 0.3s ease', cursor: 'pointer' }}>
             <div className="section-header">
               <div>
                 <h3>Évolution Mentale</h3>
@@ -857,7 +857,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
           </section>
 
           {/* Heatmap Section */}
-          <section className="heatmap-section glass-panel glass-panel-interactive pulse-glow fade-in delay-2" style={{ transition: 'all 0.3s ease', cursor: 'pointer' }}>
+          <section className="heatmap-section glass-panel glass-panel-interactive pulse-glow fade-in delay-2" style={{ transition: 'transform 0.3s ease, opacity 0.3s ease, background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, color 0.3s ease', cursor: 'pointer' }}>
             <div className="section-header-flex" style={{ marginBottom: '8px' }}>
               <h3 className="section-title" style={{ fontSize: '1.2rem', margin: 0 }}>
                 <Calendar size={18} /> Ton Année (Régularité)

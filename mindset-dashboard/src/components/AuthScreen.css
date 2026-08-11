@@ -70,7 +70,7 @@
   background: rgba(255, 255, 255, 0.05);
   color: var(--text-primary);
   font-size: 1rem;
-  transition: all 0.3s ease;
+  transition: transform 0.3s ease, opacity 0.3s ease, background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, color 0.3s ease;
 }
 
 .auth-form input:focus {
@@ -94,7 +94,7 @@
   gap: 0.5rem;
   margin-top: 1rem;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: transform 0.3s ease, opacity 0.3s ease, background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, color 0.3s ease;
 }
 
 .auth-submit-btn:hover:not(:disabled) {
