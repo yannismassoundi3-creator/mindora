@@ -6,10 +6,10 @@ services:
     container_name: mindset_postgres
     environment:
       POSTGRES_USER: mindset_admin
-      POSTGRES_PASSWORD: supersecretpassword
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manquant dans .env}
       POSTGRES_DB: mindset_db
     ports:
-      - '5432:5432'
+      - '127.0.0.1:5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -20,7 +20,7 @@ services:
     image: redis:7-alpine
     container_name: mindset_redis
     ports:
-      - '6379:6379'
+      - '127.0.0.1:6379:6379'
     volumes:
       - redis_data:/data
     networks:

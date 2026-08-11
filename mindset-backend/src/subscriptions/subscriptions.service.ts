@@ -119,17 +119,6 @@ export class SubscriptionsService {
     return { received: true };
   }
 
-  // Conservé pour les tests (le bouton mock sur le front l'utilisait)
-  async mockSuccess(userId: string) {
-    console.log(`[Mock Stripe] Paiement validé pour le user ${userId}`);
-    await this.prisma.subscription.upsert({
-      where: { user_id: userId },
-      update: { status: 'ACTIVE', plan_type: 'ELITE' },
-      create: { user_id: userId, status: 'ACTIVE', plan_type: 'ELITE' }
-    });
-    return { success: true };
-  }
-
   async createPortalSession(userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user || !user.stripe_customer_id) {

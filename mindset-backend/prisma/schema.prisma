@@ -33,6 +33,7 @@ model User {
   push_subscriptions PushSubscription[]
   two_factor_codes   TwoFactorCode[]
   chat_messages      ChatMessage[]
+  password_reset_tokens PasswordResetToken[]
 }
 
 model RefreshToken {
@@ -258,6 +259,18 @@ model TwoFactorCode {
   id         String   @id @default(uuid())
   user_id    String
   code       String
+  expires_at DateTime
+  is_used    Boolean  @default(false)
+  created_at DateTime @default(now())
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+}
+
+model PasswordResetToken {
+  id         String   @id @default(uuid())
+  user_id    String
+  token_hash String   @unique
   expires_at DateTime
   is_used    Boolean  @default(false)
   created_at DateTime @default(now())
