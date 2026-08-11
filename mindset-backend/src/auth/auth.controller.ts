@@ -23,6 +23,7 @@ export class AuthController {
     return this.authService.register(registerDto);
   }
 
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @UseGuards(JwtAuthGuard)
   @Post('claim-admin')
   @ApiOperation({ summary: 'Devenir Admin avec la clé secrète' })
