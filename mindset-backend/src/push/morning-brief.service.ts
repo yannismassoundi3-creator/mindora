@@ -48,6 +48,23 @@ export class MorningBriefService {
       .slice(0, max);
   }
 
+  /**
+   * L'angle tourne avec le jour de l'année. Sans ça le modèle reprend toujours la
+   * même construction (« prénom, jour N, tâches ») et le message redevient un
+   * automatisme au bout d'une semaine — le défaut qu'on cherchait justement à corriger.
+   */
+  private angleDuJour(): string {
+    const angles = [
+      "Appuie-toi sur sa série en cours et sur ce qu'il risque de perdre en s'arrêtant.",
+      "Cite une tâche précise du jour et rends-la facile à commencer maintenant.",
+      "Relie sa journée à son objectif de la semaine.",
+      "Lance-lui un défi court et concret pour aujourd'hui.",
+    ];
+    const debutAnnee = new Date(new Date().getFullYear(), 0, 0);
+    const jour = Math.floor((Date.now() - debutAnnee.getTime()) / 86400000);
+    return angles[jour % angles.length];
+  }
+
   buildPrompt(prenom: string, sync: any): string {
     const streak = this.computeStreak(sync?.daily_scores);
     const taches = this.firstTitles(sync?.routines, 3);
@@ -55,11 +72,13 @@ export class MorningBriefService {
 
     return [
       `Prénom : ${prenom || 'champion'}`,
-      `Série en cours : ${streak} jour(s)`,
+      `Série en cours : ${streak} jour(s) d'affilée`,
       taches.length ? `Tâches prévues aujourd'hui : ${taches.join(', ')}` : `Aucune tâche planifiée aujourd'hui`,
       objectifs.length ? `Objectifs de la semaine : ${objectifs.join(', ')}` : '',
+      '',
+      `Angle imposé aujourd'hui : ${this.angleDuJour()}`,
     ]
-      .filter(Boolean)
+      .filter((l) => l !== null && l !== undefined)
       .join('\n');
   }
 
@@ -75,7 +94,8 @@ export class MorningBriefService {
       "Tu es le coach personnel de l'utilisateur dans l'app Disciplix.",
       "Écris UNE notification de réveil, en français, tutoiement.",
       "Maximum 140 caractères, une à deux phrases. Pas de guillemets.",
-      "Appuie-toi sur ses données : cite sa série si elle est en cours, ou une tâche précise du jour.",
+      "Appuie-toi sur ses données réelles et respecte l'angle imposé pour aujourd'hui.",
+      "Ne commence pas systématiquement par son prénom : varie l'attaque.",
       "Ton direct et motivant, un seul emoji maximum. Réponds uniquement par le texte de la notification.",
     ].join(' ');
 
