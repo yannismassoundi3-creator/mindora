@@ -265,13 +265,27 @@ ${contextString}`;
         }))
         .filter((m) => m.content.length > 0);
 
+      // Limiter à 20 messages ne borne rien : une réponse peut monter à 1500 jetons,
+      // donc trois réponses longues suffisent à faire exploser la requête. On plafonne
+      // en volume, en gardant les échanges les plus récents (les plus pertinents).
+      const BUDGET_HISTORIQUE = 6000; // caractères, ~1600 jetons
+      const retenus: typeof historyMessages = [];
+      let volume = 0;
+      for (let i = historyMessages.length - 1; i >= 0; i--) {
+        volume += historyMessages[i].content.length;
+        if (volume > BUDGET_HISTORIQUE) break;
+        retenus.unshift(historyMessages[i]);
+      }
+
       const messages = [
         { role: 'system', content: systemInstruction },
-        ...historyMessages,
+        ...retenus,
         { role: 'user', content: prompt }
       ];
 
-      console.log(`[Groq] 🧠 ${historyMessages.length} message(s) de contexte transmis`);
+      console.log(
+        `[Groq] 🧠 ${retenus.length}/${historyMessages.length} message(s) de contexte transmis (${volume} car.)`,
+      );
 
       const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
