@@ -130,12 +130,29 @@ export const api = {
     const registration = await navigator.serviceWorker.ready;
     let subscription = await registration.pushManager.getSubscription();
 
+    const vapidResponse = await api.get('/push/vapid-public-key');
+    const convertedVapidKey = urlBase64ToUint8Array(vapidResponse.publicKey);
+
+    // Un abonnement est scellé à la clé VAPID qui l'a créé. Si le serveur signe
+    // désormais avec une autre clé, le service de push rejette tous les envois — et
+    // comme getSubscription() renvoie l'ancien abonnement, on le réenregistrerait
+    // indéfiniment sans jamais en créer un valide. On compare donc les clés, et on
+    // se désabonne pour repartir proprement quand elles diffèrent.
+    if (subscription) {
+      const cleActuelle = subscription.options?.applicationServerKey;
+      const identique =
+        !!cleActuelle &&
+        new Uint8Array(cleActuelle).length === convertedVapidKey.length &&
+        new Uint8Array(cleActuelle).every((octet, i) => octet === convertedVapidKey[i]);
+
+      if (!identique) {
+        console.warn('Clé VAPID changée : recréation de l\'abonnement push.');
+        await subscription.unsubscribe();
+        subscription = null;
+      }
+    }
+
     if (!subscription) {
-      const vapidResponse = await api.get('/push/vapid-public-key');
-      const publicKey = vapidResponse.publicKey;
-      
-      const convertedVapidKey = urlBase64ToUint8Array(publicKey);
-      
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: convertedVapidKey

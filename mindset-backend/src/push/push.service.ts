@@ -91,10 +91,21 @@ export class PushService implements OnModuleInit {
         envoyees++;
         this.logger.log(`Push notification sent successfully to user ${userId}`);
       } catch (error) {
-        this.logger.error(`Error sending push notification to user ${userId}:`, error);
-        if ((error as any).statusCode === 404 || (error as any).statusCode === 410) {
+        const statut = (error as any)?.statusCode;
+        // "Received unexpected response code" ne dit pas lequel : sans le statut ni le
+        // corps, impossible de distinguer un abonnement périmé d'une clé invalide.
+        this.logger.error(
+          `Push refusé pour ${userId} — statut ${statut ?? 'inconnu'} : ${(error as any)?.body || (error as any)?.message}`,
+        );
+
+        // 404/410 : l'abonnement n'existe plus chez le fournisseur.
+        // 403 : signature refusée, typiquement un abonnement créé avec une ancienne clé
+        //       VAPID. Il ne redeviendra jamais valide ; le garder fait échouer chaque
+        //       envoi indéfiniment. On le supprime pour que le navigateur en recrée un
+        //       propre à sa prochaine visite.
+        if (statut === 404 || statut === 410 || statut === 403) {
           await this.prisma.pushSubscription.delete({ where: { id: sub.id } });
-          this.logger.log(`Removed invalid push subscription for user ${userId}`);
+          this.logger.log(`Abonnement obsolète supprimé pour ${userId} (statut ${statut})`);
         }
       }
     }
