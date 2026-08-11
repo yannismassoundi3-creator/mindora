@@ -101,7 +101,9 @@
 
 .pricing-toggle button.active {
   background: var(--primary);
-  color: var(--primary);
+  /* --primary est la couleur de texte du thème : la réutiliser ici rendait le libellé
+     invisible sur son propre fond. --bg-dark est son inverse dans les 9 thèmes. */
+  color: var(--bg-dark);
   box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
 }
 
