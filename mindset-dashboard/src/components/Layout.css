@@ -179,7 +179,10 @@
   }
 
   .content-scroll-area {
-    padding: calc(max(12px, env(safe-area-inset-top)) + 70px) 10px 100px 10px; 
+    /* La barre de navigation basse est fixe et occupe 108px depuis le bas du viewport
+       (84px de haut + son décalage). Les 100px précédents passaient dessous : le
+       dernier bouton de la page finissait masqué. */
+    padding: calc(max(12px, env(safe-area-inset-top)) + 70px) 10px calc(130px + env(safe-area-inset-bottom, 0px)) 10px; 
   }
 
   .bottom-nav {
