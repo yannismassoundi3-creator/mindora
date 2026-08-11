@@ -53,10 +53,9 @@ if (currentVersion !== APP_VERSION) {
 }
 
 function App() {
-  const {
-    needRefresh: [needRefresh, setNeedRefresh],
-    updateServiceWorker,
-  } = useRegisterSW({
+  // En mode autoUpdate, le service worker s'installe et prend la main tout seul :
+  // il n'y a plus de mise à jour en attente à proposer à l'utilisateur.
+  useRegisterSW({
     onRegistered(r) {
       console.log('SW Registered: ' + r);
     },
@@ -299,49 +298,6 @@ function App() {
         <RankUpOverlay />
         <ShockwaveOverlay />
         <PwaInstallPrompt />
-
-        {/* PWA Update Prompt */}
-        {needRefresh && (
-          <div className="pwa-update-toast fade-in" style={{
-            position: 'fixed',
-            bottom: '20px',
-            right: '20px',
-            background: 'var(--glass-bg)',
-            border: '1px solid var(--accent-purple)',
-            boxShadow: '0 0 20px rgba(236,72,153,0.3)',
-            padding: '20px',
-            borderRadius: '16px',
-            zIndex: 99999,
-            backdropFilter: 'blur(10px)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '12px'
-          }}>
-            <div style={{fontWeight: 'bold', color: 'white'}}>Nouvelle version disponible 🚀</div>
-            <div style={{fontSize: '0.9rem', color: 'var(--secondary)'}}>Une mise à jour vient d'être téléchargée.</div>
-            <div style={{display: 'flex', gap: '10px', marginTop: '5px'}}>
-              <button onClick={() => updateServiceWorker(true)} style={{
-                background: 'linear-gradient(135deg, var(--accent-blue), var(--accent-purple))',
-                color: 'white',
-                border: 'none',
-                padding: '8px 16px',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                flex: 1
-              }}>Mettre à jour</button>
-              <button onClick={() => setNeedRefresh(false)} style={{
-                background: 'rgba(255,255,255,0.1)',
-                color: 'white',
-                border: 'none',
-                padding: '8px 16px',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                flex: 1
-              }}>Plus tard</button>
-            </div>
-          </div>
-        )}
       </Layout>
     </ErrorBoundary>
   );

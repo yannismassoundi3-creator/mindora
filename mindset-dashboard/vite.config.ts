@@ -7,7 +7,10 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'prompt',
+      // autoUpdate : le nouveau service worker prend la main dès qu'il est prêt, sans
+      // attendre que tous les onglets soient fermés. Sans ça, un correctif pouvait rester
+      // invisible pendant plusieurs sessions.
+      registerType: 'autoUpdate',
       // Le manifeste est maintenu à la main dans public/manifest.json (déjà lié depuis
       // index.html). En laisser générer un second ici produisait deux <link rel="manifest">
       // concurrents, avec un nom différent et des icônes qui n'existaient pas.
