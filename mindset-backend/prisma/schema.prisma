@@ -34,6 +34,7 @@ model User {
   two_factor_codes   TwoFactorCode[]
   chat_messages      ChatMessage[]
   password_reset_tokens PasswordResetToken[]
+  ai_usages          AiUsage[]
 }
 
 model RefreshToken {
@@ -277,6 +278,19 @@ model PasswordResetToken {
   user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([user_id])
+}
+
+/// Consommation d'IA facturable, comptée explicitement plutôt que déduite des
+/// ChatMessage : le quota ne doit pas dépendre de la façon dont le service IA
+/// persiste ses données.
+model AiUsage {
+  id         String   @id @default(uuid())
+  user_id    String
+  kind       String // "chat" | "routines"
+  created_at DateTime @default(now())
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, created_at])
 }
 
 model ChatMessage {

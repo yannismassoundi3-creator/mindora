@@ -64,7 +64,6 @@ function App() {
     },
   });
 
-  const IS_BETA_TEST_PHASE = false; // Activer la phase de test gratuite
   const hasToken = !!localStorage.getItem('mindset_token');
   const [isAuthenticated, setIsAuthenticated] = useState(hasToken);
   const [particlesEnabled, setParticlesEnabled] = useState(() => localStorage.getItem('mindset_particles') !== 'false');
@@ -139,7 +138,9 @@ function App() {
 
   const [isLocked, setIsLocked] = useState(() => !!localStorage.getItem('mindset_biometric_id'));
 
-  const [isSubscribed, setIsSubscribed] = useState(() => localStorage.getItem('mindset_is_subscribed') === 'true');
+  // L'état d'abonnement n'est plus un verrou côté client : il ne sert qu'à rafraîchir
+  // localStorage, que les autres écrans lisent pour leur affichage.
+  const [, setIsSubscribed] = useState(() => localStorage.getItem('mindset_is_subscribed') === 'true');
 
   const VIEW_ORDER = ['dashboard', 'objectives', 'chat', 'habits', 'profile', 'shop', 'inventory'];
   const [slideDirection, setSlideDirection] = useState<'right' | 'left' | 'none'>('none');
@@ -188,9 +189,9 @@ function App() {
   const handleOnboardingComplete = () => {
     localStorage.setItem('hasCompletedOnboarding', 'true');
     setCurrentView('dashboard');
-    if (!isSubscribed && !IS_BETA_TEST_PHASE) {
-      setShowPricingModal(true);
-    }
+    // Plus de mur de paiement dès la fin de l'inscription : on laisse la personne
+    // se servir de l'app. L'offre arrive quand elle a épuisé ses messages IA,
+    // c'est-à-dire quand elle sait ce qu'elle achèterait.
   };
 
   const handleSubscribe = () => {
@@ -199,13 +200,14 @@ function App() {
     setShowPricingModal(false);
   };
 
-  const tryOpenChat = () => {
-    if (isSubscribed || IS_BETA_TEST_PHASE) {
-      setCurrentView('chat');
-    } else {
-      setShowPricingModal(true);
-    }
-  };
+  const tryOpenChat = () => setCurrentView('chat');
+
+  // Le serveur est seul juge du quota (402) ; il nous prévient par cet événement.
+  useEffect(() => {
+    const onQuotaExceeded = () => setShowPricingModal(true);
+    window.addEventListener('aiQuotaExceeded', onQuotaExceeded);
+    return () => window.removeEventListener('aiQuotaExceeded', onQuotaExceeded);
+  }, []);
 
   if (currentView === 'welcome') {
     if (!hasToken) {
@@ -247,11 +249,10 @@ function App() {
       setSlideDirection(newIdx > prevIdx ? 'right' : 'left');
     }
     
-    if ((v === 'chat' || v === 'objectives' || v === 'habits') && !isSubscribed && !IS_BETA_TEST_PHASE) {
-      setShowPricingModal(true);
-    } else {
-      setCurrentView(v as any);
-    }
+    // Objectifs et Habitudes ne coûtent rien à servir et sont ce qui crée
+    // l'habitude quotidienne : ils restent ouverts. Seule l'IA est facturée,
+    // et c'est le serveur qui le fait respecter.
+    setCurrentView(v as any);
   };
 
   if (isLocked) {

@@ -51,7 +51,7 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
         <div className="pricing-header">
           <Sparkles className="pricing-sparkle" size={48} />
           <h1>Passez au niveau supérieur</h1>
-          <p>Débloquez la puissance totale de Disciplix. Accédez au suivi des habitudes et à {aiName} 24/7.</p>
+          <p>Tes objectifs et tes habitudes restent gratuits. Passe Pro pour parler à {aiName} sans limite.</p>
         </div>
 
       <div className="pricing-toggle">
@@ -100,7 +100,7 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
             </div>
             <div className="feature-item">
               <CheckCircle size={20} className="feature-icon" />
-              <span>Suivi avancé des habitudes et routines</span>
+              <span>Génération de routines par l'IA, sans limite</span>
             </div>
             <div className="feature-item">
               <CheckCircle size={20} className="feature-icon" />

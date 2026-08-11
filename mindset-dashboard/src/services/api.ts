@@ -36,7 +36,12 @@ export const api = {
           localStorage.removeItem('mindset_token');
           window.location.href = '/?auth=true';
         }
-        throw new Error(err.message || 'API Error');
+        // Le statut et le code sont conservés : le quota IA (402) doit pouvoir
+        // ouvrir l'écran d'abonnement plutôt que d'afficher une erreur générique.
+        const error: any = new Error(err.message || 'API Error');
+        error.status = res.status;
+        error.code = err.code;
+        throw error;
     }
     return res.json();
   },
