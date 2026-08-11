@@ -251,10 +251,27 @@ ${contextString}`;
     try {
       console.log('[Groq] 🔄 Tentative avec Llama 3.3 70B (Groq)...');
       
+      // L'historique était chargé depuis la base puis jamais transmis au modèle :
+      // le coach repartait de zéro à chaque message. On le passe désormais réellement.
+      // Les blocs <PLAN> sont retirés des réponses passées : ce sont des instructions
+      // destinées à l'interface, les renvoyer au modèle l'incite à régénérer des plans
+      // qu'on ne lui a pas demandés (et gonfle la note pour rien).
+      const historyMessages = history
+        .map((m: any) => ({
+          role: m.sender === 'ai' ? 'assistant' : 'user',
+          content: m.sender === 'ai'
+            ? String(m.text).replace(/<PLAN>[\s\S]*?<\/PLAN>/g, '').trim()
+            : String(m.text),
+        }))
+        .filter((m) => m.content.length > 0);
+
       const messages = [
         { role: 'system', content: systemInstruction },
+        ...historyMessages,
         { role: 'user', content: prompt }
       ];
+
+      console.log(`[Groq] 🧠 ${historyMessages.length} message(s) de contexte transmis`);
 
       const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
@@ -265,7 +282,10 @@ ${contextString}`;
         body: JSON.stringify({
           model: 'llama-3.3-70b-versatile',
           messages: messages,
-          temperature: 0.8,
+          // 0.8 laissait trop de latitude au modèle alors qu'il doit produire un JSON
+          // strictement valide : d'où les plans cassés que le prompt tente d'interdire
+          // à coups de règles. 0.6 garde le ton du coach tout en fiabilisant le format.
+          temperature: 0.6,
           max_tokens: 1500
         })
       });
