@@ -1,10 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CoachMemoryService } from './coach-memory.service';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 @Injectable()
 export class AiCoachingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly memoire: CoachMemoryService,
+  ) {}
 
   async processOnboarding(userId: string, data: any) {
     // 1. Sauvegarder les réponses dans AIProfile
@@ -177,6 +181,27 @@ ${microList}
 --- FIN DES DONNÉES ---`;
     }
 
+    // Le questionnaire d'inscription, la mémoire des échanges passés et la tendance
+    // récente. Sans eux, le coach ne connaissait la personne que par l'état du jour :
+    // il ignorait ses contraintes déclarées, oubliait tout au-delà de la fenêtre de
+    // conversation, et ne pouvait constater ni décrochage ni progression.
+    let profil: any = null;
+    if (userId && userId !== 'demo-user') {
+      try {
+        profil = await this.memoire.chargerProfil(userId);
+        const sync = await this.prisma.syncData.findUnique({
+          where: { user_id: userId },
+          select: { daily_scores: true },
+        });
+        contextString +=
+          this.memoire.formatProfil(profil) +
+          this.memoire.formatMemoire(profil) +
+          this.memoire.formatTendance(sync?.daily_scores as any);
+      } catch (e) {
+        console.error('Contexte de suivi indisponible', e);
+      }
+    }
+
     const customAiName = userContext?.aiName || 'FAYWA';
     const customUserName = userContext?.userName || "l'utilisateur";
 
@@ -333,6 +358,10 @@ ${contextString}`;
         } catch (e) {
           console.error("Impossible de sauvegarder la réponse IA", e);
         }
+
+        // Recompression de la mémoire longue, lancée sans être attendue : elle est
+        // au plus quotidienne, et l'utilisateur n'a pas à patienter pour ça.
+        this.memoire.rafraichirMemoire(userId, profil).catch(() => {});
       }
 
       return { reply };
