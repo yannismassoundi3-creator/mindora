@@ -99,11 +99,12 @@ export class PushService implements OnModuleInit {
         );
 
         // 404/410 : l'abonnement n'existe plus chez le fournisseur.
-        // 403 : signature refusée, typiquement un abonnement créé avec une ancienne clé
-        //       VAPID. Il ne redeviendra jamais valide ; le garder fait échouer chaque
-        //       envoi indéfiniment. On le supprime pour que le navigateur en recrée un
-        //       propre à sa prochaine visite.
-        if (statut === 404 || statut === 410 || statut === 403) {
+        // 401/403 : signature refusée. Mozilla répond 401 « VAPID public key mismatch »
+        //           pour un abonnement créé avec une ancienne clé, Chrome 403 ; dans les
+        //           deux cas il ne redeviendra jamais valide, et le garder fait échouer
+        //           chaque envoi indéfiniment.
+        // On le supprime pour que le navigateur en recrée un propre à sa prochaine visite.
+        if (statut === 404 || statut === 410 || statut === 403 || statut === 401) {
           await this.prisma.pushSubscription.delete({ where: { id: sub.id } });
           this.logger.log(`Abonnement obsolète supprimé pour ${userId} (statut ${statut})`);
         }
