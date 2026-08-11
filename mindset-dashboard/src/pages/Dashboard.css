@@ -980,7 +980,7 @@
 /* New Dashboard Gamification Styles */
 
 .current-date {
-  color: var(--accent-purple);
+  color: var(--accent-text);
   font-size: 0.9rem;
   font-weight: 700;
   text-transform: uppercase;

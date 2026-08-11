@@ -83,7 +83,7 @@
 
 .nav-item.active {
   background: var(--accent-glow);
-  color: var(--accent-purple);
+  color: var(--accent-text);
   box-shadow: inset 2px 0 0 var(--accent-purple);
 }
 
@@ -225,7 +225,7 @@
   }
 
   .bottom-nav-item.active {
-    color: var(--accent-purple);
+    color: var(--accent-text);
   }
 
   .bottom-nav-spacer {

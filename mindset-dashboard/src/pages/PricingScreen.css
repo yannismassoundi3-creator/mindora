@@ -146,7 +146,7 @@
 
 .pricing-card-header h3 {
   font-size: 1.5rem;
-  color: var(--accent-purple);
+  color: var(--accent-text);
   margin-bottom: 16px;
   letter-spacing: 1px;
   text-transform: uppercase;

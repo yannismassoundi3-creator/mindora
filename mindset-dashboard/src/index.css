@@ -6,6 +6,10 @@
   --accent-purple: #8b5cf6;
   --accent-blue: #3b82f6;
   --accent-glow: rgba(139, 92, 246, 0.15);
+  /* Couleur d'accent quand elle sert de TEXTE. Elle suit --accent-purple par défaut,
+     mais les thèmes monochromes définissent cet accent comme un voile translucide :
+     excellent pour une bordure ou un fond, illisible pour du texte. */
+  --accent-text: var(--accent-purple);
   
   --font-main: 'Inter', system-ui, sans-serif;
   --font-display: 'Outfit', system-ui, sans-serif;
@@ -146,6 +150,7 @@ body.theme-cyberpunk {
   --primary: #00f0ff;
   --secondary: #fcee0a;
   --accent-purple: #ff003c;
+  --accent-text: #ff003c;
   --accent-blue: #00f0ff;
   --accent-glow: rgba(0, 240, 255, 0.2);
 }
@@ -156,6 +161,7 @@ body.theme-matrix {
   --primary: #00ff41;
   --secondary: #008f11;
   --accent-purple: #00ff41;
+  --accent-text: #00ff41;
   --accent-blue: #008f11;
   --accent-glow: rgba(0, 255, 65, 0.15);
 }
@@ -166,6 +172,7 @@ body.theme-synthwave {
   --primary: #ff00ff;
   --secondary: #00ffff;
   --accent-purple: #ff9900;
+  --accent-text: #ff9900;
   --accent-blue: #ff00ff;
   --accent-glow: rgba(255, 0, 255, 0.2);
 }
@@ -176,6 +183,7 @@ body.theme-deepspace {
   --primary: #e2e8f0;
   --secondary: #94a3b8;
   --accent-purple: #3b82f6;
+  --accent-text: #3b82f6;
   --accent-blue: #818cf8;
   --accent-glow: rgba(59, 130, 246, 0.2);
 }
@@ -186,6 +194,7 @@ body.theme-monochrome-light {
   --primary: #0a0a0a;
   --secondary: #475569;
   --accent-purple: #050505;
+  --accent-text: #0a0a0a;
   --accent-blue: #000000;
   --accent-glow: rgba(0, 0, 0, 0.15);
   color: #0f172a;
@@ -227,6 +236,7 @@ body.theme-monochrome-dark {
   --primary: #ffffff;
   --secondary: #a1a1aa;
   --accent-purple: rgba(255, 255, 255, 0.1);
+  --accent-text: #ffffff;
   --accent-blue: rgba(255, 255, 255, 0.15);
   --accent-glow: rgba(255, 255, 255, 0.15);
 }
@@ -267,6 +277,7 @@ body.theme-gold {
   --primary: #fbbf24;
   --secondary: #fcd34d;
   --accent-purple: #d97706;
+  --accent-text: #d97706;
   --accent-blue: #f59e0b;
   --accent-glow: rgba(251, 191, 36, 0.2);
 }
@@ -277,6 +288,8 @@ body.theme-inferno {
   --primary: #ef4444;
   --secondary: #f97316;
   --accent-purple: #dc2626;
+  /* rouge legerement eclairci : #dc2626 tombait a 4,29 de contraste, sous le seuil */
+  --accent-text: #ef4444;
   --accent-blue: #ea580c;
   --accent-glow: rgba(239, 68, 68, 0.2);
 }

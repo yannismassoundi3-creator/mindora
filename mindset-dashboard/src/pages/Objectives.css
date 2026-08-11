@@ -99,7 +99,7 @@
   font-weight: 700;
 }
 
-.purple-icon { color: var(--accent-purple); }
+.purple-icon { color: var(--accent-text); }
 .blue-icon { color: var(--accent-blue); }
 
 .section-desc {
@@ -252,7 +252,7 @@
 }
 .micro-cat {
   font-size: 0.75rem;
-  color: var(--accent-purple);
+  color: var(--accent-text);
   margin-top: 2px;
 }
 

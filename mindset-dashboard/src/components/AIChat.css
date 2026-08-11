@@ -237,7 +237,7 @@
 }
 
 .message-content strong {
-  color: var(--accent-purple);
+  color: var(--accent-text);
   font-weight: 700;
 }
 
@@ -375,7 +375,7 @@
 .message-ai-name {
   font-size: 0.8rem;
   font-weight: 700;
-  color: var(--accent-purple);
+  color: var(--accent-text);
   margin-bottom: 4px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
