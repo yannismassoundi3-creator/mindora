@@ -14,6 +14,16 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  // Sécurité: Refresh Token en HttpOnly Cookie, jamais dans le corps de la réponse.
+  private setRefreshTokenCookie(response: Response, refreshToken: string) {
+    response.cookie('refresh_token', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours
+    });
+  }
+
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('register')
   @ApiOperation({ summary: 'Inscription d\'un nouvel utilisateur' })
@@ -37,9 +47,20 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Connexion de l\'utilisateur (Etape 1: 2FA)' })
   @ApiResponse({ status: 200, description: 'Retourne requires2FA: true si les identifiants sont valides.' })
-  async login(@Body() loginDto: LoginDto) {
+  async login(@Body() loginDto: LoginDto, @Res({ passthrough: true }) response: Response) {
     // Étape 1 : Vérifie le mot de passe et envoie le code 2FA par e-mail
-    return this.authService.login(loginDto);
+    const result = await this.authService.login(loginDto);
+
+    // Quand le 2FA est bypassé (dev sans Brevo), la connexion est déjà terminée :
+    // on renvoie exactement la même forme que verify-2fa, sinon le front ne reconnaît
+    // pas la réponse et reste bloqué sans message d'erreur.
+    if ('accessToken' in result) {
+      const { accessToken, refreshToken, ...rest } = result;
+      this.setRefreshTokenCookie(response, refreshToken);
+      return { access_token: accessToken, ...rest };
+    }
+
+    return result;
   }
 
   @Throttle({ default: { limit: 5, ttl: 60000 } })
@@ -49,14 +70,8 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Connexion réussie (retourne AccessToken et set RefreshToken en cookie).' })
   async verify2FA(@Body() body: { email: string; code: string }, @Res({ passthrough: true }) response: Response) {
     const { accessToken, refreshToken, user, has_ai_profile } = await this.authService.verify2FA(body.email, body.code);
-    
-    // Sécurité: Refresh Token en HttpOnly Cookie
-    response.cookie('refresh_token', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours
-    });
+
+    this.setRefreshTokenCookie(response, refreshToken);
 
     return {
       access_token: accessToken,

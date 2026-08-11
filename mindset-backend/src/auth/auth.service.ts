@@ -81,7 +81,7 @@ export class AuthService {
         throw new InternalServerErrorException('Configuration serveur manquante (2FA).');
       }
       console.log(`[AUTH] 2FA bypassé pour ${user.email} car BREVO_API_KEY n'est pas configuré (dev uniquement).`);
-      const tokens = await this.generateTokens(user.id, user.role);
+      const tokens = await this.generateTokens(user.id, user.role, user.first_name);
       return {
         ...tokens,
         has_ai_profile: !!user.ai_profile
@@ -181,7 +181,7 @@ export class AuthService {
       data: { is_used: true }
     });
 
-    const tokens = await this.generateTokens(user.id, user.role);
+    const tokens = await this.generateTokens(user.id, user.role, user.first_name);
     
     // Check if ai_profile exists for response
     const has_ai_profile = (await this.prisma.aIProfile.count({ where: { user_id: user.id } })) > 0;
@@ -192,7 +192,7 @@ export class AuthService {
     };
   }
 
-  async generateTokens(userId: string, role: string) {
+  async generateTokens(userId: string, role: string, firstName: string) {
     const payload = { sub: userId, role };
 
     const [accessToken, refreshToken] = await Promise.all([
@@ -214,7 +214,8 @@ export class AuthService {
       },
     });
 
-    return { accessToken, refreshToken, user: { id: userId, role } };
+    // first_name est attendu par le front pour l'accueil ("Bonjour, X").
+    return { accessToken, refreshToken, user: { id: userId, role, first_name: firstName } };
   }
 
   async revokeRefreshToken(userId: string, token: string) {
