@@ -39,13 +39,26 @@ export class MorningBriefService {
     return streak;
   }
 
-  private firstTitles(value: any, max: number): string[] {
-    if (!Array.isArray(value)) return [];
-    return value
-      .flatMap((v: any) => (Array.isArray(v?.items) ? v.items : [v]))
-      .map((v: any) => v?.title || v?.name)
-      .filter((t: any) => typeof t === 'string' && t.trim())
-      .slice(0, max);
+  /**
+   * Sépare ce qui reste à faire de ce qui est déjà fait.
+   *
+   * Sans ce tri, le brief réclamait des tâches que la personne venait de cocher —
+   * le réflexe le plus sûr pour faire désinstaller une app de coaching.
+   */
+  private splitTasks(value: any): { restantes: string[]; faites: string[] } {
+    const restantes: string[] = [];
+    const faites: string[] = [];
+    if (!Array.isArray(value)) return { restantes, faites };
+
+    for (const entree of value) {
+      const elements = Array.isArray(entree?.items) ? entree.items : [entree];
+      for (const el of elements) {
+        const titre = el?.title || el?.name;
+        if (typeof titre !== 'string' || !titre.trim()) continue;
+        (el?.done ? faites : restantes).push(titre);
+      }
+    }
+    return { restantes, faites };
   }
 
   /**
@@ -53,12 +66,23 @@ export class MorningBriefService {
    * même construction (« prénom, jour N, tâches ») et le message redevient un
    * automatisme au bout d'une semaine — le défaut qu'on cherchait justement à corriger.
    */
-  private angleDuJour(): string {
+  private angleDuJour(toutEstFait: boolean): string {
+    // Journée déjà bouclée : réclamer quoi que ce soit serait absurde. On félicite
+    // et on projette, sans jamais redemander une tâche cochée.
+    if (toutEstFait) {
+      const angles = [
+        "Sa journée est déjà bouclée : félicite-le franchement et souligne sa régularité.",
+        "Tout est fait : félicite-le et invite-le à préparer demain ou à viser plus haut.",
+      ];
+      const jour = Math.floor(Date.now() / 86400000);
+      return angles[jour % angles.length];
+    }
+
     const angles = [
       "Appuie-toi sur sa série en cours et sur ce qu'il risque de perdre en s'arrêtant.",
-      "Cite une tâche précise du jour et rends-la facile à commencer maintenant.",
+      "Cite une tâche précise encore à faire et rends-la facile à commencer maintenant.",
       "Relie sa journée à son objectif de la semaine.",
-      "Lance-lui un défi court et concret pour aujourd'hui.",
+      "Lance-lui un défi court et concret sur ce qu'il lui reste à faire.",
     ];
     const debutAnnee = new Date(new Date().getFullYear(), 0, 0);
     const jour = Math.floor((Date.now() - debutAnnee.getTime()) / 86400000);
@@ -67,18 +91,26 @@ export class MorningBriefService {
 
   buildPrompt(prenom: string, sync: any): string {
     const streak = this.computeStreak(sync?.daily_scores);
-    const taches = this.firstTitles(sync?.routines, 3);
-    const objectifs = this.firstTitles(sync?.micro_objectives, 2);
+    const routines = this.splitTasks(sync?.routines);
+    const objectifs = this.splitTasks(sync?.micro_objectives);
+
+    const riens = routines.restantes.length === 0 && routines.faites.length === 0;
+    const toutEstFait = !riens && routines.restantes.length === 0;
 
     return [
       `Prénom : ${prenom || 'champion'}`,
       `Série en cours : ${streak} jour(s) d'affilée`,
-      taches.length ? `Tâches prévues aujourd'hui : ${taches.join(', ')}` : `Aucune tâche planifiée aujourd'hui`,
-      objectifs.length ? `Objectifs de la semaine : ${objectifs.join(', ')}` : '',
+      routines.faites.length ? `DÉJÀ FAIT aujourd'hui (ne le redemande jamais) : ${routines.faites.join(', ')}` : '',
+      toutEstFait
+        ? `Tout est terminé pour aujourd'hui.`
+        : routines.restantes.length
+          ? `RESTE À FAIRE aujourd'hui : ${routines.restantes.slice(0, 3).join(', ')}`
+          : `Aucune tâche planifiée aujourd'hui`,
+      objectifs.restantes.length ? `Objectifs de la semaine en cours : ${objectifs.restantes.slice(0, 2).join(', ')}` : '',
       '',
-      `Angle imposé aujourd'hui : ${this.angleDuJour()}`,
+      `Angle imposé aujourd'hui : ${this.angleDuJour(toutEstFait)}`,
     ]
-      .filter((l) => l !== null && l !== undefined)
+      .filter(Boolean)
       .join('\n');
   }
 
@@ -95,6 +127,7 @@ export class MorningBriefService {
       "Écris UNE notification de réveil, en français, tutoiement.",
       "Maximum 140 caractères, une à deux phrases. Pas de guillemets.",
       "Appuie-toi sur ses données réelles et respecte l'angle imposé pour aujourd'hui.",
+      "INTERDIT de réclamer une tâche listée comme DÉJÀ FAIT : il l'a validée, le lui redemander détruit ta crédibilité.",
       "Ne commence pas systématiquement par son prénom : varie l'attaque.",
       "Ton direct et motivant, un seul emoji maximum. Réponds uniquement par le texte de la notification.",
     ].join(' ');
