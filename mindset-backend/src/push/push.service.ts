@@ -63,12 +63,19 @@ export class PushService implements OnModuleInit {
     return { success: true };
   }
 
-  async sendNotification(userId: string, payload: any) {
+  /**
+   * Retourne le nombre d'appareils réellement atteints. Sans ça, l'appelant ne peut
+   * pas distinguer « envoyé » de « personne n'était abonné », et annonce un succès
+   * alors que rien n'est parti.
+   */
+  async sendNotification(userId: string, payload: any): Promise<{ abonnements: number; envoyees: number }> {
     const subscriptions = await this.prisma.pushSubscription.findMany({ where: { user_id: userId } });
     if (!subscriptions || subscriptions.length === 0) {
       this.logger.warn(`No push subscription found for user ${userId}`);
-      return;
+      return { abonnements: 0, envoyees: 0 };
     }
+
+    let envoyees = 0;
 
     for (const sub of subscriptions) {
       const pushSub = {
@@ -81,6 +88,7 @@ export class PushService implements OnModuleInit {
 
       try {
         await webpush.sendNotification(pushSub, JSON.stringify(payload));
+        envoyees++;
         this.logger.log(`Push notification sent successfully to user ${userId}`);
       } catch (error) {
         this.logger.error(`Error sending push notification to user ${userId}:`, error);
@@ -90,6 +98,8 @@ export class PushService implements OnModuleInit {
         }
       }
     }
+
+    return { abonnements: subscriptions.length, envoyees };
   }
 
   onModuleInit() {
@@ -254,13 +264,23 @@ export class PushService implements OnModuleInit {
     const texte = await this.morningBrief.generate(user.first_name, user.sync_data);
     const body = texte ?? "Tes objectifs t'attendent, c'est l'heure de commencer ta journée.";
 
-    await this.sendNotification(user.id, {
+    const envoi = await this.sendNotification(user.id, {
       title: texte ? '🎯 Ton brief du jour' : 'Réveil ! ☀️',
       body,
       url: 'https://disciplix-ai.vercel.app/?auth=true',
     });
 
-    return { envoye: true, personnalise: !!texte, message: body };
+    return {
+      envoye: envoi.envoyees > 0,
+      personnalise: !!texte,
+      message: body,
+      abonnements: envoi.abonnements,
+      appareilsAtteints: envoi.envoyees,
+      ...(envoi.abonnements === 0 && {
+        diagnostic:
+          "Aucun appareil abonné aux notifications. Ouvre l'app et autorise les notifications, puis relance ce test.",
+      }),
+    };
   }
 
   async sendBulkReminders(title: string, body: string) {
