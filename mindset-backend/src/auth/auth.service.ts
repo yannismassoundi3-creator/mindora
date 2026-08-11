@@ -45,7 +45,10 @@ export class AuthService {
   }
 
   async claimAdmin(userId: string, secretKey: string) {
-    const validKey = process.env.ADMIN_SECRET_KEY || 'mindset_admin_godmode_2026';
+    const validKey = process.env.ADMIN_SECRET_KEY;
+    if (!validKey) {
+      throw new InternalServerErrorException('Configuration serveur manquante.');
+    }
     if (secretKey !== validKey) {
       throw new UnauthorizedException('Clé secrète invalide.');
     }
@@ -140,7 +143,7 @@ export class AuthService {
         const errorText = await response.text();
         console.error('Brevo API Error:', errorText);
       } else {
-        console.log(`[BREVO 2FA] Code ${code} envoyé à ${email}`);
+        console.log(`[BREVO 2FA] Code envoyé à ${email}`);
       }
     } catch (e) {
       console.error('Failed to send 2FA email via Brevo', e);
@@ -189,7 +192,7 @@ export class AuthService {
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload),
       this.jwtService.signAsync(payload, {
-        secret: this.configService.get<string>('JWT_REFRESH_SECRET') || 'default-refresh-secret-disciplix',
+        secret: this.configService.get<string>('JWT_REFRESH_SECRET')!,
         expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRATION') || '7d',
       }),
     ]);

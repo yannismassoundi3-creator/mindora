@@ -11,7 +11,9 @@ async function bootstrap() {
   // Sécurité
   app.use(helmet());
   app.enableCors({
-    origin: true, // Allow all origins dynamically (required when credentials: true)
+    origin: process.env.NODE_ENV === 'production' 
+      ? ['https://disciplix-ai.vercel.app'] 
+      : true,
     credentials: true,
   });
   app.use(cookieParser());
@@ -25,21 +27,21 @@ async function bootstrap() {
     }),
   );
 
-  // Configuration Swagger (Documentation)
-  const config = new DocumentBuilder()
-    .setTitle('Disciplix API')
-    .setDescription('API du backend de Disciplix - Coaching IA et Productivité')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+  // Configuration Swagger (Documentation) - Désactivé en production
+  if (process.env.NODE_ENV !== 'production') {
+    const config = new DocumentBuilder()
+      .setTitle('Disciplix API')
+      .setDescription('API du backend de Disciplix - Coaching IA et Productivité')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .build();
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api/docs', app, document);
+  }
 
   // Lancement du serveur
   const port = process.env.PORT || 3002;
   await app.listen(port);
   console.log(`🚀 Disciplix Backend is running on: http://localhost:${port}`);
-  console.log(`📄 Swagger documentation is available at: http://localhost:${port}/api/docs`);
 }
 bootstrap();
-// Trigger restart

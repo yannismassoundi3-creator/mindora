@@ -35,11 +35,4 @@ export class SubscriptionsController {
     return this.subscriptionsService.handleWebhook(signature, payload);
   }
 
-  @Post('mock-success')
-  @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'Bouchon temporaire pour simuler un achat réussi' })
-  async mockSuccess(@Req() req: Request) {
-    const userId = (req.user as any).userId;
-    return this.subscriptionsService.mockSuccess(userId);
-  }
 }

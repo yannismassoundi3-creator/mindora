@@ -63,15 +63,15 @@ export class SubscriptionsService {
     let event: Stripe.Event;
 
     if (!webhookSecret) {
-      console.warn('STRIPE_WEBHOOK_SECRET not set, accepting mock event.');
-      event = payload as Stripe.Event;
-    } else {
-      try {
-        event = this.stripe.webhooks.constructEvent(payload, signature, webhookSecret);
-      } catch (err: any) {
-        console.error(`Webhook signature verification failed:`, err.message);
-        throw new BadRequestException(`Webhook Error: ${err.message}`);
-      }
+      console.error('STRIPE_WEBHOOK_SECRET not set, rejecting webhook.');
+      throw new BadRequestException('Webhook configuration missing.');
+    }
+
+    try {
+      event = this.stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+    } catch (err: any) {
+      console.error(`Webhook signature verification failed:`, err.message);
+      throw new BadRequestException(`Webhook Error: ${err.message}`);
     }
 
     switch (event.type) {
