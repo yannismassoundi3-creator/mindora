@@ -31,9 +31,19 @@ export class PushController {
     await this.pushService.sendNotification(userId, {
       title: 'Mindset Elite',
       body: "Prêt à exploser tes objectifs aujourd'hui ? Ouvre l'application et valide tes habitudes pour maintenir ta série ! 🔥",
-      icon: '/pwa-192x192.png'
+      icon: '/icon-192.png'
     });
     return { success: true };
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post('morning-brief/test')
+  @ApiOperation({
+    summary: "Générer et envoyer son propre brief du matin, sans attendre 10h",
+  })
+  async testMorningBrief(@Request() req) {
+    return this.pushService.sendMorningBriefTo(req.user.userId);
   }
 
   
