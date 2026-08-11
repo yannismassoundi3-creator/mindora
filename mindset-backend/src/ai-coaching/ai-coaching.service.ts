@@ -127,24 +127,32 @@ export class AiCoachingService {
     // Build rich context from user data
     let contextString = "";
     if (userContext) {
-      const macroList = (userContext.macroObjectives || [])
-        .map((o: any) => `• ${o.title || o.name} (catégorie: ${o.category || 'non définie'}, deadline: ${o.deadline || 'non définie'})`)
+      // Ce contexte vient entièrement du client : rien ne l'empêche d'annoncer
+      // 10 000 routines, ce qui ferait exploser le coût et le temps de réponse pour
+      // le même prix en coins. On borne le nombre d'entrées et la longueur de chacune.
+      const MAX_ENTREES = 20;
+      const MAX_LONGUEUR = 120;
+      const borner = (v: any) => (Array.isArray(v) ? v.slice(0, MAX_ENTREES) : []);
+      const couper = (t: any) => String(t ?? '').slice(0, MAX_LONGUEUR);
+
+      const macroList = borner(userContext.macroObjectives)
+        .map((o: any) => `• ${couper(o.title || o.name)} (catégorie: ${couper(o.category) || 'non définie'}, deadline: ${couper(o.deadline) || 'non définie'})`)
         .join('\n') || 'Aucun macro-objectif défini';
-      
-      const microList = (userContext.microObjectives || [])
-        .map((o: any) => `• ${o.title || o.name} — ${o.done ? '✅ Complété' : '⬜ En cours'} (catégorie: ${o.category || 'non définie'})`)
+
+      const microList = borner(userContext.microObjectives)
+        .map((o: any) => `• ${couper(o.title || o.name)} — ${o.done ? '✅ Complété' : '⬜ En cours'} (catégorie: ${couper(o.category) || 'non définie'})`)
         .join('\n') || 'Aucun micro-objectif défini';
 
-      const routinesList = (userContext.routines || [])
-        .map((r: any) => `• ${r.title}: ` + (r.items || []).map((t: any) => `${t.title} (${t.done ? '✅' : '⬜'})`).join(', '))
+      const routinesList = borner(userContext.routines)
+        .map((r: any) => `• ${couper(r.title)}: ` + borner(r.items).map((t: any) => `${couper(t.title)} (${t.done ? '✅' : '⬜'})`).join(', '))
         .join('\n') || 'Aucune routine';
 
-      const habitsList = (userContext.habits || [])
-        .map((h: any) => `• ${h.title || h.name} (Niveau ${h.level || 1})`)
+      const habitsList = borner(userContext.habits)
+        .map((h: any) => `• ${couper(h.title || h.name)} (Niveau ${h.level || 1})`)
         .join('\n') || 'Aucune habitude';
 
-      const nutritionList = (userContext.nutrition || [])
-        .map((n: any) => `• ${n.title}: ${n.details} (${n.done ? '✅' : '⬜'})`)
+      const nutritionList = borner(userContext.nutrition)
+        .map((n: any) => `• ${couper(n.title)}: ${couper(n.details)} (${n.done ? '✅' : '⬜'})`)
         .join('\n') || 'Aucun repas défini';
 
       contextString = `

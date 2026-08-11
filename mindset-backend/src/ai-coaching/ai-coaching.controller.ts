@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagg
 import { AiCoachingService } from './ai-coaching.service';
 import { AiQuotaService } from './ai-quota.service';
 import { CoinLedgerService } from './coin-ledger.service';
+import { ChatDto } from './dto/chat.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Request } from 'express';
 
@@ -59,7 +60,7 @@ export class AiCoachingController {
   @Post('chat')
   @ApiOperation({ summary: 'Discuter avec le Coach IA' })
   @ApiResponse({ status: 402, description: 'Coins insuffisants ou quota mensuel épuisé.' })
-  async chat(@Req() req: Request, @Body() body: { prompt: string, context?: any }) {
+  async chat(@Req() req: Request, @Body() body: ChatDto) {
     const userId = (req.user as any).userId;
     // Deux barrières distinctes : les coins font respecter la règle du jeu (y compris
     // pour les abonnés), le quota mensuel plafonne la dépense des comptes gratuits.
