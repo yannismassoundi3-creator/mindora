@@ -263,3 +263,22 @@
     box-shadow: 0 5px 15px var(--accent-glow);
   }
 }
+
+/* La navigation basse est une pastille flottante : elle laisse 24px sous elle et
+   ~2,5% de chaque côté, si bien que le contenu défilant réapparaît autour et donne
+   l'impression d'un défaut d'affichage. Ce dégradé le fait disparaître dans le fond
+   avant qu'il n'atteigne la barre, ce qui rend la superposition intentionnelle.
+   pointer-events: none pour ne jamais intercepter un clic. */
+@media (max-width: 900px) {
+  .layout-container::after {
+    content: '';
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: calc(120px + env(safe-area-inset-bottom, 0px));
+    background: linear-gradient(to top, var(--bg-dark) 35%, transparent);
+    pointer-events: none;
+    z-index: 99; /* au-dessus du contenu, sous la barre (z-index: 100) */
+  }
+}
