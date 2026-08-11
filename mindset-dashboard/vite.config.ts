@@ -8,32 +8,18 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'prompt',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
+      // Le manifeste est maintenu à la main dans public/manifest.json (déjà lié depuis
+      // index.html). En laisser générer un second ici produisait deux <link rel="manifest">
+      // concurrents, avec un nom différent et des icônes qui n'existaient pas.
+      manifest: false,
+      includeAssets: ['favicon.svg', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png'],
       workbox: {
         importScripts: ['/custom-sw.js'], // Script for handling Push notifications
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,json}']
-      },
-      manifest: {
-        name: 'Mindset Elite',
-        short_name: 'Mindset',
-        description: 'Reprogramme ton esprit avec l\'IA.',
-        start_url: '/',
-        theme_color: '#0a0a0a',
-        background_color: '#0a0a0a',
-        display: 'standalone',
-        icons: [
-          {
-            src: 'pwa-192x192.png',
-            sizes: '192x192',
-            type: 'image/png'
-          },
-          {
-            src: 'pwa-512x512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'any maskable'
-          }
-        ]
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,json}'],
+        // landing.html est une page statique hors de l'app React : le toast de mise à jour
+        // n'y tourne pas, donc la précacher y figeait indéfiniment l'ancienne version.
+        globIgnores: ['**/landing.html'],
+        navigateFallbackDenylist: [/^\/landing\.html/]
       }
     })
   ],
