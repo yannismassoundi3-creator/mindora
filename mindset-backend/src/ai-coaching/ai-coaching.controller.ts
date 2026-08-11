@@ -1,5 +1,6 @@
 import { Controller, Post, Get, Body, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { AiCoachingService } from './ai-coaching.service';
 import { AiQuotaService } from './ai-quota.service';
 import { CoinLedgerService } from './coin-ledger.service';
@@ -36,12 +37,16 @@ export class AiCoachingController {
     };
   }
 
+  // Le plafond quotidien borne le gain, pas le nombre d'appels : sans ça, marteler
+  // cette route reste un moyen de charger la base pour rien.
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Post('coins/claim')
   @ApiOperation({ summary: 'Créditer les coins d\'une action validée (idempotent)' })
   async claimCoins(@Req() req: Request, @Body() body: { eventKey: string }) {
     return this.coins.claim((req.user as any).userId, body?.eventKey);
   }
 
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('onboarding')
   @ApiOperation({ summary: 'Soumettre le questionnaire intelligent (Onboarding)' })
   async submitOnboarding(@Req() req: Request, @Body() data: any) {
@@ -49,6 +54,7 @@ export class AiCoachingController {
     return this.aiCoachingService.processOnboarding(userId, data);
   }
 
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('generate-routines')
   @ApiOperation({ summary: 'Générer les routines du lendemain (Cron ou Manuel)' })
   async generateDailyRoutines(@Req() req: Request) {
@@ -57,6 +63,9 @@ export class AiCoachingController {
     return this.aiCoachingService.generateRoutinesForUser(userId);
   }
 
+  // Les coins bornent le nombre total de messages, jamais la cadence : avec 500 coins
+  // on pouvait en envoyer 50 en dix secondes et saturer l'IA pour les autres.
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('chat')
   @ApiOperation({ summary: 'Discuter avec le Coach IA' })
   @ApiResponse({ status: 402, description: 'Coins insuffisants ou quota mensuel épuisé.' })
@@ -76,6 +85,8 @@ export class AiCoachingController {
     return this.aiCoachingService.getChatHistory(userId);
   }
 
+  // Chaque appel part chez OpenAI et se facture : c'est la route la plus chère.
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('tts')
   @ApiOperation({ summary: 'Générer de la voix avec OpenAI TTS' })
   @ApiResponse({ status: 402, description: 'Réservé aux abonnés.' })
