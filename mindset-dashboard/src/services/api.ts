@@ -111,6 +111,24 @@ export const api = {
     }
   },
 
+  /**
+   * Crédite côté serveur les coins d'une action validée.
+   *
+   * Le solde qui autorise l'IA vit désormais en base : le total gardé en
+   * localStorage ne sert plus qu'à l'affichage. `eventKey` doit identifier
+   * l'action ET le jour, sinon cocher/décocher en boucle rapporterait à l'infini.
+   * Volontairement silencieux : une action validée ne doit jamais échouer parce
+   * que le réseau a hoqueté.
+   */
+  claimCoins: async (eventKey: string) => {
+    try {
+      return await api.post('/ai-coaching/coins/claim', { eventKey });
+    } catch (e) {
+      console.warn('Coins non crédités côté serveur:', e);
+      return null;
+    }
+  },
+
   subscribeToPushNotifications: async () => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
       console.warn('Notifications_Not_Supported');

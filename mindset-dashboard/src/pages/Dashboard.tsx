@@ -589,7 +589,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
       setPoints(newPoints);
       setSecurePoints(newPoints);
       window.dispatchEvent(new CustomEvent('pointsChanged', { detail: newPoints }));
-      
+
+      // Le solde qui autorise l'IA est tenu par le serveur. La clé porte la tâche et
+      // le jour : décocher puis recocher ne recrédite donc pas.
+      if (toggledItem) {
+        api.claimCoins(`routine-${toggledItem.title || 'tache'}-${new Date().toISOString().slice(0, 10)}`);
+      }
+
       if (toggledItem) {
         const popupX = Math.min(e.clientX, window.innerWidth - 340);
         setJarvisPopup({

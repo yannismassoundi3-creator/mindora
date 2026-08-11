@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Trophy, TrendingUp, Calendar, Zap, AlertTriangle, Play, Edit2, Pencil, Trash2, Plus, Target, BookOpen, Dumbbell, Brain, Coffee, Sparkles, X } from 'lucide-react';
 import { playLevelUpSound, playClickSound, playErrorSound, playBloopSound } from '../utils/sounds';
 import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
+import { api } from '../services/api';
 import './Habits.css';
 
 interface HabitsProps {
@@ -195,6 +196,10 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
       setPoints(newPoints);
       setSecurePoints(newPoints);
       window.dispatchEvent(new CustomEvent('pointsChanged', { detail: newPoints }));
+
+      // Le solde qui autorise l'IA est tenu par le serveur ; la clé porte le jour
+      // pour qu'une habitude ne rapporte qu'une fois par jour.
+      api.claimCoins(`habit-${habitId}-${today}`);
 
       // AI Commentary logic
       if (leveledUp) {

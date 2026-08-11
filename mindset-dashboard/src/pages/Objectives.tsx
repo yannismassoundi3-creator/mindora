@@ -3,6 +3,7 @@ import { Target, Flag, Trophy, Plus, CheckCircle2, Circle, Sparkles, Pencil, Tra
 import { playClickSound, playLevelUpSound } from '../utils/sounds';
 import { AI_COSMETICS } from '../utils/cosmetics';
 import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
+import { api } from '../services/api';
 import './Objectives.css';
 
 interface ObjectivesProps {
@@ -155,11 +156,17 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
     setEditingMicroId(null);
   };
 
-  const awardCoins = (amount: number) => {
+  const awardCoins = (amount: number, eventKey?: string) => {
     const currentPoints = getSecurePoints();
     const newPoints = Math.max(0, currentPoints + amount);
     setSecurePoints(newPoints);
     window.dispatchEvent(new CustomEvent('pointsChanged', { detail: newPoints }));
+
+    // Seul un gain est crédité côté serveur, et une seule fois par objectif et par
+    // jour : décocher puis recocher ne doit rien rapporter de plus.
+    if (amount > 0 && eventKey) {
+      api.claimCoins(`${eventKey}-${new Date().toISOString().slice(0, 10)}`);
+    }
   };
 
   const toggleMicro = (id: number) => {
@@ -175,7 +182,7 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
           window.dispatchEvent(new CustomEvent('triggerShockwave', { 
             detail: { x: window.innerWidth / 2, y: window.innerHeight / 2, color: '#3b82f6' } 
           }));
-          awardCoins(5);
+          awardCoins(5, `objectif-${id}`);
         } else {
           playClickSound();
           awardCoins(-5);
@@ -212,7 +219,7 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
           window.dispatchEvent(new CustomEvent('triggerShockwave', { 
             detail: { x: window.innerWidth / 2, y: window.innerHeight / 2, color: '#3b82f6' } 
           }));
-          awardCoins(5);
+          awardCoins(5, `objectif-${id}`);
         }
         
         let newAwardedDate = obj.awardedDate;
@@ -250,7 +257,7 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
           window.dispatchEvent(new CustomEvent('triggerShockwave', { 
             detail: { x: window.innerWidth / 2, y: window.innerHeight / 2, color: '#f59e0b' } 
           }));
-          awardCoins(5);
+          awardCoins(5, `objectif-${id}`);
         } else {
           playClickSound();
           awardCoins(-5);

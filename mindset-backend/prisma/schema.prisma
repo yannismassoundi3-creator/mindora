@@ -35,6 +35,7 @@ model User {
   chat_messages      ChatMessage[]
   password_reset_tokens PasswordResetToken[]
   ai_usages          AiUsage[]
+  coin_claims        CoinClaim[]
 }
 
 model RefreshToken {
@@ -211,6 +212,9 @@ model SyncData {
   habits           Json?
   nutrition        Json?
   points           Int      @default(0)
+  /// Solde de coins faisant foi pour l'IA. Jamais alimenté par la synchro : le
+  /// client peut y écrire ce qu'il veut, c'est justement ce qu'on corrige.
+  ai_credits       Int?
   mental_score     Int      @default(0)
   bonus_score       Int      @default(0)
   daily_scores      Json?
@@ -285,6 +289,20 @@ model PasswordResetToken {
   user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([user_id])
+}
+
+/// Crédits gagnés, un par action validée. La clé d'événement rend la demande
+/// idempotente : rejouer la même requête ne crédite pas deux fois.
+model CoinClaim {
+  id         String   @id @default(uuid())
+  user_id    String
+  event_key  String
+  amount     Int
+  created_at DateTime @default(now())
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, event_key])
+  @@index([user_id, created_at])
 }
 
 /// Consommation d'IA facturable, comptée explicitement plutôt que déduite des

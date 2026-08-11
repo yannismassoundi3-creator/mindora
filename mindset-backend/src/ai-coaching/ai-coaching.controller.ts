@@ -2,6 +2,7 @@ import { Controller, Post, Get, Body, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
 import { AiCoachingService } from './ai-coaching.service';
 import { AiQuotaService } from './ai-quota.service';
+import { CoinLedgerService } from './coin-ledger.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Request } from 'express';
 
@@ -13,12 +14,31 @@ export class AiCoachingController {
   constructor(
     private readonly aiCoachingService: AiCoachingService,
     private readonly aiQuota: AiQuotaService,
+    private readonly coins: CoinLedgerService,
   ) {}
 
   @Get('quota')
   @ApiOperation({ summary: 'Messages IA restants pour le mois en cours' })
   async getQuota(@Req() req: Request) {
-    return this.aiQuota.getQuota((req.user as any).userId);
+    const userId = (req.user as any).userId;
+    const [quota, solde, claims] = await Promise.all([
+      this.aiQuota.getQuota(userId),
+      this.coins.getBalance(userId),
+      this.coins.claimsAujourdhui(userId),
+    ]);
+    return {
+      ...quota,
+      coins: solde,
+      coutParMessage: CoinLedgerService.COUT_MESSAGE,
+      actionsCrediteesAujourdhui: claims,
+      plafondQuotidien: CoinLedgerService.ACTIONS_MAX_PAR_JOUR,
+    };
+  }
+
+  @Post('coins/claim')
+  @ApiOperation({ summary: 'Créditer les coins d\'une action validée (idempotent)' })
+  async claimCoins(@Req() req: Request, @Body() body: { eventKey: string }) {
+    return this.coins.claim((req.user as any).userId, body?.eventKey);
   }
 
   @Post('onboarding')
@@ -38,9 +58,12 @@ export class AiCoachingController {
 
   @Post('chat')
   @ApiOperation({ summary: 'Discuter avec le Coach IA' })
-  @ApiResponse({ status: 402, description: 'Quota de messages gratuits épuisé.' })
+  @ApiResponse({ status: 402, description: 'Coins insuffisants ou quota mensuel épuisé.' })
   async chat(@Req() req: Request, @Body() body: { prompt: string, context?: any }) {
     const userId = (req.user as any).userId;
+    // Deux barrières distinctes : les coins font respecter la règle du jeu (y compris
+    // pour les abonnés), le quota mensuel plafonne la dépense des comptes gratuits.
+    await this.coins.spend(userId);
     await this.aiQuota.consumeAiCredit(userId, 'chat');
     return this.aiCoachingService.chatWithAi(userId, body.prompt, body.context);
   }

@@ -529,8 +529,9 @@ export const AIChat: React.FC = () => {
     } catch (error: any) {
       console.error("AI Chat Error:", error);
 
-      // Quota épuisé : ce n'est pas une panne, on ouvre l'offre au lieu
-      // d'afficher un message d'erreur technique.
+      // 402 : ce n'est pas une panne. Deux causes distinctes, deux réactions —
+      // manquer de coins se règle en accomplissant une routine, pas en s'abonnant,
+      // donc proposer l'abonnement dans ce cas serait malhonnête.
       if (error.status === 402) {
         setMessages(prev => [...prev, {
           id: Date.now() + 1,
@@ -538,7 +539,9 @@ export const AIChat: React.FC = () => {
           sender: 'ai',
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }]);
-        window.dispatchEvent(new Event('aiQuotaExceeded'));
+        if (error.code !== 'COINS_INSUFFISANTS') {
+          window.dispatchEvent(new Event('aiQuotaExceeded'));
+        }
         return;
       }
 
