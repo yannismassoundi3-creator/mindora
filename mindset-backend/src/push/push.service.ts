@@ -29,7 +29,10 @@ export class PushService implements OnModuleInit {
    * pour qu'un changement de domaine n'ait plus à être répercuté à six endroits.
    */
   private lienApp(chemin = ''): string {
-    return (process.env.FRONTEND_URL || 'https://disciplix-ai.vercel.app') + chemin;
+    // La barre finale est retirée : selon comment la variable est saisie sur Render,
+    // on obtiendrait sinon une adresse en « //?auth=true » sur la moitié des envois.
+    const base = (process.env.FRONTEND_URL || 'https://disciplix-ai.vercel.app').replace(/\/+$/, '');
+    return base + chemin;
   }
 
   constructor(
