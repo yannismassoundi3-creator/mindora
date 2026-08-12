@@ -422,13 +422,23 @@ export class AuthService {
     return { message: 'Mot de passe réinitialisé avec succès.' };
   }
 
+  /**
+   * `has_ai_profile` accompagne le profil pour que le front sache, à chaque
+   * ouverture, si le questionnaire d'inscription a bien été rempli.
+   *
+   * Jusqu'ici cette information n'existait qu'à la connexion, et le front la
+   * remplaçait de toute façon par un drapeau local posé à « true » sans rien
+   * vérifier. Résultat : le questionnaire n'était jamais posé en production, et
+   * le coach lisait un profil que personne n'avait rempli. Le serveur sait, lui,
+   * si la table contient quelque chose — c'est à lui de le dire.
+   */
   async getUserProfile(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { subscription: true }
+      include: { subscription: true, ai_profile: { select: { user_id: true } } },
     });
     if (!user) throw new UnauthorizedException('Utilisateur introuvable.');
-    const { password_hash, ...result } = user;
-    return result;
+    const { password_hash, ai_profile, ...result } = user;
+    return { ...result, has_ai_profile: !!ai_profile };
   }
 }

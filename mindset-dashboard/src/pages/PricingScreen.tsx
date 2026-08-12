@@ -11,30 +11,38 @@ interface PricingScreenProps {
 
 export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClose }) => {
   const [loading, setLoading] = useState(false);
+  const [erreur, setErreur] = useState('');
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'lifetime'>('monthly');
   const aiName = localStorage.getItem('mindset_ai_name') || 'Coach IA';
 
   const handlePurchase = async (e: React.MouseEvent) => {
     e.preventDefault();
     setLoading(true);
+    setErreur('');
     playLevelUpSound();
-    
+
     try {
       const res = await api.post('/subscriptions/checkout', { planType: selectedPlan });
       if (res.checkoutUrl) {
         if (res.checkoutUrl.includes('mock=true')) {
-          window.dispatchEvent(new CustomEvent('triggerShockwave', { 
-            detail: { x: window.innerWidth / 2, y: window.innerHeight / 2, color: '#8b5cf6' } 
+          window.dispatchEvent(new CustomEvent('triggerShockwave', {
+            detail: { x: window.innerWidth / 2, y: window.innerHeight / 2, color: '#8b5cf6' }
           }));
           onSubscribe();
         } else {
           // Redirection vers la vraie page Stripe
           window.location.href = res.checkoutUrl;
         }
+      } else {
+        setErreur("Le paiement n'a pas pu être ouvert. Réessaie dans un moment.");
       }
     } catch (error: any) {
+      // Une alerte du navigateur disparaît d'un clic et ne laisse aucune trace : la
+      // personne se retrouve devant le même bouton, sans savoir si elle a payé. Le
+      // message reste maintenant sous le bouton, avec celui du serveur quand il en
+      // donne un.
       console.error('Erreur lors du paiement:', error);
-      alert("Une erreur est survenue lors de la connexion au serveur de paiement. Veuillez réessayer plus tard.");
+      setErreur(error?.message || "Le paiement n'a pas pu être ouvert. Réessaie dans un moment.");
     } finally {
       setLoading(false);
     }
@@ -119,6 +127,11 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
           <button className={`btn-subscribe ${loading ? 'loading' : ''}`} onClick={handlePurchase} disabled={loading}>
             {loading ? 'Connexion sécurisée (Stripe)...' : (selectedPlan === 'monthly' ? "Essai gratuit 7 jours (puis 9.99€/mois)" : "Acheter à vie (99.99€)")}
           </button>
+          {erreur && (
+            <p className="secure-text" style={{ color: '#f87171', fontWeight: 600 }} role="alert">
+              {erreur}
+            </p>
+          )}
           {selectedPlan === 'monthly' ? (
             <p className="secure-text" style={{ color: '#10b981', fontWeight: 600 }}>
               <Shield size={14} style={{ marginRight: '4px' }}/> 7 jours 100% gratuits. Annulable à tout moment.

@@ -943,36 +943,29 @@
   display: inline-block;
 }
 
-/* Animations de Swipe */
-.slide-left {
-  animation: slideOutLeft 0.3s forwards cubic-bezier(0.4, 0, 0.2, 1);
-}
-.slide-right {
-  animation: slideOutRight 0.3s forwards cubic-bezier(0.4, 0, 0.2, 1);
-}
+/* Animations de Swipe du carrousel de routines.
+
+   Ce fichier définissait aussi .slide-left et .slide-right — les deux noms de
+   classe que App.tsx pose sur le wrapper de page, avec un tout autre sens : ici
+   une sortie d'écran, en « forwards », qui aurait laissé la page à opacity 0. Et
+   il redéfinissait les keyframes slideInLeft/slideInRight déjà nommées dans
+   global.css. Deux règles de même spécificité, deux jeux de keyframes de même
+   nom : c'est l'ordre de concaténation du build qui départageait, et il n'est pas
+   le même en dev et en production. Les classes mortes ont été supprimées, et les
+   keyframes qui restent sont préfixées pour n'appartenir qu'au carrousel. */
 .slide-in-left {
-  animation: slideInLeft 0.3s forwards cubic-bezier(0.4, 0, 0.2, 1);
+  animation: carrouselEntreeGauche 0.3s forwards cubic-bezier(0.4, 0, 0.2, 1);
 }
 .slide-in-right {
-  animation: slideInRight 0.3s forwards cubic-bezier(0.4, 0, 0.2, 1);
+  animation: carrouselEntreeDroite 0.3s forwards cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-@keyframes slideOutLeft {
-  from { opacity: 1; transform: translateX(0); filter: blur(0); }
-  to { opacity: 0; transform: translateX(-40px); filter: blur(4px); }
-}
-
-@keyframes slideOutRight {
-  from { opacity: 1; transform: translateX(0); filter: blur(0); }
-  to { opacity: 0; transform: translateX(40px); filter: blur(4px); }
-}
-
-@keyframes slideInLeft {
+@keyframes carrouselEntreeGauche {
   from { opacity: 0; transform: translateX(-40px); filter: blur(4px); }
   to { opacity: 1; transform: translateX(0); filter: blur(0); }
 }
 
-@keyframes slideInRight {
+@keyframes carrouselEntreeDroite {
   from { opacity: 0; transform: translateX(40px); filter: blur(4px); }
   to { opacity: 1; transform: translateX(0); filter: blur(0); }
 }

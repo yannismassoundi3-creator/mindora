@@ -90,6 +90,31 @@ describe('SubscriptionsService — création du paiement', () => {
     await expect(service.createCheckoutSession('u1', 'monthly')).rejects.toThrow(BadRequestException);
   });
 
+  it("ne recopie jamais le message de Stripe à l'acheteur", async () => {
+    process.env.NODE_ENV = 'production';
+    mockCreerSession.mockRejectedValue(new Error('Invalid API Key provided: sk_test_51ABC'));
+
+    // Ce message partait tel quel dans la réponse HTTP : il exposait la configuration
+    // du serveur, et n'apprenait rien à la personne qui essayait de payer.
+    await expect(service.createCheckoutSession('u1', 'monthly')).rejects.toThrow(
+      /réessaie dans un moment/,
+    );
+    await expect(service.createCheckoutSession('u1', 'monthly')).rejects.not.toThrow(/sk_test/);
+  });
+
+  it("nomme la variable manquante quand la formule n'a pas d'identifiant de prix", async () => {
+    process.env.NODE_ENV = 'production';
+    delete process.env.STRIPE_PRICE_MONTHLY;
+    mockCreerSession.mockRejectedValue(new Error('No such price: price_mock_monthly'));
+
+    await expect(service.createCheckoutSession('u1', 'monthly')).rejects.toThrow(BadRequestException);
+
+    // Sans cette trace, une variable oubliée sur l'hébergeur ressemble à une panne de
+    // Stripe : on cherche des heures du côté du paiement.
+    const traces = (console.error as jest.Mock).mock.calls.flat().join(' ');
+    expect(traces).toContain('STRIPE_PRICE_MONTHLY');
+  });
+
   it('garde le repli de développement hors production', async () => {
     process.env.NODE_ENV = 'development';
     delete process.env.STRIPE_SECRET_KEY;

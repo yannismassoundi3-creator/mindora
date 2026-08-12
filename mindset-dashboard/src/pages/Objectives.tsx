@@ -46,30 +46,33 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
   const [equippedSkin] = useState<string | null>(() => localStorage.getItem('mindset_ai_skin_id'));
   const equippedCosmetic = AI_COSMETICS.find(c => c.id === equippedSkin);
 
+  // Aucun objectif par défaut, ni ici ni plus bas pour les visions.
+  //
+  // Un compte neuf arrivait avec « Indépendance Financière » et « Physique
+  // d'Athlète » comme grands objectifs de vie, plus « Aller à la salle de sport »
+  // à 2/4 et « Lire 50 pages » déjà cochée. Personne n'avait rien décidé de tout
+  // ça : ni le but, ni la progression annoncée. Et comme l'écran réenregistre son
+  // état à chaque rendu, ces exemples partaient en base à la première visite et
+  // devenaient les vrais objectifs du compte, comptés dans les scores.
+  //
+  // Les habitudes et les routines avaient déjà été vidées pour cette raison ;
+  // cette page était la dernière à distribuer un passé qu'on n'a pas vécu.
   const [microObjectives, setMicroObjectives] = useState<MicroObjective[]>(() => {
     const saved = localStorage.getItem('mindset_micro_obj');
-    const defaultMicro = [
-      { id: 1, title: "Aller à la salle de sport", progress: 2, total: 4, done: false, category: "🏃 Sport" },
-      { id: 2, title: "Lire 50 pages", progress: 50, total: 50, done: true, category: "🧠 Mindset" },
-    ];
-    if (!saved) return defaultMicro;
+    if (!saved) return [];
     try {
       const parsed = JSON.parse(saved);
-      return Array.isArray(parsed) ? parsed : defaultMicro;
-    } catch { return defaultMicro; }
+      return Array.isArray(parsed) ? parsed : [];
+    } catch { return []; }
   });
 
   const [macroObjectives, setMacroObjectives] = useState<MacroObjective[]>(() => {
     const saved = localStorage.getItem('mindset_macro_obj');
-    const defaultMacro = [
-      { id: 1, title: "Indépendance Financière", category: "💼 Business", deadline: "Déc 2026", bgGradient: GRADIENTS[0] },
-      { id: 2, title: "Physique d'Athlète", category: "🏃 Sport", deadline: "Juil 2026", bgGradient: GRADIENTS[1] }
-    ];
-    if (!saved) return defaultMacro;
+    if (!saved) return [];
     try {
       const parsed = JSON.parse(saved);
-      return Array.isArray(parsed) ? parsed : defaultMacro;
-    } catch { return defaultMacro; }
+      return Array.isArray(parsed) ? parsed : [];
+    } catch { return []; }
   });
 
   // Saving state
@@ -326,6 +329,13 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
           </div>
           <p className="section-desc">Ton grand pourquoi. Ce qui te réveille le matin.</p>
 
+          {macroObjectives.length === 0 && (
+            <p className="section-desc" style={{ fontStyle: 'italic', marginTop: '-4px' }}>
+              Rien ici pour l'instant. Une vision, c'est la destination — la première
+              en dit déjà long sur toi.
+            </p>
+          )}
+
           <div className="macro-cards-container">
             {macroObjectives.map(macro => (
               <div 
@@ -363,6 +373,13 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
             <h2>Micro-Objectifs (Exécution)</h2>
           </div>
           <p className="section-desc">Les petites victoires qui mènent à la grande.</p>
+
+          {microObjectives.length === 0 && (
+            <p className="section-desc" style={{ fontStyle: 'italic', marginTop: '-4px' }}>
+              Aucune action cette semaine. Choisis-en une, petite et datée : c'est
+              elle qui fera bouger ton score.
+            </p>
+          )}
 
           <div className="micro-list">
             {microObjectives.map(micro => (

@@ -35,12 +35,24 @@
   transition: opacity 0.4s ease, transform 0.4s ease;
 }
 
-.fade-in {
+/*
+  Ces deux règles portaient sur .fade-in et .fade-out tout court, sans être
+  rattachées à l'onboarding. Or ce fichier est chargé dès le démarrage de l'app, et
+  « fade-in » est une classe utilitaire employée un peu partout : la Boutique, ses
+  fenêtres, plusieurs conteneurs de page. Toutes héritaient donc d'un
+  transform: translateY(0) permanent — inoffensif à l'œil, mais un élément
+  transformé devient le bloc conteneur de ses descendants en position: fixed. La
+  fenêtre « Créer une récompense » s'ouvrait ainsi décalée de la largeur du menu et
+  débordait de l'écran, au lieu de se centrer sur la fenêtre du navigateur.
+
+  Scopées à l'onboarding, elles ne concernent plus que lui.
+*/
+.onboarding-content.fade-in {
   opacity: 1;
   transform: translateY(0);
 }
 
-.fade-out {
+.onboarding-content.fade-out {
   opacity: 0;
   transform: translateY(-20px);
 }

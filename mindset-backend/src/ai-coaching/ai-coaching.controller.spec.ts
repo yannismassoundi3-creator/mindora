@@ -17,7 +17,7 @@ describe('AiCoachingController — débit et remboursement du chat', () => {
   let controller: AiCoachingController;
   let ia: { chatWithAi: jest.Mock };
   let quota: { consumeAiCredit: jest.Mock; refundAiCredit: jest.Mock };
-  let coins: { spend: jest.Mock; refund: jest.Mock };
+  let coins: { spend: jest.Mock; refund: jest.Mock; getBalance: jest.Mock };
 
   const requete = { user: { userId: 'u1' } } as any;
   const message = { prompt: 'Comment tu vas ?' } as any;
@@ -25,7 +25,11 @@ describe('AiCoachingController — débit et remboursement du chat', () => {
   beforeEach(async () => {
     ia = { chatWithAi: jest.fn() };
     quota = { consumeAiCredit: jest.fn().mockResolvedValue({}), refundAiCredit: jest.fn().mockResolvedValue({}) };
-    coins = { spend: jest.fn().mockResolvedValue({}), refund: jest.fn().mockResolvedValue({}) };
+    coins = {
+      spend: jest.fn().mockResolvedValue({ depense: 10, solde: 40 }),
+      refund: jest.fn().mockResolvedValue({}),
+      getBalance: jest.fn().mockResolvedValue(50),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AiCoachingController],
@@ -50,12 +54,14 @@ describe('AiCoachingController — débit et remboursement du chat', () => {
     expect(quota.consumeAiCredit.mock.invocationCallOrder[0]).toBeLessThan(ia.chatWithAi.mock.invocationCallOrder[0]);
   });
 
-  it('ne rembourse rien quand la réponse arrive', async () => {
+  it('ne rembourse rien quand la réponse arrive, et annonce le solde restant', async () => {
     ia.chatWithAi.mockResolvedValue({ reply: 'Ça va.' });
 
     const resultat = await controller.chat(requete, message);
 
-    expect(resultat).toEqual({ reply: 'Ça va.' });
+    // Le solde voyage avec la réponse : sans lui, l'app décomptait de son côté et
+    // finissait par afficher un chiffre qui n'était plus celui de la base.
+    expect(resultat).toEqual({ reply: 'Ça va.', coins: 40 });
     expect(coins.refund).not.toHaveBeenCalled();
     expect(quota.refundAiCredit).not.toHaveBeenCalled();
   });
@@ -71,6 +77,9 @@ describe('AiCoachingController — débit et remboursement du chat', () => {
     expect(quota.refundAiCredit).toHaveBeenCalledWith('u1', 'chat');
     // La personne reçoit quand même le message d'attente.
     expect(resultat.reply).toContain('Trop de monde');
+    // Et le solde annoncé est celui d'après remboursement, pas celui du débit :
+    // afficher 40 alors que la base en a rendu 50 ferait croire à un message perdu.
+    expect(resultat.coins).toBe(50);
   });
 
   it('rembourse aussi sur exception, sans masquer l’erreur', async () => {

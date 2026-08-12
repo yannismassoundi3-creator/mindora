@@ -64,7 +64,7 @@ export class AiCoachingController {
     const userId = (req.user as any).userId;
     // Deux barrières distinctes : les coins font respecter la règle du jeu (y compris
     // pour les abonnés), le quota mensuel plafonne la dépense des comptes gratuits.
-    await this.coins.spend(userId);
+    const debit = await this.coins.spend(userId);
     await this.aiQuota.consumeAiCredit(userId, 'chat');
 
     // Débiter avant l'appel est nécessaire (sinon deux requêtes simultanées passent
@@ -75,8 +75,12 @@ export class AiCoachingController {
       const reponse = await this.aiCoachingService.chatWithAi(userId, body.prompt, body.context);
       if ((reponse as any)?.erreur) {
         await this.rembourser(userId);
+        // Après remboursement, le solde n'est plus celui du débit : on le relit.
+        return { ...reponse, coins: await this.coins.getBalance(userId) };
       }
-      return reponse;
+      // Le solde accompagne la réponse : sans lui, l'app tenait sa propre
+      // comptabilité en parallèle de la base, et les deux chiffres divergeaient.
+      return { ...reponse, coins: debit.solde };
     } catch (e) {
       await this.rembourser(userId);
       throw e;

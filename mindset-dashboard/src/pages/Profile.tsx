@@ -325,10 +325,15 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
                   <p style={{ fontSize: '0.85rem', color: 'var(--secondary)', marginBottom: '16px' }}>
                     Débloquez {aiName} 24/7 et la Gamification holographique avec Disciplix Pro.
                   </p>
-                  <button 
+                  {/* Le libellé était écrit en var(--primary) sur un dégradé qui part
+                      de var(--primary) : blanc sur blanc dans le thème monochrome —
+                      le bouton avait l'air vide et mort. Un texte posé sur un aplat
+                      d'accent doit prendre la couleur du fond de l'app, qui contraste
+                      avec l'accent dans chacun des thèmes. */}
+                  <button
                     onClick={() => { playClickSound(); setShowPricingModal(true); }}
                     onMouseEnter={() => playHoverSound()}
-                    style={{ background: 'linear-gradient(135deg, var(--primary), var(--accent-purple))', color: 'var(--primary)', border: 'none', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600 }}
+                    style={{ background: 'linear-gradient(135deg, var(--primary), var(--accent-purple))', color: 'var(--bg-dark)', border: 'none', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600 }}
                   >
                     Voir les offres Pro (Dès 9.99€)
                   </button>

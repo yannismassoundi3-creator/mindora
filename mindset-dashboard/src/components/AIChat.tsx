@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, User, Sparkles, Play, Square, Loader } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { playBloopSound, playErrorSound } from '../utils/sounds';
+import { playBloopSound } from '../utils/sounds';
 import { AI_COSMETICS } from '../utils/cosmetics';
 import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
 import './AIChat.css';
@@ -411,27 +411,24 @@ export const AIChat: React.FC = () => {
       };
 
       // Système de Coins
+      //
+      // Le refus se décide au serveur, et nulle part ailleurs. Cet écran barrait
+      // la route dès que le compteur *local* passait sous 10 — or ce compteur part
+      // de zéro sur un appareil neuf, pendant que le serveur ouvre tout compte à
+      // 50 coins. Un compte qui venait d'être créé se voyait donc répondre
+      // « Énergie insuffisante » à son premier bonjour, avec le conseil d'aller
+      // gagner des coins qu'il possédait déjà. Le serveur, lui, répond 402 avec le
+      // vrai solde, et ce cas est traité plus bas.
       const currentPoints = getSecurePoints();
-      
-      if (currentPoints < 10) {
-        setIsTyping(false);
-        playErrorSound();
-        setMessages(prev => [...prev, {
-          id: Date.now() + 1,
-          text: "⚠️ **Énergie Insuffisante (Coins < 10)**\nMes systèmes requièrent de l'énergie pour fonctionner. Accomplissez vos habitudes et routines pour recharger mes circuits avant de pouvoir me consulter à nouveau.",
-          sender: 'ai',
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        }]);
-        return;
-      }
 
-      const data = await api.post('/ai-coaching/chat', { 
+      const data = await api.post('/ai-coaching/chat', {
         prompt: currentInput,
         context: userContext
       });
 
-      // Déduction des Coins uniquement si le backend répond
-      setSecurePoints(currentPoints - 10);
+      // Le solde affiché suit celui du serveur quand il nous le donne, plutôt que
+      // de tenir sa propre comptabilité en parallèle.
+      setSecurePoints(typeof data.coins === 'number' ? data.coins : Math.max(0, currentPoints - 10));
       window.dispatchEvent(new Event('storage'));
       
       setIsAiAwake(true);

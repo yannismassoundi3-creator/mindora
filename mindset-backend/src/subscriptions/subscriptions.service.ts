@@ -65,6 +65,19 @@ export class SubscriptionsService {
     } catch (error: any) {
       console.error('[Stripe] Create session error:', error);
 
+      // Une variable STRIPE_PRICE_* oubliée sur l'hébergeur laisse partir l'identifiant
+      // de repli « price_mock_… », et Stripe répond « No such price ». Le message
+      // technique se perdait ensuite dans une alerte générique côté client : personne
+      // ne pouvait deviner qu'il manquait une variable d'environnement. On le dit ici,
+      // en clair, avec le nom exact à renseigner.
+      if (priceId.startsWith('price_mock')) {
+        console.error(
+          `[Stripe] La formule « ${planType} » n'a pas d'identifiant de prix : renseigne ` +
+            `${planType === 'monthly' ? 'STRIPE_PRICE_MONTHLY' : 'STRIPE_PRICE_LIFETIME'} ` +
+            `dans les variables d'environnement du service.`,
+        );
+      }
+
       // Repli de développement : renvoyer une page de succès sans paiement. Il est
       // désormais interdit en production. La clé Stripe y est censée être présente,
       // mais le constructeur retombe sur « sk_test_mock » quand elle manque — une
@@ -75,7 +88,12 @@ export class SubscriptionsService {
         return { checkoutUrl: this.lienRetour('/?success=true&mock=true') };
       }
 
-      throw new BadRequestException('Failed to create Stripe session: ' + error.message);
+      // Le message de Stripe reste dans les logs. Le recopier au client exposait la
+      // configuration du serveur — « Invalid API Key provided: sk_test_… » s'affichait
+      // tel quel — et ne lui apprenait rien d'utile.
+      throw new BadRequestException(
+        "Le paiement n'a pas pu être ouvert. Ce n'est pas de ton fait : réessaie dans un moment, ou écris-nous à mindoraappli@gmail.com.",
+      );
     }
   }
 

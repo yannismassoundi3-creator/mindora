@@ -14,11 +14,12 @@ interface Reward {
   icon: string;
 }
 
-const DEFAULT_REWARDS: Reward[] = [
-  { id: 'r1', title: '1h de jeu vidéo', cost: 100, icon: '🎮' },
-  { id: 'r2', title: 'Fast Food', cost: 300, icon: '🍔' },
-  { id: 'r3', title: 'Grignotage', cost: 50, icon: '🍫' }
-];
+// Plus de récompenses préremplies. « Fast Food », « Grignotage » et « 1h de jeu
+// vidéo » attendaient tout le monde à l'arrivée, y compris les gens venus pour la
+// santé ou la concentration. Une récompense n'a de valeur que si on l'a choisie
+// soi-même ; celles-là étaient surtout un contenu d'exemple qu'on n'ose pas
+// supprimer. La carte « Créer une récompense » reste, et l'écran dit maintenant
+// ce qu'il attend.
 
 export const Shop: React.FC = () => {
   const [points, setPoints] = useState(() => getSecurePoints());
@@ -46,7 +47,13 @@ export const Shop: React.FC = () => {
 
   const [rewards, setRewards] = useState<Reward[]>(() => {
     const saved = localStorage.getItem('mindset_rewards');
-    return saved ? JSON.parse(saved) : DEFAULT_REWARDS;
+    if (!saved) return [];
+    try {
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
   });
 
   const [showAddForm, setShowAddForm] = useState(false);
@@ -260,7 +267,13 @@ export const Shop: React.FC = () => {
         <div className="section-header-flex">
           <h2><Gift size={20} color="#10b981" /> Tes Récompenses Persos</h2>
         </div>
-        
+
+        {rewards.length === 0 && (
+          <p className="page-subtitle" style={{ marginBottom: '16px' }}>
+            À toi de fixer le prix de tes plaisirs. Ce que tu t'accordes, et ce que ça coûte.
+          </p>
+        )}
+
         <div className="rewards-grid">
           {rewards.map(reward => (
             <div key={reward.id} id={`reward-${reward.id}`} className="reward-card glass-panel">

@@ -16,6 +16,7 @@ import { PwaInstallPrompt } from './components/PwaInstallPrompt';
 import { ShockwaveOverlay } from './components/ShockwaveOverlay';
 import { AiNotification } from './components/AiNotification';
 import { AiExplanationModal } from './components/AiExplanationModal';
+import { getSecurePoints, setSecurePoints } from './utils/secureStorage';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import './styles/global.css';
 import './index.css';
@@ -133,8 +134,19 @@ function App() {
   const isAuthIntent = urlParams.get('auth') === 'true';
   const hasCompletedOnboarding = localStorage.getItem('hasCompletedOnboarding') === 'true';
 
+  /**
+   * Écran demandé par le lien d'arrivée, s'il en désigne un qui existe.
+   *
+   * Les notifications promettent un endroit précis — « Ouvre le Chat IA pour
+   * réduire la difficulté de tes objectifs » — mais l'app n'avait aucune façon
+   * d'être ouverte ailleurs que sur le dashboard : toutes menaient au même écran,
+   * et la promesse tombait à plat.
+   */
+  const VUES_OUVRABLES = ['dashboard', 'chat', 'objectives', 'habits', 'profile', 'shop', 'inventory'] as const;
+  const vueDemandee = VUES_OUVRABLES.find((v) => v === urlParams.get('vue'));
+
   const [currentView, setCurrentView] = useState<'auth' | 'onboarding' | 'welcome' | 'dashboard' | 'chat' | 'objectives' | 'habits' | 'profile' | 'shop' | 'inventory'>(
-    (isAuthIntent && !hasToken) ? 'auth' : (hasToken && hasCompletedOnboarding ? 'dashboard' : 'welcome')
+    (isAuthIntent && !hasToken) ? 'auth' : (hasToken && hasCompletedOnboarding ? (vueDemandee ?? 'dashboard') : 'welcome')
   );
 
   const [isLocked, setIsLocked] = useState(() => !!localStorage.getItem('mindset_biometric_id'));
@@ -155,11 +167,39 @@ function App() {
         if (hasToken) {
           // Download the latest data from the Cloud DB to localStorage
           await api.downloadCloudState();
-          
+
           const user = await api.get('/auth/me');
           const subscribed = user.subscription?.status === 'ACTIVE';
           setIsSubscribed(subscribed);
           localStorage.setItem('mindset_is_subscribed', subscribed ? 'true' : 'false');
+
+          // Le questionnaire d'inscription est réclamé par la base, pas par un
+          // drapeau local : c'est le serveur qui sait si le coach a de quoi nous
+          // connaître. Un appareil neuf, un vidage de cache ou une session posée
+          // par un autre chemin ne doivent ni le reposer, ni le sauter.
+          if (user.has_ai_profile === false) {
+            localStorage.removeItem('hasCompletedOnboarding');
+            setCurrentView((vue) => (vue === 'auth' ? vue : 'onboarding'));
+          } else if (user.has_ai_profile === true) {
+            localStorage.setItem('hasCompletedOnboarding', 'true');
+          }
+
+          // Le solde qui autorise l'IA vit en base, et un compte neuf l'ouvre à 50.
+          // Le compteur affiché, lui, part de zéro côté navigateur : on annonçait
+          // donc « 0 coin » à quelqu'un qui en avait cinquante, sur le même écran
+          // qui lui conseille d'aller en gagner.
+          //
+          // On ne recopie le solde du serveur que si le compteur local est à zéro :
+          // dans ce cas il n'y a rien à écraser, et rien à réalimenter par accident
+          // (la Boutique, elle, ne dépense que le compteur local).
+          if (getSecurePoints() === 0) {
+            try {
+              const { coins } = await api.get('/ai-coaching/quota');
+              if (typeof coins === 'number' && coins > 0) setSecurePoints(coins);
+            } catch (e) {
+              console.warn('Solde initial non récupéré', e);
+            }
+          }
 
           if (urlParams.get('success') === 'true') {
             setTimeout(() => {

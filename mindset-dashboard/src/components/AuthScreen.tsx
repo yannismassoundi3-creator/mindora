@@ -3,6 +3,25 @@ import { api } from '../services/api';
 import './AuthScreen.css';
 import { Brain, ArrowRight, Eye, EyeOff, ShieldCheck, KeyRound } from 'lucide-react';
 
+/**
+ * Note le questionnaire d'inscription comme fait, ou pas, d'après le serveur.
+ *
+ * Ce drapeau était posé à « true » à chaque connexion, sans rien demander à
+ * personne. Or l'inscription passe par le 2FA : on créait le compte, le code
+ * arrivait par e-mail, et la validation du code marquait l'onboarding comme
+ * terminé — donc plus jamais de questions. Le coach possède tout un mécanisme
+ * pour relire ce profil à chaque message ; il lisait une table vide.
+ *
+ * `has_ai_profile` vient de la base : c'est le seul juge de « est-ce qu'on lui a
+ * déjà posé les questions ». Absent d'une réponse (vieux backend), on ne touche à
+ * rien : App.tsx corrigera au premier /auth/me.
+ */
+function memoriserOnboarding(aUnProfil: boolean | undefined) {
+  if (aUnProfil === undefined) return;
+  if (aUnProfil) localStorage.setItem('hasCompletedOnboarding', 'true');
+  else localStorage.removeItem('hasCompletedOnboarding');
+}
+
 export const AuthScreen = ({ onComplete }: { onComplete: () => void }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -82,7 +101,7 @@ export const AuthScreen = ({ onComplete }: { onComplete: () => void }) => {
         localStorage.setItem('mindset_token', res.access_token);
         localStorage.setItem('mindset_user_name', res.user?.first_name || 'User');
         await api.downloadCloudState();
-        localStorage.setItem('hasCompletedOnboarding', 'true');
+        memoriserOnboarding(res.has_ai_profile);
         onComplete();
         return;
       }
@@ -94,12 +113,12 @@ export const AuthScreen = ({ onComplete }: { onComplete: () => void }) => {
           setLoading(false);
           return;
         }
-        // Fallback pour ancien backend
+        // Chemin sans 2FA (dev, ou compte dont le second facteur est désactivé)
         if (res.access_token) {
           localStorage.setItem('mindset_token', res.access_token);
           localStorage.setItem('mindset_user_name', res.user?.first_name || 'User');
           await api.downloadCloudState();
-          localStorage.setItem('hasCompletedOnboarding', 'true');
+          memoriserOnboarding(res.has_ai_profile);
           onComplete();
         }
       } else {

@@ -65,6 +65,18 @@ export class PushService implements OnModuleInit {
     return base + chemin;
   }
 
+  /**
+   * Adresse qui ouvre l'app sur l'écran dont parle la notification.
+   *
+   * Toutes visaient la même page d'accueil, y compris celle qui demande
+   * explicitement d'ouvrir le Chat IA. Le paramètre `vue` est lu au démarrage de
+   * l'application ; `auth=true` reste indispensable pour que quelqu'un dont la
+   * session a expiré tombe sur l'écran de connexion et non sur la page vitrine.
+   */
+  private lienVers(vue: 'dashboard' | 'chat' | 'objectives' | 'habits' = 'dashboard'): string {
+    return this.lienApp(`/?auth=true&vue=${vue}`);
+  }
+
   constructor(
     private prisma: PrismaService,
     private morningBrief: MorningBriefService,
@@ -308,14 +320,14 @@ export class PushService implements OnModuleInit {
             await this.sendNotification(user.id, {
               title: '🤖 Coach IA : Stratégie',
               body: 'Je remarque que tu as du mal depuis quelques jours. Ouvre le Chat IA pour réduire la difficulté de tes objectifs.',
-              url: this.lienApp('/?auth=true')
+              url: this.lienVers('chat')
             });
           } else if (scoreToday === 0 && scoreYesterday > 0) {
             // Warning 1st day miss
             await this.sendNotification(user.id, {
               title: 'Attention ! 😡',
               body: 'Tu n\'as pas encore fait tes routines aujourd\'hui. Ne brise pas ton rythme !',
-              url: this.lienApp()
+              url: this.lienVers()
             });
           }
         } else if (hour === 22) {
@@ -324,14 +336,14 @@ export class PushService implements OnModuleInit {
             await this.sendNotification(user.id, {
               title: '🚨 URGENCE STREAK 🚨',
               body: 'Dernier avertissement ! Ta série va disparaître à minuit si tu n\'agis pas tout de suite !',
-              url: this.lienApp()
+              url: this.lienVers()
             });
           } else if (scoreToday === 0 && scoreYesterday > 0) {
             // Normal night review for those who just haven't finished today yet
             await this.sendNotification(user.id, {
               title: 'C\'est l\'heure du bilan 🌙',
               body: 'Valide tes dernières routines avant de dormir.',
-              url: this.lienApp()
+              url: this.lienVers()
             });
           }
         }
@@ -356,7 +368,7 @@ export class PushService implements OnModuleInit {
         await this.sendNotification(user.id, {
           title: '📊 Bilan de ta semaine',
           body: `Ton Score Mental est de ${score}%. Voici ton plan d'attaque pour lundi. Ouvre l'app pour le découvrir !`,
-          url: this.lienApp()
+          url: this.lienVers()
         });
       } catch (e) {
         this.logger.error(`Bilan hebdomadaire échoué pour ${user.id} : ${(e as any)?.message}`);
@@ -529,7 +541,7 @@ export class PushService implements OnModuleInit {
       // Seule notification restée en dur après le passage des six autres à lienApp() :
       // elle visait le bon domaine, donc rien ne clochait à l'œil. Un changement de
       // FRONTEND_URL l'aurait pourtant laissée seule derrière, sur l'ancienne adresse.
-      url: this.lienApp('/?auth=true'),
+      url: this.lienVers(),
     });
 
     return {
@@ -556,7 +568,7 @@ export class PushService implements OnModuleInit {
           await this.sendNotification(user.id, {
             title,
             body,
-            url: this.lienApp()
+            url: this.lienVers()
           });
         } catch (e) {
           echecs++;
