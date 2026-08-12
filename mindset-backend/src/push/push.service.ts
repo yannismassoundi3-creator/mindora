@@ -113,7 +113,11 @@ export class PushService implements OnModuleInit {
         //           chaque envoi indéfiniment.
         // On le supprime pour que le navigateur en recrée un propre à sa prochaine visite.
         if (statut === 404 || statut === 410 || statut === 403 || statut === 401) {
-          await this.prisma.pushSubscription.delete({ where: { id: sub.id } });
+          // deleteMany plutôt que delete : sur une ligne déjà supprimée, delete lève
+          // P2025. L'exception remontait alors jusqu'au cron et interrompait la
+          // tournée entière — un abonnement périmé suffisait à priver tout le monde
+          // de sa notification. Le nettoyage ne doit jamais faire échouer l'envoi.
+          await this.prisma.pushSubscription.deleteMany({ where: { id: sub.id } });
           this.logger.log(`Abonnement obsolète supprimé pour ${userId} (statut ${statut})`);
         }
       }
@@ -178,38 +182,47 @@ export class PushService implements OnModuleInit {
         }
       }
 
-      if (hour === 20) {
-        if (missedDays >= 4) {
-          // AI Dynamic Adjustment Prompt
-          await this.sendNotification(user.id, {
-            title: '🤖 Coach IA : Stratégie',
-            body: 'Je remarque que tu as du mal depuis quelques jours. Ouvre le Chat IA pour réduire la difficulté de tes objectifs.',
-            url: 'https://mindset-elite.com?auth=true'
-          });
-        } else if (scoreToday === 0 && scoreYesterday > 0) {
-          // Warning 1st day miss
-          await this.sendNotification(user.id, {
-            title: 'Attention ! 😡',
-            body: 'Tu n\'as pas encore fait tes routines aujourd\'hui. Ne brise pas ton rythme !',
-            url: 'https://mindset-elite.com'
-          });
+      // Comme pour le brief du matin : un échec sur une personne ne doit pas
+      // interrompre la tournée des suivantes.
+      try {
+        if (hour === 20) {
+          if (missedDays >= 4) {
+            // AI Dynamic Adjustment Prompt
+            await this.sendNotification(user.id, {
+              title: '🤖 Coach IA : Stratégie',
+              body: 'Je remarque que tu as du mal depuis quelques jours. Ouvre le Chat IA pour réduire la difficulté de tes objectifs.',
+              url: 'https://mindset-elite.com?auth=true'
+            });
+          } else if (scoreToday === 0 && scoreYesterday > 0) {
+            // Warning 1st day miss
+            await this.sendNotification(user.id, {
+              title: 'Attention ! 😡',
+              body: 'Tu n\'as pas encore fait tes routines aujourd\'hui. Ne brise pas ton rythme !',
+              url: 'https://mindset-elite.com'
+            });
+          }
+        } else if (hour === 22) {
+          // Warning 2nd day miss (Urgency)
+          if (missedDays === 2) {
+            await this.sendNotification(user.id, {
+              title: '🚨 URGENCE STREAK 🚨',
+              body: 'Dernier avertissement ! Ta série va disparaître à minuit si tu n\'agis pas tout de suite !',
+              url: 'https://mindset-elite.com'
+            });
+          } else if (scoreToday === 0 && scoreYesterday > 0) {
+            // Normal night review for those who just haven't finished today yet
+            await this.sendNotification(user.id, {
+              title: 'C\'est l\'heure du bilan 🌙',
+              body: 'Valide tes dernières routines avant de dormir.',
+              url: 'https://mindset-elite.com'
+            });
+          }
         }
-      } else if (hour === 22) {
-        // Warning 2nd day miss (Urgency)
-        if (missedDays === 2) {
-          await this.sendNotification(user.id, {
-            title: '🚨 URGENCE STREAK 🚨',
-            body: 'Dernier avertissement ! Ta série va disparaître à minuit si tu n\'agis pas tout de suite !',
-            url: 'https://mindset-elite.com'
-          });
-        } else if (scoreToday === 0 && scoreYesterday > 0) {
-          // Normal night review for those who just haven't finished today yet
-          await this.sendNotification(user.id, {
-            title: 'C\'est l\'heure du bilan 🌙',
-            body: 'Valide tes dernières routines avant de dormir.',
-            url: 'https://mindset-elite.com'
-          });
-        }
+      } catch (e) {
+        this.logger.error(
+          `Alerte série ${hour}h échouée pour ${user.id} : ${(e as any)?.message}`,
+          (e as any)?.stack,
+        );
       }
     }
   }
@@ -222,11 +235,15 @@ export class PushService implements OnModuleInit {
       if (!user.push_subscriptions || user.push_subscriptions.length === 0) continue;
       
       const score = user.sync_data?.mental_score || 0;
-      await this.sendNotification(user.id, {
-        title: '📊 Bilan de ta semaine',
-        body: `Ton Score Mental est de ${score}%. Voici ton plan d'attaque pour lundi. Ouvre l'app pour le découvrir !`,
-        url: 'https://mindset-elite.com'
-      });
+      try {
+        await this.sendNotification(user.id, {
+          title: '📊 Bilan de ta semaine',
+          body: `Ton Score Mental est de ${score}%. Voici ton plan d'attaque pour lundi. Ouvre l'app pour le découvrir !`,
+          url: 'https://mindset-elite.com'
+        });
+      } catch (e) {
+        this.logger.error(`Bilan hebdomadaire échoué pour ${user.id} : ${(e as any)?.message}`);
+      }
     }
   }
 
@@ -246,6 +263,7 @@ export class PushService implements OnModuleInit {
     let personnalises = 0;
     let generiques = 0;
     let ignores = 0;
+    let echecs = 0;
 
     for (const user of users) {
       if (!user.push_subscriptions?.length) continue;
@@ -255,17 +273,29 @@ export class PushService implements OnModuleInit {
         continue;
       }
 
-      const resultat = await this.sendMorningBriefTo(user.id);
-      if (resultat.personnalise) personnalises++;
-      else generiques++;
+      // Chaque personne est isolée : une requête en échec sur l'une d'elles ne doit
+      // pas priver toutes les suivantes de leur brief. La boucle n'avait aucun garde,
+      // si bien qu'une seule exception vidait la tournée en silence.
+      try {
+        const resultat = await this.sendMorningBriefTo(user.id);
+        if (resultat.personnalise) personnalises++;
+        else generiques++;
+      } catch (e) {
+        echecs++;
+        this.logger.error(
+          `Brief du matin échoué pour ${user.id} : ${(e as any)?.message}`,
+          (e as any)?.stack,
+        );
+      }
     }
 
     this.logger.log(
-      `Briefs du matin : ${personnalises} personnalisé(s), ${generiques} générique(s), ${ignores} compte(s) dormant(s) ignoré(s)`,
+      `Briefs du matin : ${personnalises} personnalisé(s), ${generiques} générique(s), ` +
+        `${ignores} compte(s) dormant(s) ignoré(s), ${echecs} échec(s)`,
     );
 
     // Renvoyé pour que le déclencheur manuel expose le même décompte que le log.
-    return { personnalises, generiques, dormantsIgnores: ignores, comptesExamines: users.length };
+    return { personnalises, generiques, dormantsIgnores: ignores, echecs, comptesExamines: users.length };
   }
 
   /**
@@ -305,15 +335,21 @@ export class PushService implements OnModuleInit {
     const users = await this.prisma.user.findMany({
       include: { push_subscriptions: true }
     });
+    let echecs = 0;
     for (const user of users) {
       if (user.push_subscriptions && user.push_subscriptions.length > 0) {
-        await this.sendNotification(user.id, {
-          title,
-          body,
-          url: 'https://mindset-elite.com'
-        });
+        try {
+          await this.sendNotification(user.id, {
+            title,
+            body,
+            url: 'https://mindset-elite.com'
+          });
+        } catch (e) {
+          echecs++;
+          this.logger.error(`Rappel « ${title} » échoué pour ${user.id} : ${(e as any)?.message}`);
+        }
       }
     }
-    this.logger.log(`Sent bulk push reminders: ${title}`);
+    this.logger.log(`Sent bulk push reminders: ${title} (${echecs} échec(s))`);
   }
 }
