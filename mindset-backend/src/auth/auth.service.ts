@@ -89,8 +89,24 @@ export class AuthService {
     }
 
     // 2FA par E-mail
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    //
+    // crypto.randomInt et non Math.random : ce dernier s'appuie sur xorshift128+, un
+    // générateur rapide mais prédictible. Quelques valeurs issues du même processus
+    // suffisent à en reconstituer l'état interne, et donc à calculer les suivantes.
+    // Or n'importe qui peut s'en procurer : chaque connexion sur son propre compte
+    // rend un code du même flux. Ce code est le second facteur de tous les comptes ;
+    // il doit venir d'une source cryptographique.
+    const code = crypto.randomInt(100000, 1000000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60000); // 10 min
+
+    // Les codes précédents encore valables sont retirés. `verify2FA` accepte n'importe
+    // quel code non utilisé et non expiré : cinq tentatives de connexion laissaient
+    // donc cinq codes bons en même temps, et multipliaient d'autant les chances d'un
+    // tirage au hasard. Un seul code vaut à la fois — le dernier demandé.
+    await this.prisma.twoFactorCode.updateMany({
+      where: { user_id: user.id, is_used: false },
+      data: { is_used: true },
+    });
 
     await this.prisma.twoFactorCode.create({
       data: {
@@ -157,9 +173,14 @@ export class AuthService {
   }
 
   async verify2FA(email: string, code: string) {
+    // Message identique dans tous les cas, comme pour l'oubli de mot de passe :
+    // répondre « Utilisateur introuvable » à une adresse inconnue et « Code invalide »
+    // à une adresse connue transforme cette route en annuaire de comptes.
+    const refus = new UnauthorizedException('Code de vérification invalide ou expiré.');
+
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) {
-      throw new UnauthorizedException('Utilisateur introuvable.');
+      throw refus;
     }
 
     const verification = await this.prisma.twoFactorCode.findFirst({
@@ -173,7 +194,7 @@ export class AuthService {
     });
 
     if (!verification) {
-      throw new UnauthorizedException('Code 2FA invalide ou expiré.');
+      throw refus;
     }
 
     await this.prisma.twoFactorCode.update({

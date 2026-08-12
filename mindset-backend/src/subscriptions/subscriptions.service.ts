@@ -12,19 +12,33 @@ export class SubscriptionsService {
     });
   }
 
+  /**
+   * Adresse de retour après paiement.
+   *
+   * La barre finale est retirée : selon la façon dont FRONTEND_URL est saisie sur
+   * Render, on renvoyait sinon les gens sur « //?success=true » au retour de leur
+   * paiement. Le même défaut avait déjà été corrigé côté notifications ; il était
+   * resté ici, c'est-à-dire sur la page qui suit un achat.
+   */
+  private lienRetour(chemin: string): string {
+    const base = (process.env.FRONTEND_URL || 'http://localhost:3001').replace(/\/+$/, '');
+    return base + chemin;
+  }
+
   async createCheckoutSession(userId: string, planType: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new BadRequestException('User not found');
 
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
-    
-    // Configurer le prix en fonction du plan (à remplacer par tes vrais Price IDs Stripe)
-    let priceId = '';
-    if (planType === 'monthly') {
-      priceId = process.env.STRIPE_PRICE_MONTHLY || 'price_mock_monthly';
-    } else if (planType === 'lifetime') {
-      priceId = process.env.STRIPE_PRICE_LIFETIME || 'price_mock_lifetime';
+    // Un plan inconnu laissait priceId vide et partait quand même chez Stripe, qui
+    // répondait une erreur technique recopiée telle quelle à l'utilisateur.
+    if (planType !== 'monthly' && planType !== 'lifetime') {
+      throw new BadRequestException("Formule inconnue : attendu « monthly » ou « lifetime ».");
     }
+
+    const priceId =
+      planType === 'monthly'
+        ? process.env.STRIPE_PRICE_MONTHLY || 'price_mock_monthly'
+        : process.env.STRIPE_PRICE_LIFETIME || 'price_mock_lifetime';
 
     try {
       const session = await this.stripe.checkout.sessions.create({
@@ -42,18 +56,25 @@ export class SubscriptionsService {
             trial_period_days: 7,
           },
         }),
-        success_url: `${frontendUrl}/?success=true`,
-        cancel_url: `${frontendUrl}/?canceled=true`,
+        success_url: this.lienRetour('/?success=true'),
+        cancel_url: this.lienRetour('/?canceled=true'),
         client_reference_id: userId,
       });
 
       return { checkoutUrl: session.url };
     } catch (error: any) {
       console.error('[Stripe] Create session error:', error);
-      // Fallback au mock en développement si pas de vraie clé
-      if (process.env.STRIPE_SECRET_KEY?.startsWith('sk_test_mock') || !process.env.STRIPE_SECRET_KEY) {
-         return { checkoutUrl: `${frontendUrl}/?success=true&mock=true` };
+
+      // Repli de développement : renvoyer une page de succès sans paiement. Il est
+      // désormais interdit en production. La clé Stripe y est censée être présente,
+      // mais le constructeur retombe sur « sk_test_mock » quand elle manque — une
+      // variable oubliée suffisait donc à annoncer un achat réussi à tout le monde.
+      const cle = process.env.STRIPE_SECRET_KEY;
+      const enMock = !cle || cle.startsWith('sk_test_mock');
+      if (enMock && process.env.NODE_ENV !== 'production') {
+        return { checkoutUrl: this.lienRetour('/?success=true&mock=true') };
       }
+
       throw new BadRequestException('Failed to create Stripe session: ' + error.message);
     }
   }
@@ -125,12 +146,10 @@ export class SubscriptionsService {
       throw new BadRequestException('Aucun compte Stripe associé trouvé.');
     }
 
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
-
     try {
       const session = await this.stripe.billingPortal.sessions.create({
         customer: user.stripe_customer_id,
-        return_url: `${frontendUrl}/?auth=true`,
+        return_url: this.lienRetour('/?auth=true'),
       });
 
       return { portalUrl: session.url };
