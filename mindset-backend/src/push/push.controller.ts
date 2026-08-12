@@ -1,7 +1,9 @@
 import { Controller, Post, Body, UseGuards, Request, Get, HttpCode } from '@nestjs/common';
 import { PushService } from './push.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 @ApiTags('Push Notifications')
 @Controller('push')
@@ -46,8 +48,15 @@ export class PushController {
     return this.pushService.sendMorningBriefTo(req.user.userId);
   }
 
+  // Ces deux routes pilotent l'envoi à TOUT LE MONDE : elles ne relèvent pas du compte
+  // qui les appelle. Le simple fait d'être connecté suffisait pour déclencher une
+  // notification à l'ensemble des utilisateurs et vider le budget IA de la journée,
+  // partagé par toute l'application. C'est de l'outillage d'exploitation, pas une
+  // fonctionnalité : réservé aux administrateurs.
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiResponse({ status: 403, description: 'Réservé aux comptes ADMIN.' })
   @Post('morning-brief/run-all')
   @HttpCode(202)
   @ApiOperation({
@@ -65,7 +74,9 @@ export class PushController {
   }
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiResponse({ status: 403, description: 'Réservé aux comptes ADMIN.' })
   @Get('morning-brief/status')
   @ApiOperation({
     summary: 'Où en est la tournée des briefs, et ce qu’a donné la dernière',
