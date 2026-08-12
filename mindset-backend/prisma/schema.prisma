@@ -36,6 +36,31 @@ model User {
   password_reset_tokens PasswordResetToken[]
   ai_usages          AiUsage[]
   coin_claims        CoinClaim[]
+  push_permissions   PushPermission[]
+}
+
+/// Ce que le navigateur a répondu à la demande de notifications, par appareil.
+///
+/// Sans cette table, un refus ne laisse aucune trace : le code sortait sur un
+/// `console.warn` que personne ne lit. On a découvert que 26 comptes sur 28 étaient
+/// injoignables par le décompte d'une tournée d'envoi, par accident. Savoir combien
+/// refusent, combien ne sont jamais sollicités et combien en sont techniquement
+/// incapables est la seule façon de piloter ça autrement qu'à l'intuition.
+model PushPermission {
+  id         String   @id @default(uuid())
+  user_id    String
+  /// Même identifiant stable que PushSubscription.device_id.
+  device_id  String
+  /// accorde | refuse | non_supporte | ios_a_installer | reporte
+  etat       String
+  /// User-agent réduit à l'essentiel, pour distinguer un iPhone d'un Firefox.
+  plateforme String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, device_id])
+  @@index([etat])
 }
 
 model RefreshToken {

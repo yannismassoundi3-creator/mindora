@@ -48,6 +48,39 @@ export class PushController {
     return this.pushService.sendMorningBriefTo(req.user.userId);
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post('permission')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Enregistrer ce que le navigateur a répondu à la demande de notifications',
+    description:
+      "Appelée aussi bien sur un refus que sur une acceptation, et sur les appareils " +
+      "qui en sont techniquement incapables. C'est la seule source qui distingue « a " +
+      "refusé » de « n'a jamais vu la question ».",
+  })
+  async enregistrerPermission(
+    @Request() req,
+    @Body() body: { etat: string; deviceId?: string; plateforme?: string },
+  ) {
+    return this.pushService.enregistrerPermission(
+      req.user.userId,
+      body?.etat,
+      body?.deviceId,
+      body?.plateforme,
+    );
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiResponse({ status: 403, description: 'Réservé aux comptes ADMIN.' })
+  @Get('permission/stats')
+  @ApiOperation({ summary: "L'entonnoir des notifications : sollicités, réponses, joignables" })
+  async statistiquesPermissions() {
+    return this.pushService.statistiquesPermissions();
+  }
+
   // Ces deux routes pilotent l'envoi à TOUT LE MONDE : elles ne relèvent pas du compte
   // qui les appelle. Le simple fait d'être connecté suffisait pour déclencher une
   // notification à l'ensemble des utilisateurs et vider le budget IA de la journée,

@@ -48,6 +48,12 @@ describe('PushService — tournée des briefs du matin', () => {
         findMany: jest.fn().mockResolvedValue([]),
         deleteMany: jest.fn(),
         upsert: jest.fn(),
+        count: jest.fn().mockResolvedValue(0),
+      },
+      pushPermission: {
+        upsert: jest.fn().mockResolvedValue({}),
+        groupBy: jest.fn().mockResolvedValue([]),
+        findMany: jest.fn().mockResolvedValue([]),
       },
     };
     morningBrief = { isActive: jest.fn().mockReturnValue(true), generate: jest.fn().mockResolvedValue(null) };
@@ -178,6 +184,56 @@ describe('PushService — tournée des briefs du matin', () => {
       expect(etat.enCours).toBe(false);
       expect(etat.derniereTournee?.erreur).toBe('base injoignable');
       expect(etat.derniereTournee?.resume).toBeNull();
+    });
+  });
+
+  describe('mesure des permissions', () => {
+    it('enregistre une réponse par appareil, sans écraser les autres', async () => {
+      await service.enregistrerPermission('u1', 'refuse', 'appareil-A', 'Mozilla/5.0 Firefox');
+
+      // La même personne peut refuser sur son ordinateur et accepter sur son
+      // téléphone : c'est une information, pas un conflit à arbitrer.
+      expect(prisma.pushPermission.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { user_id_device_id: { user_id: 'u1', device_id: 'appareil-A' } },
+          create: expect.objectContaining({ etat: 'refuse', device_id: 'appareil-A' }),
+          update: expect.objectContaining({ etat: 'refuse' }),
+        }),
+      );
+    });
+
+    it('refuse un état inventé plutôt que de polluer la mesure', async () => {
+      await expect(service.enregistrerPermission('u1', 'peut-etre', 'appareil-A')).rejects.toThrow(
+        /peut-etre/,
+      );
+      expect(prisma.pushPermission.upsert).not.toHaveBeenCalled();
+    });
+
+    it('distingue ceux qui refusent de ceux à qui on n’a jamais demandé', async () => {
+      prisma.user.count = jest.fn().mockResolvedValue(28);
+      prisma.pushSubscription.count.mockResolvedValue(2);
+      prisma.pushSubscription.findMany.mockResolvedValue([{ user_id: 'u1' }, { user_id: 'u2' }]);
+      prisma.pushPermission.groupBy.mockResolvedValue([
+        { etat: 'accorde', _count: { _all: 2 } },
+        { etat: 'refuse', _count: { _all: 3 } },
+      ]);
+      prisma.pushPermission.findMany.mockResolvedValue([
+        { user_id: 'u1' },
+        { user_id: 'u2' },
+        { user_id: 'u3' },
+      ]);
+
+      const stats = await service.statistiquesPermissions();
+
+      expect(stats).toMatchObject({
+        comptes: 28,
+        comptesJoignables: 2,
+        appareilsAbonnes: 2,
+        etats: { accorde: 2, refuse: 3 },
+      });
+      // 25 comptes n'ont jamais répondu : c'est un défaut d'interface, pas un choix
+      // des utilisateurs, et les deux appelaient des corrections opposées.
+      expect(stats.comptesSansReponse).toBe(25);
     });
   });
 

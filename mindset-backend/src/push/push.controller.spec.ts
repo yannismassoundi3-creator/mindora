@@ -24,6 +24,7 @@ describe('PushController — qui a le droit de déclencher quoi', () => {
     it.each<[string, keyof PushController]>([
       ['lancer la tournée pour tout le monde', 'runMorningBriefs'],
       ['lire le décompte de la tournée', 'morningBriefStatus'],
+      ["lire l'entonnoir des permissions", 'statistiquesPermissions'],
     ])('réserve « %s » aux administrateurs', (_libelle, methode) => {
       expect(roles(methode)).toEqual(['ADMIN']);
       // Le rôle exigé ne sert à rien si le garde qui le lit n'est pas monté : les deux
@@ -37,6 +38,10 @@ describe('PushController — qui a le droit de déclencher quoi', () => {
       ["s'abonner aux notifications", 'subscribe'],
       ['tester une notification sur soi', 'testPush'],
       ['recevoir son propre brief', 'testMorningBrief'],
+      // Celle-ci doit rester ouverte : elle sert justement à mesurer les appareils
+      // qui n'obtiennent pas la permission. La réserver reviendrait à ne compter que
+      // les gens dont on n'a aucun problème à mesurer.
+      ['signaler ce que son navigateur a répondu', 'enregistrerPermission'],
     ])('laisse « %s » à tout compte connecté', (_libelle, methode) => {
       // Le rôle ADMIN n'a rien à faire ici : ces routes ne touchent que l'appelant, et
       // les verrouiller priverait les utilisateurs des notifications elles-mêmes.

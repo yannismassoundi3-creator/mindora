@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MorningBriefService } from './morning-brief.service';
 import * as cron from 'node-cron';
@@ -118,6 +118,66 @@ export class PushService implements OnModuleInit {
 
     this.logger.log(`Saved push subscription for user ${userId}`);
     return { success: true };
+  }
+
+  /**
+   * Réponses possibles du navigateur à la demande de notifications.
+   *
+   * `reporte` n'est pas un refus : c'est un « plus tard » dans notre propre carte,
+   * avant que le navigateur n'ait été sollicité. La distinction est le cœur du sujet —
+   * un « plus tard » se redemande, un refus navigateur ne se rattrape jamais.
+   */
+  static readonly ETATS_PERMISSION = ['accorde', 'refuse', 'non_supporte', 'ios_a_installer', 'reporte'];
+
+  /**
+   * Enregistre ce que l'appareil a répondu.
+   *
+   * Un refus ne laissait aucune trace : le code sortait sur un `console.warn` que
+   * personne ne lit. On a appris que 26 comptes sur 28 étaient injoignables par le
+   * décompte d'une tournée d'envoi, par accident.
+   */
+  async enregistrerPermission(userId: string, etat: string, deviceId?: string, plateforme?: string) {
+    if (!PushService.ETATS_PERMISSION.includes(etat)) {
+      throw new BadRequestException(
+        `État inconnu « ${etat} ». Attendu : ${PushService.ETATS_PERMISSION.join(', ')}.`,
+      );
+    }
+
+    // Une ligne par appareil : la même personne peut refuser sur son ordinateur et
+    // accepter sur son téléphone, et c'est une information, pas un conflit.
+    const appareil = (deviceId || 'inconnu').slice(0, 200);
+
+    await this.prisma.pushPermission.upsert({
+      where: { user_id_device_id: { user_id: userId, device_id: appareil } },
+      create: { user_id: userId, device_id: appareil, etat, plateforme: plateforme?.slice(0, 200) || null },
+      update: { etat, plateforme: plateforme?.slice(0, 200) || null },
+    });
+
+    return { enregistre: true, etat };
+  }
+
+  /** L'entonnoir complet : qui a été sollicité, qui a répondu quoi, qui reçoit. */
+  async statistiquesPermissions() {
+    const [parEtat, comptes, appareilsAbonnes, porteurs, repondants] = await Promise.all([
+      this.prisma.pushPermission.groupBy({ by: ['etat'], _count: { _all: true } }),
+      this.prisma.user.count(),
+      this.prisma.pushSubscription.count(),
+      this.prisma.pushSubscription.findMany({ distinct: ['user_id'], select: { user_id: true } }),
+      this.prisma.pushPermission.findMany({ distinct: ['user_id'], select: { user_id: true } }),
+    ]);
+
+    const etats: Record<string, number> = {};
+    for (const e of parEtat) etats[e.etat] = e._count._all;
+
+    return {
+      comptes,
+      comptesJoignables: porteurs.length,
+      appareilsAbonnes,
+      etats,
+      // Ni refus ni acceptation : ces comptes n'ont jamais vu la question, ce qui est
+      // un problème d'interface, pas un choix des utilisateurs.
+      comptesSansReponse: comptes - repondants.length,
+    };
   }
 
   /**

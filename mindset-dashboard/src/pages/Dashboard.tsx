@@ -5,6 +5,7 @@ import { AiNotification } from '../components/AiNotification';
 import { RankIcon } from '../components/RankIcon';
 import { VictoryGlitchOverlay } from '../components/VictoryGlitchOverlay';
 import { JarvisPopup } from '../components/JarvisPopup';
+import { NotificationsOptIn } from '../components/NotificationsOptIn';
 import type { JarvisPopupData } from '../components/JarvisPopup';
 import { api } from '../services/api';
 import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
@@ -141,10 +142,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
       }
     }, 100);
     
-    // Demander la permission push au chargement du dashboard
-    setTimeout(() => {
-      api.subscribeToPushNotifications().catch(console.error);
-    }, 2000);
+    // On ne demande plus rien au chargement : la boîte du navigateur surgissait deux
+    // secondes après l'arrivée, sans explication, et la réponse réflexe à ça est
+    // « Bloquer » — définitif. La demande part désormais d'un clic dans la carte
+    // NotificationsOptIn ci-dessous.
+    //
+    // Il reste utile de repasser ici pour ceux qui ont déjà accepté : l'abonnement
+    // meurt avec le service worker (mise à jour, données effacées) et doit être
+    // recréé. `false` garantit qu'aucune boîte de dialogue ne peut s'ouvrir.
+    api.subscribeToPushNotifications(false).catch(console.error);
   }, []);
 
   const [points, setPoints] = useState(() => getSecurePoints());
@@ -736,6 +742,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
           </button>
         </div>
       </header>
+
+      <NotificationsOptIn />
 
       <div className="dashboard-grid">
         <div className="dashboard-left-col">

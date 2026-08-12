@@ -40,13 +40,14 @@ if (currentVersion !== APP_VERSION) {
     });
   }
   localStorage.setItem('mindset_app_version', APP_VERSION);
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then(function(registrations) {
-      for(let registration of registrations) {
-        registration.unregister();
-      }
-    });
-  }
+  // Le service worker n'est plus désinscrit ici. Un abonnement aux notifications
+  // appartient au service worker qui l'a créé : le désinscrire le détruit avec lui.
+  // Chaque changement de version faisait donc fondre la base d'abonnés, et
+  // l'abonnement ne revenait que si la personne repassait par le dashboard.
+  //
+  // Vider les caches suffit à récupérer les fichiers à jour, et le mode autoUpdate de
+  // vite-plugin-pwa remplace déjà le service worker tout seul dès qu'il en existe un
+  // nouveau — c'était de toute façon la ceinture par-dessus les bretelles.
   setTimeout(() => {
     window.location.reload();
   }, 100);

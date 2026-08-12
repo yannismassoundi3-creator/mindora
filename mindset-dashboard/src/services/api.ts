@@ -129,19 +129,51 @@ export const api = {
     }
   },
 
-  subscribeToPushNotifications: async () => {
+  /**
+   * Prévient le serveur de ce que l'appareil a répondu.
+   *
+   * Un refus ne laissait aucune trace ailleurs que dans une console que personne
+   * n'ouvre. Impossible, dans ces conditions, de distinguer « ils refusent » de
+   * « on ne leur a jamais posé la question » — deux problèmes sans rapport.
+   */
+  signalerPermissionPush: async (etat: EtatPush) => {
+    try {
+      await api.post('/push/permission', {
+        etat,
+        deviceId: identifiantAppareil(),
+        plateforme: navigator.userAgent.slice(0, 200),
+      });
+    } catch (e) {
+      // Une mesure ratée ne doit jamais empêcher l'abonnement lui-même.
+      console.warn('État de permission non remonté', e);
+    }
+  },
+
+  /**
+   * @param demanderPermission `false` pour ne rien afficher : on se contente de
+   * remettre l'abonnement en place quand la permission est déjà accordée. C'est le
+   * cas au chargement de l'app — la demande, elle, part d'un clic dans notre carte.
+   *
+   * Appeler `Notification.requestPermission()` sans geste de l'utilisateur n'était pas
+   * seulement brutal : Firefox l'ignore depuis sa version 72, si bien qu'aucun
+   * utilisateur Firefox ne voyait jamais la question.
+   */
+  subscribeToPushNotifications: async (demanderPermission = true) => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
       console.warn('Notifications_Not_Supported');
+      await api.signalerPermissionPush(estIOS() && !estInstallee() ? 'ios_a_installer' : 'non_supporte');
       return false;
     }
-    
+
     let permission = Notification.permission;
     if (permission === 'default') {
+      if (!demanderPermission) return false;
       permission = await Notification.requestPermission();
     }
-    
+
     if (permission !== 'granted') {
       console.warn('Permission_Denied');
+      await api.signalerPermissionPush('refuse');
       return false;
     }
 
@@ -177,19 +209,54 @@ export const api = {
       });
     }
 
-    // Identifiant stable de ce navigateur. L'endpoint push, lui, change à chaque
-    // recréation de l'abonnement : sans ce repère, le serveur garde l'ancienne
-    // inscription en plus de la nouvelle et l'appareil reçoit tout en double.
-    let deviceId = localStorage.getItem('mindset_device_id');
-    if (!deviceId) {
-      deviceId = (crypto.randomUUID?.() ?? String(Date.now()) + Math.random().toString(36).slice(2));
-      localStorage.setItem('mindset_device_id', deviceId);
-    }
-
-    await api.post('/push/subscribe', { subscription, deviceId });
+    await api.post('/push/subscribe', { subscription, deviceId: identifiantAppareil() });
+    await api.signalerPermissionPush('accorde');
     return true;
   }
 };
+
+/** Ce que l'appareil a répondu, ou ce qui l'empêche de répondre. */
+export type EtatPush = 'accorde' | 'refuse' | 'non_supporte' | 'ios_a_installer' | 'reporte';
+
+/**
+ * Identifiant stable de ce navigateur. L'endpoint push, lui, change à chaque
+ * recréation de l'abonnement : sans ce repère, le serveur garde l'ancienne
+ * inscription en plus de la nouvelle et l'appareil reçoit tout en double.
+ */
+export function identifiantAppareil(): string {
+  let deviceId = localStorage.getItem('mindset_device_id');
+  if (!deviceId) {
+    deviceId = (crypto.randomUUID?.() ?? String(Date.now()) + Math.random().toString(36).slice(2));
+    localStorage.setItem('mindset_device_id', deviceId);
+  }
+  return deviceId;
+}
+
+export function estIOS(): boolean {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent);
+}
+
+/** Installée sur l'écran d'accueil — la seule façon d'avoir le push sur iOS. */
+export function estInstallee(): boolean {
+  return window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+}
+
+/**
+ * Ce qu'on peut faire pour cet appareil, ici et maintenant.
+ *
+ * `a_demander` est le seul cas où la carte a un bouton utile : ailleurs, soit c'est
+ * déjà fait, soit le navigateur ne reposera plus la question, soit l'appareil en est
+ * incapable tant qu'il n'a pas installé l'app.
+ */
+export function diagnostiquerPush(): EtatPush | 'a_demander' {
+  if (estIOS() && !estInstallee()) return 'ios_a_installer';
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+    return 'non_supporte';
+  }
+  if (Notification.permission === 'granted') return 'accorde';
+  if (Notification.permission === 'denied') return 'refuse';
+  return 'a_demander';
+}
 
 // Utility function for VAPID key conversion
 function urlBase64ToUint8Array(base64String: string) {

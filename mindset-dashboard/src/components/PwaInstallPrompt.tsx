@@ -56,7 +56,9 @@ export const PwaInstallPrompt: React.FC = () => {
       <div className="pwa-install-card">
         <button className="close-prompt-btn" onClick={() => setShowPrompt(false)}>×</button>
         <div className="pwa-app-icon">
-          <img src="/pwa-192x192.png" alt="Mindset App" />
+          {/* /pwa-192x192.png n'a jamais existé dans public/ : la carte censée
+              convaincre d'installer l'application affichait une image cassée. */}
+          <img src="/icon-192.png" alt="Disciplix" />
         </div>
         <h3>Installer l'Application</h3>
         
