@@ -89,16 +89,22 @@ export class CoinLedgerService {
       };
     }
 
-    await this.getBalance(userId); // garantit que ai_credits n'est plus null
+    await this.getBalance(userId); // reprend l'ancien solde si ai_credits est null
 
     try {
       const [, sync] = await this.prisma.$transaction([
         this.prisma.coinClaim.create({
           data: { user_id: userId, event_key: eventKey, amount: CoinLedgerService.GAIN_PAR_ACTION },
         }),
-        this.prisma.syncData.update({
+        // upsert et non update : un compte qui n'a jamais synchronisé n'a pas encore
+        // de ligne, et `update` lève alors P2025 — la route répondait 500. C'était
+        // sans issue pour un nouveau venu : il démarre à zéro coin, le refus de l'IA
+        // lui dit d'aller terminer une routine pour en gagner, et c'est précisément
+        // cette action-là qui échouait. Il ne pouvait donc jamais parler au coach.
+        this.prisma.syncData.upsert({
           where: { user_id: userId },
-          data: { ai_credits: { increment: CoinLedgerService.GAIN_PAR_ACTION } },
+          create: { user_id: userId, ai_credits: CoinLedgerService.GAIN_PAR_ACTION },
+          update: { ai_credits: { increment: CoinLedgerService.GAIN_PAR_ACTION } },
           select: { ai_credits: true },
         }),
       ]);
