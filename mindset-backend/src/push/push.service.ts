@@ -16,6 +16,22 @@ export class PushService implements OnModuleInit {
    */
   private static readonly INTERVALLE_ENTRE_BRIEFS_MS = 2200;
 
+  /**
+   * Adresse ouverte au clic sur une notification.
+   *
+   * Six des sept notifications pointaient en dur vers mindset-elite.com, un domaine
+   * qui ne résout plus : le check-in de 18h, les deux alertes de 20h, les deux de 22h
+   * et le bilan hebdomadaire menaient toutes dans le vide. Seul le brief du matin
+   * visait le vrai site. Une notification de relance qui n'ouvre rien est pire que
+   * pas de notification : elle consomme l'attention et détruit la confiance.
+   *
+   * On passe par FRONTEND_URL, déjà utilisée par l'authentification et les abonnements,
+   * pour qu'un changement de domaine n'ait plus à être répercuté à six endroits.
+   */
+  private lienApp(chemin = ''): string {
+    return (process.env.FRONTEND_URL || 'https://disciplix-ai.vercel.app') + chemin;
+  }
+
   constructor(
     private prisma: PrismaService,
     private morningBrief: MorningBriefService,
@@ -199,14 +215,14 @@ export class PushService implements OnModuleInit {
             await this.sendNotification(user.id, {
               title: '🤖 Coach IA : Stratégie',
               body: 'Je remarque que tu as du mal depuis quelques jours. Ouvre le Chat IA pour réduire la difficulté de tes objectifs.',
-              url: 'https://mindset-elite.com?auth=true'
+              url: this.lienApp('/?auth=true')
             });
           } else if (scoreToday === 0 && scoreYesterday > 0) {
             // Warning 1st day miss
             await this.sendNotification(user.id, {
               title: 'Attention ! 😡',
               body: 'Tu n\'as pas encore fait tes routines aujourd\'hui. Ne brise pas ton rythme !',
-              url: 'https://mindset-elite.com'
+              url: this.lienApp()
             });
           }
         } else if (hour === 22) {
@@ -215,14 +231,14 @@ export class PushService implements OnModuleInit {
             await this.sendNotification(user.id, {
               title: '🚨 URGENCE STREAK 🚨',
               body: 'Dernier avertissement ! Ta série va disparaître à minuit si tu n\'agis pas tout de suite !',
-              url: 'https://mindset-elite.com'
+              url: this.lienApp()
             });
           } else if (scoreToday === 0 && scoreYesterday > 0) {
             // Normal night review for those who just haven't finished today yet
             await this.sendNotification(user.id, {
               title: 'C\'est l\'heure du bilan 🌙',
               body: 'Valide tes dernières routines avant de dormir.',
-              url: 'https://mindset-elite.com'
+              url: this.lienApp()
             });
           }
         }
@@ -247,7 +263,7 @@ export class PushService implements OnModuleInit {
         await this.sendNotification(user.id, {
           title: '📊 Bilan de ta semaine',
           body: `Ton Score Mental est de ${score}%. Voici ton plan d'attaque pour lundi. Ouvre l'app pour le découvrir !`,
-          url: 'https://mindset-elite.com'
+          url: this.lienApp()
         });
       } catch (e) {
         this.logger.error(`Bilan hebdomadaire échoué pour ${user.id} : ${(e as any)?.message}`);
@@ -359,7 +375,7 @@ export class PushService implements OnModuleInit {
           await this.sendNotification(user.id, {
             title,
             body,
-            url: 'https://mindset-elite.com'
+            url: this.lienApp()
           });
         } catch (e) {
           echecs++;
