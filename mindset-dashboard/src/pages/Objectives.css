@@ -603,3 +603,17 @@
   -webkit-backdrop-filter: none !important;
   background: rgba(28, 28, 32, 0.92) !important;
 }
+
+/* Le survol ne s'applique qu'aux appareils qui pointent réellement. Sur tactile il
+   est émulé au toucher, et son transform place la carte sur une position
+   fractionnaire (-4,34px, la courbe d'animation dépassant sa cible avant de
+   revenir). Firefox calcule alors le masque d'overflow:hidden à cheval sur un
+   pixel et rogne le contenu en haut comme en bas — d'où un défaut visible
+   uniquement sur mobile, et uniquement sur ce navigateur. */
+@media (hover: none), (pointer: coarse) {
+  .macro-card:hover,
+  .add-macro-card:hover {
+    transform: none !important;
+    will-change: auto;
+  }
+}
