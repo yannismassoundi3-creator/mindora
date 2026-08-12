@@ -522,9 +522,11 @@
     overflow-x: auto;
     overflow-y: hidden;
     gap: 16px;
-    /* On ajoute du padding en haut et en bas pour que le soulèvement et les néons ne soient pas coupés par l'overflow */
-    padding-top: 16px;
-    padding-bottom: 24px;
+    /* Zone très large pour le néon (padding) compensée par des marges négatives pour ne pas casser la mise en page */
+    padding-top: 40px;
+    padding-bottom: 40px;
+    margin-top: -24px;
+    margin-bottom: -16px;
     -webkit-overflow-scrolling: touch;
     /* Break out of Layout padding properly without pushing right edge off-screen */
     width: auto;
