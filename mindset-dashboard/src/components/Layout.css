@@ -263,23 +263,3 @@
     box-shadow: 0 5px 15px var(--accent-glow);
   }
 }
-
-/* La navigation basse est une pastille flottante : elle laisse 24px sous elle et
-   ~2,5% de chaque côté, si bien que le contenu défilant réapparaît autour et donne
-   l'impression d'un défaut d'affichage.
-   On estompe le CONTENU plutôt que de poser un voile par-dessus : un voile opaque
-   masquait aussi le décor de fond (constellations, halos) et laissait une bande
-   noire nette en travers. Le masque n'agit que sur ce qui défile ; l'arrière-plan
-   reste entièrement visible. */
-@media (max-width: 900px) {
-  .content-scroll-area {
-    /* Blanc et non noir : selon le navigateur, un masque dégradé est interprété en
-       alpha ou en luminance. En luminance, le noir signifie « masqué » et l'effet
-       s'inverse — le contenu disparaît au lieu de s'estomper. Le blanc vaut
-       « visible » dans les deux lectures, et mask-mode le fige explicitement. */
-    -webkit-mask-image: linear-gradient(to bottom, #fff calc(100% - 130px), transparent calc(100% - 40px));
-    mask-image: linear-gradient(to bottom, #fff calc(100% - 130px), transparent calc(100% - 40px));
-    -webkit-mask-mode: alpha;
-    mask-mode: alpha;
-  }
-}
