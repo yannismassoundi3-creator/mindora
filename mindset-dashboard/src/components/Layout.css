@@ -273,7 +273,13 @@
    reste entièrement visible. */
 @media (max-width: 900px) {
   .content-scroll-area {
-    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 130px), transparent calc(100% - 40px));
-    mask-image: linear-gradient(to bottom, #000 calc(100% - 130px), transparent calc(100% - 40px));
+    /* Blanc et non noir : selon le navigateur, un masque dégradé est interprété en
+       alpha ou en luminance. En luminance, le noir signifie « masqué » et l'effet
+       s'inverse — le contenu disparaît au lieu de s'estomper. Le blanc vaut
+       « visible » dans les deux lectures, et mask-mode le fige explicitement. */
+    -webkit-mask-image: linear-gradient(to bottom, #fff calc(100% - 130px), transparent calc(100% - 40px));
+    mask-image: linear-gradient(to bottom, #fff calc(100% - 130px), transparent calc(100% - 40px));
+    -webkit-mask-mode: alpha;
+    mask-mode: alpha;
   }
 }
