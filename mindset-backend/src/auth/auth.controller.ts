@@ -14,12 +14,33 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  /**
+   * Options du cookie de rafraîchissement.
+   *
+   * `sameSite: 'strict'` était intenable ici : le front est servi par Vercel et l'API
+   * par Render, donc deux sites différents du point de vue du navigateur. Un cookie
+   * strict n'est jamais renvoyé dans ce cas — il était posé à la connexion puis
+   * ignoré à chaque requête suivante. Le rafraîchissement de session ne pouvait pas
+   * fonctionner, quoi qu'on écrive à côté.
+   *
+   * `none` impose `secure`, ce qui est acquis en production (NODE_ENV=production sur
+   * Render). En développement on reste sur `lax` : localhost est en clair, et un
+   * cookie `none` non sécurisé est rejeté par le navigateur.
+   */
+  private static optionsCookie() {
+    const production = process.env.NODE_ENV === 'production';
+    return {
+      httpOnly: true,
+      secure: production,
+      sameSite: production ? ('none' as const) : ('lax' as const),
+      path: '/',
+    };
+  }
+
   // Sécurité: Refresh Token en HttpOnly Cookie, jamais dans le corps de la réponse.
   private setRefreshTokenCookie(response: Response, refreshToken: string) {
     response.cookie('refresh_token', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      ...AuthController.optionsCookie(),
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours
     });
   }
@@ -96,6 +117,32 @@ export class AuthController {
     return this.authService.resetPassword(dto.token, dto.newPassword);
   }
 
+  /**
+   * Rend un nouveau jeton d'accès à partir du cookie de session.
+   *
+   * Cette route manquait purement et simplement. Le jeton d'accès expire au bout de
+   * quinze minutes et le front, sur un 401, efface le jeton et renvoie à l'écran de
+   * connexion : tout le monde était donc éjecté quatre fois par heure, et devait
+   * ressaisir un code à six chiffres reçu par e-mail. Le jeton de rafraîchissement
+   * existait pourtant déjà — créé, stocké en base, posé en cookie — mais rien ne
+   * permettait de l'échanger.
+   *
+   * Pas de JwtAuthGuard ici : on arrive précisément parce que le jeton d'accès est
+   * périmé. Le cookie fait foi.
+   */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Prolonger la session à partir du cookie de rafraîchissement' })
+  @ApiResponse({ status: 401, description: 'Session expirée ou révoquée : il faut se reconnecter.' })
+  async refresh(@Req() req: Request, @Res({ passthrough: true }) response: Response) {
+    const ancien = req.cookies?.['refresh_token'];
+    const { accessToken, refreshToken, user } = await this.authService.refreshSession(ancien);
+
+    this.setRefreshTokenCookie(response, refreshToken);
+    return { access_token: accessToken, user };
+  }
+
   @Post('logout')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
@@ -108,7 +155,9 @@ export class AuthController {
       await this.authService.revokeRefreshToken(userId, refreshToken);
     }
     
-    response.clearCookie('refresh_token');
+    // Les mêmes options qu'à la pose : un cookie posé en SameSite=None ne s'efface
+    // pas avec un clearCookie aux options par défaut, il survivrait à la déconnexion.
+    response.clearCookie('refresh_token', AuthController.optionsCookie());
     return { message: 'Déconnexion réussie.' };
   }
 

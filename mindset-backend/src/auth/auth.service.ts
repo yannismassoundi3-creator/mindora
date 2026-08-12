@@ -218,6 +218,64 @@ export class AuthService {
     return { accessToken, refreshToken, user: { id: userId, role, first_name: firstName } };
   }
 
+  /**
+   * Échange un jeton de rafraîchissement contre une nouvelle paire.
+   *
+   * Le jeton est tourné à chaque usage plutôt que réutilisé pendant sept jours : un
+   * jeton volé ne vaut alors que jusqu'au prochain rafraîchissement légitime.
+   *
+   * Présenter un jeton déjà révoqué n'est pas une erreur ordinaire — c'est soit un
+   * rejeu, soit deux porteurs pour le même jeton, donc un vol probable. On coupe
+   * alors toutes les sessions du compte plutôt que la seule requête en cours.
+   */
+  async refreshSession(token?: string) {
+    if (!token) {
+      throw new UnauthorizedException('Session absente.');
+    }
+
+    let payload: any;
+    try {
+      payload = await this.jwtService.verifyAsync(token, {
+        secret: this.configService.get<string>('JWT_REFRESH_SECRET')!,
+      });
+    } catch {
+      throw new UnauthorizedException('Session expirée.');
+    }
+
+    const enBase = await this.prisma.refreshToken.findUnique({ where: { token } });
+
+    if (!enBase) {
+      throw new UnauthorizedException('Session inconnue.');
+    }
+
+    if (enBase.is_revoked) {
+      await this.revokeAllRefreshTokens(enBase.user_id);
+      throw new UnauthorizedException('Session révoquée : reconnecte-toi.');
+    }
+
+    if (enBase.expires_at.getTime() < Date.now()) {
+      throw new UnauthorizedException('Session expirée.');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: { id: true, role: true, first_name: true, deleted_at: true },
+    });
+
+    // Un compte supprimé garde des jetons valides pendant sept jours : sans ce
+    // contrôle, la suppression ne mettrait fin à rien avant leur expiration.
+    if (!user || user.deleted_at) {
+      await this.revokeAllRefreshTokens(enBase.user_id);
+      throw new UnauthorizedException('Compte indisponible.');
+    }
+
+    // Révoqué avant d'en émettre un nouveau : si la création échoue, l'ancien ne
+    // reste pas valide en circulation.
+    await this.revokeRefreshToken(enBase.user_id, token);
+
+    return this.generateTokens(user.id, user.role, user.first_name);
+  }
+
   async revokeRefreshToken(userId: string, token: string) {
     await this.prisma.refreshToken.updateMany({
       where: { user_id: userId, token: token, is_revoked: false },

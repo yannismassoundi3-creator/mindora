@@ -2,39 +2,95 @@ import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://mindora-backend-haku.onrender.com'; // NestJS Backend
 
+/**
+ * Un seul rafraîchissement à la fois.
+ *
+ * Le dashboard lance plusieurs requêtes en parallèle : si chacune déclenchait sa
+ * propre rotation, la première invaliderait le jeton des suivantes et la session
+ * sauterait pour de bon — exactement ce qu'on cherche à éviter.
+ */
+let rafraichissementEnCours: Promise<boolean> | null = null;
+
+async function rafraichirSession(): Promise<boolean> {
+  if (rafraichissementEnCours) return rafraichissementEnCours;
+
+  const tentative = (async () => {
+    try {
+      // credentials: 'include' est indispensable — le cookie de session vit sur le
+      // domaine de l'API, pas sur celui du front.
+      const res = await fetch(`${API_URL}/auth/refresh`, { method: 'POST', credentials: 'include' });
+      if (!res.ok) return false;
+      const data = await res.json();
+      if (!data?.access_token) return false;
+      localStorage.setItem('mindset_token', data.access_token);
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+
+  rafraichissementEnCours = tentative;
+  tentative.finally(() => {
+    if (rafraichissementEnCours === tentative) rafraichissementEnCours = null;
+  });
+  return tentative;
+}
+
+function terminerSession() {
+  localStorage.removeItem('mindset_token');
+  window.location.href = '/?auth=true';
+}
+
 export const api = {
   get: async (endpoint: string) => {
-    const token = localStorage.getItem('mindset_token');
-    const res = await fetch(`${API_URL}${endpoint}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
+    // Le jeton est relu à chaque tentative : après un rafraîchissement, c'est le
+    // nouveau qu'il faut envoyer.
+    const lancer = () =>
+      fetch(`${API_URL}${endpoint}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('mindset_token')}` },
+        credentials: 'include',
+      });
+
+    let res = await lancer();
+
+    // Le jeton d'accès ne dure que quinze minutes. Sans cette reprise, un 401
+    // renvoyait à l'écran de connexion — et donc à un code 2FA par e-mail — quatre
+    // fois par heure, au milieu de ce que la personne était en train de faire.
+    if (res.status === 401 && !endpoint.startsWith('/auth/')) {
+      if (await rafraichirSession()) res = await lancer();
+    }
+
     if (!res.ok) {
-      if (res.status === 401) {
-        localStorage.removeItem('mindset_token');
-        window.location.href = '/?auth=true';
-      }
+      if (res.status === 401) terminerSession();
       throw new Error('API Error');
     }
     return res.json();
   },
   post: async (endpoint: string, data: any, keepalive: boolean = false) => {
-    const token = localStorage.getItem('mindset_token');
-    const res = await fetch(`${API_URL}${endpoint}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify(data),
-      keepalive: keepalive
-    });
+    const lancer = () =>
+      fetch(`${API_URL}${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('mindset_token')}`,
+        },
+        body: JSON.stringify(data),
+        keepalive: keepalive,
+        credentials: 'include',
+      });
+
+    let res = await lancer();
+
+    if (res.status === 401 && !endpoint.startsWith('/auth/')) {
+      if (await rafraichirSession()) res = await lancer();
+    }
+
     if (!res.ok) {
         const err = await res.json().catch(() => ({}));
+        // On n'arrive ici sur un 401 qu'après un rafraîchissement déjà tenté et
+        // refusé : la session est réellement finie.
         if (res.status === 401 && !endpoint.includes('/auth/')) {
-          localStorage.removeItem('mindset_token');
-          window.location.href = '/?auth=true';
+          terminerSession();
         }
         // Le statut et le code sont conservés : le quota IA (402) doit pouvoir
         // ouvrir l'écran d'abonnement plutôt que d'afficher une erreur générique.
