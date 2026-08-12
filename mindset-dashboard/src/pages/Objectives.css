@@ -524,14 +524,7 @@
     width: 100vw;
     margin-left: -16px;
     padding-left: 16px;
-    /* padding-right: 16px; removed to use spacer instead */
-  }
-
-  /* Spacer to force right margin to be respected by mobile browsers */
-  .macro-cards-container::after {
-    content: "";
-    flex: 0 0 16px;
-    width: 16px;
+    padding-right: 16px;
   }
 
   /* Hide scrollbar for a cleaner look */

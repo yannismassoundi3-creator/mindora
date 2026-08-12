@@ -351,6 +351,8 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
               <Plus size={32} />
               <span>Ajouter une vision</span>
             </div>
+            {/* Physical spacer to force scroll padding on iOS/Mobile browsers */}
+            <div style={{ flex: '0 0 1px', width: '1px' }}></div>
           </div>
         </section>
 
