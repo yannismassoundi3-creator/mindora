@@ -190,37 +190,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
 
     if (Array.isArray(parsedGroups) && parsedGroups.length > 0) return parsedGroups;
 
+    // Les trois créneaux, vides.
+    //
+    // Ils arrivaient remplis de neuf tâches inventées — méditation, visualisation,
+    // marche digestive — que personne n'avait choisies. Dans une application de
+    // discipline, un programme qu'on n'a pas décidé ne se suit pas : il se coche par
+    // acquit de conscience, ou il se supprime. Et il fausse le score du premier jour.
+    //
+    // La structure reste pour que l'écran montre où se rangent les choses, et pour
+    // que le plan produit par le coach ait des créneaux où atterrir.
     return [
-      {
-        id: 'morning',
-        title: 'Routine Matinale',
-        desc: 'Prépare ton esprit pour la journée',
-        items: [
-          { id: 1, title: 'Méditation Express', time: '5 min', done: false },
-          { id: 2, title: 'Visualisation des objectifs', time: '10 min', done: false },
-          { id: 3, title: 'Lecture inspirante', time: '15 min', done: false }
-        ]
-      },
-      {
-        id: 'midday',
-        title: 'Routine du Midi',
-        desc: "Recharge tes batteries pour l'après-midi",
-        items: [
-          { id: 4, title: 'Marche digestive', time: '10 min', done: false },
-          { id: 5, title: 'Lecture ou Podcast', time: '15 min', done: false },
-          { id: 6, title: 'Planification après-midi', time: '5 min', done: false }
-        ]
-      },
-      {
-        id: 'evening',
-        title: 'Routine du Soir',
-        desc: 'Décompresse et prépare demain',
-        items: [
-          { id: 7, title: 'Bilan de la journée', time: '5 min', done: false },
-          { id: 8, title: 'Déconnexion des écrans', time: '30 min', done: false },
-          { id: 9, title: 'Étirements légers', time: '10 min', done: false }
-        ]
-      }
+      { id: 'morning', title: 'Routine Matinale', desc: 'Prépare ton esprit pour la journée', items: [] },
+      { id: 'midday', title: 'Routine du Midi', desc: "Recharge tes batteries pour l'après-midi", items: [] },
+      { id: 'evening', title: 'Routine du Soir', desc: 'Décompresse et prépare demain', items: [] }
     ];
   });
 
@@ -414,7 +396,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
       localStorage.setItem('mindset_lost_streak', savedPreviousStreak.toString());
       
       setTimeout(() => {
-        const aiName = localStorage.getItem('mindset_ai_name') || 'FAYWA';
+        const aiName = localStorage.getItem('mindset_ai_name') || 'Coach IA';
         const savedHistory = localStorage.getItem('mindset_ai_chat_history');
         let parsed = [];
         try { parsed = savedHistory ? JSON.parse(savedHistory) : []; } catch {}

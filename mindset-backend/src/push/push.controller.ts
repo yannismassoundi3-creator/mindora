@@ -29,7 +29,7 @@ export class PushController {
   async testPush(@Request() req) {
     const userId = req.user.userId;
     await this.pushService.sendNotification(userId, {
-      title: 'Mindset Elite',
+      title: 'Disciplix',
       body: "Prêt à exploser tes objectifs aujourd'hui ? Ouvre l'application et valide tes habitudes pour maintenir ta série ! 🔥",
       icon: '/icon-192.png'
     });

@@ -175,7 +175,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
           <>
             <h2 className="modal-title">Conditions Générales d'Utilisation et de Vente (CGU/CGV)</h2>
             <p><strong>1. Objet :</strong> Les présentes CGU/CGV encadrent l'accès à l'application Disciplix, outil de productivité et de coaching par IA.</p>
-            <p><strong>2. Vente et Abonnements (Disciplix Pro) :</strong> L'abonnement Premium (Mensuel ou À vie) offre l'accès illimité à l'IA Jarvis et au suivi holographique. Le paiement est géré de manière sécurisée par Stripe. <em>Conformément à l'Article L221-28 du Code de la consommation, le droit de rétractation ne peut être exercé pour la fourniture d'un contenu numérique non fourni sur un support matériel dont l'exécution a commencé après accord préalable exprès du consommateur.</em></p>
+            <p><strong>2. Vente et Abonnements (Disciplix Pro) :</strong> L'abonnement Premium (Mensuel ou À vie) offre l'accès illimité à l'IA et au suivi holographique. Le paiement est géré de manière sécurisée par Stripe. <em>Conformément à l'Article L221-28 du Code de la consommation, le droit de rétractation ne peut être exercé pour la fourniture d'un contenu numérique non fourni sur un support matériel dont l'exécution a commencé après accord préalable exprès du consommateur.</em></p>
             <p><strong>3. Utilisation de l'IA :</strong> Le Coach IA est un outil d'assistance automatisé. Ses conseils ne remplacent en aucun cas l'avis d'un professionnel (médical, financier, psychologique). L'éditeur décline toute responsabilité liée aux actions entreprises suite aux conseils de l'IA.</p>
             <p><strong>4. Disponibilité :</strong> L'éditeur s'efforce de maintenir un accès 24/7 mais n'est tenu qu'à une obligation de moyens. L'accès peut être suspendu pour maintenance sans préavis.</p>
             <p><strong>5. Gamification :</strong> Les "Coins" et "Niveaux" sont strictement virtuels et n'ont aucune valeur monétaire.</p>
@@ -300,7 +300,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
                 <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
                   <p style={{ color: '#10b981', fontWeight: 600, marginBottom: '8px' }}>✓ Disciplix Pro Actif</p>
                   <p style={{ fontSize: '0.85rem', color: 'var(--secondary)', marginBottom: '16px' }}>
-                    Vous bénéficiez de l'accès illimité à l'IA Jarvis, du Dashboard holographique et du double de Coins par habitude.
+                    Vous bénéficiez de l'accès illimité à l'IA, du Dashboard holographique et du double de Coins par habitude.
                   </p>
                   <button 
                     onClick={async () => {

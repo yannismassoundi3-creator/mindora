@@ -15,7 +15,7 @@ interface Message {
 }
 
 export const AIChat: React.FC = () => {
-  const aiName = localStorage.getItem('mindset_ai_name') || 'FAYWA';
+  const aiName = localStorage.getItem('mindset_ai_name') || 'Coach IA';
 
   const [messages, setMessages] = useState<Message[]>(() => {
     const defaultMessage = {

@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CoachMemoryService } from './coach-memory.service';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 
 @Injectable()
 export class AiCoachingService {
@@ -99,26 +98,15 @@ export class AiCoachingService {
     return { message: 'Profil enregistré.', profile };
   }
 
-  async generateRoutinesForUser(userId: string) {
-    // Mock de génération de routine
-    const date = new Date();
-    const routine = await this.prisma.routine.create({
-      data: {
-        user_id: userId,
-        type: 'MORNING',
-        date: date,
-        tasks: {
-          create: [
-            { title: 'Méditation', duration: 10, difficulty: 'EASY' },
-            { title: 'Lecture', duration: 20, difficulty: 'NORMAL' }
-          ]
-        }
-      },
-      include: { tasks: true }
-    });
-
-    return { message: 'Routine générée avec succès.', routine };
-  }
+  // generateRoutinesForUser a été supprimé avec la route qui l'exposait.
+  //
+  // Il annonçait « Routine générée avec succès » et écrivait deux tâches en dur —
+  // « Méditation » et « Lecture » — dans la table `Routine`, que l'application ne lit
+  // pas : elle range les routines dans `sync_data`. Le frontend ne l'appelait nulle
+  // part, et chaque appel décomptait pourtant un crédit d'IA.
+  //
+  // La vraie génération passe par le coach, qui sait déjà produire un bloc <PLAN>
+  // que l'interface applique.
 
   async getChatHistory(userId: string) {
     if (!userId || userId === 'demo-user') return [];
@@ -261,7 +249,7 @@ ${microList}
       }
     }
 
-    const customAiName = userContext?.aiName || 'FAYWA';
+    const customAiName = userContext?.aiName || 'Coach IA';
     const customUserName = userContext?.userName || "l'utilisateur";
 
     // Le prompt était envoyé d'un bloc à chaque message : environ 1900 jetons, dont

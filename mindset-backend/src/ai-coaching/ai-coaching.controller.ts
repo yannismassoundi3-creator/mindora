@@ -54,15 +54,6 @@ export class AiCoachingController {
     return this.aiCoachingService.processOnboarding(userId, data);
   }
 
-  @Throttle({ default: { limit: 5, ttl: 60000 } })
-  @Post('generate-routines')
-  @ApiOperation({ summary: 'Générer les routines du lendemain (Cron ou Manuel)' })
-  async generateDailyRoutines(@Req() req: Request) {
-    const userId = (req.user as any).userId;
-    await this.aiQuota.consumeAiCredit(userId, 'routines');
-    return this.aiCoachingService.generateRoutinesForUser(userId);
-  }
-
   // Les coins bornent le nombre total de messages, jamais la cadence : avec 500 coins
   // on pouvait en envoyer 50 en dix secondes et saturer l'IA pour les autres.
   @Throttle({ default: { limit: 10, ttl: 60000 } })

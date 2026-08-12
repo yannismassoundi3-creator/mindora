@@ -19,7 +19,7 @@ interface JarvisPopupProps {
 
 export const JarvisPopup: React.FC<JarvisPopupProps> = ({ data, onClose, onChatNavigate }) => {
   const [isHiding, setIsHiding] = useState(false);
-  const aiName = localStorage.getItem('mindset_ai_name') || 'FAYWA';
+  const aiName = localStorage.getItem('mindset_ai_name') || 'Coach IA';
   const [equippedSkinId, setEquippedSkinId] = useState<string | null>(() => localStorage.getItem('mindset_ai_skin_id'));
   
   useEffect(() => {

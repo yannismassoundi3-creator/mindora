@@ -90,10 +90,14 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
         console.error('Failed to parse habits', e);
       }
     }
-    return [
-      { id: '1', title: 'Lecture (10 pages)', icon: 'book', color: '#ec4899', xp: 120, level: 2, history: [getTodayKey()] },
-      { id: '2', title: 'Méditation (10 min)', icon: 'mind', color: '#8b5cf6', xp: 450, level: 4, history: [] }
-    ];
+    // Aucune habitude par défaut.
+    //
+    // Un compte neuf en recevait deux, déjà créditées : « Lecture » niveau 2 avec
+    // 120 XP et marquée faite aujourd'hui, « Méditation » niveau 4 avec 450 XP.
+    // C'est une progression fabriquée, offerte à quelqu'un qui vient d'arriver, dans
+    // une application dont le produit est justement de mesurer ce qu'on a vraiment
+    // fait. Le premier score et la première série en héritaient.
+    return [];
   });
 
   const [points, setPoints] = useState(() => getSecurePoints());
@@ -321,6 +325,25 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
           </button>
         </div>
       </header>
+
+      {/* Les deux habitudes préremplies masquaient l'absence d'état vide : sans elles,
+          la page ne montrait plus rien du tout. Ici on nomme la situation et on donne
+          la seule action qui a du sens à ce moment-là — demander au coach. */}
+      {habits.length === 0 && (
+        <div className="glass-panel" style={{ padding: '32px', textAlign: 'center' }}>
+          <h3 style={{ marginBottom: '8px' }}>Aucune habitude pour l'instant</h3>
+          <p className="subtitle" style={{ marginBottom: '20px' }}>
+            Une habitude tenue vaut mieux que dix commencées. Commence par une seule.
+          </p>
+          <button
+            className="btn-primary glass-panel-interactive pulse-glow"
+            onClick={() => { playClickSound(); onOpenChat(); }}
+          >
+            <Sparkles size={18} />
+            Demander à {aiName}
+          </button>
+        </div>
+      )}
 
       <div className="habits-grid">
         {habits.map(habit => {

@@ -120,7 +120,7 @@ export class AuthService {
       const htmlContent = `
         <div style="font-family: Arial, sans-serif; background-color: #f4f4f5; padding: 40px; text-align: center;">
           <div style="background-color: #ffffff; padding: 30px; border-radius: 10px; max-width: 500px; margin: 0 auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-            <h2 style="color: #1a1a1a;">Connexion Mindset Elite</h2>
+            <h2 style="color: #1a1a1a;">Connexion Disciplix</h2>
             <p style="color: #4a4a4a; font-size: 16px;">Voici votre code de sécurité à 6 chiffres. Il est valide pendant 10 minutes.</p>
             <div style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #3b82f6; margin: 30px 0; padding: 15px; background: #eff6ff; border-radius: 8px;">
               ${code}
@@ -138,9 +138,9 @@ export class AuthService {
           'content-type': 'application/json'
         },
         body: JSON.stringify({
-          sender: { name: 'Disciplix OS', email: senderEmail },
+          sender: { name: 'Disciplix', email: senderEmail },
           to: [{ email: email }],
-          subject: 'Votre code de sécurité Disciplix OS',
+          subject: 'Votre code de sécurité Disciplix',
           htmlContent: htmlContent
         })
       });
@@ -295,9 +295,9 @@ export class AuthService {
           'content-type': 'application/json'
         },
         body: JSON.stringify({
-          sender: { name: 'Disciplix OS', email: senderEmail },
+          sender: { name: 'Disciplix', email: senderEmail },
           to: [{ email: email }],
-          subject: 'Réinitialisation de ton mot de passe Disciplix OS',
+          subject: 'Réinitialisation de ton mot de passe Disciplix',
           htmlContent: htmlContent
         })
       });
