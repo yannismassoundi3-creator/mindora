@@ -140,7 +140,11 @@ export class MorningBriefService {
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
+          // Écrire 140 caractères de réveil ne demande pas un modèle de 70 milliards
+          // de paramètres. Le petit modèle dispose chez Groq d'un budget quotidien
+          // cinq fois plus large, compté séparément : déplacer les briefs ici rend au
+          // chat l'intégralité du quota du gros modèle, qu'ils amputaient d'un tiers.
+          model: 'llama-3.1-8b-instant',
           messages: [
             { role: 'system', content: systeme },
             { role: 'user', content: this.buildPrompt(prenom, sync) },

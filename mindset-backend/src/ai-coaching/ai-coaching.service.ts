@@ -320,13 +320,14 @@ ${contextString}`;
         `[Groq] 🧠 ${retenus.length}/${historyMessages.length} message(s) de contexte transmis (${volume} car.)`,
       );
 
-      const response = await this.appelerGroq(apiKey, {
-        model: 'llama-3.3-70b-versatile',
+      const { response, modele } = await this.appelerGroqAvecRepli(apiKey, {
         messages: messages,
         // 0.8 laissait trop de latitude au modèle alors qu'il doit produire un JSON
         // strictement valide : d'où les plans cassés que le prompt tente d'interdire
         // à coups de règles. 0.6 garde le ton du coach tout en fiabilisant le format.
         temperature: 0.6,
+        // Un plan complet fait à lui seul près de mille jetons de JSON : rogner ici
+        // le tronquerait en plein objet et casserait son application dans l'app.
         max_tokens: 1500
       });
 
@@ -335,7 +336,7 @@ ${contextString}`;
       
       if (!reply) throw new Error('Empty response from Groq');
       
-      console.log(`[Groq] ✅ Réponse Llama 3.3 70B reçue (${reply.length} chars)`);
+      console.log(`[Groq] ✅ Réponse de ${modele} reçue (${reply.length} chars)`);
       
       // 3. Sauvegarder la réponse de l'IA
       if (userId && userId !== 'demo-user') {
@@ -374,20 +375,69 @@ ${contextString}`;
   }
 
   /**
-   * Appelle Groq avec un délai maximum et une reprise sur saturation.
+   * Modèles essayés dans l'ordre pour le chat.
+   *
+   * Les limites de Groq sont comptées par modèle : être saturé sur l'un ne dit rien
+   * de la disponibilité des autres. Basculer coûte une requête, attendre coûte une
+   * conversation — d'où le repli plutôt que la patience.
+   *
+   * L'ordre suit la capacité à produire le bloc <PLAN> en JSON valide, puisque c'est
+   * ce qui casse en premier sur un petit modèle. Le dernier de la liste tient
+   * 500 000 jetons par jour à lui seul, contre 100 000 pour le premier : c'est le
+   * filet qui rend la journée survivable sur le plan gratuit.
+   */
+  private static readonly MODELES_CHAT = [
+    'llama-3.3-70b-versatile',
+    'openai/gpt-oss-120b',
+    'llama-3.1-8b-instant',
+  ];
+
+  /**
+   * Appelle Groq en descendant la chaîne de modèles tant que la saturation persiste.
+   *
+   * Renvoie aussi le modèle qui a effectivement répondu : sans cette information,
+   * une dégradation de qualité côté utilisateur serait impossible à relier à un
+   * repli dans les logs.
+   */
+  private async appelerGroqAvecRepli(apiKey: string, corps: any): Promise<{ response: Response; modele: string }> {
+    let derniere: any;
+
+    for (const modele of AiCoachingService.MODELES_CHAT) {
+      try {
+        const response = await this.appelerGroq(apiKey, { ...corps, model: modele });
+        if (modele !== AiCoachingService.MODELES_CHAT[0]) {
+          console.warn(`[Groq] ⚠️ Réponse servie par ${modele} (repli après saturation)`);
+        }
+        return { response, modele };
+      } catch (e: any) {
+        derniere = e;
+
+        // Saturation, ou modèle retiré du catalogue : dans les deux cas le suivant
+        // peut répondre. Groq met régulièrement des modèles hors service, et sans ce
+        // second cas un identifiant devenu invalide en milieu de chaîne emporterait
+        // silencieusement tout le filet placé derrière lui.
+        const reessayable = e?.code === 'GROQ_RATE_LIMIT' || e?.code === 'GROQ_MODELE_INCONNU';
+
+        // Une clé invalide échouerait à l'identique sur toute la chaîne : insister ne
+        // ferait que tripler la latence avant d'afficher la même erreur.
+        if (!reessayable) throw e;
+        console.warn(`[Groq] ${modele} indisponible (${e?.code}), essai du modèle suivant`);
+      }
+    }
+
+    throw derniere;
+  }
+
+  /**
+   * Un appel, avec un délai maximum.
    *
    * Sans `AbortController`, une requête partie chez le fournisseur pouvait rester
    * ouverte indéfiniment : l'utilisateur attendait devant un écran figé et la
    * connexion restait mobilisée côté serveur — de quoi saturer une petite instance
    * bien avant que le nombre d'utilisateurs ne le justifie.
-   *
-   * Le 429 est le cas courant dès que plusieurs personnes écrivent dans la même
-   * minute. Groq indique le délai à attendre : quand il est court, une seconde
-   * tentative vaut mieux qu'une erreur affichée.
    */
-  private async appelerGroq(apiKey: string, corps: any, deuxiemeTentative = false): Promise<Response> {
+  private async appelerGroq(apiKey: string, corps: any): Promise<Response> {
     const DELAI_MAX_MS = 45000;
-    const ATTENTE_MAX_REPRISE_MS = 4000;
 
     const controleur = new AbortController();
     const minuteur = setTimeout(() => controleur.abort(), DELAI_MAX_MS);
@@ -412,20 +462,19 @@ ${contextString}`;
     }
 
     if (response.status === 429) {
-      const attente = Number(response.headers.get('retry-after')) * 1000;
-      if (!deuxiemeTentative && attente > 0 && attente <= ATTENTE_MAX_REPRISE_MS) {
-        console.warn(`[Groq] 429 — nouvelle tentative dans ${attente} ms`);
-        await new Promise((r) => setTimeout(r, attente));
-        return this.appelerGroq(apiKey, corps, true);
-      }
-      throw Object.assign(new Error(`Groq saturé (429), délai annoncé ${attente || 'inconnu'} ms`), {
-        code: 'GROQ_RATE_LIMIT',
-      });
+      throw Object.assign(new Error(`${corps?.model} saturé (429)`), { code: 'GROQ_RATE_LIMIT' });
     }
 
     if (!response.ok) {
       const errBody = await response.text();
-      throw new Error(`Groq API Error: ${response.status} ${response.statusText} - ${errBody}`);
+      const erreur = new Error(`Groq API Error: ${response.status} ${response.statusText} - ${errBody}`);
+
+      // 404, ou 400 mentionnant le modèle : identifiant retiré ou inconnu. On le
+      // distingue d'une requête réellement malformée, qui échouerait partout.
+      if (response.status === 404 || (response.status === 400 && /model/i.test(errBody))) {
+        throw Object.assign(erreur, { code: 'GROQ_MODELE_INCONNU' });
+      }
+      throw erreur;
     }
 
     return response;

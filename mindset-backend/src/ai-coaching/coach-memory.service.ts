@@ -124,7 +124,11 @@ export class CoachMemoryService {
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
+          // Résumer une conversation est une tâche de synthèse, pas de coaching : le
+          // petit modèle s'en sort et son quota quotidien est compté à part. Laissée
+          // sur le gros modèle, cette note consommait à elle seule, pour cent
+          // utilisateurs, le double du budget journalier disponible.
+          model: 'llama-3.1-8b-instant',
           messages: [
             {
               role: 'system',
