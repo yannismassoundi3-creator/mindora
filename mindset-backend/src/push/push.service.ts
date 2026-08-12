@@ -87,7 +87,15 @@ export class PushService implements OnModuleInit {
       };
 
       try {
-        await webpush.sendNotification(pushSub, JSON.stringify(payload));
+        // Sans options, l'urgence vaut « normal » : Android peut alors ajourner la
+        // remise jusqu'au prochain réveil du téléphone (mode Doze). Un rappel de
+        // coaching daté n'a plus d'intérêt s'il arrive trois heures plus tard, d'où
+        // « high ». Le TTL borne l'attente : mieux vaut perdre le brief de 10h que
+        // le délivrer le lendemain, hors contexte.
+        await webpush.sendNotification(pushSub, JSON.stringify(payload), {
+          urgency: 'high',
+          TTL: 6 * 3600,
+        });
         envoyees++;
         this.logger.log(`Push notification sent successfully to user ${userId}`);
       } catch (error) {
