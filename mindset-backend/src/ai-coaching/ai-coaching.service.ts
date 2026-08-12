@@ -320,27 +320,15 @@ ${contextString}`;
         `[Groq] 🧠 ${retenus.length}/${historyMessages.length} message(s) de contexte transmis (${volume} car.)`,
       );
 
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          messages: messages,
-          // 0.8 laissait trop de latitude au modèle alors qu'il doit produire un JSON
-          // strictement valide : d'où les plans cassés que le prompt tente d'interdire
-          // à coups de règles. 0.6 garde le ton du coach tout en fiabilisant le format.
-          temperature: 0.6,
-          max_tokens: 1500
-        })
+      const response = await this.appelerGroq(apiKey, {
+        model: 'llama-3.3-70b-versatile',
+        messages: messages,
+        // 0.8 laissait trop de latitude au modèle alors qu'il doit produire un JSON
+        // strictement valide : d'où les plans cassés que le prompt tente d'interdire
+        // à coups de règles. 0.6 garde le ton du coach tout en fiabilisant le format.
+        temperature: 0.6,
+        max_tokens: 1500
       });
-
-      if (!response.ok) {
-        const errBody = await response.text();
-        throw new Error(`Groq API Error: ${response.status} ${response.statusText} - ${errBody}`);
-      }
 
       const data = await response.json();
       const reply = data.choices?.[0]?.message?.content;
@@ -367,11 +355,80 @@ ${contextString}`;
       return { reply };
 
     } catch (error: any) {
-      console.error("[Groq] ❌ Erreur Groq API:", error.message);
-      return { 
-        reply: `❌ **Mon cerveau externe est temporairement déconnecté.**\n\nImpossible de joindre l'API Groq. Voici l'erreur technique pour le développeur :\n\n\`${error.message}\`\n\n*(Vérifie que ta variable d'environnement GROQ_API_KEY est bien configurée sur Render, et que tu n'as pas dépassé tes quotas de requêtes)*.` 
+      // Le détail technique reste dans les logs. Il était auparavant recopié dans la
+      // bulle de réponse, avec le corps d'erreur de l'API et un rappel sur la variable
+      // d'environnement à vérifier sur Render : un message écrit pour le développeur,
+      // lu par les utilisateurs à chaque saturation du fournisseur.
+      console.error('[Groq] ❌ Erreur Groq API:', error?.message);
+
+      const sature = error?.code === 'GROQ_RATE_LIMIT';
+      return {
+        reply: sature
+          ? "Trop de monde me parle en ce moment — laisse-moi une minute et repose ta question, je serai là. ⏳"
+          : "Je n'arrive pas à réfléchir correctement là, réessaie dans un instant. 🔌",
+        // Lu par le contrôleur, qui rend alors les coins et le crédit mensuel :
+        // faire payer un message jamais reçu est le plus sûr moyen de perdre un client.
+        erreur: true,
       };
     }
+  }
+
+  /**
+   * Appelle Groq avec un délai maximum et une reprise sur saturation.
+   *
+   * Sans `AbortController`, une requête partie chez le fournisseur pouvait rester
+   * ouverte indéfiniment : l'utilisateur attendait devant un écran figé et la
+   * connexion restait mobilisée côté serveur — de quoi saturer une petite instance
+   * bien avant que le nombre d'utilisateurs ne le justifie.
+   *
+   * Le 429 est le cas courant dès que plusieurs personnes écrivent dans la même
+   * minute. Groq indique le délai à attendre : quand il est court, une seconde
+   * tentative vaut mieux qu'une erreur affichée.
+   */
+  private async appelerGroq(apiKey: string, corps: any, deuxiemeTentative = false): Promise<Response> {
+    const DELAI_MAX_MS = 45000;
+    const ATTENTE_MAX_REPRISE_MS = 4000;
+
+    const controleur = new AbortController();
+    const minuteur = setTimeout(() => controleur.abort(), DELAI_MAX_MS);
+
+    let response: Response;
+    try {
+      response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(corps),
+        signal: controleur.signal,
+      });
+    } catch (e: any) {
+      if (e?.name === 'AbortError') {
+        throw Object.assign(new Error(`Groq n'a pas répondu en ${DELAI_MAX_MS / 1000} s`), {
+          code: 'GROQ_TIMEOUT',
+        });
+      }
+      throw e;
+    } finally {
+      clearTimeout(minuteur);
+    }
+
+    if (response.status === 429) {
+      const attente = Number(response.headers.get('retry-after')) * 1000;
+      if (!deuxiemeTentative && attente > 0 && attente <= ATTENTE_MAX_REPRISE_MS) {
+        console.warn(`[Groq] 429 — nouvelle tentative dans ${attente} ms`);
+        await new Promise((r) => setTimeout(r, attente));
+        return this.appelerGroq(apiKey, corps, true);
+      }
+      throw Object.assign(new Error(`Groq saturé (429), délai annoncé ${attente || 'inconnu'} ms`), {
+        code: 'GROQ_RATE_LIMIT',
+      });
+    }
+
+    if (!response.ok) {
+      const errBody = await response.text();
+      throw new Error(`Groq API Error: ${response.status} ${response.statusText} - ${errBody}`);
+    }
+
+    return response;
   }
 
   async generateSpeech(text: string) {

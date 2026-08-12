@@ -80,6 +80,24 @@ export class AiQuotaService {
     return quota;
   }
 
+  /**
+   * Rend le crédit d'un appel qui n'a rien produit.
+   *
+   * Un compte gratuit n'a que dix messages par mois : les lui faire perdre parce que
+   * le fournisseur d'IA était saturé, c'est la meilleure façon de lui donner tort sur
+   * la valeur de l'abonnement. Les abonnés n'ont pas de ligne à supprimer.
+   */
+  async refundAiCredit(userId: string, kind: 'chat' | 'routines') {
+    const derniere = await this.prisma.aiUsage.findFirst({
+      where: { user_id: userId, kind },
+      orderBy: { created_at: 'desc' },
+      select: { id: true },
+    });
+    if (derniere) {
+      await this.prisma.aiUsage.deleteMany({ where: { id: derniere.id } });
+    }
+  }
+
   /** Réservé aux abonnés : la synthèse vocale coûte trop cher pour être offerte. */
   async assertSubscribed(userId: string) {
     if (await this.isSubscribed(userId)) return;

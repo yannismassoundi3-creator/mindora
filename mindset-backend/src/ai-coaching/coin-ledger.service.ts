@@ -152,4 +152,20 @@ export class CoinLedgerService {
 
     return { depense: montant, solde: solde - montant };
   }
+
+  /**
+   * Rend les coins d'un message que l'IA n'a pas pu produire.
+   *
+   * Le débit a lieu avant l'appel au modèle, ce qui est la bonne façon d'empêcher
+   * deux requêtes simultanées de passer avec le même solde. Mais sans remboursement,
+   * une panne du fournisseur — un 429 lors d'un pic, typiquement — fait payer à
+   * l'utilisateur un message qu'il n'a jamais reçu.
+   */
+  async refund(userId: string, montant = CoinLedgerService.COUT_MESSAGE) {
+    await this.prisma.syncData.updateMany({
+      where: { user_id: userId },
+      data: { ai_credits: { increment: montant } },
+    });
+    this.logger.log(`${montant} coins rendus à ${userId} (réponse IA non délivrée)`);
+  }
 }

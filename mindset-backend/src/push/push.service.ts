@@ -8,6 +8,14 @@ import * as webpush from 'web-push';
 export class PushService implements OnModuleInit {
   private readonly logger = new Logger(PushService.name);
 
+  /**
+   * Délai entre deux briefs, calibré pour rester sous les 30 requêtes par minute du
+   * plan gratuit Groq (2,2 s ≈ 27 appels/min, appel du modèle compris). À 100
+   * utilisateurs la tournée dure environ quatre minutes, ce qui reste sans effet
+   * visible pour une notification de 10h.
+   */
+  private static readonly INTERVALLE_ENTRE_BRIEFS_MS = 2200;
+
   constructor(
     private prisma: PrismaService,
     private morningBrief: MorningBriefService,
@@ -271,6 +279,15 @@ export class PushService implements OnModuleInit {
       if (!this.morningBrief.isActive(user.sync_data?.updated_at)) {
         ignores++;
         continue;
+      }
+
+      // La boucle envoyait aussi vite que le modèle répondait, soit une quarantaine
+      // d'appels par minute — au-dessus de ce que le fournisseur autorise. Elle se
+      // faisait donc limiter à mi-parcours et le reste des utilisateurs recevait le
+      // message générique. Espacer les appels rend la tournée plus lente et complète,
+      // ce qui est le bon compromis pour une notification à heure fixe.
+      if (personnalises + generiques > 0) {
+        await new Promise((r) => setTimeout(r, PushService.INTERVALLE_ENTRE_BRIEFS_MS));
       }
 
       // Chaque personne est isolée : une requête en échec sur l'une d'elles ne doit

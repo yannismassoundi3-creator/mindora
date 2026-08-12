@@ -75,7 +75,29 @@ export class AiCoachingController {
     // pour les abonnés), le quota mensuel plafonne la dépense des comptes gratuits.
     await this.coins.spend(userId);
     await this.aiQuota.consumeAiCredit(userId, 'chat');
-    return this.aiCoachingService.chatWithAi(userId, body.prompt, body.context);
+
+    // Débiter avant l'appel est nécessaire (sinon deux requêtes simultanées passent
+    // avec le même solde), mais l'IA peut échouer ensuite — saturation du fournisseur
+    // en tête. On rend alors ce qui a été prélevé : un compte gratuit n'a que dix
+    // messages par mois, les lui brûler sur une panne n'est pas défendable.
+    try {
+      const reponse = await this.aiCoachingService.chatWithAi(userId, body.prompt, body.context);
+      if ((reponse as any)?.erreur) {
+        await this.rembourser(userId);
+      }
+      return reponse;
+    } catch (e) {
+      await this.rembourser(userId);
+      throw e;
+    }
+  }
+
+  /** Le remboursement ne doit jamais masquer l'erreur d'origine. */
+  private async rembourser(userId: string) {
+    await Promise.all([
+      this.coins.refund(userId).catch(() => {}),
+      this.aiQuota.refundAiCredit(userId, 'chat').catch(() => {}),
+    ]);
   }
 
   @Get('history')
