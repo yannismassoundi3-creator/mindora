@@ -576,3 +576,14 @@
     white-space: normal;
   }
 }
+
+/* Ces cartes cumulent overflow:hidden, backdrop-filter et une mise à l'échelle au
+   survol. Firefox re-rastérise le calque de flou à la mauvaise taille pendant le
+   scale et rogne visiblement le contenu ; Chromium ne le fait pas, d'où un défaut
+   invisible en test. On garde le soulèvement, qui ne redimensionne rien, et on
+   retire le scale. will-change stabilise le calque pendant la transition. */
+.macro-card:hover,
+.add-macro-card:hover {
+  transform: translateY(-4px) !important;
+  will-change: transform;
+}
