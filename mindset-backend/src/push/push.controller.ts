@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Request, Get, HttpCode } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Request, Get, HttpCode, Logger } from '@nestjs/common';
 import { PushService } from './push.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -8,6 +8,8 @@ import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagg
 @ApiTags('Push Notifications')
 @Controller('push')
 export class PushController {
+  private readonly logger = new Logger(PushController.name);
+
   constructor(private readonly pushService: PushService) {}
 
   @ApiBearerAuth()
@@ -124,8 +126,16 @@ export class PushController {
   @Get('vapid-public-key')
   @ApiOperation({ summary: 'Get VAPID public key for frontend subscription' })
   getVapidPublicKey() {
-    // Fallback key hardcodée pour éviter les erreurs si la variable d'environnement manque
-    const key = process.env.VAPID_PUBLIC_KEY || '';
-    return { publicKey: key };
+    const key = process.env.VAPID_PUBLIC_KEY;
+    if (!key) {
+      // Le commentaire promettait ici une clé de secours codée en dur. Il n'y en a
+      // jamais eu : on renvoyait une chaîne vide, le client en tirait un tableau vide
+      // et `pushManager.subscribe` échouait sans que personne ne sache pourquoi.
+      // Plus personne ne pouvait s'abonner, et rien ne le disait.
+      this.logger.error(
+        'VAPID_PUBLIC_KEY absente : aucun abonnement aux notifications ne peut être créé.',
+      );
+    }
+    return { publicKey: key || '' };
   }
 }

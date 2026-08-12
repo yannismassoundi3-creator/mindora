@@ -46,7 +46,11 @@ export function AiNotification({ onNavigate }: AiNotificationProps) {
     if (notifications.length > 0) {
       setIsHiding(false);
       const timer = setTimeout(() => {
-        handleDismiss(notifications[0].id);
+        // Les deux derniers arguments manquaient : `navigate` valait undefined, donc
+        // faux, ce qui donnait par chance le bon comportement — une disparition au
+        // bout de six secondes ne doit surtout pas emmener la personne ailleurs.
+        // Autant l'écrire, plutôt que de dépendre d'un oubli.
+        handleDismiss(notifications[0].id, notifications[0].type, false);
       }, 6000);
       return () => clearTimeout(timer);
     }
