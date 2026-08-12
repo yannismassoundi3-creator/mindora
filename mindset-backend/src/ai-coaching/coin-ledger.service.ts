@@ -25,6 +25,16 @@ export class CoinLedgerService {
   /** Nombre maximum d'actions créditées par jour. C'est ce plafond qui borne la triche. */
   static readonly ACTIONS_MAX_PAR_JOUR = 10;
 
+  /**
+   * Coins offerts à l'ouverture du solde, soit cinq messages.
+   *
+   * Un compte neuf démarrait à zéro : le coach — la raison même de l'inscription —
+   * lui était refusé jusqu'à ce qu'il valide une action, pendant que l'écran du quota
+   * lui annonçait dix messages disponibles. Deux systèmes qui se contredisent devant
+   * quelqu'un qui découvre l'application.
+   */
+  static readonly SOLDE_DEPART = 50;
+
   constructor(private readonly prisma: PrismaService) {}
 
   private debutDuJour(): Date {
@@ -45,10 +55,28 @@ export class CoinLedgerService {
       select: { ai_credits: true, points: true },
     });
 
-    if (!sync) return 0;
+    // Compte qui n'a pas encore synchronisé : la ligne n'existe pas. On la crée avec
+    // le solde de départ, sinon la valeur annoncée ici ne serait jamais celle que le
+    // débit trouve en base juste après.
+    if (!sync) {
+      const cree = await this.prisma.syncData.upsert({
+        where: { user_id: userId },
+        create: { user_id: userId, ai_credits: CoinLedgerService.SOLDE_DEPART },
+        update: {},
+        select: { ai_credits: true },
+      });
+      this.logger.log(`Solde ouvert à ${cree.ai_credits} pour ${userId} (compte neuf)`);
+      return cree.ai_credits ?? CoinLedgerService.SOLDE_DEPART;
+    }
+
     if (sync.ai_credits !== null) return sync.ai_credits;
 
-    const initial = Math.max(0, sync.points ?? 0);
+    // Première lecture d'un compte antérieur au grand livre : ses coins vivaient dans
+    // `points`, on les reprend. Le solde de départ sert de plancher — personne ne doit
+    // se retrouver moins bien loti qu'un inscrit du jour. Ne s'applique qu'une fois :
+    // dès que `ai_credits` porte un nombre, `points` n'a plus aucune influence, et un
+    // solde dépensé jusqu'à zéro n'est donc jamais réalimenté par ce chemin.
+    const initial = Math.max(CoinLedgerService.SOLDE_DEPART, sync.points ?? 0);
     await this.prisma.syncData.update({
       where: { user_id: userId },
       data: { ai_credits: initial },
@@ -103,7 +131,10 @@ export class CoinLedgerService {
         // cette action-là qui échouait. Il ne pouvait donc jamais parler au coach.
         this.prisma.syncData.upsert({
           where: { user_id: userId },
-          create: { user_id: userId, ai_credits: CoinLedgerService.GAIN_PAR_ACTION },
+          create: {
+            user_id: userId,
+            ai_credits: CoinLedgerService.SOLDE_DEPART + CoinLedgerService.GAIN_PAR_ACTION,
+          },
           update: { ai_credits: { increment: CoinLedgerService.GAIN_PAR_ACTION } },
           select: { ai_credits: true },
         }),
