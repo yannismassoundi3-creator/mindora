@@ -488,6 +488,11 @@ RÈGLES DE COMPORTEMENT :
    */
   private async appelerGroqAvecRepli(apiKey: string, corps: any): Promise<{ response: Response; modele: string }> {
     let derniere: any;
+    // La saturation prime sur les erreurs suivantes au moment de rendre la main.
+    // Quand les modèles de repli sont interdits ou retirés, la dernière erreur de la
+    // chaîne est un problème de configuration — vrai, mais inutile à l'utilisateur.
+    // Ce qu'il doit lire, c'est « réessaie dans une minute », qui est actionnable.
+    let saturation: any;
 
     for (const modele of AiCoachingService.MODELES_CHAT) {
       try {
@@ -498,6 +503,7 @@ RÈGLES DE COMPORTEMENT :
         return { response, modele };
       } catch (e: any) {
         derniere = e;
+        if (e?.code === 'GROQ_RATE_LIMIT' && !saturation) saturation = e;
 
         // Saturation, ou modèle retiré du catalogue : dans les deux cas le suivant
         // peut répondre. Groq met régulièrement des modèles hors service, et sans ce
@@ -512,7 +518,7 @@ RÈGLES DE COMPORTEMENT :
       }
     }
 
-    throw derniere;
+    throw saturation ?? derniere;
   }
 
   /**
@@ -556,9 +562,17 @@ RÈGLES DE COMPORTEMENT :
       const errBody = await response.text();
       const erreur = new Error(`Groq API Error: ${response.status} ${response.statusText} - ${errBody}`);
 
-      // 404, ou 400 mentionnant le modèle : identifiant retiré ou inconnu. On le
-      // distingue d'une requête réellement malformée, qui échouerait partout.
-      if (response.status === 404 || (response.status === 400 && /model/i.test(errBody))) {
+      // 404, ou 400/403 mentionnant le modèle : identifiant retiré du catalogue, ou
+      // interdit sur le projet Groq. Ce second cas est le défaut d'une clé neuve —
+      // les projets récents n'autorisent qu'une liste réduite de modèles, et Groq
+      // répond alors « blocked at the project level ». Un modèle interdit est aussi
+      // indisponible qu'un modèle supprimé : il doit faire passer au suivant, pas
+      // emporter toute la chaîne. Une clé réellement invalide, elle, reçoit un 401,
+      // qui reste fatal puisqu'il échouerait à l'identique partout.
+      if (
+        response.status === 404 ||
+        ((response.status === 400 || response.status === 403) && /model/i.test(errBody))
+      ) {
         throw Object.assign(erreur, { code: 'GROQ_MODELE_INCONNU' });
       }
       throw erreur;

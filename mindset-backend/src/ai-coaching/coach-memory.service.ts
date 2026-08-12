@@ -117,43 +117,68 @@ export class CoachMemoryService {
       .join('\n')
       .slice(0, 8000);
 
+    const messages = [
+      {
+        role: 'system',
+        content:
+          "Tu tiens la fiche de suivi d'un coach. À partir de la conversation, écris en français une note de 6 lignes maximum sur cette personne : ce qui la motive, ses blocages récurrents, les faits personnels qu'elle a partagés (prénoms, contexte, blessures, contraintes), ce qui a marché et ce qui a échoué. Des faits, pas de politesses. Si la note existante contient déjà une information, garde-la.",
+      },
+      {
+        role: 'user',
+        content:
+          (profil.memory_summary ? `Note actuelle :\n${profil.memory_summary}\n\n` : '') + `Conversation :\n${transcript}`,
+      },
+    ];
+
+    for (const modele of CoachMemoryService.MODELES) {
+      const note = await this.resumer(apiKey, modele, messages);
+      if (!note) continue;
+
+      await this.prisma.aIProfile.update({
+        where: { user_id: userId },
+        data: { memory_summary: note.slice(0, 2000), memory_updated_at: new Date() },
+      });
+      this.logger.log(`Mémoire longue rafraîchie pour ${userId} (${modele})`);
+      return;
+    }
+
+    this.logger.warn(`Mémoire non rafraîchie pour ${userId} : aucun modèle disponible`);
+  }
+
+  /**
+   * Modèles essayés dans l'ordre.
+   *
+   * Résumer une conversation est une tâche de synthèse, pas de coaching : le petit
+   * modèle s'en sort et son quota quotidien est compté à part. Laissée sur le gros
+   * modèle, cette note consommait à elle seule, pour cent utilisateurs, le double du
+   * budget journalier disponible — d'où l'ordre. Le second n'est là que pour le cas
+   * où le premier est retiré du catalogue ou interdit sur le projet Groq : sans lui,
+   * la mémoire longue cessait de se mettre à jour définitivement et en silence.
+   */
+  static readonly MODELES = ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile'];
+
+  /** Un appel. Retourne null pour laisser sa chance au modèle suivant. */
+  private async resumer(apiKey: string, modele: string, messages: any[]): Promise<string | null> {
     const controleur = new AbortController();
     const minuteur = setTimeout(() => controleur.abort(), 12000);
     try {
       const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          // Résumer une conversation est une tâche de synthèse, pas de coaching : le
-          // petit modèle s'en sort et son quota quotidien est compté à part. Laissée
-          // sur le gros modèle, cette note consommait à elle seule, pour cent
-          // utilisateurs, le double du budget journalier disponible.
-          model: 'llama-3.1-8b-instant',
-          messages: [
-            {
-              role: 'system',
-              content:
-                "Tu tiens la fiche de suivi d'un coach. À partir de la conversation, écris en français une note de 6 lignes maximum sur cette personne : ce qui la motive, ses blocages récurrents, les faits personnels qu'elle a partagés (prénoms, contexte, blessures, contraintes), ce qui a marché et ce qui a échoué. Des faits, pas de politesses. Si la note existante contient déjà une information, garde-la.",
-            },
-            { role: 'user', content: (profil.memory_summary ? `Note actuelle :\n${profil.memory_summary}\n\n` : '') + `Conversation :\n${transcript}` },
-          ],
-          temperature: 0.3,
-          max_tokens: 300,
-        }),
+        body: JSON.stringify({ model: modele, messages, temperature: 0.3, max_tokens: 300 }),
         signal: controleur.signal,
       });
-      if (!r.ok) return;
+      if (!r.ok) {
+        this.logger.warn(`Groq a répondu ${r.status} sur ${modele} pour la mémoire longue`);
+        return null;
+      }
       const data = await r.json();
-      const note = data?.choices?.[0]?.message?.content?.trim();
-      if (!note) return;
-
-      await this.prisma.aIProfile.update({
-        where: { user_id: userId },
-        data: { memory_summary: note.slice(0, 2000), memory_updated_at: new Date() },
-      });
-      this.logger.log(`Mémoire longue rafraîchie pour ${userId}`);
+      return data?.choices?.[0]?.message?.content?.trim() || null;
     } catch (e: any) {
-      this.logger.warn(`Mémoire non rafraîchie : ${e?.name === 'AbortError' ? 'délai dépassé' : e?.message}`);
+      this.logger.warn(
+        `Mémoire non rafraîchie sur ${modele} : ${e?.name === 'AbortError' ? 'délai dépassé' : e?.message}`,
+      );
+      return null;
     } finally {
       clearTimeout(minuteur);
     }

@@ -112,6 +112,33 @@ describe('AiCoachingService — chat', () => {
       expect(modelesAppeles()).toEqual([PREMIER, DEUXIEME]);
     });
 
+    it('passe au suivant quand un modèle est interdit sur le projet Groq', async () => {
+      // Constaté sur une clé neuve le 12 août 2026 : les projets récents n'autorisent
+      // qu'une liste réduite de modèles, et Groq répond 403 « blocked at the project
+      // level ». Sans ce cas, le premier modèle interdit emportait toute la chaîne.
+      fetchMock
+        .mockResolvedValueOnce(
+          reponseErreur(403, 'The model `llama-3.3-70b-versatile` is blocked at the project level.'),
+        )
+        .mockResolvedValueOnce(reponseOk('Présent.'));
+
+      const resultat: any = await service.chatWithAi('u1', 'Comment tu vas ?');
+
+      expect(resultat.reply).toBe('Présent.');
+      expect(modelesAppeles()).toEqual([PREMIER, DEUXIEME]);
+    });
+
+    it("s'arrête sur un 403 qui ne parle pas de modèle", async () => {
+      // Un compte suspendu, par exemple : réessayer sur les autres modèles ne ferait
+      // que retarder la même erreur. La distinction se joue sur le corps de la réponse.
+      fetchMock.mockResolvedValue(reponseErreur(403, 'forbidden'));
+
+      const resultat: any = await service.chatWithAi('u1', 'Comment tu vas ?');
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(resultat.erreur).toBe(true);
+    });
+
     it("descend les trois modèles avant d'admettre la saturation", async () => {
       fetchMock.mockResolvedValue(reponseSaturee());
 
@@ -121,6 +148,21 @@ describe('AiCoachingService — chat', () => {
       // Message d'attente, distinct de la panne : la personne peut réessayer.
       expect(resultat.reply).toContain('Trop de monde');
       // C'est ce drapeau que lit le contrôleur pour rembourser.
+      expect(resultat.erreur).toBe(true);
+    });
+
+    it('annonce la saturation même si les modèles de repli sont interdits', async () => {
+      // Situation réelle avec deux modèles bloqués sur le projet : la dernière erreur
+      // de la chaîne est un 403 de configuration, mais ce que la personne doit lire
+      // c'est « réessaie dans une minute » — la seule information qui lui serve.
+      fetchMock
+        .mockResolvedValueOnce(reponseSaturee())
+        .mockResolvedValue(reponseErreur(403, 'The model is blocked at the project level.'));
+
+      const resultat: any = await service.chatWithAi('u1', 'Comment tu vas ?');
+
+      expect(modelesAppeles()).toEqual([PREMIER, DEUXIEME, DERNIER]);
+      expect(resultat.reply).toContain('Trop de monde');
       expect(resultat.erreur).toBe(true);
     });
 

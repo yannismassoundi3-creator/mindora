@@ -20,6 +20,19 @@ export class MorningBriefService {
   static readonly ACTIVE_WITHIN_DAYS = 7;
   private static readonly TIMEOUT_MS = 8000;
 
+  /**
+   * Modèles essayés dans l'ordre.
+   *
+   * Écrire 140 caractères ne demande pas le gros modèle, et le petit dispose chez Groq
+   * d'un budget quotidien compté à part : il reste le bon choix par défaut. Mais il
+   * n'avait aucun recours. Un modèle retiré du catalogue, ou simplement interdit sur
+   * le projet Groq — le défaut d'une clé neuve — et `generate()` rendait null pour
+   * tout le monde, tous les jours : chaque brief repassait au texte générique, et rien
+   * ne le signalait ailleurs qu'une ligne d'avertissement noyée dans les logs. La
+   * personnalisation entière du réveil tenait à un seul identifiant.
+   */
+  static readonly MODELES = ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile'];
+
   isActive(syncUpdatedAt?: Date | null): boolean {
     if (!syncUpdatedAt) return false;
     const limite = Date.now() - MorningBriefService.ACTIVE_WITHIN_DAYS * 86400000;
@@ -132,6 +145,20 @@ export class MorningBriefService {
       "Ton direct et motivant, un seul emoji maximum. Réponds uniquement par le texte de la notification.",
     ].join(' ');
 
+    const invite = this.buildPrompt(prenom, sync);
+
+    for (const modele of MorningBriefService.MODELES) {
+      const texte = await this.tenter(apiKey, modele, systeme, invite);
+      if (texte) return texte;
+    }
+
+    // Les deux modèles ont renoncé : l'appelant enverra le message générique.
+    this.logger.warn("Aucun modèle n'a pu écrire le message du matin");
+    return null;
+  }
+
+  /** Un appel, sur un modèle donné. Retourne null pour laisser sa chance au suivant. */
+  private async tenter(apiKey: string, modele: string, systeme: string, invite: string): Promise<string | null> {
     const controleur = new AbortController();
     const minuteur = setTimeout(() => controleur.abort(), MorningBriefService.TIMEOUT_MS);
 
@@ -140,14 +167,10 @@ export class MorningBriefService {
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          // Écrire 140 caractères de réveil ne demande pas un modèle de 70 milliards
-          // de paramètres. Le petit modèle dispose chez Groq d'un budget quotidien
-          // cinq fois plus large, compté séparément : déplacer les briefs ici rend au
-          // chat l'intégralité du quota du gros modèle, qu'ils amputaient d'un tiers.
-          model: 'llama-3.1-8b-instant',
+          model: modele,
           messages: [
             { role: 'system', content: systeme },
-            { role: 'user', content: this.buildPrompt(prenom, sync) },
+            { role: 'user', content: invite },
           ],
           temperature: 0.7,
           max_tokens: 80,
@@ -156,7 +179,7 @@ export class MorningBriefService {
       });
 
       if (!reponse.ok) {
-        this.logger.warn(`Groq a répondu ${reponse.status} pour le message du matin`);
+        this.logger.warn(`Groq a répondu ${reponse.status} sur ${modele} pour le message du matin`);
         return null;
       }
 
@@ -168,7 +191,9 @@ export class MorningBriefService {
       const propre = texte.replace(/^["'«»\s]+|["'«»\s]+$/g, '');
       return propre.length > 160 ? propre.slice(0, 157) + '…' : propre;
     } catch (e: any) {
-      this.logger.warn(`Message du matin non généré : ${e?.name === 'AbortError' ? 'délai dépassé' : e?.message}`);
+      this.logger.warn(
+        `Message du matin non généré sur ${modele} : ${e?.name === 'AbortError' ? 'délai dépassé' : e?.message}`,
+      );
       return null;
     } finally {
       clearTimeout(minuteur);
