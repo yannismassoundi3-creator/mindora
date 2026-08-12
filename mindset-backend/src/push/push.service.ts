@@ -4,9 +4,39 @@ import { MorningBriefService } from './morning-brief.service';
 import * as cron from 'node-cron';
 import * as webpush from 'web-push';
 
+/** Décompte d'une tournée de briefs, identique dans le log et dans la réponse HTTP. */
+export interface ResumeTournee {
+  personnalises: number;
+  generiques: number;
+  dormantsIgnores: number;
+  echecs: number;
+  comptesExamines: number;
+}
+
+/** Trace de la dernière tournée, consultable après coup puisque l'envoi ne bloque plus. */
+export interface TourneeTerminee {
+  debut: string;
+  fin: string;
+  dureeMs: number;
+  declencheur: string;
+  resume: ResumeTournee | null;
+  erreur: string | null;
+}
+
 @Injectable()
 export class PushService implements OnModuleInit {
   private readonly logger = new Logger(PushService.name);
+
+  /**
+   * Tournée en vol, partagée par le cron de 10h et le déclencheur manuel.
+   *
+   * Sans ce garde, deux tournées simultanées envoyaient deux notifications à chaque
+   * personne et consommaient deux fois le quota du fournisseur. Le cas n'a rien de
+   * théorique : la route manuelle existe justement pour rejouer la tâche, et un
+   * double clic suffisait.
+   */
+  private tourneeEnCours: { promesse: Promise<ResumeTournee>; debut: number; declencheur: string } | null = null;
+  private derniereTournee: TourneeTerminee | null = null;
 
   /**
    * Délai entre deux briefs, calibré pour rester sous les 30 requêtes par minute du
@@ -282,7 +312,92 @@ export class PushService implements OnModuleInit {
    * fera pas revenir. Si l'IA est indisponible, on retombe sur le message générique
    * plutôt que de ne rien envoyer.
    */
-  async sendMorningBriefs() {
+  async sendMorningBriefs(declencheur = 'cron'): Promise<ResumeTournee> {
+    // Une tournée déjà en vol est réutilisée plutôt que doublée : l'appelant obtient
+    // le résultat de celle qui tourne, et personne ne reçoit deux notifications.
+    if (this.tourneeEnCours) {
+      this.logger.warn(
+        `Tournée des briefs déjà en cours (déclenchée par « ${this.tourneeEnCours.declencheur} ») : ` +
+          `l'appel « ${declencheur} » se raccroche à celle-là au lieu d'en lancer une seconde.`,
+      );
+      return this.tourneeEnCours.promesse;
+    }
+
+    const debut = Date.now();
+    const promesse = this.executerTourneeBriefs();
+    this.tourneeEnCours = { promesse, debut, declencheur };
+
+    try {
+      const resume = await promesse;
+      this.enregistrerTournee(debut, declencheur, resume, null);
+      return resume;
+    } catch (e) {
+      this.enregistrerTournee(debut, declencheur, null, (e as any)?.message ?? String(e));
+      throw e;
+    } finally {
+      this.tourneeEnCours = null;
+    }
+  }
+
+  private enregistrerTournee(
+    debut: number,
+    declencheur: string,
+    resume: ResumeTournee | null,
+    erreur: string | null,
+  ) {
+    const fin = Date.now();
+    this.derniereTournee = {
+      debut: new Date(debut).toISOString(),
+      fin: new Date(fin).toISOString(),
+      dureeMs: fin - debut,
+      declencheur,
+      resume,
+      erreur,
+    };
+  }
+
+  /**
+   * Lance la tournée sans l'attendre, et rend la main tout de suite.
+   *
+   * À 2,2 s par personne, la tournée dure quatre minutes pour cent comptes actifs :
+   * bien au-delà de ce qu'un client HTTP — et le routeur de Render devant lui —
+   * accepte de garder ouvert. La réponse partait donc en délai dépassé alors que
+   * l'envoi se poursuivait, ce qui donnait à croire à un échec. Le décompte se lit
+   * ensuite sur `GET /push/morning-brief/status`.
+   */
+  declencherTourneeBriefs(declencheur = 'manuel') {
+    const dejaEnCours = !!this.tourneeEnCours;
+
+    // Les erreurs par personne sont déjà rattrapées dans la boucle ; ce catch ne vise
+    // que l'échec global (lecture de la base). Sans lui, l'exception d'une promesse
+    // que plus personne n'attend ferait tomber le process Node.
+    void this.sendMorningBriefs(declencheur).catch((e) =>
+      this.logger.error(`Tournée des briefs interrompue : ${(e as any)?.message}`, (e as any)?.stack),
+    );
+
+    return {
+      demarre: !dejaEnCours,
+      dejaEnCours,
+      message: dejaEnCours
+        ? "Une tournée était déjà en cours : rien de neuf n'a été lancé, personne ne recevra de doublon."
+        : "Tournée lancée en arrière-plan. Le décompte arrive sur GET /push/morning-brief/status.",
+      suivi: 'GET /push/morning-brief/status',
+    };
+  }
+
+  /** État courant et résultat de la dernière tournée, cron compris. */
+  etatTournee() {
+    return {
+      enCours: !!this.tourneeEnCours,
+      ...(this.tourneeEnCours && {
+        depuisMs: Date.now() - this.tourneeEnCours.debut,
+        declencheur: this.tourneeEnCours.declencheur,
+      }),
+      derniereTournee: this.derniereTournee,
+    };
+  }
+
+  private async executerTourneeBriefs(): Promise<ResumeTournee> {
     const users = await this.prisma.user.findMany({
       include: { push_subscriptions: true, sync_data: true },
     });
@@ -330,7 +445,7 @@ export class PushService implements OnModuleInit {
         `${ignores} compte(s) dormant(s) ignoré(s), ${echecs} échec(s)`,
     );
 
-    // Renvoyé pour que le déclencheur manuel expose le même décompte que le log.
+    // Renvoyé pour que le suivi de tournée expose le même décompte que le log.
     return { personnalises, generiques, dormantsIgnores: ignores, echecs, comptesExamines: users.length };
   }
 
@@ -351,7 +466,10 @@ export class PushService implements OnModuleInit {
     const envoi = await this.sendNotification(user.id, {
       title: texte ? '🎯 Ton brief du jour' : 'Réveil ! ☀️',
       body,
-      url: 'https://disciplix-ai.vercel.app/?auth=true',
+      // Seule notification restée en dur après le passage des six autres à lienApp() :
+      // elle visait le bon domaine, donc rien ne clochait à l'œil. Un changement de
+      // FRONTEND_URL l'aurait pourtant laissée seule derrière, sur l'ancienne adresse.
+      url: this.lienApp('/?auth=true'),
     });
 
     return {

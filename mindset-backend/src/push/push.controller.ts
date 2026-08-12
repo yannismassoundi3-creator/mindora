@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Request, Get } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Request, Get, HttpCode } from '@nestjs/common';
 import { PushService } from './push.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
@@ -49,17 +49,34 @@ export class PushController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Post('morning-brief/run-all')
+  @HttpCode(202)
   @ApiOperation({
-    summary: "Exécuter la tâche de 10h maintenant, filtre des comptes dormants inclus",
+    summary: "Lancer la tâche de 10h maintenant, filtre des comptes dormants inclus",
+    description:
+      "Répond immédiatement : la tournée dure 2,2 s par compte actif et dépasserait le " +
+      "délai de la requête au-delà d'une quarantaine de personnes. Le décompte se lit " +
+      'sur GET /push/morning-brief/status.',
   })
-  async runMorningBriefs() {
+  async runMorningBriefs(@Request() req) {
     // La route de test ci-dessus contourne le filtre d'activité : elle peut donc
     // réussir alors que la tâche planifiée n'enverrait rien. Celle-ci rejoue le
-    // parcours complet et renvoie le décompte, seule façon de distinguer les deux.
-    return this.pushService.sendMorningBriefs();
+    // parcours complet et compte les envois, seule façon de distinguer les deux.
+    return this.pushService.declencherTourneeBriefs(`manuel:${req.user.userId}`);
   }
 
-  
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Get('morning-brief/status')
+  @ApiOperation({
+    summary: 'Où en est la tournée des briefs, et ce qu’a donné la dernière',
+  })
+  async morningBriefStatus() {
+    // Vaut aussi pour le cron de 10h : jusqu'ici son décompte n'existait que dans les
+    // logs de Render, à retrouver à la main le lendemain.
+    return this.pushService.etatTournee();
+  }
+
+
   @Get('vapid-public-key')
   @ApiOperation({ summary: 'Get VAPID public key for frontend subscription' })
   getVapidPublicKey() {
