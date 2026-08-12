@@ -524,9 +524,10 @@
     gap: 16px;
     padding-bottom: 12px;
     -webkit-overflow-scrolling: touch;
-    /* Break out of Layout padding */
-    width: 100vw;
+    /* Break out of Layout padding properly without pushing right edge off-screen */
+    width: auto;
     margin-left: -16px;
+    margin-right: -16px;
     padding-left: 16px;
     padding-right: 16px;
   }
