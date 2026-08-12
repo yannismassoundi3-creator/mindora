@@ -116,7 +116,11 @@
 
 .macro-card {
   position: relative;
-  height: 180px;
+  /* min-height et non height : le contenu remplissait la boite au pixel pres, si
+     bien qu au survol la bordure ajoutee par la regle globale suffisait a le faire
+     deborder — et overflow:hidden le rognait en haut comme en bas. Une hauteur
+     minimale laisse la carte grandir au lieu de couper. */
+  min-height: 180px;
   border-radius: 20px;
   overflow: hidden;
   display: flex;
@@ -534,7 +538,11 @@
   
   .macro-card, .add-macro-card {
     flex: 0 0 160px;
-    height: 160px;
+    /* Pas de hauteur fixe : le contenu remplissait la boite au pixel pres (158
+       sur 160), donc la bordure ajoutee au survol suffisait a le faire deborder,
+       et overflow:hidden le rognait en haut comme en bas. Firefox et Chromium
+       n arrondissent pas pareil au sous-pixel, d ou un defaut visible sur un seul
+       des deux. La carte grandit desormais au lieu de couper. */
     min-height: 160px;
     padding: 16px;
     border-radius: 20px;
