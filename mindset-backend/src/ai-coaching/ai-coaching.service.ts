@@ -32,34 +32,71 @@ export class AiCoachingService {
     private readonly memoire: CoachMemoryService,
   ) {}
 
+  /** Ce que le questionnaire d'inscription propose, traduit pour le coach. */
+  private static readonly OBJECTIFS_LISIBLES: Record<string, string> = {
+    business: 'Développer son business',
+    discipline: 'Construire une discipline de fer',
+    health: 'Retrouver santé et énergie',
+    mental: 'Prendre soin de sa santé mentale',
+  };
+
+  private static readonly CONSTANCE_LISIBLE: Record<string, string> = {
+    high: "Très discipliné : il ne lâche pas ce qu'il commence.",
+    medium: "En dents de scie : des pics de motivation, puis des relâchements. C'est dans les creux qu'il a besoin de toi.",
+    low: "Se disperse et abandonne vite. Vise des victoires courtes et immédiates plutôt que des programmes ambitieux.",
+  };
+
+  /**
+   * Enregistre le questionnaire d'inscription.
+   *
+   * Cette table est lue à chaque message par `formatProfil()` pour que le coach
+   * connaisse la personne. Le frontend ne l'appelait jamais : il affichait trois
+   * secondes d'animation puis jetait les réponses, si bien que la personnalisation
+   * construite côté serveur n'avait aucune donnée à lire.
+   *
+   * Les réponses arrivent sous la forme brute du questionnaire (`job`, `consistency`,
+   * `goal`) : on les traduit ici, car c'est un prompt qui les lira, pas une machine.
+   */
   async processOnboarding(userId: string, data: any) {
-    // 1. Sauvegarder les réponses dans AIProfile
-    const profile = await this.prisma.aIProfile.create({
-      data: {
-        user_id: userId,
-        age: data.age,
-        occupation: data.occupation,
-        objectives: data.objectives || [],
-        constraints: data.constraints || [],
-        current_habits: data.current_habits || [],
-        personality: data.personality,
-      }
+    const objectif = AiCoachingService.OBJECTIFS_LISIBLES[data?.goal] || data?.goal;
+    const constance = AiCoachingService.CONSTANCE_LISIBLE[data?.consistency];
+
+    const champs = {
+      // Les deux formes sont acceptées : celle du questionnaire et celle, déjà
+      // nommée comme la base, qu'utilisent les appels existants.
+      occupation: data?.job ?? data?.occupation ?? null,
+      objectives: objectif ? [objectif] : data?.objectives || [],
+      personality: constance ?? data?.personality ?? null,
+      age: data?.age ?? null,
+      constraints: data?.constraints || [],
+      current_habits: data?.current_habits || [],
+    };
+
+    // upsert et non create : une inscription rejouée — reconnexion, double clic,
+    // relance après une coupure réseau — levait P2002 sur la contrainte d'unicité
+    // et renvoyait une erreur à quelqu'un dont le compte venait d'être créé.
+    const profile = await this.prisma.aIProfile.upsert({
+      where: { user_id: userId },
+      update: champs,
+      create: { user_id: userId, ...champs },
     });
 
-    // 2. Appel à OpenAI/Gemini pour générer le programme (Mocké ici)
-    console.log(`[AI] Processing onboarding for user ${userId} using OpenAI API...`);
-    
-    // 3. Sauvegarder les objectifs générés (Goals)
+    console.log(`[Onboarding] Profil enregistré pour ${userId} (${champs.occupation}, ${objectif})`);
+
+    // L'objectif long terme reprend ce qu'il a choisi, au lieu du « Devenir plus
+    // discipliné (Auto-généré) » identique pour tout le monde qui était écrit ici.
     await this.prisma.goal.create({
       data: {
         user_id: userId,
-        title: 'Devenir plus discipliné (Auto-généré)',
-        category: 'mindset',
+        title: objectif || 'Construire une discipline de fer',
+        category: data?.goal || 'mindset',
         timeframe: 'long_term',
       }
     });
 
-    return { message: 'Profil IA créé et premier programme généré.', profile };
+    // Le message annonçait « et premier programme généré », ce qui n'a jamais été le
+    // cas. Un retour qui décrit autre chose que ce qui s'est produit finit par être cru.
+    return { message: 'Profil enregistré.', profile };
   }
 
   async generateRoutinesForUser(userId: string) {

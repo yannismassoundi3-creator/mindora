@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowRight, CheckCircle2, Loader2, Sparkles } from 'lucide-react';
 import './Onboarding.css';
+import { api } from '../services/api';
 
 interface OnboardingProps {
   onComplete: () => void;
@@ -10,7 +11,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   const [step, setStep] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
 
-  // Réponses utilisateur (simulation)
+  // Réponses envoyées au serveur à la dernière étape, et relues par le coach ensuite.
   const [answers, setAnswers] = useState({
     job: '',
     consistency: '',
@@ -33,16 +34,47 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
     nextStep();
   };
 
-  // Autoplay la génération finale
+  // L'écran final annonçait « Je génère ton programme personnalisé » puis attendait
+  // trois secondes avant de passer à la suite. Rien n'était envoyé : le métier, la
+  // constance et l'objectif étaient collectés puis perdus à la fermeture du composant.
+  // Le coach possède pourtant tout un mécanisme pour relire ce profil à chaque message
+  // et respecter ce qui lui a été déclaré — il lisait une table que personne ne
+  // remplissait jamais.
   useEffect(() => {
-    if (step === 5) { // Étape de chargement/génération
-      const timer = setTimeout(() => {
-        localStorage.setItem('mindset_ai_name', answers.aiName || 'Coach IA');
-        onComplete();
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [step, answers.aiName, onComplete]);
+    if (step !== 5) return;
+
+    let annule = false;
+
+    const enregistrer = async () => {
+      const debut = Date.now();
+      try {
+        await api.post('/ai-coaching/onboarding', {
+          job: answers.job,
+          consistency: answers.consistency,
+          goal: answers.goal,
+        });
+      } catch (e) {
+        // Un profil non enregistré dégrade le coaching, il ne doit pas interdire
+        // l'entrée dans l'application : la personne vient de créer son compte.
+        console.error('Profil non enregistré', e);
+      }
+
+      // Durée plancher de l'écran de chargement : sans elle, une réponse rapide le
+      // fait disparaître avant d'avoir été lu, et l'attente réelle donne l'impression
+      // que l'application est bloquée.
+      const restant = 1800 - (Date.now() - debut);
+      if (restant > 0) await new Promise((r) => setTimeout(r, restant));
+
+      if (annule) return;
+      localStorage.setItem('mindset_ai_name', answers.aiName || 'Coach IA');
+      onComplete();
+    };
+
+    enregistrer();
+    return () => {
+      annule = true;
+    };
+  }, [step, answers, onComplete]);
 
   const handleComplete = () => {
     localStorage.setItem('mindset_ai_name', answers.aiName || 'Coach IA');
@@ -141,7 +173,10 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
           <div className="step-card center-all">
             <Loader2 size={48} className="spinner" color="var(--accent-purple)" />
             <h2 className="loading-title">Analyse en cours...</h2>
-            <p className="onboarding-subtitle">Je génère ton programme personnalisé en fonction de ton profil.</p>
+            {/* Annonçait « Je génère ton programme personnalisé » alors qu'aucun
+                programme n'était produit — ni ici, ni sur le serveur. On décrit ce
+                qui se passe vraiment : le profil part au coach. */}
+            <p className="onboarding-subtitle">J'enregistre ton profil. Je saurai qui tu es dès notre premier échange.</p>
             <div className="loading-bar-container">
               <div className="loading-bar"></div>
             </div>
