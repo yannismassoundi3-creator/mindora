@@ -19,14 +19,18 @@ export default defineConfig({
       workbox: {
         importScripts: ['/custom-sw.js'], // Script for handling Push notifications
         globPatterns: ['**/*.{js,css,html,ico,png,svg,json}'],
-        // landing.html est une page statique hors de l'app React : le toast de mise à jour
-        // n'y tourne pas, donc la précacher y figeait indéfiniment l'ancienne version.
-        globIgnores: ['**/landing.html'],
-        navigateFallbackDenylist: [/^\/landing\.html/]
+        // landing.html et legal.html sont des pages statiques hors de l'app React : le
+        // toast de mise à jour n'y tourne pas, donc les précacher y figeait
+        // indéfiniment l'ancienne version. Pour une page de CGU, servir une version
+        // périmée n'est pas seulement gênant : ce n'est plus le bon contrat.
+        globIgnores: ['**/landing.html', '**/legal.html'],
+        navigateFallbackDenylist: [/^\/landing\.html/, /^\/legal\.html/]
       }
     })
   ],
   server: {
-    port: 3001
+    // Le port reste 3001 par défaut ; PORT permet d'en lancer une seconde instance
+    // sans toucher au fichier (une copie du projet ouverte à côté, un outil externe).
+    port: Number(process.env.PORT) || 3001
   }
 });

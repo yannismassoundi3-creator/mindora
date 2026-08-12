@@ -172,6 +172,10 @@ function App() {
           const subscribed = user.subscription?.status === 'ACTIVE';
           setIsSubscribed(subscribed);
           localStorage.setItem('mindset_is_subscribed', subscribed ? 'true' : 'false');
+          // Le menu lit ce drapeau pour masquer « Passer Pro ». L'événement « storage »
+          // ne se déclenche qu'entre onglets : sans ce rappel, un abonné continuerait
+          // de voir un bouton l'invitant à payer ce qu'il a déjà payé.
+          window.dispatchEvent(new Event('storage'));
 
           // Le questionnaire d'inscription est réclamé par la base, pas par un
           // drapeau local : c'est le serveur qui sait si le coach a de quoi nous
@@ -244,10 +248,16 @@ function App() {
   const tryOpenChat = () => setCurrentView('chat');
 
   // Le serveur est seul juge du quota (402) ; il nous prévient par cet événement.
+  // « openPricing » est l'autre entrée : le bouton permanent du menu, et celui que le
+  // chat propose quand il manque des coins. Les deux ouvrent le même écran.
   useEffect(() => {
-    const onQuotaExceeded = () => setShowPricingModal(true);
-    window.addEventListener('aiQuotaExceeded', onQuotaExceeded);
-    return () => window.removeEventListener('aiQuotaExceeded', onQuotaExceeded);
+    const ouvrirOffre = () => setShowPricingModal(true);
+    window.addEventListener('aiQuotaExceeded', ouvrirOffre);
+    window.addEventListener('openPricing', ouvrirOffre);
+    return () => {
+      window.removeEventListener('aiQuotaExceeded', ouvrirOffre);
+      window.removeEventListener('openPricing', ouvrirOffre);
+    };
   }, []);
 
   if (currentView === 'welcome') {

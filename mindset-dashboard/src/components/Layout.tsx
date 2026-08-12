@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, Brain, Target, Calendar, User, ShoppingBag, Coins, Backpack } from 'lucide-react';
+import { Home, Brain, Target, Calendar, User, ShoppingBag, Coins, Backpack, Sparkles } from 'lucide-react';
 import { playHoverSound, playClickSound } from '../utils/sounds';
 import './Layout.css';
 
@@ -14,10 +14,30 @@ interface LayoutProps {
 export const Layout: React.FC<LayoutProps> = ({ children, activeView, setView }) => {
   const [points, setPoints] = useState(() => getSecurePoints());
 
+  /**
+   * L'offre n'avait aucune porte d'entrée permanente.
+   *
+   * Elle ne s'ouvrait que sur épuisement du quota mensuel, or le premier mur que
+   * rencontre un compte gratuit est celui des coins — et ce cas-là ne propose
+   * volontairement pas de s'abonner, puisqu'il suffit de valider une routine. Restait
+   * donc un seul chemin, au fond de la page Profil. Ce bouton est le premier endroit
+   * où quelqu'un qui veut payer peut le faire sans chercher.
+   */
+  const [estAbonne, setEstAbonne] = useState(
+    () => localStorage.getItem('mindset_is_subscribed') === 'true',
+  );
+
+  const ouvrirOffre = (e: React.MouseEvent) => {
+    e.preventDefault();
+    playClickSound();
+    window.dispatchEvent(new Event('openPricing'));
+  };
+
   useEffect(() => {
     // Global Points Sync
     const handleStorage = () => {
       setPoints(getSecurePoints());
+      setEstAbonne(localStorage.getItem('mindset_is_subscribed') === 'true');
     };
     window.addEventListener('storage', handleStorage);
     window.addEventListener('mindset_points_updated', handleStorage);
@@ -114,7 +134,19 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, setView })
         </nav>
 
         <div className="sidebar-bottom">
-          <a href="#" className={`nav-item ${activeView === 'profile' ? 'active' : ''}`} 
+          {!estAbonne && (
+            <a
+              href="#"
+              className="nav-item"
+              onClick={ouvrirOffre}
+              onMouseEnter={() => playHoverSound()}
+              style={{ color: '#fbbf24' }}
+            >
+              <Sparkles size={20} />
+              <span>Passer Pro</span>
+            </a>
+          )}
+          <a href="#" className={`nav-item ${activeView === 'profile' ? 'active' : ''}`}
              onClick={(e) => handleNavClick(e, 'profile')}
              onMouseEnter={() => playHoverSound()}>
             <User size={20} />
@@ -131,6 +163,17 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, setView })
             <h2>disciplix</h2>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            {/* Sur mobile la barre du bas est pleine : l'offre passe par l'en-tête. */}
+            {!estAbonne && (
+              <button
+                className="coin-balance-btn glass-panel-interactive"
+                onClick={ouvrirOffre}
+                style={{ background: 'rgba(251, 191, 36, 0.12)', border: '1px solid rgba(251, 191, 36, 0.35)', padding: '4px 8px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '4px', color: '#fbbf24', fontWeight: 'bold', fontSize: '0.8rem', cursor: 'pointer' }}
+              >
+                <Sparkles size={14} color="#fbbf24" />
+                Pro
+              </button>
+            )}
             <button className="coin-balance-btn glass-panel-interactive pulse-glow" onClick={() => { playClickSound(); setView('inventory'); }} style={{ background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 255, 255, 0.2)', padding: '4px 8px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--primary)', cursor: 'pointer' }}>
               <div className="liquid-glass-orb" style={{ width: '12px', height: '12px', background: 'var(--primary)' }}></div>
               <span className="hide-on-mobile" style={{ fontSize: '0.8rem' }}>Mes Objets</span>

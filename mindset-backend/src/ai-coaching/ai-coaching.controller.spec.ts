@@ -16,7 +16,7 @@ import { CoinLedgerService } from './coin-ledger.service';
 describe('AiCoachingController — débit et remboursement du chat', () => {
   let controller: AiCoachingController;
   let ia: { chatWithAi: jest.Mock };
-  let quota: { consumeAiCredit: jest.Mock; refundAiCredit: jest.Mock };
+  let quota: { consumeAiCredit: jest.Mock; refundAiCredit: jest.Mock; isSubscribed: jest.Mock };
   let coins: { spend: jest.Mock; refund: jest.Mock; getBalance: jest.Mock };
 
   const requete = { user: { userId: 'u1' } } as any;
@@ -24,7 +24,11 @@ describe('AiCoachingController — débit et remboursement du chat', () => {
 
   beforeEach(async () => {
     ia = { chatWithAi: jest.fn() };
-    quota = { consumeAiCredit: jest.fn().mockResolvedValue({}), refundAiCredit: jest.fn().mockResolvedValue({}) };
+    quota = {
+      consumeAiCredit: jest.fn().mockResolvedValue({}),
+      refundAiCredit: jest.fn().mockResolvedValue({}),
+      isSubscribed: jest.fn().mockResolvedValue(false),
+    };
     coins = {
       spend: jest.fn().mockResolvedValue({ depense: 10, solde: 40 }),
       refund: jest.fn().mockResolvedValue({}),
@@ -99,5 +103,37 @@ describe('AiCoachingController — débit et remboursement du chat', () => {
     // cherchera dans les logs.
     await expect(controller.chat(requete, message)).rejects.toThrow('base injoignable');
     expect(quota.refundAiCredit).toHaveBeenCalledWith('u1', 'chat');
+  });
+
+  /**
+   * L'offre vendue dit « accès illimité ». Le serveur, lui, débitait dix coins par
+   * message à tout le monde : un abonné payait 9,99 €/mois puis se faisait arrêter au
+   * bout de cinq messages, avec pour seule issue d'aller valider des routines. Ces
+   * deux cas verrouillent la promesse côté serveur, là où elle doit tenir.
+   */
+  describe('abonné', () => {
+    beforeEach(() => quota.isSubscribed.mockResolvedValue(true));
+
+    it('ne dépense aucun coin et reçoit son solde inchangé', async () => {
+      ia.chatWithAi.mockResolvedValue({ reply: 'Ça va.' });
+
+      const resultat = await controller.chat(requete, message);
+
+      expect(coins.spend).not.toHaveBeenCalled();
+      // Le solde reste affiché — il sert encore à la boutique —, simplement il ne bouge pas.
+      expect(resultat).toEqual({ reply: 'Ça va.', coins: 50 });
+    });
+
+    it('ne se voit pas offrir des coins quand l’IA tombe en panne', async () => {
+      ia.chatWithAi.mockRejectedValue(new Error('base injoignable'));
+
+      await expect(controller.chat(requete, message)).rejects.toThrow('base injoignable');
+
+      // Rembourser un débit qui n'a pas eu lieu créditerait dix coins à chaque panne
+      // du fournisseur : de quoi s'en fabriquer en boucle.
+      expect(coins.refund).not.toHaveBeenCalled();
+      // Le crédit mensuel, lui, a bien été consommé : il doit être rendu.
+      expect(quota.refundAiCredit).toHaveBeenCalledWith('u1', 'chat');
+    });
   });
 });

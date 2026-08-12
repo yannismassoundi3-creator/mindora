@@ -63,17 +63,19 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
         </div>
 
       <div className="pricing-toggle">
-        <button 
-          className={selectedPlan === 'monthly' ? 'active' : ''} 
+        <button
+          className={selectedPlan === 'monthly' ? 'active' : ''}
           onClick={() => setSelectedPlan('monthly')}
         >
           Mensuel
         </button>
-        <button 
-          className={selectedPlan === 'lifetime' ? 'active' : ''} 
+        {/* « Plein Tarif » se lisait comme un tarif plus cher pour la même chose. Les
+            deux formules ouvrent le même Pro : seule la façon de payer change. */}
+        <button
+          className={selectedPlan === 'lifetime' ? 'active' : ''}
           onClick={() => setSelectedPlan('lifetime')}
         >
-          Plein Tarif (À vie)
+          À vie
         </button>
       </div>
 
@@ -94,33 +96,43 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
                 </>
               )}
             </div>
-            <p className="pricing-desc">L'accès intégral à toutes les fonctionnalités premium pour transformer votre discipline.</p>
+            <p className="pricing-desc">
+              {selectedPlan === 'monthly'
+                ? "Le coach IA sans compteur, résiliable en un clic."
+                : "Le même Pro, payé une seule fois. Rentable au bout de dix mois."}
+            </p>
           </div>
 
+          {/*
+            Cette liste ne promet plus que ce que le serveur tient réellement.
+            Trois lignes en sont parties : « Tableau de bord 3D Holographique » et
+            « Système de niveaux et récompenses XP » sont ouverts à tout le monde —
+            les vendre laissait croire qu'on les retirait aux comptes gratuits —, et
+            « Données chiffrées de bout en bout » était faux : les données de suivi
+            sont lisibles par le serveur, c'est ce qui permet à l'IA de s'en servir.
+            Sur un écran de paiement, une promesse invérifiable coûte plus qu'elle
+            ne rapporte.
+          */}
           <div className="pricing-features">
             <div className="feature-item">
               <CheckCircle size={20} className="feature-icon" />
-              <span>Accès illimité à {aiName} 24/7</span>
+              <span>{aiName} sans limite, 24/7</span>
             </div>
             <div className="feature-item">
               <CheckCircle size={20} className="feature-icon" />
-              <span>Tableau de bord 3D Holographique</span>
+              <span>Génération de routines par l'IA, sans compteur</span>
             </div>
             <div className="feature-item">
               <CheckCircle size={20} className="feature-icon" />
-              <span>Génération de routines par l'IA, sans limite</span>
+              <span>Plus besoin de gagner des coins pour lui parler</span>
             </div>
             <div className="feature-item">
               <CheckCircle size={20} className="feature-icon" />
-              <span>Système de niveaux et récompenses XP</span>
+              <span>Objectifs, habitudes et niveaux toujours inclus</span>
             </div>
             <div className="feature-item">
               <CheckCircle size={20} className="feature-icon" />
-              <span>Données chiffrées de bout en bout</span>
-            </div>
-            <div className="feature-item">
-              <CheckCircle size={20} className="feature-icon" />
-              <span>Support prioritaire</span>
+              <span>Réponse prioritaire par e-mail</span>
             </div>
           </div>
 

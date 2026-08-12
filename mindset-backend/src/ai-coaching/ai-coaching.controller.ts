@@ -62,9 +62,14 @@ export class AiCoachingController {
   @ApiResponse({ status: 402, description: 'Coins insuffisants ou quota mensuel épuisé.' })
   async chat(@Req() req: Request, @Body() body: ChatDto) {
     const userId = (req.user as any).userId;
-    // Deux barrières distinctes : les coins font respecter la règle du jeu (y compris
-    // pour les abonnés), le quota mensuel plafonne la dépense des comptes gratuits.
-    const debit = await this.coins.spend(userId);
+
+    // Les coins bornent les comptes gratuits ; ils ne s'appliquent pas aux abonnés.
+    // Avant, si : un abonné payait 9,99 €/mois pour un « accès illimité » et se
+    // retrouvait quand même arrêté au bout de cinq messages, avec pour seule issue
+    // d'aller valider des routines. On vendait une promesse que le serveur refusait
+    // de tenir. La cadence, elle, reste bornée par @Throttle pour tout le monde.
+    const abonne = await this.aiQuota.isSubscribed(userId);
+    const debit = abonne ? null : await this.coins.spend(userId);
     await this.aiQuota.consumeAiCredit(userId, 'chat');
 
     // Débiter avant l'appel est nécessaire (sinon deux requêtes simultanées passent
@@ -74,23 +79,29 @@ export class AiCoachingController {
     try {
       const reponse = await this.aiCoachingService.chatWithAi(userId, body.prompt, body.context);
       if ((reponse as any)?.erreur) {
-        await this.rembourser(userId);
+        await this.rembourser(userId, abonne);
         // Après remboursement, le solde n'est plus celui du débit : on le relit.
         return { ...reponse, coins: await this.coins.getBalance(userId) };
       }
       // Le solde accompagne la réponse : sans lui, l'app tenait sa propre
       // comptabilité en parallèle de la base, et les deux chiffres divergeaient.
-      return { ...reponse, coins: debit.solde };
+      // Un abonné n'a rien dépensé, mais l'app affiche quand même un compteur.
+      return { ...reponse, coins: debit ? debit.solde : await this.coins.getBalance(userId) };
     } catch (e) {
-      await this.rembourser(userId);
+      await this.rembourser(userId, abonne);
       throw e;
     }
   }
 
-  /** Le remboursement ne doit jamais masquer l'erreur d'origine. */
-  private async rembourser(userId: string) {
+  /**
+   * Le remboursement ne doit jamais masquer l'erreur d'origine.
+   *
+   * Un abonné n'a pas été débité de coins : lui en rendre lui en offrirait dix à
+   * chaque panne du fournisseur d'IA.
+   */
+  private async rembourser(userId: string, abonne: boolean) {
     await Promise.all([
-      this.coins.refund(userId).catch(() => {}),
+      abonne ? Promise.resolve() : this.coins.refund(userId).catch(() => {}),
       this.aiQuota.refundAiCredit(userId, 'chat').catch(() => {}),
     ]);
   }

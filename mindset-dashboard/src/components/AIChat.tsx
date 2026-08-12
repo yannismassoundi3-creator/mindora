@@ -12,6 +12,15 @@ interface Message {
   text: string;
   sender: 'user' | 'ai';
   timestamp: string;
+  /**
+   * Affiche le bouton d'abonnement sous ce message.
+   *
+   * Manquer de coins se règle en validant une routine, et c'est ce que répond le
+   * serveur — proposer l'abonnement comme seule issue serait malhonnête. Mais ne
+   * proposer que la routine l'est aussi : quelqu'un qui veut simplement continuer à
+   * parler se retrouvait sans autre porte. Les deux sont offertes.
+   */
+  offreAbonnement?: boolean;
 }
 
 export const AIChat: React.FC = () => {
@@ -530,13 +539,17 @@ export const AIChat: React.FC = () => {
       // manquer de coins se règle en accomplissant une routine, pas en s'abonnant,
       // donc proposer l'abonnement dans ce cas serait malhonnête.
       if (error.status === 402) {
+        const manqueDeCoins = error.code === 'COINS_INSUFFISANTS';
         setMessages(prev => [...prev, {
           id: Date.now() + 1,
           text: error.message,
           sender: 'ai',
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          // Le quota mensuel ouvre l'offre de lui-même ; le manque de coins se
+          // contente de la proposer, sous le message, sans interrompre.
+          offreAbonnement: manqueDeCoins,
         }]);
-        if (error.code !== 'COINS_INSUFFISANTS') {
+        if (!manqueDeCoins) {
           window.dispatchEvent(new Event('aiQuotaExceeded'));
         }
         return;
@@ -624,6 +637,28 @@ export const AIChat: React.FC = () => {
                 <div className="message-content">
                   <ReactMarkdown>{msg.text}</ReactMarkdown>
                 </div>
+                {msg.offreAbonnement && (
+                  <button
+                    onClick={() => window.dispatchEvent(new Event('openPricing'))}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      marginTop: '10px',
+                      padding: '8px 14px',
+                      borderRadius: '100px',
+                      border: '1px solid rgba(251, 191, 36, 0.35)',
+                      background: 'rgba(251, 191, 36, 0.12)',
+                      color: '#fbbf24',
+                      fontWeight: 600,
+                      fontSize: '0.85rem',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <Sparkles size={14} />
+                    Ou passe Pro pour ne plus compter
+                  </button>
+                )}
                 <span className="message-time">{msg.timestamp}</span>
               </div>
               {msg.sender === 'user' && (

@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Mentions légales, conditions générales, politique de confidentialité et cookies de Disciplix.">
+    <title>Informations légales — Disciplix</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --black: #050505;
+            --gray-900: #111111;
+            --gray-700: #2a2a2a;
+            --gray-300: #999999;
+            --gray-100: #dddddd;
+            --white: #ffffff;
+            --accent: #8b5cf6;
+        }
+
+        html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--black);
+            background-image: radial-gradient(circle at 50% -20%, rgba(139, 92, 246, 0.12) 0%, transparent 60%);
+            color: var(--gray-100);
+            line-height: 1.7;
+            min-height: 100vh;
+        }
+
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 1.1rem 1.5rem;
+            background: rgba(5, 5, 5, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+        }
+
+        .topbar a.logo {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            color: var(--white);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .topbar img { width: 24px; height: 24px; border-radius: 50%; }
+
+        .topbar a.back {
+            color: var(--gray-300);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 100px;
+            padding: 0.5rem 1.1rem;
+            transition: color 0.3s ease, border-color 0.3s ease;
+        }
+
+        .topbar a.back:hover { color: var(--white); border-color: rgba(255, 255, 255, 0.4); }
+
+        main { max-width: 780px; margin: 0 auto; padding: 3rem 1.5rem 6rem; }
+
+        h1 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: clamp(2rem, 6vw, 2.75rem);
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            color: var(--white);
+            margin-bottom: 0.75rem;
+        }
+
+        .updated { color: var(--gray-300); font-size: 0.9rem; margin-bottom: 2.5rem; }
+
+        /* Le sommaire évite de faire défiler quatre documents pour en trouver un. */
+        .toc {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.6rem;
+            padding: 1.25rem;
+            margin-bottom: 3rem;
+            background: var(--gray-900);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            border-radius: 14px;
+        }
+
+        .toc a {
+            color: var(--gray-100);
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 500;
+            padding: 0.45rem 0.9rem;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 100px;
+            transition: background 0.3s ease, border-color 0.3s ease;
+        }
+
+        .toc a:hover { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.35); }
+
+        /* scroll-margin-top : sans ça, la barre collante recouvre le titre visé. */
+        section { margin-bottom: 3.5rem; scroll-margin-top: 5rem; }
+
+        h2 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--white);
+            margin-bottom: 1.25rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--white);
+            margin: 1.75rem 0 0.5rem;
+        }
+
+        p { margin-bottom: 1rem; color: var(--gray-100); }
+
+        ul { margin: 0 0 1rem 1.25rem; }
+
+        li { margin-bottom: 0.5rem; }
+
+        a { color: var(--accent); }
+
+        strong { color: var(--white); }
+
+        footer {
+            border-top: 1px solid rgba(255, 255, 255, 0.07);
+            padding: 2rem 1.5rem;
+            text-align: center;
+            color: var(--gray-300);
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a class="logo" href="/landing.html">
+            <img src="disciplix_tiktok_pp.jpg" alt="">
+            disciplix
+        </a>
+        <a class="back" href="/landing.html">← Retour au site</a>
+    </div>
+
+    <main>
+        <h1>Informations légales</h1>
+        <p class="updated">Dernière mise à jour : 12 août 2026</p>
+
+        <nav class="toc">
+            <a href="#mentions">Mentions légales</a>
+            <a href="#cgu">CGU / CGV</a>
+            <a href="#confidentialite">Confidentialité</a>
+            <a href="#cookies">Cookies</a>
+        </nav>
+
+        <section id="mentions">
+            <h2>Mentions légales</h2>
+            <p><strong>Éditeur de l'application :</strong> Yannis (statut auto-entrepreneur — en cours d'immatriculation)</p>
+            <p><strong>Directeur de la publication :</strong> Yannis</p>
+            <p><strong>Contact :</strong> <a href="mailto:mindoraappli@gmail.com">mindoraappli@gmail.com</a></p>
+            <p><strong>Hébergement :</strong> l'application est hébergée sur des serveurs situés dans l'Union européenne, opérés par Vercel Inc. (interface) et Render Services, Inc. (serveur et base de données). Conformément à l'article 6 de la loi n°2004-575 du 21 juin 2004 pour la confiance dans l'économie numérique, les utilisateurs sont informés de l'identité des intervenants.</p>
+            <p><strong>Propriété intellectuelle :</strong> Disciplix et tous ses éléments (code, interface, charte graphique, algorithmes) sont la propriété exclusive de son éditeur. Toute reproduction, modification ou distribution est interdite.</p>
+        </section>
+
+        <section id="cgu">
+            <h2>Conditions générales d'utilisation et de vente</h2>
+
+            <h3>1. Objet</h3>
+            <p>Les présentes conditions encadrent l'accès à l'application Disciplix, outil de suivi d'objectifs, d'habitudes et de coaching assisté par intelligence artificielle.</p>
+
+            <h3>2. Ce qui est gratuit, ce qui est payant</h3>
+            <p>Le suivi des objectifs et des habitudes, le calendrier, les séries, les niveaux et les badges sont accessibles gratuitement, sans limite de durée. Un compte gratuit dispose en outre de <strong>dix messages par mois</strong> avec le coach IA.</p>
+            <p>L'abonnement <strong>Disciplix Pro</strong> lève cette limite et donne un accès sans compteur au coach IA. Il est proposé sous deux formes : un abonnement mensuel de 9,99 € précédé de sept jours d'essai gratuit, ou un paiement unique de 99,99 € valable sans limite de durée. Les deux formules ouvrent exactement les mêmes fonctions.</p>
+
+            <h3>3. Paiement et résiliation</h3>
+            <p>Les paiements sont traités exclusivement par Stripe. Aucune donnée de carte bancaire ne transite ni n'est conservée sur les serveurs de Disciplix.</p>
+            <p>L'abonnement mensuel est résiliable à tout moment depuis l'espace client, sans frais ni préavis ; l'accès reste ouvert jusqu'à la fin de la période déjà payée.</p>
+            <p><em>Conformément à l'article L221-28 du code de la consommation, le droit de rétractation ne peut être exercé pour la fourniture d'un contenu numérique non fourni sur un support matériel dont l'exécution a commencé après accord préalable exprès du consommateur. L'essai gratuit de sept jours permet d'évaluer le service avant tout prélèvement.</em></p>
+
+            <h3>4. Utilisation de l'IA</h3>
+            <p>Le coach IA est un outil d'assistance automatisé. Ses réponses ne remplacent en aucun cas l'avis d'un professionnel — médical, psychologique, financier ou autre. L'éditeur décline toute responsabilité liée aux actions entreprises à la suite d'un message de l'IA.</p>
+
+            <h3>5. Disponibilité</h3>
+            <p>L'éditeur s'efforce de maintenir un accès continu mais n'est tenu qu'à une obligation de moyens. L'accès peut être suspendu pour maintenance. Le coach IA dépend de fournisseurs tiers dont l'indisponibilité momentanée ne peut être imputée à l'éditeur ; dans ce cas, aucun message n'est décompté.</p>
+
+            <h3>6. Gamification</h3>
+            <p>Les « coins », niveaux, rangs et objets de la boutique sont strictement virtuels. Ils n'ont aucune valeur monétaire, ne peuvent être ni achetés avec de l'argent réel, ni convertis, ni remboursés.</p>
+
+            <h3>7. Résiliation du compte</h3>
+            <p>Chacun peut supprimer son compte et ses données depuis l'application ou en écrivant à <a href="mailto:mindoraappli@gmail.com">mindoraappli@gmail.com</a>.</p>
+        </section>
+
+        <section id="confidentialite">
+            <h2>Politique de confidentialité</h2>
+
+            <h3>1. Données collectées et finalité</h3>
+            <p>À l'inscription : prénom, nom, adresse e-mail et mot de passe. À l'usage : habitudes, routines, objectifs, historique des scores et conversations avec le coach IA. Ces données servent à faire fonctionner l'application et à synchroniser un même compte entre plusieurs appareils. Elles ne sont ni vendues ni cédées.</p>
+
+            <h3>2. Sous-traitants</h3>
+            <ul>
+                <li><strong>Groq</strong> et <strong>Google (Gemini)</strong> — les messages adressés au coach IA leur sont transmis pour générer une réponse. Aucune donnée n'est cédée pour l'entraînement de modèles tiers.</li>
+                <li><strong>Stripe</strong> — traitement des paiements.</li>
+                <li><strong>Brevo</strong> — envoi des e-mails (codes de connexion, réinitialisation de mot de passe).</li>
+                <li><strong>Vercel</strong> et <strong>Render</strong> — hébergement de l'interface, du serveur et de la base de données.</li>
+            </ul>
+
+            <h3>3. Sécurité</h3>
+            <p>Les mots de passe sont hachés de façon irréversible (Argon2id) : ils ne sont jamais stockés en clair et ne peuvent pas être relus, y compris par l'éditeur. Les échanges entre l'appareil et le serveur sont chiffrés en transit (HTTPS). Les paiements sont chiffrés et gérés exclusivement par Stripe.</p>
+            <p>En revanche, les données de suivi et les conversations avec le coach IA sont conservées en base de manière lisible par le serveur — c'est ce qui permet à l'IA de se souvenir du contexte. Elles ne font pas l'objet d'un chiffrement de bout en bout.</p>
+
+            <h3>4. Durée de conservation</h3>
+            <p>Les données sont conservées tant que le compte existe. Leur suppression entraîne l'effacement des données associées.</p>
+
+            <h3>5. Vos droits</h3>
+            <p>Conformément au RGPD, chacun dispose d'un droit d'accès, de rectification, d'effacement, de limitation et de portabilité de ses données, ainsi que du droit d'introduire une réclamation auprès de la CNIL. Pour les exercer : <a href="mailto:mindoraappli@gmail.com">mindoraappli@gmail.com</a>.</p>
+        </section>
+
+        <section id="cookies">
+            <h2>Cookies et stockage local</h2>
+            <p>Disciplix n'utilise aucun cookie publicitaire et ne pratique aucun suivi entre sites. Aucune bannière de consentement n'est donc nécessaire : tout ce qui est déposé est strictement nécessaire au fonctionnement du service, et exempt de consentement au sens de l'article 82 de la loi Informatique et Libertés.</p>
+            <ul>
+                <li><strong>Cookie de session</strong> — maintient la connexion et évite d'avoir à se reconnecter en permanence. Déposé uniquement après une connexion réussie.</li>
+                <li><strong>Stockage local du navigateur</strong> — conserve les préférences (thème, sons) et une copie des données de suivi pour que l'application reste utilisable hors connexion. Il reste sur l'appareil.</li>
+                <li><strong>Mesure d'audience</strong> — Vercel Analytics compte les visites de façon anonyme, sans cookie et sans identifiant individuel.</li>
+            </ul>
+            <p>Vider les données du site depuis le navigateur efface l'ensemble ; la déconnexion supprime le cookie de session.</p>
+        </section>
+    </main>
+
+    <footer>© 2026 Disciplix. Une question ? <a href="mailto:mindoraappli@gmail.com">mindoraappli@gmail.com</a></footer>
+</body>
+</html>
