@@ -46,6 +46,19 @@ export class PushController {
     return this.pushService.sendMorningBriefTo(req.user.userId);
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post('morning-brief/run-all')
+  @ApiOperation({
+    summary: "Exécuter la tâche de 10h maintenant, filtre des comptes dormants inclus",
+  })
+  async runMorningBriefs() {
+    // La route de test ci-dessus contourne le filtre d'activité : elle peut donc
+    // réussir alors que la tâche planifiée n'enverrait rien. Celle-ci rejoue le
+    // parcours complet et renvoie le décompte, seule façon de distinguer les deux.
+    return this.pushService.sendMorningBriefs();
+  }
+
   
   @Get('vapid-public-key')
   @ApiOperation({ summary: 'Get VAPID public key for frontend subscription' })

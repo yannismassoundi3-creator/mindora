@@ -115,34 +115,29 @@ export class PushService implements OnModuleInit {
   }
 
   onModuleInit() {
-    // 10:00 - Morning Wake Up
-    cron.schedule('0 10 * * *', async () => {
-      this.logger.log('Running morning push reminder cron job at 10:00');
-      await this.sendMorningBriefs();
-    }, { timezone: 'Europe/Paris' });
+    // Une exception dans une tâche planifiée est avalée en silence : ni notification,
+    // ni trace. C'est exactement ce qui rend un envoi manqué indiagnosticable le
+    // lendemain. Chaque tâche journalise son début, sa fin, et toute erreur.
+    const planifier = (expression: string, nom: string, action: () => Promise<any>) => {
+      cron.schedule(expression, async () => {
+        this.logger.log(`[CRON] ${nom} — démarrage`);
+        try {
+          await action();
+          this.logger.log(`[CRON] ${nom} — terminé`);
+        } catch (e) {
+          this.logger.error(`[CRON] ${nom} — ÉCHEC : ${(e as any)?.message}`, (e as any)?.stack);
+        }
+      }, { timezone: 'Europe/Paris' });
+      // Tracé au démarrage : si cette ligne manque, la tâche n'a jamais été programmée.
+      this.logger.log(`[CRON] ${nom} programmé (${expression}, Europe/Paris)`);
+    };
 
-    // 18:00 - Evening Check-in
-    cron.schedule('0 18 * * *', async () => {
-      this.logger.log('Running evening push reminder cron job at 18:00');
-      await this.sendBulkReminders('Check-in de 18h 🎯', 'Où en es-tu dans tes objectifs ? Viens faire le point.');
-    }, { timezone: 'Europe/Paris' });
-
-    // 20:00 - Streak Warnings (1st day)
-    cron.schedule('0 20 * * *', async () => {
-      this.logger.log('Running evening streak warnings at 20:00');
-      await this.checkStreaksAndWarn(20);
-    }, { timezone: 'Europe/Paris' });
-
-    // 22:00 - Night Review & Urgent Warnings (2nd day)
-    cron.schedule('0 22 * * *', async () => {
-      this.logger.log('Running night push reminder and last chance at 22:00');
-      await this.checkStreaksAndWarn(22);
-    }, { timezone: 'Europe/Paris' });
-    // 20:00 - Sunday Weekly Report
-    cron.schedule('0 20 * * 0', async () => {
-      this.logger.log('Running sunday weekly report at 20:00');
-      await this.sendWeeklyReports();
-    }, { timezone: 'Europe/Paris' });
+    planifier('0 10 * * *', 'Briefs du matin', () => this.sendMorningBriefs());
+    planifier('0 18 * * *', 'Check-in 18h', () =>
+      this.sendBulkReminders('Check-in de 18h 🎯', 'Où en es-tu dans tes objectifs ? Viens faire le point.'));
+    planifier('0 20 * * *', 'Alerte série 20h', () => this.checkStreaksAndWarn(20));
+    planifier('0 22 * * *', 'Dernière chance 22h', () => this.checkStreaksAndWarn(22));
+    planifier('0 20 * * 0', 'Bilan hebdomadaire', () => this.sendWeeklyReports());
   }
 
   async checkStreaksAndWarn(hour: number) {
@@ -260,6 +255,9 @@ export class PushService implements OnModuleInit {
     this.logger.log(
       `Briefs du matin : ${personnalises} personnalisé(s), ${generiques} générique(s), ${ignores} compte(s) dormant(s) ignoré(s)`,
     );
+
+    // Renvoyé pour que le déclencheur manuel expose le même décompte que le log.
+    return { personnalises, generiques, dormantsIgnores: ignores, comptesExamines: users.length };
   }
 
   /**
