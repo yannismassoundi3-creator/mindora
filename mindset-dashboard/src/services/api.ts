@@ -41,6 +41,34 @@ function terminerSession() {
   window.location.href = '/?auth=true';
 }
 
+/**
+ * Envoie la requête, et traduit le seul cas où fetch rejette vraiment.
+ *
+ * fetch ne rejette pas sur un 402 ou un 500 : il rejette quand la requête n'est
+ * jamais partie — serveur injoignable, connexion coupée, tunnel bloqué. Le message
+ * qu'il produit alors est écrit par le navigateur, en anglais et pour un
+ * développeur : « Failed to fetch » sur Chrome, « NetworkError when attempting to
+ * fetch resource » sur Firefox. L'écran de paiement affichait cette phrase telle
+ * quelle sous le bouton — c'est-à-dire au moment précis où quelqu'un s'apprête à
+ * donner sa carte, et où il faut être clair sur ce qui vient d'échouer.
+ *
+ * Le drapeau `reseau` permet aux écrans de distinguer « le serveur a refusé » de
+ * « le serveur n'a rien reçu » : deux situations qui n'appellent pas la même phrase,
+ * ni le même geste de la part de la personne.
+ */
+async function envoyer(lancer: () => Promise<Response>): Promise<Response> {
+  try {
+    return await lancer();
+  } catch (cause) {
+    const erreur: any = new Error(
+      "Impossible de joindre le serveur. Vérifie ta connexion, puis réessaie.",
+    );
+    erreur.reseau = true;
+    erreur.cause = cause;
+    throw erreur;
+  }
+}
+
 export const api = {
   get: async (endpoint: string) => {
     // Le jeton est relu à chaque tentative : après un rafraîchissement, c'est le
@@ -51,13 +79,13 @@ export const api = {
         credentials: 'include',
       });
 
-    let res = await lancer();
+    let res = await envoyer(lancer);
 
     // Le jeton d'accès ne dure que quinze minutes. Sans cette reprise, un 401
     // renvoyait à l'écran de connexion — et donc à un code 2FA par e-mail — quatre
     // fois par heure, au milieu de ce que la personne était en train de faire.
     if (res.status === 401 && !endpoint.startsWith('/auth/')) {
-      if (await rafraichirSession()) res = await lancer();
+      if (await rafraichirSession()) res = await envoyer(lancer);
     }
 
     if (!res.ok) {
@@ -79,10 +107,10 @@ export const api = {
         credentials: 'include',
       });
 
-    let res = await lancer();
+    let res = await envoyer(lancer);
 
     if (res.status === 401 && !endpoint.startsWith('/auth/')) {
-      if (await rafraichirSession()) res = await lancer();
+      if (await rafraichirSession()) res = await envoyer(lancer);
     }
 
     if (!res.ok) {

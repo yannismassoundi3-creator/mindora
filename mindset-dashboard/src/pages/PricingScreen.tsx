@@ -43,10 +43,17 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
     } catch (error: any) {
       // Une alerte du navigateur disparaît d'un clic et ne laisse aucune trace : la
       // personne se retrouve devant le même bouton, sans savoir si elle a payé. Le
-      // message reste maintenant sous le bouton, avec celui du serveur quand il en
-      // donne un.
+      // message reste donc sous le bouton, avec celui du serveur quand il en donne un.
+      //
+      // Mais on ne recopie que les messages dont on répond : ceux du serveur, écrits
+      // en français, et celui de la couche réseau. Tout le reste vient du navigateur
+      // — « Failed to fetch », « API Error » — et n'apprend rien à qui s'apprête à
+      // payer. C'est exactement ce qui s'affichait sous le bouton quand le serveur
+      // ne répondait pas.
       console.error('Erreur lors du paiement:', error);
-      setErreur(error?.message || "Le paiement n'a pas pu être ouvert. Réessaie dans un moment.");
+      const notre = error?.reseau || typeof error?.status === 'number';
+      const message = notre && error?.message && error.message !== 'API Error' ? error.message : '';
+      setErreur(message || "Le paiement n'a pas pu être ouvert. Réessaie dans un moment.");
     } finally {
       setLoading(false);
     }
