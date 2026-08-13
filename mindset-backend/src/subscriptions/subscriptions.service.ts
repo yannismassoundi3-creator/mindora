@@ -172,6 +172,13 @@ export class SubscriptionsService {
               stripe_sub_id: session.subscription as string
             }
           });
+          // Un achat à vie (mode « payment ») rend inutile tout prélèvement récurrent
+          // du même client : sans cette résiliation, il paierait 99,99 € puis
+          // continuerait à être débité de 9,99 € chaque mois.
+          if (mode === 'payment' && session.customer) {
+            await this.resilierRecurrents(session.customer as string);
+          }
+
           console.log(`[Stripe Webhook] User ${userId} upgraded successfully!`);
         }
         break;
@@ -278,6 +285,34 @@ export class SubscriptionsService {
   }
 
   /**
+   * Met fin aux abonnements récurrents d'un client qui vient d'acheter à vie.
+   *
+   * Sans ça, quelqu'un qui passe du mensuel au définitif continue d'être prélevé
+   * 9,99 € tous les mois pour une chose qu'il possède déjà — et il ne s'en apercevra
+   * qu'en lisant son relevé, un mois plus tard. C'est le seul endroit du code qui
+   * touche à l'argent de quelqu'un sans qu'il ait cliqué à cet instant précis, d'où la
+   * restriction aux statuts réellement facturables et la trace systématique.
+   *
+   * N'interrompt jamais l'appelant : l'accès à vie vient d'être accordé, et le refuser
+   * parce que la résiliation a échoué serait la pire des deux issues. Une exception
+   * lancée depuis le webhook ferait de surcroît rejouer l'événement par Stripe pendant
+   * trois jours.
+   */
+  private async resilierRecurrents(clientStripe: string) {
+    const FACTURABLES = ['active', 'trialing', 'past_due', 'unpaid'];
+    try {
+      const abos = await this.stripe.subscriptions.list({ customer: clientStripe, status: 'all', limit: 20 });
+      for (const abo of abos.data) {
+        if (!FACTURABLES.includes(abo.status)) continue;
+        await this.stripe.subscriptions.cancel(abo.id);
+        console.log(`[Stripe] Achat à vie : abonnement ${abo.id} (${abo.status}) résilié pour ${clientStripe}.`);
+      }
+    } catch (error: any) {
+      console.error(`[Stripe] Résiliation après achat à vie impossible pour ${clientStripe} :`, error?.message);
+    }
+  }
+
+  /**
    * Rang d'un statut Stripe, pour départager plusieurs abonnements du même acheteur.
    *
    * Quelqu'un qui a résilié puis repris en a deux ; c'est le vivant qui compte, pas le
@@ -355,6 +390,10 @@ export class SubscriptionsService {
     // L'achat à vie prime sur tout le reste : il n'expire pas, et il ne doit pas être
     // écrasé par la résiliation d'un ancien mensuel du même acheteur.
     if (clientAVie) {
+      // Le mensuel qu'on vient peut-être de trouver à côté n'a plus lieu d'être.
+      if (meilleur && SubscriptionsService.rang(meilleur.status) > 1) {
+        await this.resilierRecurrents(clientAVie);
+      }
       await this.ecrire(userId, clientAVie, {
         status: 'ACTIVE',
         stripe_sub_id: null,

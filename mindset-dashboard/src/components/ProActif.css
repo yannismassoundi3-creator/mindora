@@ -1,0 +1,106 @@
+/*
+  Bandeau d'annonce de l'abonnement actif.
+
+  `position: fixed` et non collant : il doit apparaître par-dessus la page en cours,
+  quelle qu'elle soit, sans déplacer son contenu. Le `z-index` passe au-dessus de
+  l'en-tête flottant du téléphone (50) et des barres collantes du chat (30).
+
+  Attention : un ancêtre en `transform` ou `filter` redéfinirait le bloc conteneur d'un
+  élément fixe. C'est le piège déjà rencontré sur les modales de ce projet — d'où le
+  montage dans le Layout, hors des enveloppes animées de transition de vue.
+*/
+.pro-actif {
+  position: fixed;
+  z-index: 120;
+  top: max(16px, env(safe-area-inset-top));
+  /*
+    Centrage par les décalages et non par `translateX(-50%)` : le `transform` reste
+    ainsi libre pour l'animation seule. Quand les deux se partagent la propriété, la
+    moindre règle globale de `animation-fill-mode` — ce projet en a déjà porté, et
+    elles ont déjà cassé des positions ici — fige la barre décalée de la moitié de sa
+    largeur, sans que rien n'indique d'où ça vient.
+  */
+  left: 12px;
+  right: 12px;
+  margin-inline: auto;
+  max-width: 420px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 14px 14px 16px;
+  border-radius: 16px;
+  /* Opaque : posé au-dessus de contenus quelconques, un fond translucide rend le
+     texte illisible dès qu'une carte claire passe dessous. */
+  background: rgb(16, 32, 26);
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.6);
+  animation: pro-actif-entree 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.pro-actif-icone {
+  color: #10b981;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.pro-actif-texte {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  /* Sans quoi un texte long élargit la boîte au lieu de passer à la ligne. */
+  min-width: 0;
+  flex: 1;
+}
+
+.pro-actif-texte strong {
+  color: #10b981;
+  font-size: 0.95rem;
+}
+
+.pro-actif-texte span {
+  color: var(--secondary);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+/*
+  Deux classes, et le conteneur en plus pour le survol : `body.theme-monochrome-dark
+  button` impose un rayon et un halo en `!important` à tous les boutons, et
+  `button:not(:disabled):not(.btn-primary):hover` de global.css soulève et éclaircit
+  tout bouton survolé — une croix de fermeture s'entourerait d'un rectangle lumineux.
+*/
+.pro-actif .pro-actif-fermer {
+  flex-shrink: 0;
+  padding: 4px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--secondary);
+  cursor: pointer;
+  line-height: 0;
+}
+
+.pro-actif .pro-actif-fermer:hover:not(:disabled) {
+  color: var(--primary);
+  background: transparent;
+  transform: none;
+  box-shadow: none;
+}
+
+@keyframes pro-actif-entree {
+  from {
+    opacity: 0;
+    transform: translateY(-14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pro-actif {
+    animation: none;
+  }
+}

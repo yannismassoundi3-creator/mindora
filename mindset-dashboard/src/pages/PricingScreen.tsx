@@ -2,17 +2,25 @@ import React, { useState } from 'react';
 import { CheckCircle, Zap, Shield, Crown, Sparkles, X } from 'lucide-react';
 import { playLevelUpSound } from '../utils/sounds';
 import { api } from '../services/api';
-import { marquerPaiementLance, verifierAbonnement } from '../utils/paiement';
+import { marquerPaiementLance, verifierAbonnement, type Formule } from '../utils/paiement';
 import './PricingScreen.css';
 
 interface PricingScreenProps {
-  onSubscribe: () => void;
+  onSubscribe: (formule: Formule) => void;
   onClose?: () => void;
   /** Formule déjà choisie ailleurs — sur la page d'accueil, notamment. */
   planInitial?: 'monthly' | 'lifetime';
+  /**
+   * L'écran s'adresse à quelqu'un qui paie déjà.
+   *
+   * Il n'arrive ici que par « Passer à vie » : lui remontrer le choix des formules
+   * reviendrait à lui proposer d'acheter une seconde fois ce qu'il a déjà, et à laisser
+   * croire que son abonnement n'a pas été pris en compte.
+   */
+  dejaAbonne?: boolean;
 }
 
-export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClose, planInitial = 'monthly' }) => {
+export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClose, planInitial = 'monthly', dejaAbonne = false }) => {
   const [loading, setLoading] = useState(false);
   const [erreur, setErreur] = useState('');
   // Quelqu'un qui a cliqué « Passer à vie » sur la page d'accueil ne doit pas avoir
@@ -32,12 +40,12 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
   const verifierDejaPaye = async () => {
     setVerification(true);
     setResultat(null);
-    const abonne = await verifierAbonnement();
+    const { abonne, formule } = await verifierAbonnement();
     setVerification(false);
     if (abonne) {
       setResultat({ ok: true, texte: 'Paiement retrouvé — ton accès Pro est ouvert.' });
       playLevelUpSound();
-      onSubscribe();
+      onSubscribe(formule);
     } else {
       setResultat({
         ok: false,
@@ -66,7 +74,7 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
           window.dispatchEvent(new CustomEvent('triggerShockwave', {
             detail: { x: window.innerWidth / 2, y: window.innerHeight / 2, color: '#8b5cf6' }
           }));
-          onSubscribe();
+          onSubscribe(selectedPlan);
         } else {
           // On note qu'un paiement part, pour aller en vérifier l'issue au prochain
           // démarrage. Le retour de Stripe n'est pas un chemin sur lequel on peut
@@ -109,11 +117,17 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
         )}
         <div className="pricing-header">
           <Sparkles className="pricing-sparkle" size={48} />
-          <h1>Passez au niveau supérieur</h1>
-          <p>Tes objectifs et tes habitudes restent gratuits. Passe Pro pour parler à {aiName} sans limite.</p>
+          <h1>{dejaAbonne ? 'Payer une seule fois' : 'Passez au niveau supérieur'}</h1>
+          <p>
+            {dejaAbonne
+              ? `Tu es déjà Pro. Le passage à vie garde exactement les mêmes fonctions, mais met fin au prélèvement mensuel.`
+              : `Tes objectifs et tes habitudes restent gratuits. Passe Pro pour parler à ${aiName} sans limite.`}
+          </p>
         </div>
 
-      <div className="pricing-toggle">
+      {/* La bascule disparaît pour un abonné : le mensuel n'est plus une option, il
+          l'a déjà, et le lui remontrer donnerait à croire qu'il pourrait le reprendre. */}
+      <div className="pricing-toggle" style={dejaAbonne ? { display: 'none' } : undefined}>
         <button
           className={selectedPlan === 'monthly' ? 'active' : ''}
           onClick={() => setSelectedPlan('monthly')}
@@ -188,8 +202,20 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
           </div>
 
           <button className={`btn-subscribe ${loading ? 'loading' : ''}`} onClick={handlePurchase} disabled={loading}>
-            {loading ? 'Connexion sécurisée (Stripe)...' : (selectedPlan === 'monthly' ? "Essai gratuit 7 jours (puis 9.99€/mois)" : "Acheter à vie (99.99€)")}
+            {loading
+              ? 'Connexion sécurisée (Stripe)...'
+              : selectedPlan === 'lifetime'
+                ? 'Acheter à vie (99.99€)'
+                : 'Essai gratuit 7 jours (puis 9.99€/mois)'}
           </button>
+          {/* Dit ce qui arrive au prélèvement en cours. Sans cette phrase, la question
+              « et mon mensuel, il continue ? » n'a aucune réponse à l'écran, et c'est
+              la première qu'on se pose devant un second paiement. */}
+          {dejaAbonne && (
+            <p className="secure-text" style={{ marginTop: '10px' }}>
+              Ton abonnement mensuel est résilié automatiquement dès que le paiement à vie aboutit.
+            </p>
+          )}
           {erreur && (
             <p className="secure-text" style={{ color: '#f87171', fontWeight: 600 }} role="alert">
               {erreur}
@@ -209,9 +235,11 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
             qu'on lui montre encore. Sans cette porte, sa seule issue apparente est de
             payer une seconde fois.
           */}
-          <button className="pricing-deja-paye" onClick={verifierDejaPaye} disabled={verification}>
-            {verification ? 'Vérification auprès de Stripe...' : "J'ai déjà payé — vérifier mon accès"}
-          </button>
+          {!dejaAbonne && (
+            <button className="pricing-deja-paye" onClick={verifierDejaPaye} disabled={verification}>
+              {verification ? 'Vérification auprès de Stripe...' : "J'ai déjà payé — vérifier mon accès"}
+            </button>
+          )}
           {resultat && (
             <p className="secure-text" style={{ color: resultat.ok ? '#10b981' : '#f87171', fontWeight: 600 }} role="status">
               {resultat.texte}

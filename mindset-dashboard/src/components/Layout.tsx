@@ -5,6 +5,7 @@ import { BandeauCommande } from './BandeauCommande';
 import { JarvisPopup } from './JarvisPopup';
 import type { JarvisPopupData } from './JarvisPopup';
 import { EVENEMENT_TACHE_FAITE } from '../utils/journee';
+import { ProActif } from './ProActif';
 import './Layout.css';
 
 import { getSecurePoints } from '../utils/secureStorage';
@@ -131,6 +132,11 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, setView })
 
   return (
     <div className="layout-container">
+      {/* L'annonce de l'abonnement actif se monte ici et non dans une page :
+          l'activation peut venir du Profil, de l'écran de tarifs, ou du rattrapage
+          de paiement au démarrage. */}
+      <ProActif />
+
       {/* Background Effects */}
       <div className="bg-glow-effect"></div>
       <div className="bg-glow-effect-right"></div>

@@ -16,6 +16,42 @@ import { api } from '../services/api';
 
 const CLE = 'mindset_paiement_en_cours';
 
+/** Formule en cours. Distingue le mensuel, qui peut encore passer à vie, du définitif. */
+export type Formule = 'monthly' | 'lifetime';
+
+/**
+ * Ouvre le Pro dans toute l'interface, d'un seul endroit.
+ *
+ * Il y avait trois activations écrites séparément et qui ne faisaient pas la même
+ * chose : celle d'`App` posait le drapeau sans prévenir personne — le menu n'écoute
+ * que l'événement `storage`, qui ne se déclenche jamais dans l'onglet qui écrit — donc
+ * les boutons « Passer Pro » restaient affichés à quelqu'un qui venait de payer,
+ * jusqu'au rechargement suivant. Celle du Profil, elle, rechargeait la page entière.
+ *
+ * `mindset:pro-actif` porte l'annonce visible : sans un mot, on ne sait pas si le
+ * paiement a abouti, et le premier réflexe est de repayer.
+ */
+export function activerPro(formule: Formule = 'monthly') {
+  localStorage.setItem('mindset_is_subscribed', 'true');
+  localStorage.setItem('mindset_formule', formule);
+  window.dispatchEvent(new Event('storage'));
+  window.dispatchEvent(new CustomEvent('mindset:pro-actif', { detail: { formule } }));
+}
+
+/** Ce que le serveur dit de la formule : un achat à vie n'a pas d'abonnement Stripe. */
+export function retenirFormule(abonnement: { stripe_sub_id?: string | null } | null | undefined) {
+  if (!abonnement) {
+    localStorage.removeItem('mindset_formule');
+    return;
+  }
+  localStorage.setItem('mindset_formule', abonnement.stripe_sub_id ? 'monthly' : 'lifetime');
+}
+
+export function formuleActuelle(): Formule | null {
+  const brut = localStorage.getItem('mindset_formule');
+  return brut === 'lifetime' || brut === 'monthly' ? brut : null;
+}
+
 /** Au-delà, on considère que la personne a renoncé : plus la peine d'interroger Stripe. */
 const FENETRE_MS = 24 * 60 * 60 * 1000;
 
@@ -55,13 +91,15 @@ function nettoyerAdresse() {
  * Ne lève jamais : un démarrage d'application ne doit pas échouer parce que Stripe
  * était indisponible.
  */
-export async function verifierAbonnement(): Promise<boolean> {
+export async function verifierAbonnement(): Promise<{ abonne: boolean; formule: Formule }> {
   try {
     const res = await api.post('/subscriptions/verifier', {});
-    return res?.abonne === true;
+    // Le serveur dit laquelle des deux formules il a trouvée : c'est ce qui décide si
+    // on peut encore proposer le passage à vie, ou s'il n'y a plus rien à vendre.
+    return { abonne: res?.abonne === true, formule: res?.formule === 'lifetime' ? 'lifetime' : 'monthly' };
   } catch (error) {
     console.error('[paiement] Vérification impossible :', error);
-    return false;
+    return { abonne: false, formule: 'monthly' };
   }
 }
 
@@ -83,10 +121,14 @@ export async function reconcilierPaiement(): Promise<void> {
 
   if (retourDeStripe) nettoyerAdresse();
 
-  const abonne = await verifierAbonnement();
+  const { abonne, formule } = await verifierAbonnement();
 
   if (abonne) {
     oublier();
+    // Le paiement est allé au bout mais personne ne l'a jamais dit : c'est
+    // typiquement le cas de quelqu'un revenu par ses propres moyens après avoir
+    // atterri ailleurs que dans l'app. On l'annonce maintenant.
+    activerPro(formule);
     return;
   }
 

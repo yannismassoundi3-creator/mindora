@@ -7,6 +7,7 @@ import { RankIcon } from '../components/RankIcon';
 import { getRankForLevel } from '../utils/ranks';
 import { getSecurePoints, removeSecurePoints } from '../utils/secureStorage';
 import { bufferToBase64url } from '../utils/webauthn';
+import { activerPro, formuleActuelle, type Formule } from '../utils/paiement';
 import './Profile.css';
 
 interface ProfileProps {
@@ -27,6 +28,10 @@ const TEXT_COLORS = [
 export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
   const [showPricingModal, setShowPricingModal] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(() => localStorage.getItem('mindset_is_subscribed') === 'true');
+  // Un achat à vie n'a rien à acheter de plus : c'est la seule chose qui décide si le
+  // passage à vie doit être proposé ici, seul endroit de l'app où l'offre subsiste
+  // pour quelqu'un qui paie déjà.
+  const [formule, setFormule] = useState<Formule | null>(() => formuleActuelle());
 
   // Identity
   const [userName, setUserName] = useState(() => localStorage.getItem('mindset_user_name') || 'Yannis');
@@ -298,11 +303,39 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
               
               {isSubscribed ? (
                 <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-                  <p style={{ color: '#10b981', fontWeight: 600, marginBottom: '8px' }}>✓ Disciplix Pro Actif</p>
-                  <p style={{ fontSize: '0.85rem', color: 'var(--secondary)', marginBottom: '16px' }}>
-                    Vous bénéficiez de l'accès illimité à l'IA, du Dashboard holographique et du double de Coins par habitude.
+                  <p style={{ color: '#10b981', fontWeight: 600, marginBottom: '8px' }}>
+                    ✓ Disciplix Pro actif{formule === 'lifetime' ? ' — à vie' : formule === 'monthly' ? ' — formule mensuelle' : ''}
                   </p>
-                  <button 
+                  {/*
+                    Cette phrase vendait « le Dashboard holographique », qui est ouvert à
+                    tout le monde. Le même mensonge avait été retiré de l'écran de
+                    tarifs et oublié ici, c'est-à-dire au seul endroit que relit
+                    quelqu'un qui paie déjà. Le bonus de Coins, lui, est réel : 30 au
+                    lieu de 15 par habitude (Habits.tsx), tout comme le mode Iron Focus
+                    au-delà de sept jours de série.
+                  */}
+                  <p style={{ fontSize: '0.85rem', color: 'var(--secondary)', marginBottom: '16px' }}>
+                    {aiName} répond sans compteur et sans dépenser d'énergie, les Coins par habitude sont doublés,
+                    et le mode Iron Focus s'ouvre au-delà de sept jours de série.
+                  </p>
+
+                  {/*
+                    Seule entrée vers l'offre qui subsiste pour un abonné, et seulement
+                    s'il reste quelque chose à lui vendre. Un achat à vie ne doit rien
+                    voir : lui proposer d'acheter ce qu'il possède déjà est la meilleure
+                    façon de faire douter de ce qu'il a payé.
+                  */}
+                  {formule === 'monthly' && (
+                    <button
+                      onClick={() => { playClickSound(); setShowPricingModal(true); }}
+                      onMouseEnter={() => playHoverSound()}
+                      style={{ display: 'block', marginBottom: '12px', background: 'rgba(251, 191, 36, 0.12)', color: '#fbbf24', border: '1px solid rgba(251, 191, 36, 0.35)', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600 }}
+                    >
+                      Passer à vie (99.99€, une seule fois)
+                    </button>
+                  )}
+
+                  <button
                     onClick={async () => {
                       try {
                         // Même raison que sur l'écran de tarifs : l'adresse de retour ne
@@ -437,12 +470,20 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
 
       {/* Pricing Modal */}
       {showPricingModal && (
-        <PricingScreen 
-          onSubscribe={() => {
-            localStorage.setItem('mindset_is_subscribed', 'true');
-            // Trigger storage event so App.tsx is aware if needed, though state handles Profile
-            window.dispatchEvent(new Event('storage'));
-            window.location.reload();
+        <PricingScreen
+          // Un abonné qui ouvre cet écran vient forcément du bouton « Passer à vie » :
+          // il n'a plus à choisir entre deux formules, et surtout pas à se voir
+          // reproposer le mensuel qu'il paie déjà.
+          dejaAbonne={isSubscribed}
+          planInitial={isSubscribed ? 'lifetime' : 'monthly'}
+          onSubscribe={(formuleAchetee) => {
+            // Le rechargement de page a disparu : il faisait tout perdre du contexte
+            // et donnait à l'activation l'air d'un incident. L'annonce visible est
+            // portée par `activerPro`, que tous les chemins d'activation partagent.
+            activerPro(formuleAchetee);
+            setIsSubscribed(true);
+            setFormule(formuleAchetee);
+            setShowPricingModal(false);
           }}
           onClose={() => setShowPricingModal(false)}
         />

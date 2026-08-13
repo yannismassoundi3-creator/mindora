@@ -18,7 +18,7 @@ import { GainFlottant } from './components/GainFlottant';
 import { AiNotification } from './components/AiNotification';
 import { AiExplanationModal } from './components/AiExplanationModal';
 import { getSecurePoints, setSecurePoints } from './utils/secureStorage';
-import { reconcilierPaiement } from './utils/paiement';
+import { reconcilierPaiement, activerPro, retenirFormule, type Formule } from './utils/paiement';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import './styles/global.css';
 import './index.css';
@@ -208,6 +208,9 @@ function App() {
           const subscribed = ['ACTIVE', 'TRIALING'].includes(user.subscription?.status);
           setIsSubscribed(subscribed);
           localStorage.setItem('mindset_is_subscribed', subscribed ? 'true' : 'false');
+          // Un achat à vie n'a pas d'abonnement Stripe : c'est ce qui le distingue du
+          // mensuel, et donc ce qui décide si on peut encore proposer le passage à vie.
+          retenirFormule(subscribed ? user.subscription : null);
           // Le menu lit ce drapeau pour masquer « Passer Pro ». L'événement « storage »
           // ne se déclenche qu'entre onglets : sans ce rappel, un abonné continuerait
           // de voir un bouton l'invitant à payer ce qu'il a déjà payé.
@@ -285,8 +288,8 @@ function App() {
     // c'est-à-dire quand elle sait ce qu'elle achèterait.
   };
 
-  const handleSubscribe = () => {
-    localStorage.setItem('mindset_is_subscribed', 'true');
+  const handleSubscribe = (formule: Formule = 'monthly') => {
+    activerPro(formule);
     setIsSubscribed(true);
     setShowPricingModal(false);
   };

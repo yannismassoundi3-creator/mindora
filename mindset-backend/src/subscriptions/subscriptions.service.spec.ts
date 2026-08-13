@@ -9,6 +9,7 @@ const mockConstruireEvenement = jest.fn();
 const mockListerClients = jest.fn();
 const mockListerAbos = jest.fn();
 const mockListerSessions = jest.fn();
+const mockResilier = jest.fn();
 
 // `import Stripe from 'stripe'` se compile en `stripe_1.default` : le mock doit
 // exposer la classe sous `default`, pas à la racine du module.
@@ -19,7 +20,7 @@ jest.mock('stripe', () => ({
     billingPortal: { sessions: { create: mockCreerPortail } },
     webhooks: { constructEvent: mockConstruireEvenement },
     customers: { list: mockListerClients },
-    subscriptions: { list: mockListerAbos },
+    subscriptions: { list: mockListerAbos, cancel: mockResilier },
   })),
 }));
 
@@ -545,5 +546,123 @@ describe('SubscriptionsService — adresse de retour', () => {
     await service.createCheckoutSession('u1', 'monthly');
 
     expect(retour()).toBe('https://disciplix-ai.vercel.app/?success=true');
+  });
+});
+
+/**
+ * Le passage du mensuel au définitif.
+ *
+ * Un achat « à vie » ne remplace rien tout seul chez Stripe : c'est un paiement unique,
+ * qui laisse vivre l'abonnement récurrent existant. Sans résiliation explicite,
+ * quelqu'un paie 99,99 € puis continue d'être débité de 9,99 € chaque mois pour la
+ * même chose — et ne s'en aperçoit qu'en lisant son relevé.
+ */
+describe('SubscriptionsService — achat à vie et prélèvement mensuel', () => {
+  let service: SubscriptionsService;
+  const upsert = jest.fn();
+  const majUtilisateur = jest.fn();
+  const updateMany = jest.fn();
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    jest.spyOn(console, 'log').mockImplementation(() => undefined);
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test';
+    mockListerClients.mockResolvedValue({ data: [] });
+    mockListerAbos.mockResolvedValue({ data: [] });
+    mockListerSessions.mockResolvedValue({ data: [] });
+    mockResilier.mockResolvedValue({});
+    updateMany.mockResolvedValue({ count: 1 });
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        SubscriptionsService,
+        {
+          provide: PrismaService,
+          useValue: {
+            user: {
+              findUnique: jest.fn().mockResolvedValue({ id: 'u1', email: 'y@example.com', stripe_customer_id: null }),
+              update: majUtilisateur,
+            },
+            subscription: { upsert, updateMany },
+          },
+        },
+      ],
+    }).compile();
+    service = module.get<SubscriptionsService>(SubscriptionsService);
+  });
+
+  afterEach(() => jest.restoreAllMocks());
+
+  const achatAVie = (customer = 'cus_1') => {
+    mockConstruireEvenement.mockReturnValue({
+      type: 'checkout.session.completed',
+      data: { object: { client_reference_id: 'u1', mode: 'payment', customer, subscription: null } },
+    });
+    return service.handleWebhook('sig', Buffer.from('{}'));
+  };
+
+  it('résilie le mensuel en cours quand l’achat à vie aboutit', async () => {
+    mockListerAbos.mockResolvedValue({ data: [{ id: 'sub_mensuel', status: 'active' }] });
+
+    await achatAVie();
+
+    expect(mockResilier).toHaveBeenCalledWith('sub_mensuel');
+  });
+
+  it('résilie aussi un essai en cours', async () => {
+    // Un essai ne prélève rien aujourd'hui, mais il prélèvera dans sept jours.
+    mockListerAbos.mockResolvedValue({ data: [{ id: 'sub_essai', status: 'trialing' }] });
+
+    await achatAVie();
+
+    expect(mockResilier).toHaveBeenCalledWith('sub_essai');
+  });
+
+  it('ne touche pas à un abonnement déjà résilié', async () => {
+    mockListerAbos.mockResolvedValue({ data: [{ id: 'sub_vieux', status: 'canceled' }] });
+
+    await achatAVie();
+
+    expect(mockResilier).not.toHaveBeenCalled();
+  });
+
+  it('ne résilie rien sur un abonnement mensuel classique', async () => {
+    // Le mode « subscription » est l'achat du mensuel lui-même : le résilier dans la
+    // foulée annulerait l'abonnement qu'on vient de vendre.
+    mockConstruireEvenement.mockReturnValue({
+      type: 'checkout.session.completed',
+      data: { object: { client_reference_id: 'u1', mode: 'subscription', customer: 'cus_1', subscription: 'sub_1' } },
+    });
+
+    await service.handleWebhook('sig', Buffer.from('{}'));
+
+    expect(mockResilier).not.toHaveBeenCalled();
+  });
+
+  it('accorde quand même l’accès si la résiliation échoue', async () => {
+    // Refuser l'accès à vie parce que Stripe n'a pas pu résilier le mensuel serait la
+    // pire des deux issues : la personne a payé, et une exception ferait rejouer
+    // l'événement par Stripe pendant trois jours.
+    mockListerAbos.mockResolvedValue({ data: [{ id: 'sub_mensuel', status: 'active' }] });
+    mockResilier.mockRejectedValue(new Error('Stripe indisponible'));
+
+    await expect(achatAVie()).resolves.toEqual({ received: true });
+    expect(upsert).toHaveBeenCalled();
+  });
+
+  it('résilie aussi quand c’est la réconciliation qui découvre l’achat à vie', async () => {
+    // Le webhook n'est pas fiable : c'est toute la raison d'être de la réconciliation.
+    // Elle doit donc rattraper le double prélèvement, pas seulement l'accès.
+    mockListerClients.mockResolvedValue({ data: [{ id: 'cus_7' }] });
+    mockListerAbos.mockResolvedValue({
+      data: [{ id: 'sub_a_resilier', customer: 'cus_7', status: 'active', cancel_at_period_end: false, items: { data: [] } }],
+    });
+    mockListerSessions.mockResolvedValue({ data: [{ mode: 'payment', payment_status: 'paid' }] });
+
+    const res = await service.verifierAbonnement('u1');
+
+    expect(res.formule).toBe('lifetime');
+    expect(mockResilier).toHaveBeenCalledWith('sub_a_resilier');
   });
 });
