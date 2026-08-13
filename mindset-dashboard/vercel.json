@@ -1,7 +1,13 @@
 {
+  "rewrites": [
+    {
+      "source": "/api/:chemin*",
+      "destination": "https://mindora-backend-haku.onrender.com/:chemin*"
+    }
+  ],
   "headers": [
     {
-      "source": "/(.*)",
+      "source": "/((?!api/).*)",
       "headers": [
         {
           "key": "Cache-Control",
