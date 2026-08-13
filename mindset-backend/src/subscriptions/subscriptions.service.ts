@@ -199,6 +199,17 @@ export class SubscriptionsService {
 
     const enSeconde = (t?: number | null) => (typeof t === 'number' ? new Date(t * 1000) : null);
 
+    // La destination Stripe envoie ses événements dans SA version d'API — ici
+    // 2026-06-24.dahlia — quelle que soit celle déclarée par le SDK (14.25.0, figé sur
+    // 2023-10-16). Or depuis Basil (2025-03-31), « current_period_start » et
+    // « current_period_end » ne sont plus sur l'abonnement : ils vivent sur chacun de
+    // ses items. Les lire à la racine ne lèverait aucune erreur, les deux colonnes
+    // seraient simplement restées vides pour toujours. On accepte les deux emplacements
+    // pour ne dépendre ni de la version du SDK ni de celle de la destination.
+    const item = (sub as any).items?.data?.[0];
+    const debut = (sub as any).current_period_start ?? item?.current_period_start;
+    const fin = (sub as any).current_period_end ?? item?.current_period_end;
+
     // updateMany plutôt que update : l'abonnement peut appartenir à un compte supprimé,
     // ou l'événement précéder le checkout qui l'a créé. Aucune ligne touchée est un
     // résultat valable, là où `update` lèverait P2025 et ferait répondre 500 à Stripe —
@@ -207,8 +218,8 @@ export class SubscriptionsService {
       where: { stripe_sub_id: sub.id },
       data: {
         status: statut,
-        current_period_start: enSeconde((sub as any).current_period_start),
-        current_period_end: enSeconde((sub as any).current_period_end),
+        current_period_start: enSeconde(debut),
+        current_period_end: enSeconde(fin),
         cancel_at_period_end: sub.cancel_at_period_end ?? false,
       },
     });

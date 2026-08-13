@@ -213,6 +213,46 @@ describe('SubscriptionsService — cycle de vie de l’abonnement', () => {
     expect(data.current_period_end).toEqual(new Date(1_702_592_000 * 1000));
   });
 
+  it('lit les dates de période au format envoyé par la destination', async () => {
+    // La destination est configurée en 2026-06-24.dahlia, le SDK est figé sur
+    // 2023-10-16. Depuis Basil (2025-03-31), les périodes ne sont plus sur
+    // l'abonnement mais sur ses items — les lire à la racine ne lève aucune erreur,
+    // les colonnes seraient simplement restées vides pour toujours.
+    const versionRecente = {
+      id: 'sub_123',
+      status: 'active',
+      cancel_at_period_end: false,
+      items: { data: [{ current_period_start: 1_700_000_000, current_period_end: 1_702_592_000 }] },
+    };
+
+    await envoyer('customer.subscription.updated', versionRecente);
+
+    const data = updateMany.mock.calls[0][0].data;
+    expect(data.current_period_start).toEqual(new Date(1_700_000_000 * 1000));
+    expect(data.current_period_end).toEqual(new Date(1_702_592_000 * 1000));
+  });
+
+  it('accepte encore les dates à la racine des anciennes versions', async () => {
+    await envoyer('customer.subscription.updated', abonnement({}));
+
+    expect(updateMany.mock.calls[0][0].data.current_period_end).toEqual(
+      new Date(1_702_592_000 * 1000),
+    );
+  });
+
+  it('enregistre le statut même sans aucune date exploitable', async () => {
+    // Couper l'accès ne doit jamais dépendre d'un champ décoratif.
+    await envoyer('customer.subscription.updated', {
+      id: 'sub_123',
+      status: 'past_due',
+      cancel_at_period_end: false,
+    });
+
+    const data = updateMany.mock.calls[0][0].data;
+    expect(data.status).toBe('PAST_DUE');
+    expect(data.current_period_end).toBeNull();
+  });
+
   it('traduit une résiliation définitive en CANCELED', async () => {
     await envoyer('customer.subscription.deleted', abonnement({ status: 'canceled' }));
 
