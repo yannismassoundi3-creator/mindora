@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, Area, AreaChart } from 'recharts';
-import { Play, CheckCircle2, TrendingUp, Zap, Sparkles, Pencil, Coins, Circle, ChevronLeft, ChevronRight, Plus, Trophy, Calendar, Trash2, X } from 'lucide-react';
+import { Play, CheckCircle2, TrendingUp, Sparkles, Pencil, Coins, Circle, ChevronLeft, ChevronRight, Plus, Trophy, Calendar, Trash2, X } from 'lucide-react';
 import { AiNotification } from '../components/AiNotification';
 import { RankIcon } from '../components/RankIcon';
 import { VictoryGlitchOverlay } from '../components/VictoryGlitchOverlay';
 import { JarvisPopup } from '../components/JarvisPopup';
 import { NotificationsOptIn } from '../components/NotificationsOptIn';
 import { RelanceOffre } from '../components/RelanceOffre';
+import { BandeauCommande } from '../components/BandeauCommande';
+import type { ProchaineAction } from '../components/BandeauCommande';
 import type { JarvisPopupData } from '../components/JarvisPopup';
 import { api } from '../services/api';
 import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
@@ -128,6 +130,7 @@ interface DashboardProps {
 export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   const [currentDate, setCurrentDate] = useState('');
   const heatmapRef = useRef<HTMLDivElement>(null);
+  const routinesRef = useRef<HTMLElement>(null);
   const [isSubscribed, setIsSubscribed] = useState(() => localStorage.getItem('mindset_is_subscribed') === 'true');
   const [showRankGlitch, setShowRankGlitch] = useState(false);
   const [jarvisPopup, setJarvisPopup] = useState<JarvisPopupData | null>(null);
@@ -524,6 +527,45 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   const [activeChartTab, setActiveChartTab] = useState('today');
   const currentGroup = routineGroups[currentRoutineIndex] || { title: 'Aucune routine', desc: 'Créez vos routines', items: [] };
 
+  /*
+    La prochaine action affichée par le bandeau : la première tâche du jour encore
+    à faire, en parcourant les créneaux dans l'ordre.
+
+    Il n'y a rien à trier par l'heure — une tâche porte une durée ("8 min"), pas un
+    horaire. L'ordre matin → midi → soir est déjà celui de la journée, et le nom du
+    créneau est affiché justement pour qu'une tâche du matin retrouvée le soir se
+    lise comme un retard et non comme une erreur.
+  */
+  const NOMS_CRENEAUX: Record<string, string> = { morning: 'Matin', midday: 'Midi', evening: 'Soir' };
+
+  const prochaineAction: ProchaineAction | null = (() => {
+    if (!Array.isArray(routineGroups)) return null;
+    for (let i = 0; i < routineGroups.length; i++) {
+      const groupe = routineGroups[i];
+      const tache = tachesDuJour(groupe).find((t: any) => !t.done);
+      if (tache) {
+        return {
+          id: tache.id,
+          titre: tache.title || 'Tâche',
+          duree: tache.time,
+          creneau: NOMS_CRENEAUX[groupe?.id] || groupe?.title || '',
+          indexGroupe: i,
+        };
+      }
+    }
+    return null;
+  })();
+
+  // Le bandeau ne coche pas seulement : il permet aussi d'aller voir la tâche dans
+  // sa liste. Il faut alors amener le carrousel sur le bon créneau — sinon on
+  // arrive sur la liste d'un autre moment de la journée, sans la tâche annoncée.
+  const allerALaTache = (indexGroupe: number) => {
+    playClickSound();
+    setActiveRightTab('routines');
+    setCurrentRoutineIndex(indexGroupe);
+    routinesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editTime, setEditTime] = useState('');
@@ -677,15 +719,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (mentalScore / 100) * circumference;
 
-  const getStreakMessage = () => {
-    if (streak === 0) return "Commence ta première routine pour lancer ta série !";
-    if (streak < 3) return "Bon début ! Continue pour construire l'habitude.";
-    if (streak < 7) return "Belle régularité ! Tu construis ta discipline.";
-    if (streak < 14) return "Impressionnant ! Tu es en mode champion.";
-    if (streak < 30) return "Incroyable ! Très peu de gens tiennent aussi longtemps.";
-    return "Légendaire ! Tu es un vrai warrior du mindset.";
-  };
-
   const getFlameStyle = (streakValue: number): React.CSSProperties => {
     if (streakValue <= 1) {
       return { filter: 'grayscale(100%)', opacity: 0.3, animation: 'none' };
@@ -784,6 +817,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
           </button>
         </div>
       </header>
+
+      {/*
+        Le bandeau passe avant les cartes d'avertissement : il porte l'état de la
+        journée et le geste suivant, c'est-à-dire la raison d'ouvrir l'application.
+        Une invitation aux notifications ou à l'abonnement ne passe pas devant.
+      */}
+      <BandeauCommande
+        score={mentalScore}
+        serie={streak}
+        faites={doneRoutines}
+        total={totalRoutines}
+        prochaine={prochaineAction}
+        seriePerdue={parseInt(localStorage.getItem('mindset_lost_streak') || '0', 10)}
+        styleFlamme={getFlameStyle(streak)}
+        nomIa={aiName}
+        onCocher={toggleRoutine}
+        onAller={allerALaTache}
+        onOuvrirChat={() => { playClickSound(); onOpenChat(); }}
+      />
 
       <NotificationsOptIn />
       {/* Après la carte des notifications : les deux ne s'affichent presque jamais
@@ -980,32 +1032,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
         </div>
         
         <div className="dashboard-right-col">
-          {/* Stats Row */}
-          <div className="stats-row">
-            <div className="glass-panel stat-card streak-card glass-panel-interactive" style={{ position: 'relative', overflow: 'visible' }}>
-              <div className="streak-glow"></div>
-              <div className="stat-icon purple"><Zap size={28} /></div>
-              <div className="stat-info">
-                <span className="stat-label">Série de focus</span>
-                <div className="stat-value highlight-streak">
-                  <span className="streak-text">
-                    {streak} Jour{streak > 1 ? 's' : ''}
-                  </span>
-                  <span className={streak > 1 ? 'animated' : ''}>
-                    <span className="fire-emoji" style={getFlameStyle(streak)}>🔥</span>
-                  </span>
-                </div>
-                <span className="streak-hint">{getStreakMessage()}</span>
-              </div>
+          {/*
+            La carte « Série de focus » a été retirée d'ici : la série est passée
+            dans le bandeau du haut, où elle est vue à l'ouverture. La garder aurait
+            affiché deux fois le même nombre sur le même écran — et cette carte
+            coûtait 125 px de la hauteur du premier écran sur téléphone.
 
-              {streak <= 1 && parseInt(localStorage.getItem('mindset_lost_streak') || '0', 10) > 1 && (
-                <div className="ai-streak-warning">
-                  <div className="ai-warning-bubble">
-                    <strong>Coach IA</strong> : Tu as perdu ta série de {localStorage.getItem('mindset_lost_streak')} jours. Reprends-toi en main, on reconstruit ça dès aujourd'hui !
-                  </div>
-                </div>
-              )}
-            </div>
+            Son message d'encouragement (`getStreakMessage`) est parti avec elle : il
+            commentait la série sans rien apprendre. L'avertissement de série perdue,
+            lui, a suivi la série dans le bandeau.
+          */}
+          <div className="stats-row">
             <div className="glass-panel stat-card glass-panel-interactive">
               <div className="stat-icon blue"><Trophy size={22} /></div>
               <div className="stat-info">
@@ -1020,7 +1057,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
             </div>
           </div>
   
-          <section className="glass-panel routines-section" style={{ display: 'flex', flexDirection: 'column' }}>
+          <section ref={routinesRef} className="glass-panel routines-section" style={{ display: 'flex', flexDirection: 'column' }}>
             <div className="section-header" style={{ marginBottom: '20px' }}>
               <div className="chart-tabs" style={{ width: '100%', display: 'flex' }}>
                 <button 

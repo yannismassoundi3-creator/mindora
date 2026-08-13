@@ -1,0 +1,234 @@
+/*
+  Bandeau de commandement — voir l'en-tête de BandeauCommande.tsx.
+
+  Une ligne sur ordinateur : état de la journée à gauche, prochaine action à
+  droite. Sur téléphone, la ligne se coupe en deux, l'action passant dessous —
+  c'est elle qui doit rester tapable sans faire défiler.
+*/
+
+.bandeau-commande {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 14px 20px;
+  flex-wrap: wrap;
+}
+
+.bandeau-etat {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  flex-shrink: 0;
+}
+
+.bandeau-mesure {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bandeau-anneau {
+  flex-shrink: 0;
+}
+
+.bandeau-flamme {
+  font-size: 1.5rem;
+  line-height: 1;
+  width: 40px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.bandeau-mesure-texte {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.bandeau-mesure-texte strong {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--primary);
+  white-space: nowrap;
+}
+
+.bandeau-mesure-texte span {
+  font-size: 0.72rem;
+  color: var(--secondary);
+  white-space: nowrap;
+}
+
+/*
+  Le séparateur est une bordure et non un élément : sur téléphone la règle change
+  de côté (au-dessus au lieu d'à gauche) sans qu'aucun nœud n'ait à disparaître.
+*/
+.bandeau-action {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  padding-left: 20px;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/*
+  Les trois sélecteurs ci-dessous sont volontairement doublés
+  (`.bandeau-commande .bandeau-…`) et non écrits en classe simple.
+
+  Les thèmes monochromes habillent *tous* les boutons de l'application —
+  `body.theme-monochrome-dark button` impose un `border-radius: 12px` et un halo
+  en `!important`. Ce sélecteur pèse plus lourd qu'une classe seule : la case à
+  cocher ronde revenait carrée, et les deux boutons de texte transparents
+  s'entouraient d'un rectangle lumineux qu'on lisait comme une carte imbriquée.
+  Le halo, lui, ne se retire qu'avec `!important` puisqu'il en porte un.
+*/
+.bandeau-commande .bandeau-cocher {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+}
+
+.bandeau-commande .bandeau-cocher:hover {
+  border-color: rgba(16, 185, 129, 0.6);
+  color: #10b981;
+}
+
+/*
+  Le survol général soulève et agrandit tout bouton, et le thème rallume son halo
+  au passage. Sur une case ronde c'est juste ; sur une ligne de texte large de
+  toute la carte, les quatre pixels de décalage donnent l'impression que le
+  bandeau se décolle.
+
+  Trois classes plus le survol : il faut ce poids pour passer devant
+  `button:not(:disabled):not(.btn-primary):hover`, qui vaut autant de classes plus
+  un élément. Une classe de moins et la règle serait écrite sans effet.
+*/
+.bandeau-commande .bandeau-action .bandeau-cible,
+.bandeau-commande .bandeau-action .bandeau-vide,
+.bandeau-commande .bandeau-action .bandeau-cible:hover,
+.bandeau-commande .bandeau-action .bandeau-vide:hover {
+  box-shadow: none !important;
+  border-radius: 12px;
+}
+
+.bandeau-commande .bandeau-action .bandeau-cible:hover,
+.bandeau-commande .bandeau-action .bandeau-vide:hover {
+  transform: none;
+  background: rgba(255, 255, 255, 0.04);
+  filter: none;
+}
+
+/*
+  `min-width: 0` est obligatoire : sans lui, un fils de flexbox refuse de passer
+  sous la largeur de son contenu et un titre long ne se coupe pas — il déborde et
+  pousse la carte hors de l'écran, ou se casse lettre par lettre.
+*/
+.bandeau-cible,
+.bandeau-vide,
+.bandeau-fini {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+  color: inherit;
+  font-family: inherit;
+}
+
+.bandeau-cible {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  cursor: pointer;
+}
+
+.bandeau-cible-texte {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.bandeau-vide {
+  cursor: pointer;
+  color: var(--accent-text);
+}
+
+.bandeau-fini {
+  color: #10b981;
+}
+
+.bandeau-libelle {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+}
+
+.bandeau-titre {
+  display: block;
+  max-width: 100%;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bandeau-detail {
+  display: block;
+  max-width: 100%;
+  font-size: 0.78rem;
+  color: var(--secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bandeau-alerte {
+  flex-basis: 100%;
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px solid rgba(239, 68, 68, 0.22);
+  font-size: 0.78rem;
+  color: #fca5a5;
+}
+
+@media (max-width: 900px) {
+  .bandeau-commande {
+    gap: 12px;
+    padding: 12px 14px;
+  }
+
+  .bandeau-etat {
+    width: 100%;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .bandeau-action {
+    width: 100%;
+    padding-left: 0;
+    padding-top: 12px;
+    border-left: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+}

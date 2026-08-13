@@ -305,10 +305,6 @@
   gap: 8px;
 }
 
-.fire-emoji {
-  font-size: 1.2rem;
-}
-
 .routines-section {
   padding: 32px;
 }
@@ -612,6 +608,30 @@
     min-width: 0;
     box-sizing: border-box;
   }
+
+  /*
+    La mise en colonne ci-dessus n'a de sens que pour deux cartes qui se partagent
+    la largeur. Depuis que la série est passée dans le bandeau, il n'en reste
+    qu'une : empilée et centrée, elle occupait toujours 125 px de haut pour un
+    seul chiffre. À plat, l'icône à gauche, elle en prend deux fois moins.
+
+    Écrit avec `:only-child` plutôt qu'avec une classe : le jour où une seconde
+    carte revient dans cette rangée, la règle se retire d'elle-même.
+  */
+  .stats-row .stat-card:only-child {
+    flex-direction: row;
+    text-align: left;
+    justify-content: flex-start;
+    gap: 14px;
+    padding: 14px 16px;
+  }
+
+  .stats-row .stat-card:only-child .stat-info {
+    align-items: flex-start;
+    width: auto;
+    flex: 1;
+    min-width: 0;
+  }
   
   .stat-icon {
     width: 36px;
@@ -645,18 +665,6 @@
     text-align: center;
   }
   
-  .highlight-streak {
-    font-size: 1.1rem;
-  }
-  
-  .fire-emoji {
-    font-size: 1rem;
-  }
-  
-  .streak-hint {
-    display: none;
-  }
-
   .routines-section {
     padding: 16px 12px;
     width: 100%;
@@ -1044,36 +1052,11 @@
   font-weight: 500;
 }
 
-.streak-card {
-  position: relative;
-  overflow: hidden;
-  border: 1px solid rgba(239, 68, 68, 0.2);
-}
-
-.streak-glow {
-  position: absolute;
-  top: -50px;
-  right: -50px;
-  width: 150px;
-  height: 150px;
-  background: radial-gradient(circle, rgba(239, 68, 68, 0.2) 0%, transparent 70%);
-  border-radius: 50%;
-  pointer-events: none;
-}
-
-.highlight-streak {
-  font-size: 1.8rem;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.streak-text {
-  background: linear-gradient(90deg, #ef4444, #f97316);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
+/*
+  Les styles de la carte « Série de focus » ont été retirés avec elle : la série
+  est passée dans le bandeau du haut. `@keyframes pulseFire` reste — Habits.css
+  s'en sert, et une règle @keyframes est globale quel que soit le fichier.
+*/
 .animated {
   animation: pulseFire 2s infinite ease-in-out;
   display: inline-block;
@@ -1152,15 +1135,6 @@
 @keyframes pulseGlow {
   0% { box-shadow: 0 8px 20px var(--accent-glow); }
   100% { box-shadow: 0 8px 35px var(--accent-glow); }
-}
-
-/* Streak Hint */
-.streak-hint {
-  color: var(--secondary);
-  font-size: 0.8rem;
-  font-weight: 500;
-  margin-top: 4px;
-  line-height: 1.3;
 }
 
 /* SMARTPHONE OPTIMIZATIONS (iPhone 12/13/14/15, Samsung) */
@@ -1295,50 +1269,11 @@
   100% { left: 150%; }
 }
 
-/* AI Streak Warning Bubble */
-.ai-streak-warning {
-  position: absolute;
-  top: -65px;
-  right: -20px;
-  z-index: 20;
-  animation: floatWarning 3s ease-in-out infinite;
-}
-
-.ai-warning-bubble {
-  background: rgba(20, 20, 30, 0.95);
-  border: 1px solid rgba(239, 68, 68, 0.4);
-  border-radius: 12px;
-  padding: 10px 14px;
-  color: #fff;
-  font-size: 0.8rem;
-  width: 220px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5), 0 0 10px rgba(239, 68, 68, 0.2);
-  position: relative;
-  line-height: 1.4;
-}
-
-.ai-warning-bubble strong {
-  color: #ef4444;
-}
-
-.ai-warning-bubble::after {
-  content: '';
-  position: absolute;
-  bottom: -6px;
-  right: 40px;
-  width: 12px;
-  height: 12px;
-  background: rgba(20, 20, 30, 0.95);
-  border-right: 1px solid rgba(239, 68, 68, 0.4);
-  border-bottom: 1px solid rgba(239, 68, 68, 0.4);
-  transform: rotate(45deg);
-}
-
-@keyframes floatWarning {
-  0% { transform: translateY(0px); }
-  50% { transform: translateY(-5px); }
-  100% { transform: translateY(0px); }
-}
+/*
+  La bulle flottante « tu as perdu ta série » vivait accrochée à la carte de
+  série, en position absolue au-dessus d'elle. La carte partie, la bulle n'a plus
+  d'ancrage : l'avertissement est devenu une ligne dans le bandeau (`.bandeau-alerte`).
+*/
 /*
   Jours d'une tâche de routine non quotidienne.
 
