@@ -43,7 +43,7 @@
   opacity: 0.15;
 }
 
-.habit-header, .habit-heatmap, .habit-actions {
+.habit-header, .habit-quinzaine, .habit-actions {
   position: relative;
   z-index: 1;
 }
@@ -111,30 +111,200 @@
   animation: pulseFire 2s infinite ease-in-out;
 }
 
-/* Heatmap */
-.habit-heatmap {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 6px;
+/*
+  Les quatorze derniers jours.
+
+  Les classes s'appelaient `.heatmap-cell`, exactement comme celles du damier de
+  l'année dans Dashboard.css : deux feuilles, un seul nom, et c'est l'ordre de
+  concaténation du build qui départageait — un piège déjà connu sur ce projet.
+  Elles ont désormais leur nom à elles.
+*/
+.habit-quinzaine {
   background: rgba(0, 0, 0, 0.2);
   padding: 12px;
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.heatmap-cell {
-  aspect-ratio: 1;
-  border-radius: 4px;
-  transition: transform 0.3s ease, opacity 0.3s ease, background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, color 0.3s ease;
+.habit-jours {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
 }
 
-.heatmap-cell.active {
+.habit-jour {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  transition: transform 0.3s ease, background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* L'initiale du jour : sans axe, la rangée n'était qu'une suite de carrés dont
+   personne ne pouvait dire lequel était lundi. */
+.habit-jour-initiale {
+  font-size: 0.6rem;
+  font-weight: 700;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.habit-jour.tenu .habit-jour-initiale {
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.habit-jour.tenu {
   box-shadow: 0 0 10px var(--habit-color);
 }
 
-.heatmap-cell.today {
-  border: 2px solid rgba(255, 255, 255, 0.5);
-  transform: scale(1.1);
+/* Les jours antérieurs à la première validation ne sont pas des échecs :
+   l'habitude n'existait pas encore. */
+.habit-jour.avant {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.05);
+}
+
+.habit-jour.avant .habit-jour-initiale {
+  color: rgba(255, 255, 255, 0.16);
+}
+
+.habit-jour.aujourdhui {
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+.habit-jour.choisi {
+  border-color: #fff;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
+}
+
+/* Le survol général des boutons soulève de quatre pixels : dans une grille
+   serrée, la case sortirait de sa rangée. */
+.habit-jours .habit-jour:hover {
+  transform: scale(1.12);
+  filter: none;
+}
+
+/*
+  La ligne sous la bande : elle porte le prochain palier de la série tant qu'on
+  n'a touché aucun jour, et le jour touché ensuite. C'est ce qui remplace
+  l'infobulle native, inexistante au doigt.
+*/
+.habit-lecture {
+  margin: 10px 0 0;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--secondary);
+  min-height: 1.2em;
+}
+
+/*
+  Le bilan du jour, en tête de page.
+*/
+.habits-bilan {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+  flex-wrap: wrap;
+}
+
+.habits-bilan.complet {
+  border-color: rgba(16, 185, 129, 0.35);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 24px rgba(16, 185, 129, 0.18);
+}
+
+.habits-bilan-tete {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.habits-bilan-tete strong {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--primary);
+  line-height: 1;
+}
+
+.habits-bilan-tete span {
+  font-size: 0.8rem;
+  color: var(--secondary);
+}
+
+.habits-bilan-jauge {
+  flex: 1;
+  min-width: 120px;
+  height: 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.habits-bilan-remplie {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+  transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.habits-bilan.complet .habits-bilan-remplie {
+  background: linear-gradient(90deg, #10b981, #34d399);
+}
+
+.habits-bilan-serie {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  color: var(--secondary);
+}
+
+.habits-bilan-serie strong {
+  color: var(--primary);
+  font-weight: 800;
+}
+
+.habits-bilan-serie svg {
+  color: #fcd34d;
+}
+
+/*
+  Le passage de niveau d'une habitude.
+
+  Il ne se voyait nulle part : un son, et une phrase du coach dans un bandeau qui
+  disparaît au bout de quatre secondes. La carte concernée s'illumine désormais
+  de sa propre couleur, le temps qu'on comprenne d'où vient le chiffre qui
+  s'envole.
+*/
+.habit-card.niveau-passe {
+  animation: habitNiveau 1.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes habitNiveau {
+  0% { box-shadow: 0 0 0 0 var(--habit-color); }
+  25% { box-shadow: 0 0 34px 4px var(--habit-color); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 0, 0, 0); }
+}
+
+.habit-xp {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--secondary);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .habit-card.niveau-passe { animation: none; }
+  .habit-jours .habit-jour:hover { transform: none; }
 }
 
 /* Actions */

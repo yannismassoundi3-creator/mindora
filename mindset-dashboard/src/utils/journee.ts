@@ -31,8 +31,13 @@ export const EVENEMENT_GAIN = 'mindset:gain';
   du Dashboard — l'émettent, et aucun des deux n'a à connaître la couche
   graphique qui l'écoute.
 */
-export function annoncerGain(texte: string, position: { x: number; y: number }, negatif = false) {
-  window.dispatchEvent(new CustomEvent(EVENEMENT_GAIN, { detail: { ...position, texte, negatif } }));
+export function annoncerGain(
+  texte: string,
+  position: { x: number; y: number },
+  negatif = false,
+  couleur?: string,
+) {
+  window.dispatchEvent(new CustomEvent(EVENEMENT_GAIN, { detail: { ...position, texte, negatif, couleur } }));
 }
 
 const NOMS_CRENEAUX: Record<string, string> = {

@@ -20,6 +20,7 @@ interface Gain {
   y: number;
   texte: string;
   negatif: boolean;
+  couleur?: string;
 }
 
 export const GainFlottant: React.FC = () => {
@@ -36,6 +37,7 @@ export const GainFlottant: React.FC = () => {
         y: Math.min(Math.max(detail.y ?? window.innerHeight / 2, 60), window.innerHeight - 40),
         texte: detail.texte || '',
         negatif: !!detail.negatif,
+        couleur: detail.couleur,
       };
       setGains((prev) => [...prev, gain]);
       setTimeout(() => setGains((prev) => prev.filter((g) => g.id !== gain.id)), 1100);
@@ -53,7 +55,16 @@ export const GainFlottant: React.FC = () => {
         <span
           key={g.id}
           className={`gain-flottant ${g.negatif ? 'negatif' : ''}`}
-          style={{ left: `${g.x}px`, top: `${g.y}px` }}
+          /*
+            Une habitude porte sa couleur : le chiffre qui s'envole reprend la
+            sienne, sinon toutes les récompenses de l'application se ressemblent
+            et l'on ne sait plus laquelle vient d'être touchée.
+          */
+          style={
+            g.couleur
+              ? ({ left: `${g.x}px`, top: `${g.y}px`, color: g.couleur, '--halo': `${g.couleur}aa` } as React.CSSProperties)
+              : { left: `${g.x}px`, top: `${g.y}px` }
+          }
         >
           {g.texte}
         </span>

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Trophy, TrendingUp, Calendar, Zap, AlertTriangle, Play, Edit2, Pencil, Trash2, Plus, Target, BookOpen, Dumbbell, Brain, Coffee, Sparkles, X } from 'lucide-react';
 import { playLevelUpSound, playClickSound, playErrorSound, playBloopSound } from '../utils/sounds';
 import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
+import { annoncerGain } from '../utils/journee';
 import { api } from '../services/api';
 import './Habits.css';
 
@@ -69,6 +70,44 @@ function calculateLevel(xp: number): number {
   return Math.floor(Math.sqrt(xp / 50)) + 1;
 }
 
+const INITIALES_JOURS = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
+
+/*
+  Les paliers d'une série, et ce qu'il reste à faire pour atteindre le prochain.
+
+  Le nombre de jours était affiché seul, à côté d'un éclair. Un chiffre nu ne dit
+  ni où il mène ni ce qu'on risque de perdre : « 3 » ne pèse rien, « encore 4 pour
+  la semaine parfaite » fait revenir demain. C'est toute la différence entre un
+  compteur et un enjeu.
+*/
+const PALIERS_SERIE = [3, 7, 14, 30, 60, 100, 365];
+
+function prochainPalier(serie: number): { cible: number; restant: number } | null {
+  const cible = PALIERS_SERIE.find((p) => p > serie);
+  return cible ? { cible, restant: cible - serie } : null;
+}
+
+function nomPalier(cible: number): string {
+  if (cible === 3) return 'le cap des 3 jours';
+  if (cible === 7) return 'la semaine parfaite';
+  if (cible === 14) return 'les deux semaines';
+  if (cible === 30) return 'le mois complet';
+  if (cible === 365) return "l'année entière";
+  return `les ${cible} jours`;
+}
+
+// L'XP restant avant le niveau suivant, calculé à l'envers de `calculateLevel`
+// pour que la barre et le nombre ne puissent pas se contredire.
+function xpDuNiveau(niveau: number): number {
+  return 50 * Math.pow(niveau - 1, 2);
+}
+
+function libelleJourHabitude(cle: string, fait: boolean, avantLeDebut: boolean): string {
+  const date = new Date(cle).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  if (avantLeDebut) return `${date} — habitude pas encore commencée`;
+  return fait ? `${date} — tenue` : `${date} — manquée`;
+}
+
 export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
   const [habits, setHabits] = useState<Habit[]>(() => {
     const saved = localStorage.getItem('mindset_habits');
@@ -109,6 +148,13 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
 
   // Edit Modal State
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
+
+  // La carte qui vient de passer un niveau, le temps de son éclat.
+  const [habitFetee, setHabitFetee] = useState<string | null>(null);
+
+  // Le jour touché dans la bande des quatorze jours, et sur quelle carte : deux
+  // cartes ne peuvent pas afficher une lecture en même temps.
+  const [jourLu, setJourLu] = useState<{ habitId: string; jour: string } | null>(null);
 
   useEffect(() => {
     localStorage.setItem('mindset_habits', JSON.stringify(habits));
@@ -159,6 +205,7 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
     const today = getTodayKey();
     let habitCompletedNow = false;
     let leveledUp = false;
+    let nouveauNiveau = 1;
     let currentHabitName = "";
     let currentStreak = 0;
     let habitColor = '#ffffff';
@@ -180,9 +227,10 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
           currentStreak = calculateStreak(newHistory);
           const newXp = h.xp + 20;
           const newLevel = calculateLevel(newXp);
-          
+          nouveauNiveau = newLevel;
+
           if (newLevel > h.level) leveledUp = true;
-          
+
           return { ...h, history: newHistory, xp: newXp, level: newLevel };
         }
       }
@@ -200,6 +248,23 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
       setPoints(newPoints);
       setSecurePoints(newPoints);
       window.dispatchEvent(new CustomEvent('pointsChanged', { detail: newPoints }));
+
+      /*
+        La récompense se voyait au hasard : le « +15 Coins » ne s'affichait que
+        dans le message du coach, et seulement une fois sur trois (`Math.random`).
+        Le reste du temps, valider une habitude ne rapportait visiblement rien.
+        Le chiffre part maintenant du bouton, à chaque fois, dans la couleur de
+        l'habitude — et le passage de niveau prend la place juste après.
+      */
+      annoncerGain(`+${pointsGained}`, { x: e.clientX, y: e.clientY }, false, habitColor);
+      if (leveledUp) {
+        setHabitFetee(habitId);
+        setTimeout(() => setHabitFetee((actuel) => (actuel === habitId ? null : actuel)), 1400);
+        setTimeout(
+          () => annoncerGain(`Niveau ${nouveauNiveau}`, { x: e.clientX, y: e.clientY - 34 }, false, habitColor),
+          260,
+        );
+      }
 
       // Le solde qui autorise l'IA est tenu par le serveur ; la clé porte le jour
       // pour qu'une habitude ne rapporte qu'une fois par jour.
@@ -229,6 +294,7 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
       setPoints(newPoints);
       setSecurePoints(newPoints);
       window.dispatchEvent(new CustomEvent('pointsChanged', { detail: newPoints }));
+      annoncerGain(`−${pointsGained}`, { x: e.clientX, y: e.clientY }, true);
     }
   };
 
@@ -345,24 +411,68 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
         </div>
       )}
 
+      {/*
+        Le bilan du jour.
+
+        La page alignait des cartes sans jamais dire où en était la journée : pour
+        savoir s'il restait quelque chose à tenir, il fallait descendre et lire
+        chaque bouton. Une ligne suffit à répondre, et c'est elle qui donne à la
+        page un début et une fin.
+      */}
+      {habits.length > 0 && (() => {
+        const tenues = habits.filter((h) => h.history.includes(getTodayKey())).length;
+        const meilleure = habits.reduce((max, h) => Math.max(max, calculateStreak(h.history)), 0);
+        const part = Math.round((tenues / habits.length) * 100);
+        const tout = tenues === habits.length;
+
+        return (
+          <section className={`habits-bilan glass-panel ${tout ? 'complet' : ''}`}>
+            <div className="habits-bilan-tete">
+              <strong>
+                {tenues} / {habits.length}
+              </strong>
+              <span>{tout ? 'toutes tenues aujourd’hui' : 'tenues aujourd’hui'}</span>
+            </div>
+            <div className="habits-bilan-jauge">
+              <div className="habits-bilan-remplie" style={{ width: `${part}%` }} />
+            </div>
+            <div className="habits-bilan-serie">
+              <Zap size={15} />
+              <span>
+                meilleure série <strong>{meilleure} j</strong>
+              </span>
+            </div>
+          </section>
+        );
+      })()}
+
       <div className="habits-grid">
         {habits.map(habit => {
           const isDoneToday = habit.history.includes(getTodayKey());
           const streak = calculateStreak(habit.history);
           const isSubscribed = localStorage.getItem('mindset_is_subscribed') === 'true';
           const isIronFocus = streak >= 7 && isSubscribed;
-          
+          const palier = prochainPalier(streak);
+          // Avant sa première validation, l'habitude n'existait pas : ses jours ne
+          // sont pas des échecs. Même distinction que sur le damier de l'année.
+          const debut = habit.history.length > 0 ? [...habit.history].sort()[0] : getTodayKey();
+          const xpNiveau = xpDuNiveau(habit.level);
+          const xpSuivant = xpDuNiveau(habit.level + 1);
+          const dansLeNiveau = Math.max(0, habit.xp - xpNiveau);
+          const largeurNiveau = Math.max(1, xpSuivant - xpNiveau);
+          const lecture = jourLu?.habitId === habit.id ? jourLu.jour : null;
+
           return (
-            <div 
-              key={habit.id} 
-              className={`habit-card glass-panel-interactive glass-liquid ${isDoneToday ? 'done' : ''} ${isIronFocus ? 'iron-focus' : ''}`} 
+            <div
+              key={habit.id}
+              className={`habit-card glass-panel-interactive glass-liquid ${isDoneToday ? 'done' : ''} ${isIronFocus ? 'iron-focus' : ''} ${habitFetee === habit.id ? 'niveau-passe' : ''}`}
               style={{ '--habit-color': habit.color } as any}
               onMouseMove={(e) => handleMouseMove(e, streak)}
               onMouseLeave={handleMouseLeave}
             >
               <div className="hologram-glare"></div>
               <div className="habit-glow-bg"></div>
-              
+
               <div className="habit-header">
                 <div className="habit-icon-wrapper" style={{ color: habit.color, borderColor: habit.color, boxShadow: `0 0 15px ${habit.color}40` }}>
                   {getIconComponent(habit.icon)}
@@ -370,42 +480,66 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
                 <div className="habit-title-area">
                   <h3>{habit.title}</h3>
                   <div className="habit-level-bar">
-                    <span className="habit-level">Lvl {habit.level}</span>
+                    <span className="habit-level">Niv. {habit.level}</span>
                     <div className="xp-bar-bg">
-                      <div className="xp-bar-fill" style={{ width: `${(habit.xp % 50) / 50 * 100}%`, backgroundColor: habit.color }}></div>
+                      <div className="xp-bar-fill" style={{ width: `${(dansLeNiveau / largeurNiveau) * 100}%`, backgroundColor: habit.color }}></div>
                     </div>
+                    {/* Le chiffre manquait : une barre seule ne dit pas si le
+                        prochain niveau est à une validation ou à dix. */}
+                    <span className="habit-xp">{dansLeNiveau}/{largeurNiveau} XP</span>
                   </div>
                 </div>
                 <div className="habit-streak">
                   <span className="streak-num">{streak}</span>
                   <Zap size={16} className={`streak-icon ${streak > 0 ? 'active' : ''}`} style={{ color: streak > 0 ? '#fcd34d' : 'var(--secondary)' }} />
                 </div>
-                
+
                 <button className="edit-habit-btn" onClick={() => { playClickSound(); setEditingHabit(habit); }}>
                   <Pencil size={14} />
                 </button>
               </div>
 
-              <div className="habit-heatmap">
-                {heatmapDays.map(day => {
-                  const isDayDone = habit.history.includes(day);
-                  const isToday = day === getTodayKey();
-                  return (
-                    <div 
-                      key={day} 
-                      className={`heatmap-cell ${isDayDone ? 'active' : ''} ${isToday ? 'today' : ''}`}
-                      style={{ backgroundColor: isDayDone ? habit.color : 'rgba(255,255,255,0.05)' }}
-                      title={day}
-                    />
-                  );
-                })}
+              <div className="habit-quinzaine">
+                <div className="habit-jours">
+                  {heatmapDays.map(day => {
+                    const fait = habit.history.includes(day);
+                    const aujourdhui = day === getTodayKey();
+                    const avant = day < debut;
+                    return (
+                      /*
+                        Un bouton, et l'initiale du jour dessous : la bande était
+                        une rangée de carrés muets, sans axe et sans infobulle
+                        utilisable au doigt. On ne pouvait pas dire quel carré
+                        était quel jour, ni distinguer un jour manqué d'un jour
+                        antérieur à l'habitude.
+                      */
+                      <button
+                        key={day}
+                        type="button"
+                        className={`habit-jour ${fait ? 'tenu' : ''} ${aujourdhui ? 'aujourdhui' : ''} ${avant ? 'avant' : ''} ${lecture === day ? 'choisi' : ''}`}
+                        style={fait ? { backgroundColor: habit.color, borderColor: habit.color } : undefined}
+                        onClick={() => setJourLu(lecture === day ? null : { habitId: habit.id, jour: day })}
+                        aria-label={libelleJourHabitude(day, fait, avant)}
+                      >
+                        <span className="habit-jour-initiale">{INITIALES_JOURS[new Date(day).getDay()]}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="habit-lecture">
+                  {lecture
+                    ? libelleJourHabitude(lecture, habit.history.includes(lecture), lecture < debut)
+                    : palier
+                      ? `Encore ${palier.restant} jour${palier.restant > 1 ? 's' : ''} pour ${nomPalier(palier.cible)}.`
+                      : 'Série maximale atteinte.'}
+                </p>
               </div>
 
               <div className="habit-actions">
-                <button 
+                <button
                   className={`btn-habit-complete ${isDoneToday ? 'completed' : ''}`}
                   onClick={(e) => toggleHabitToday(e, habit.id)}
-                  style={{ 
+                  style={{
                     backgroundColor: '#000',
                     borderColor: isDoneToday ? habit.color : 'rgba(255,255,255,0.2)',
                     color: '#fff',
