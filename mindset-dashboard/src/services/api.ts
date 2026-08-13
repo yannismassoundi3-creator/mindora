@@ -1,6 +1,19 @@
 import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://mindora-backend-haku.onrender.com'; // NestJS Backend
+/**
+ * L'API est jointe sous notre propre domaine, et non à son adresse Render.
+ *
+ * Ce n'est pas une préférence d'écriture : `/api/*` est réécrit vers Render par
+ * Vercel (`vercel.json`), si bien que le navigateur ne voit plus qu'un seul site
+ * là où il en voyait deux. Le cookie de session cesse donc d'être un cookie
+ * tiers — ceux-là, Safari les bloque tous par défaut, et sur iPhone tous les
+ * navigateurs reposent sur WebKit. C'est ce qui renvoyait à l'écran de connexion
+ * à chaque ouverture de l'application.
+ *
+ * En développement, front et API sont déjà deux serveurs locaux : `VITE_API_URL`
+ * pointe alors directement sur le backend.
+ */
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 /**
  * Un seul rafraîchissement à la fois.
@@ -57,16 +70,17 @@ async function rafraichirSession(): Promise<boolean> {
 
   const tentative = (async () => {
     try {
-      // Deux chemins, parce qu'un seul ne suffit pas.
+      // Deux chemins, dont un qui devrait désormais suffire.
       //
-      // credentials: 'include' envoie le cookie de session, qui vit sur le domaine de
-      // l'API et non sur celui du front. Mais justement : ce sont deux domaines, donc
-      // pour le navigateur c'est un cookie tiers — et Safari les bloque tous par
-      // défaut. Sur iPhone, où tous les navigateurs reposent sur WebKit, le cookie
-      // n'arrivait jamais : la session tombait au bout de quinze minutes et il
-      // fallait se reconnecter à chaque ouverture de l'application.
+      // credentials: 'include' envoie le cookie de session. Depuis que l'API est
+      // jointe sous notre propre domaine, ce cookie est de première partie et plus
+      // rien ne le bloque — c'est le bon chemin, parce qu'un cookie `httpOnly`
+      // échappe aux scripts et donc à une éventuelle faille XSS.
       //
-      // On présente donc aussi le jeton conservé ici. Le serveur prend le cookie
+      // Le jeton conservé ici part quand même, en second. Tant que le trajet du
+      // cookie à travers la réécriture n'est pas prouvé par une vraie session de
+      // plus de quinze minutes, le retirer, c'est risquer de renvoyer tout le monde
+      // à l'écran de connexion pour la troisième fois. Le serveur prend le cookie
       // quand il l'a, ce corps sinon.
       const res = await fetch(`${API_URL}/auth/refresh`, {
         method: 'POST',

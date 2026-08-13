@@ -54,9 +54,15 @@ export class AuthController {
    * compromis assumé : un jeton lisible par le script est exposé à une injection de
    * code, là où `httpOnly` l'en protégeait. Deux choses le bornent, et existaient
    * déjà : il est remplacé à chaque usage, et rejouer un jeton déjà consommé révoque
-   * toutes les sessions du compte. La solution sans compromis serait de servir l'API
-   * derrière le même domaine que le front — c'est un changement d'infrastructure, pas
-   * un correctif.
+   * toutes les sessions du compte.
+   *
+   * La solution sans compromis est en place depuis : le front joint l'API sous son
+   * propre domaine, par une réécriture Vercel, et le cookie redevient de première
+   * partie. Le chemin par le corps subsiste tant que deux choses ne sont pas
+   * acquises — qu'une vraie session d'iPhone tienne au-delà de quinze minutes, et
+   * que plus personne ne fasse tourner l'ancien script, qui appelle encore Render en
+   * direct. Le jour où c'est vérifié, ce retour du jeton dans le corps est à
+   * retirer : il n'aura plus de raison d'être.
    */
   private setRefreshTokenCookie(response: Response, refreshToken: string) {
     response.cookie('refresh_token', refreshToken, {

@@ -24,7 +24,12 @@ export default defineConfig({
         // indéfiniment l'ancienne version. Pour une page de CGU, servir une version
         // périmée n'est pas seulement gênant : ce n'est plus le bon contrat.
         globIgnores: ['**/landing.html', '**/legal.html'],
-        navigateFallbackDenylist: [/^\/landing\.html/, /^\/legal\.html/]
+        // `/api/` n'est pas une route de l'application mais le chemin de l'API,
+        // renvoyée vers Render par une réécriture Vercel. Les appels partent en
+        // `fetch` et échappent donc déjà à ce repli, qui ne vise que les
+        // navigations — mais une adresse d'API ouverte à la main répondrait 200
+        // avec la coquille React, ce qui ne ressemble à rien.
+        navigateFallbackDenylist: [/^\/landing\.html/, /^\/legal\.html/, /^\/api\//]
       }
     })
   ],
