@@ -20,12 +20,28 @@ export class AiQuotaService {
     return new Date(now.getFullYear(), now.getMonth(), 1);
   }
 
+  /**
+   * Statuts qui ouvrent le Pro.
+   *
+   * L'essai de 7 jours est un abonnement payant qui n'a pas encore été débité :
+   * il donne droit à tout. Tant que le webhook écrivait « ACTIVE » à l'ouverture
+   * quoi qu'il arrive, la distinction n'existait pas ; maintenant qu'il écrit le
+   * statut réel de Stripe, oublier TRIALING ici couperait l'accès à toute personne
+   * en cours d'essai — c'est-à-dire à chaque nouvel abonné pendant sa première
+   * semaine.
+   *
+   * PAST_DUE en est volontairement absent : c'est un abonnement dont le paiement a
+   * échoué. Stripe le repasse en « active » de lui-même dès qu'une relance aboutit,
+   * donc l'accès revient sans intervention.
+   */
+  static readonly PAID_STATUSES = ['ACTIVE', 'TRIALING'] as const;
+
   async isSubscribed(userId: string): Promise<boolean> {
     const sub = await this.prisma.subscription.findUnique({
       where: { user_id: userId },
       select: { status: true },
     });
-    return sub?.status === 'ACTIVE';
+    return (AiQuotaService.PAID_STATUSES as readonly string[]).includes(sub?.status ?? '');
   }
 
   async getQuota(userId: string) {

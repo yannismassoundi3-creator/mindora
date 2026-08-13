@@ -169,7 +169,11 @@ function App() {
           await api.downloadCloudState();
 
           const user = await api.get('/auth/me');
-          const subscribed = user.subscription?.status === 'ACTIVE';
+          // TRIALING compte comme abonné : c'est l'essai de 7 jours du forfait mensuel.
+          // Le serveur ouvre le coach dans les deux cas (AiQuotaService.PAID_STATUSES) ;
+          // ne garder qu'ACTIVE ici afficherait « Passer Pro » à quelqu'un qui vient de
+          // souscrire, et lui retirerait le bonus de points des abonnés.
+          const subscribed = ['ACTIVE', 'TRIALING'].includes(user.subscription?.status);
           setIsSubscribed(subscribed);
           localStorage.setItem('mindset_is_subscribed', subscribed ? 'true' : 'false');
           // Le menu lit ce drapeau pour masquer « Passer Pro ». L'événement « storage »

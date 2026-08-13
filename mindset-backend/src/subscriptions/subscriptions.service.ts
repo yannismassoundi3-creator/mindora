@@ -143,19 +143,81 @@ export class SubscriptionsService {
         }
         break;
       
+      // Un abonnement change d'état tout seul, longtemps après l'achat : l'essai de
+      // 7 jours se termine, une carte expire, une relance aboutit. Ces trois événements
+      // sont le seul moyen de l'apprendre.
+      case 'customer.subscription.created':
+      case 'customer.subscription.updated':
       case 'customer.subscription.deleted':
-        const deletedSub = event.data.object as Stripe.Subscription;
-        await this.prisma.subscription.updateMany({
-          where: { stripe_sub_id: deletedSub.id },
-          data: { status: 'CANCELED' }
-        });
+        await this.synchroniserAbonnement(event.data.object as Stripe.Subscription);
         break;
-        
+
       default:
         console.log(`Unhandled event type ${event.type}`);
     }
 
     return { received: true };
+  }
+
+  /**
+   * Traduit un statut Stripe en statut interne.
+   *
+   * « unpaid » rejoint PAST_DUE : Stripe a épuisé ses relances mais n'a pas résilié,
+   * l'abonnement n'est simplement plus payé. « incomplete_expired » rejoint CANCELED :
+   * le tout premier paiement n'a jamais abouti, il n'y a jamais eu d'abonné.
+   */
+  private static readonly STATUTS: Record<string, 'ACTIVE' | 'TRIALING' | 'PAST_DUE' | 'CANCELED' | 'INACTIVE'> = {
+    trialing: 'TRIALING',
+    active: 'ACTIVE',
+    past_due: 'PAST_DUE',
+    unpaid: 'PAST_DUE',
+    canceled: 'CANCELED',
+    incomplete: 'INACTIVE',
+    incomplete_expired: 'CANCELED',
+    paused: 'INACTIVE',
+  };
+
+  /**
+   * Reporte l'état réel d'un abonnement Stripe dans notre base.
+   *
+   * Jusqu'ici seule la résiliation définitive était écoutée, et rien n'écrivait jamais
+   * PAST_DUE ni TRIALING alors que les deux existent dans l'enum. Conséquence : à la fin
+   * de l'essai de 7 jours, un paiement refusé laissait le compte « ACTIVE » — donc le Pro
+   * gratuit à vie, jusqu'à ce que Stripe finisse par résilier de lui-même, ce qu'il ne
+   * fait pas toujours selon le réglage des relances.
+   *
+   * La correspondance se fait sur le seul `stripe_sub_id`, jamais sur le client : un
+   * achat « à vie » est un paiement unique, sans abonnement, et se retrouverait annulé
+   * par la résiliation d'un ancien mensuel du même acheteur.
+   */
+  private async synchroniserAbonnement(sub: Stripe.Subscription) {
+    const statut = SubscriptionsService.STATUTS[sub.status];
+    if (!statut) {
+      console.warn(`[Stripe Webhook] Statut d'abonnement inconnu, ignoré : ${sub.status}`);
+      return;
+    }
+
+    const enSeconde = (t?: number | null) => (typeof t === 'number' ? new Date(t * 1000) : null);
+
+    // updateMany plutôt que update : l'abonnement peut appartenir à un compte supprimé,
+    // ou l'événement précéder le checkout qui l'a créé. Aucune ligne touchée est un
+    // résultat valable, là où `update` lèverait P2025 et ferait répondre 500 à Stripe —
+    // qui le prendrait pour une panne et rejouerait l'événement pendant trois jours.
+    const { count } = await this.prisma.subscription.updateMany({
+      where: { stripe_sub_id: sub.id },
+      data: {
+        status: statut,
+        current_period_start: enSeconde((sub as any).current_period_start),
+        current_period_end: enSeconde((sub as any).current_period_end),
+        cancel_at_period_end: sub.cancel_at_period_end ?? false,
+      },
+    });
+
+    if (count === 0) {
+      console.warn(`[Stripe Webhook] Abonnement ${sub.id} inconnu en base (statut ${sub.status}).`);
+      return;
+    }
+    console.log(`[Stripe Webhook] Abonnement ${sub.id} → ${statut}.`);
   }
 
   async createPortalSession(userId: string) {

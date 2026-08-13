@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 const mockCreerSession = jest.fn();
 const mockCreerPortail = jest.fn();
+const mockConstruireEvenement = jest.fn();
 
 // `import Stripe from 'stripe'` se compile en `stripe_1.default` : le mock doit
 // exposer la classe sous `default`, pas à la racine du module.
@@ -13,7 +14,7 @@ jest.mock('stripe', () => ({
   default: jest.fn().mockImplementation(() => ({
     checkout: { sessions: { create: mockCreerSession } },
     billingPortal: { sessions: { create: mockCreerPortail } },
-    webhooks: { constructEvent: jest.fn() },
+    webhooks: { constructEvent: mockConstruireEvenement },
   })),
 }));
 
@@ -124,5 +125,125 @@ describe('SubscriptionsService — création du paiement', () => {
     const resultat = await service.createCheckoutSession('u1', 'monthly');
 
     expect(resultat.checkoutUrl).toBe('http://localhost:3001/?success=true&mock=true');
+  });
+});
+
+/**
+ * Ce qui arrive à un abonnement APRÈS l'achat — et que personne n'écoutait.
+ *
+ * Le webhook ne traitait que l'encaissement initial et la résiliation définitive.
+ * Rien n'écrivait jamais PAST_DUE ni TRIALING, pourtant présents dans l'enum. À la
+ * fin de l'essai de 7 jours, une carte refusée laissait donc le compte « ACTIVE »,
+ * c'est-à-dire le Pro gratuit pour une durée indéterminée.
+ */
+describe('SubscriptionsService — cycle de vie de l’abonnement', () => {
+  let service: SubscriptionsService;
+  const updateMany = jest.fn();
+
+  const abonnement = (extra: Record<string, any>) => ({
+    id: 'sub_123',
+    status: 'active',
+    cancel_at_period_end: false,
+    current_period_start: 1_700_000_000,
+    current_period_end: 1_702_592_000,
+    ...extra,
+  });
+
+  const envoyer = (type: string, objet: any) => {
+    mockConstruireEvenement.mockReturnValue({ type, data: { object: objet } });
+    return service.handleWebhook('sig', Buffer.from('{}'));
+  };
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    jest.spyOn(console, 'log').mockImplementation(() => undefined);
+    jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test';
+    updateMany.mockResolvedValue({ count: 1 });
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        SubscriptionsService,
+        {
+          provide: PrismaService,
+          useValue: {
+            user: { findUnique: jest.fn(), update: jest.fn() },
+            subscription: { updateMany, upsert: jest.fn() },
+          },
+        },
+      ],
+    }).compile();
+
+    service = module.get<SubscriptionsService>(SubscriptionsService);
+  });
+
+  afterEach(() => jest.restoreAllMocks());
+
+  it('coupe le Pro quand le paiement échoue à la fin de l’essai', async () => {
+    // Le cas qui coûtait de l'argent : l'essai se termine, la carte est refusée,
+    // et le compte restait ACTIVE puisque seul « deleted » était écouté.
+    await envoyer('customer.subscription.updated', abonnement({ status: 'past_due' }));
+
+    expect(updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { stripe_sub_id: 'sub_123' },
+        data: expect.objectContaining({ status: 'PAST_DUE' }),
+      }),
+    );
+  });
+
+  it('rend le Pro dès qu’une relance aboutit', async () => {
+    await envoyer('customer.subscription.updated', abonnement({ status: 'active' }));
+
+    expect(updateMany.mock.calls[0][0].data.status).toBe('ACTIVE');
+  });
+
+  it('marque l’essai comme tel plutôt que comme un abonnement payé', async () => {
+    await envoyer('customer.subscription.created', abonnement({ status: 'trialing' }));
+
+    expect(updateMany.mock.calls[0][0].data.status).toBe('TRIALING');
+  });
+
+  it('enregistre la résiliation programmée et les dates de période', async () => {
+    // Trois colonnes existaient dans le schéma sans que rien ne les remplisse.
+    await envoyer('customer.subscription.updated', abonnement({ cancel_at_period_end: true }));
+
+    const data = updateMany.mock.calls[0][0].data;
+    expect(data.cancel_at_period_end).toBe(true);
+    expect(data.current_period_end).toEqual(new Date(1_702_592_000 * 1000));
+  });
+
+  it('traduit une résiliation définitive en CANCELED', async () => {
+    await envoyer('customer.subscription.deleted', abonnement({ status: 'canceled' }));
+
+    expect(updateMany.mock.calls[0][0].data.status).toBe('CANCELED');
+  });
+
+  it('n’écrit rien sur un statut Stripe inconnu', async () => {
+    // Stripe ajoute des statuts au fil du temps ; en écraser un par défaut
+    // reviendrait à couper l'accès de quelqu'un sur un mot qu'on ne comprend pas.
+    await envoyer('customer.subscription.updated', abonnement({ status: 'quelque_chose_de_neuf' }));
+
+    expect(updateMany).not.toHaveBeenCalled();
+  });
+
+  it('répond sans erreur quand l’abonnement est inconnu en base', async () => {
+    // Stripe ne garantit pas l'ordre des événements : celui-ci peut précéder le
+    // checkout qui crée la ligne. Une exception ferait répondre 500, et Stripe
+    // rejouerait l'événement pendant trois jours en croyant à une panne.
+    updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      envoyer('customer.subscription.updated', abonnement({ status: 'past_due' })),
+    ).resolves.toEqual({ received: true });
+  });
+
+  it('ne touche jamais à un achat à vie lors de la résiliation d’un mensuel', async () => {
+    // Un achat « à vie » est un paiement unique : il n'a pas de stripe_sub_id. Si la
+    // correspondance se faisait sur le client plutôt que sur l'abonnement, résilier un
+    // ancien mensuel annulerait l'accès définitif du même acheteur.
+    await envoyer('customer.subscription.deleted', abonnement({ status: 'canceled' }));
+
+    expect(updateMany.mock.calls[0][0].where).toEqual({ stripe_sub_id: 'sub_123' });
   });
 });
