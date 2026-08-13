@@ -77,7 +77,17 @@ export class SubscriptionsService {
       const session = await this.stripe.checkout.sessions.create({
         payment_method_types: ['card'],
         mode: planType === 'lifetime' ? 'payment' : 'subscription',
-        customer_email: user.email,
+        /*
+          Réutiliser le client Stripe existant plutôt que d'en faire naître un second.
+          « customer_email » seul en crée un nouveau à chaque paiement : quelqu'un qui
+          passe du mensuel au définitif se retrouverait avec deux clients, et la
+          résiliation de son mensuel — qui part du client ayant payé — viserait un
+          client tout neuf, donc vide. Le prélèvement mensuel survivrait à l'achat à
+          vie, silencieusement. Ça rattache aussi tous ses paiements à une seule fiche.
+        */
+        ...(user.stripe_customer_id
+          ? { customer: user.stripe_customer_id }
+          : { customer_email: user.email }),
         line_items: [
           {
             price: priceId,
@@ -390,9 +400,15 @@ export class SubscriptionsService {
     // L'achat à vie prime sur tout le reste : il n'expire pas, et il ne doit pas être
     // écrasé par la résiliation d'un ancien mensuel du même acheteur.
     if (clientAVie) {
-      // Le mensuel qu'on vient peut-être de trouver à côté n'a plus lieu d'être.
+      // Le mensuel qu'on vient peut-être de trouver à côté n'a plus lieu d'être. La
+      // boucle porte sur *tous* les clients de cette adresse, pas seulement celui qui a
+      // payé à vie : un compte peut en avoir deux, précisément parce que le checkout
+      // en créait un nouveau à chaque paiement avant le correctif — et c'est sur
+      // l'ancien que vit le prélèvement qu'on veut arrêter.
       if (meilleur && SubscriptionsService.rang(meilleur.status) > 1) {
-        await this.resilierRecurrents(clientAVie);
+        for (const client of clients) {
+          await this.resilierRecurrents(client);
+        }
       }
       await this.ecrire(userId, clientAVie, {
         status: 'ACTIVE',

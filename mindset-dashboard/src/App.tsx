@@ -18,7 +18,7 @@ import { GainFlottant } from './components/GainFlottant';
 import { AiNotification } from './components/AiNotification';
 import { AiExplanationModal } from './components/AiExplanationModal';
 import { getSecurePoints, setSecurePoints } from './utils/secureStorage';
-import { reconcilierPaiement, activerPro, retenirFormule, type Formule } from './utils/paiement';
+import { reconcilierPaiement, controlerAbonnement, activerPro, retenirFormule, type Formule } from './utils/paiement';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import './styles/global.css';
 import './index.css';
@@ -199,6 +199,10 @@ function App() {
           await api.downloadCloudState();
 
           await reconcilierPaiement();
+          // Et dans l'autre sens : un abonné a pu résilier, ou sa carte expirer. Sans
+          // ce contrôle, seul le webhook pourrait nous l'apprendre — et il s'est déjà
+          // tu une fois, sans que rien ne le signale.
+          await controlerAbonnement();
 
           const user = await api.get('/auth/me');
           // TRIALING compte comme abonné : c'est l'essai de 7 jours du forfait mensuel.

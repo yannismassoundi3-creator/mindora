@@ -40,9 +40,12 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
   const verifierDejaPaye = async () => {
     setVerification(true);
     setResultat(null);
-    const { abonne, formule } = await verifierAbonnement();
+    const { ok, abonne, formule } = await verifierAbonnement();
     setVerification(false);
-    if (abonne) {
+    if (!ok) {
+      // « Aucun paiement trouvé » serait un mensonge : on n'a pas pu demander.
+      setResultat({ ok: false, texte: "La vérification n'a pas abouti. Vérifie ta connexion et réessaie." });
+    } else if (abonne) {
       setResultat({ ok: true, texte: 'Paiement retrouvé — ton accès Pro est ouvert.' });
       playLevelUpSound();
       onSubscribe(formule);

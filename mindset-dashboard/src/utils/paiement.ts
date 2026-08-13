@@ -91,15 +91,22 @@ function nettoyerAdresse() {
  * Ne lève jamais : un démarrage d'application ne doit pas échouer parce que Stripe
  * était indisponible.
  */
-export async function verifierAbonnement(): Promise<{ abonne: boolean; formule: Formule }> {
+export async function verifierAbonnement(): Promise<{ ok: boolean; abonne: boolean; formule: Formule }> {
   try {
     const res = await api.post('/subscriptions/verifier', {});
     // Le serveur dit laquelle des deux formules il a trouvée : c'est ce qui décide si
     // on peut encore proposer le passage à vie, ou s'il n'y a plus rien à vendre.
-    return { abonne: res?.abonne === true, formule: res?.formule === 'lifetime' ? 'lifetime' : 'monthly' };
+    return {
+      ok: true,
+      abonne: res?.abonne === true,
+      formule: res?.formule === 'lifetime' ? 'lifetime' : 'monthly',
+    };
   } catch (error) {
+    // `ok` sépare « le serveur a répondu non » de « on n'a pas pu demander ». Les
+    // confondre couperait l'accès d'un abonné parce que le réseau a hoqueté — un
+    // retrait de Pro doit toujours reposer sur une vraie réponse.
     console.error('[paiement] Vérification impossible :', error);
-    return { abonne: false, formule: 'monthly' };
+    return { ok: false, abonne: false, formule: 'monthly' };
   }
 }
 
@@ -121,7 +128,11 @@ export async function reconcilierPaiement(): Promise<void> {
 
   if (retourDeStripe) nettoyerAdresse();
 
-  const { abonne, formule } = await verifierAbonnement();
+  const { ok, abonne, formule } = await verifierAbonnement();
+
+  // Sans réponse, on ne conclut rien : surtout pas que le paiement a échoué. La marque
+  // reste posée et on redemandera au prochain démarrage.
+  if (!ok) return;
 
   if (abonne) {
     oublier();
@@ -135,4 +146,50 @@ export async function reconcilierPaiement(): Promise<void> {
   // Rien trouvé, et le paiement est parti il y a assez longtemps pour que Stripe
   // l'aurait enregistré : c'est un panier abandonné, on arrête de demander.
   if (enAttente && Date.now() - depuis > RENONCEMENT_MS) oublier();
+}
+
+/** Referme le Pro. Symétrique d'`activerPro`, sans annonce : on ne fête pas une perte. */
+export function retirerPro() {
+  localStorage.setItem('mindset_is_subscribed', 'false');
+  localStorage.removeItem('mindset_formule');
+  window.dispatchEvent(new Event('storage'));
+}
+
+const CLE_CONTROLE = 'mindset_abonnement_verifie';
+
+/** Un abonnement est revérifié une fois par demi-journée, pas à chaque ouverture. */
+const PERIODE_CONTROLE_MS = 12 * 60 * 60 * 1000;
+
+/**
+ * Vérifie qu'un abonné l'est toujours.
+ *
+ * Une résiliation, une carte qui expire ou un paiement refusé n'arrivent que par le
+ * webhook — et le webhook s'est déjà tu une fois, sans que rien ne le signale. Sans ce
+ * contrôle, quelqu'un qui s'est désabonné en janvier garde le coach illimité
+ * indéfiniment : la base ne changerait jamais d'avis, et l'app la croit sur parole.
+ *
+ * Ne s'exécute que pour quelqu'un que l'on croit abonné : rien à revérifier chez un
+ * compte gratuit, dont l'accès s'ouvre de toute façon par le chemin du paiement.
+ */
+export async function controlerAbonnement(): Promise<void> {
+  if (localStorage.getItem('mindset_is_subscribed') !== 'true') return;
+
+  const dernier = Number(localStorage.getItem(CLE_CONTROLE));
+  if (Number.isFinite(dernier) && dernier > 0 && Date.now() - dernier < PERIODE_CONTROLE_MS) return;
+
+  const { ok, abonne, formule } = await verifierAbonnement();
+
+  // Pas de réponse, pas de conclusion : on ne retire jamais un accès payé sur un
+  // silence du réseau. La date n'est pas écrite non plus, pour redemander tout de
+  // suite au démarrage suivant plutôt que d'attendre douze heures.
+  if (!ok) return;
+
+  localStorage.setItem(CLE_CONTROLE, String(Date.now()));
+
+  if (abonne) {
+    localStorage.setItem('mindset_formule', formule);
+    return;
+  }
+
+  retirerPro();
 }

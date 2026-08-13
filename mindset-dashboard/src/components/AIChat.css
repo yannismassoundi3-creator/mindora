@@ -362,17 +362,55 @@
   Fond opaque et non `glass-panel` : voir la barre du coach, plus haut.
 */
 .chat-input-area.glass-panel {
+  --fond-barre-chat: rgb(14, 14, 17);
   position: sticky;
   bottom: 0;
   z-index: 30;
   flex-shrink: 0;
-  padding: 12px;
-  border-radius: 16px;
-  background: rgb(20, 20, 25);
+  /* Pleine largeur, comme la barre du haut : le rembourrage latéral est annulé puis
+     rendu. Une barre flottante laissait voir les messages passer de chaque côté et
+     dans l'espace qui la séparait de la navigation. */
+  margin-left: calc(-1 * var(--marge-page, 40px));
+  margin-right: calc(-1 * var(--marge-page, 40px));
+  padding: 12px calc(var(--marge-page, 40px) + 2px);
+  border-radius: 22px 22px 0 0;
+  background: var(--fond-barre-chat);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 -10px 26px rgba(0, 0, 0, 0.5);
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 -14px 28px rgba(0, 0, 0, 0.55);
+}
+
+/*
+  Le prolongement vers le bas, exact miroir de celui de la barre du haut.
+
+  La barre s'arrête à la fin du contenu, donc il reste en dessous d'elle la hauteur du
+  rembourrage bas : 40 px sur ordinateur, et sur téléphone la place réservée à la barre
+  de navigation flottante. Les messages défilaient en clair dans cette bande — c'est
+  l'espace vide qu'on voyait entre la saisie et les onglets. La navigation, de
+  `z-index` supérieur, se pose désormais sur cette surface : le bas de l'écran fait un
+  seul bloc, comme le haut.
+*/
+.chat-input-area::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: var(--marge-bas, 40px);
+  background: var(--fond-barre-chat);
+  pointer-events: none;
+}
+
+/* Trois classes pour passer devant `body.theme-monochrome-dark .glass-panel`, qui
+   impose bordure claire et halo blanc en `!important` : sur une barre à fond perdu
+   prolongée vers le bas, cette bordure devient une couture avec le prolongement. */
+.chat-container .chat-input-area.glass-panel {
+  border-left: 0 !important;
+  border-right: 0 !important;
+  border-bottom: 0 !important;
+  box-shadow: 0 -14px 28px rgba(0, 0, 0, 0.55) !important;
 }
 
 .chat-form {

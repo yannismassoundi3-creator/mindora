@@ -119,6 +119,11 @@
   /* Hauteur réservée en haut, que le bandeau collant doit masquer derrière lui :
      sans quoi le contenu défile dans la bande laissée libre au-dessus de lui. */
   --marge-haut: 40px;
+  /* Symétrique de `--marge-haut` : la hauteur réservée en bas, que doit masquer
+     derrière elle une barre collée au bas de l'écran. Sur téléphone elle contient la
+     barre de navigation flottante, qui doit se poser sur cette surface plutôt que de
+     laisser voir le contenu défiler entre les deux. */
+  --marge-bas: 40px;
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
@@ -199,7 +204,8 @@
        dernier bouton de la page finissait masqué. */
     --marge-page: 10px;
     --marge-haut: calc(max(12px, env(safe-area-inset-top)) + 70px);
-    padding: var(--marge-haut) var(--marge-page) calc(130px + env(safe-area-inset-bottom, 0px)) var(--marge-page);
+    --marge-bas: calc(130px + env(safe-area-inset-bottom, 0px));
+    padding: var(--marge-haut) var(--marge-page) var(--marge-bas) var(--marge-page);
   }
 
   .bottom-nav {

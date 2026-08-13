@@ -666,3 +666,61 @@ describe('SubscriptionsService — achat à vie et prélèvement mensuel', () =>
     expect(mockResilier).toHaveBeenCalledWith('sub_a_resilier');
   });
 });
+
+/**
+ * Le client Stripe auquel on rattache un paiement.
+ *
+ * « customer_email » seul fait naître un client neuf à chaque session. Quelqu'un qui
+ * passe du mensuel au définitif se retrouvait donc avec deux fiches, et la résiliation
+ * de son mensuel — qui part du client ayant payé — visait la fiche neuve, donc vide :
+ * le prélèvement mensuel survivait à l'achat à vie, sans que rien ne le montre.
+ */
+describe('SubscriptionsService — rattachement au client Stripe', () => {
+  let service: SubscriptionsService;
+
+  const construire = async (stripe_customer_id: string | null) => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        SubscriptionsService,
+        {
+          provide: PrismaService,
+          useValue: {
+            user: { findUnique: jest.fn().mockResolvedValue({ id: 'u1', email: 'y@example.com', stripe_customer_id }) },
+          },
+        },
+      ],
+    }).compile();
+    return module.get<SubscriptionsService>(SubscriptionsService);
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    mockCreerSession.mockResolvedValue({ url: 'https://checkout.stripe.com/x' });
+    process.env.STRIPE_SECRET_KEY = 'sk_live_vraie';
+  });
+
+  afterEach(() => jest.restoreAllMocks());
+
+  it('réutilise le client existant plutôt que d’en créer un second', async () => {
+    service = await construire('cus_deja_la');
+
+    await service.createCheckoutSession('u1', 'lifetime');
+
+    const args = mockCreerSession.mock.calls[0][0];
+    expect(args.customer).toBe('cus_deja_la');
+    expect(args.customer_email).toBeUndefined();
+  });
+
+  it('passe l’e-mail quand le compte n’a encore aucun client Stripe', async () => {
+    // Premier achat : il n'y a rien à réutiliser, et Stripe doit connaître l'adresse —
+    // c'est elle qui sert ensuite de clé à la réconciliation.
+    service = await construire(null);
+
+    await service.createCheckoutSession('u1', 'monthly');
+
+    const args = mockCreerSession.mock.calls[0][0];
+    expect(args.customer_email).toBe('y@example.com');
+    expect(args.customer).toBeUndefined();
+  });
+});
