@@ -496,6 +496,19 @@
     box-sizing: border-box;
   }
 
+  /* Le même solde était affiché deux fois : dans la barre du haut, qui ne bouge
+     jamais, et de nouveau ici en pleine largeur. La seconde occupait une ligne
+     entière — une soixantaine de pixels pris sur le premier écran — pour répéter un
+     chiffre déjà lisible, et sans être cliquable, là où celle du haut mène à la
+     Boutique.
+
+     Le sélecteur passe par .dashboard-container, et non par .dashboard-header seul :
+     cette classe-là habille aussi les en-têtes des Objectifs, des Habitudes et du
+     Profil, où le même badge porte le score mental et ne double rien du tout. */
+  .dashboard-container > .dashboard-header .points-badge {
+    display: none;
+  }
+
   .btn-primary {
     width: 100%;
     justify-content: center;
@@ -511,6 +524,23 @@
     max-width: 100%;
     min-width: 0;
     box-sizing: border-box;
+  }
+
+  /* Sur un téléphone, la grille de deux colonnes s'empile, et l'ordre du code
+     devient l'ordre de lecture : le graphique d'évolution puis l'année entière en
+     damier passaient donc avant tout le reste. Deux écrans de contemplation avant
+     d'atteindre la série, les objectifs et les routines — c'est-à-dire avant la
+     première chose sur laquelle on puisse appuyer.
+
+     Ce qui se fait passe devant ce qui se regarde. L'inversion ne vaut qu'ici :
+     au-dessus de 900 px les deux colonnes sont côte à côte, il n'y a pas d'ordre
+     à corriger et la mise en page reste telle quelle. */
+  .dashboard-right-col {
+    order: 1;
+  }
+
+  .dashboard-left-col {
+    order: 2;
   }
 
   .chart-section {
