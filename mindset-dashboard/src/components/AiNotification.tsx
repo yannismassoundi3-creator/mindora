@@ -84,13 +84,20 @@ export function AiNotification({ onNavigate }: AiNotificationProps) {
       let targetView = 'dashboard';
       if (type === 'habit') targetView = 'habits';
       if (type === 'objective') targetView = 'objectives';
-      if (type === 'routine') targetView = 'dashboard';
-      if (type === 'nutrition') {
+
+      // Le tableau de bord garde en mémoire l'onglet ouvert la dernière fois.
+      //
+      // Seule l'alimentation le choisissait ; les routines s'en remettaient à ce qui
+      // traînait. Après avoir suivi une notification d'alimentation, la notification
+      // de routines ramenait donc au tableau de bord… toujours sur l'alimentation.
+      // Un raccourci qui n'emmène pas où son texte l'annonce vaut moins que pas de
+      // raccourci du tout : chaque destination nomme désormais son onglet.
+      if (type === 'routine' || type === 'nutrition') {
         targetView = 'dashboard';
-        localStorage.setItem('mindset_dashboard_tab', 'nutrition');
+        localStorage.setItem('mindset_dashboard_tab', type === 'nutrition' ? 'nutrition' : 'routines');
         window.dispatchEvent(new Event('storage'));
       }
-      
+
       // Trigger the explanation modal since the user clicked the notification
       localStorage.setItem('mindset_trigger_explanation', type);
       

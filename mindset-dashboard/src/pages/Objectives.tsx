@@ -192,12 +192,12 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
         }
 
         const getTodayKey = () => new Date().toISOString().slice(0, 10);
-        let newAwardedDate = obj.awardedDate;
-        
-        // Award points only once, on the first day it is checked
-        if (isNowDone && !obj.awardedDate) {
-          newAwardedDate = getTodayKey();
-        }
+
+        // Cocher aujourd'hui doit compter aujourd'hui, même si l'objectif avait déjà
+        // été avancé un autre jour : la condition « seulement si aucune date n'est
+        // posée » gardait la date du premier avancement, si bien que terminer un
+        // objectif entamé la veille ne rapportait aucun point le jour de l'effort.
+        const newAwardedDate = isNowDone ? getTodayKey() : obj.awardedDate;
 
         // We trigger an event so Dashboard updates immediately
         setTimeout(() => window.dispatchEvent(new Event('storage')), 100);
@@ -225,10 +225,10 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
           awardCoins(5, `objectif-${id}`);
         }
         
-        let newAwardedDate = obj.awardedDate;
-        if (isNowDone && !obj.awardedDate) {
-          newAwardedDate = new Date().toISOString().slice(0, 10);
-        }
+        // On date tout avancement, et plus seulement l'achèvement : le score mental
+        // compte désormais la progression au prorata, ce qui n'a de sens que si le
+        // tableau de bord sait que cet objectif a bougé aujourd'hui.
+        const newAwardedDate = new Date().toISOString().slice(0, 10);
 
         setTimeout(() => window.dispatchEvent(new Event('storage')), 100);
         return { ...obj, progress: newProgress, done: isNowDone, awardedDate: newAwardedDate };

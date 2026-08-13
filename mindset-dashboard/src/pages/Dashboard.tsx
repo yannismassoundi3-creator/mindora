@@ -316,8 +316,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
         const saved = JSON.parse(localStorage.getItem('mindset_micro_obj') || '[]');
         if (Array.isArray(saved)) {
           const todayKey = getTodayKey();
-          const currentBonus = saved.filter((o: any) => o.done && o.awardedDate === todayKey).length * 10;
-          setBonusScore(currentBonus);
+
+          // Le score ne bougeait qu'à l'achèvement complet. Or un objectif de la
+          // semaine se compte souvent en sept fois : avancer de 0 à 6 sur 7 dans la
+          // journée ne rapportait rien du tout, et la personne pouvait travailler
+          // toute la soirée en regardant son score rester à zéro. Chaque objectif
+          // pèse toujours 10 points, mais au prorata de ce qui a été fait.
+          //
+          // La date reste le garde-fou : seuls les objectifs avancés aujourd'hui
+          // comptent. Sans elle, un objectif terminé lundi maintiendrait le score
+          // au-dessus de zéro toute la semaine, et la série ne voudrait plus rien
+          // dire puisqu'elle se lit sur ce score.
+          const currentBonus = saved.reduce((acc: number, o: any) => {
+            if (o?.awardedDate !== todayKey) return acc;
+            const total = Number(o.total) > 0 ? Number(o.total) : 1;
+            const part = o.done ? 1 : Math.min(1, Math.max(0, Number(o.progress) || 0) / total);
+            return acc + part * 10;
+          }, 0);
+          setBonusScore(Math.round(currentBonus));
         } else {
           setBonusScore(0);
         }
