@@ -35,7 +35,36 @@ export class CoinLedgerService {
    */
   static readonly SOLDE_DEPART = 50;
 
+  /**
+   * Messages offerts au tout début, avant le moindre débit.
+   *
+   * Cinquante coins font cinq messages, et une conversation qui aboutit à un vrai
+   * plan en consomme facilement trois ou quatre. Autrement dit, beaucoup de gens
+   * rencontraient le mur juste avant d'avoir vu ce que l'application sait faire —
+   * le pire moment possible pour parler d'abonnement, puisqu'il n'y a encore rien
+   * à acheter dans leur tête.
+   *
+   * Ces messages ne consomment pas de coins, mais restent comptés dans le quota
+   * mensuel gratuit : la limite annoncée reste la vraie limite, elle devient
+   * simplement atteignable.
+   */
+  static readonly MESSAGES_DECOUVERTE = 5;
+
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Vrai tant que la personne n'a pas épuisé ses messages de découverte.
+   *
+   * On compte ses messages déjà enregistrés plutôt que de tenir un compteur à part :
+   * la table existe, elle est alimentée à chaque échange, et un compteur de plus
+   * serait une occasion de plus de diverger.
+   */
+  async estEnDecouverte(userId: string): Promise<boolean> {
+    const envoyes = await this.prisma.chatMessage.count({
+      where: { user_id: userId, sender: 'user' },
+    });
+    return envoyes < CoinLedgerService.MESSAGES_DECOUVERTE;
+  }
 
   private debutDuJour(): Date {
     const d = new Date();
@@ -161,7 +190,7 @@ export class CoinLedgerService {
         {
           statusCode: HttpStatus.PAYMENT_REQUIRED,
           code: 'COINS_INSUFFISANTS',
-          message: `Il te faut ${montant} coins pour parler à l'IA. Termine une routine pour en gagner.`,
+          message: `Il te faut ${montant} points d'énergie pour parler au coach. Termine une routine pour en regagner.`,
           solde,
           requis: montant,
         },
@@ -179,7 +208,7 @@ export class CoinLedgerService {
         {
           statusCode: HttpStatus.PAYMENT_REQUIRED,
           code: 'COINS_INSUFFISANTS',
-          message: `Il te faut ${montant} coins pour parler à l'IA. Termine une routine pour en gagner.`,
+          message: `Il te faut ${montant} points d'énergie pour parler au coach. Termine une routine pour en regagner.`,
           solde,
           requis: montant,
         },

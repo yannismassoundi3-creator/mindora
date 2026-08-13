@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, User, Sparkles, Play, Square, Loader } from 'lucide-react';
+import { Send, User, Sparkles, Play, Square, Loader, Undo2, Zap } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { playBloopSound } from '../utils/sounds';
 import { AI_COSMETICS } from '../utils/cosmetics';
-import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
+import { getSecurePoints } from '../utils/secureStorage';
+import { sauvegarderPlanPrecedent, planPrecedentDisponible, restaurerPlanPrecedent } from '../utils/planPrecedent';
+import { normaliserJours } from '../utils/recurrence';
 import './AIChat.css';
 import { api } from '../services/api';
 
@@ -21,6 +23,15 @@ interface Message {
    * parler se retrouvait sans autre porte. Les deux sont offertes.
    */
   offreAbonnement?: boolean;
+  /**
+   * Identifiant de la copie prise juste avant que ce plan n'écrase le précédent.
+   *
+   * Présent uniquement quand quelque chose a réellement été remplacé : un ajout n'a
+   * rien détruit et n'a donc rien à annuler. Il est porté par le message plutôt que
+   * par un état global pour que le bouton d'une vieille réponse, retrouvée en
+   * remontant la conversation, ne puisse pas ressusciter un plan sans rapport.
+   */
+  sauvegardePlan?: string;
 }
 
 export const AIChat: React.FC = () => {
@@ -171,6 +182,39 @@ export const AIChat: React.FC = () => {
     return () => window.removeEventListener('mindset_pending_chat_msg', handlePendingMsg);
   }, []);
 
+  /**
+   * Énergie restante, c'est-à-dire ce qui autorise à parler au coach.
+   *
+   * Distincte des Coins de la Boutique, qui portent le même nom dans le reste de
+   * l'app et servent aux niveaux et aux skins. Elle n'était affichée nulle part :
+   * on découvrait son épuisement en se voyant refuser un message, ce qui donne
+   * l'impression d'une panne plutôt que d'une limite annoncée.
+   */
+  const [energie, setEnergie] = useState<number | null>(() => {
+    const brut = localStorage.getItem('mindset_energie');
+    return brut === null ? null : Number(brut);
+  });
+
+  const estAbonne = localStorage.getItem('mindset_is_subscribed') === 'true';
+
+  /**
+   * Remet le plan d'avant en place, et le dit dans la conversation.
+   *
+   * Le message de confirmation compte autant que la restauration : une interface qui
+   * change sans un mot laisse penser que le bouton n'a rien fait, et on le reclique.
+   */
+  const annulerRemplacement = (identifiant: string) => {
+    const restaure = restaurerPlanPrecedent(identifiant);
+    setMessages(prev => [...prev, {
+      id: Date.now(),
+      text: restaure
+        ? '↩️ **Plan précédent restauré.** Tes routines, habitudes, objectifs et repas sont revenus comme avant.'
+        : "Cette sauvegarde n'est plus disponible : un plan plus récent a pris sa place.",
+      sender: 'ai',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    }]);
+  };
+
   const addAiNotification = (type: string, message: string) => {
     try {
       const notifs = JSON.parse(localStorage.getItem('mindset_ai_notifications') || '[]');
@@ -188,8 +232,12 @@ export const AIChat: React.FC = () => {
     }
   };
 
-  const applyPlanData = (rawPlanData: any) => {
-    if (!rawPlanData) return;
+  /**
+   * Applique le plan. Rend l'identifiant de la copie de sauvegarde quand le plan a
+   * remplacé l'existant, `null` sinon — un simple ajout n'a rien détruit.
+   */
+  const applyPlanData = (rawPlanData: any): string | null => {
+    if (!rawPlanData) return null;
     
     // Si l'IA a imbriqué les données dans un objet "plan" ou "actionPlan"
     const dataObj = rawPlanData.plan || rawPlanData.actionPlan || rawPlanData;
@@ -208,6 +256,21 @@ export const AIChat: React.FC = () => {
         pushedTypes.add(type);
       }
     };
+
+    // Un remplacement efface ce qui existait : on en garde une copie d'abord.
+    //
+    // C'est le seul moment où quelqu'un peut perdre du travail sans l'avoir demandé
+    // explicitement — « refais-moi un plan » veut bien dire remplacer, mais pas
+    // « accepte les yeux fermés ce que le modèle va produire ». La photo est prise
+    // ici, avant la première ligne effacée, et son identifiant remonte à l'appelant
+    // qui proposera le retour en arrière sous la réponse du coach.
+    const remplace =
+      planData.replaceHabits === true ||
+      planData.replaceRoutines === true ||
+      planData.replaceNutrition === true ||
+      planData.replaceMacroObjectives === true ||
+      planData.replaceMicroObjectives === true;
+    const sauvegarde = remplace ? sauvegarderPlanPrecedent() : null;
 
     // Remplacement granulaire basé sur les nouveaux flags (pour éviter de tout supprimer par erreur)
     if (planData.replaceHabits === true) localStorage.setItem('mindset_habits', '[]');
@@ -282,7 +345,11 @@ export const AIChat: React.FC = () => {
               id: Date.now() + Math.floor(Math.random() * 100000) + idx,
               title: taskTitle,
               time: `${t.duration || 15} min`,
-              done: false
+              done: false,
+              // Jours de la semaine, quand le coach en a prévu : « du sport trois
+              // fois par semaine » ne veut rien dire s'il finit en tâche quotidienne.
+              // Absent, la tâche reste quotidienne comme avant.
+              jours: normaliserJours(t.jours ?? t.days),
             } as never);
           });
         }
@@ -365,6 +432,8 @@ export const AIChat: React.FC = () => {
 
       // Force API sync if needed
     window.dispatchEvent(new Event('storage'));
+
+    return sauvegarde;
   };
 
   const handleSend = async (e?: React.FormEvent, directMessage?: string) => {
@@ -428,21 +497,30 @@ export const AIChat: React.FC = () => {
       // « Énergie insuffisante » à son premier bonjour, avec le conseil d'aller
       // gagner des coins qu'il possédait déjà. Le serveur, lui, répond 402 avec le
       // vrai solde, et ce cas est traité plus bas.
-      const currentPoints = getSecurePoints();
-
       const data = await api.post('/ai-coaching/chat', {
         prompt: currentInput,
         context: userContext
       });
 
-      // Le solde affiché suit celui du serveur quand il nous le donne, plutôt que
-      // de tenir sa propre comptabilité en parallèle.
-      setSecurePoints(typeof data.coins === 'number' ? data.coins : Math.max(0, currentPoints - 10));
+      // Deux monnaies, deux compteurs — c'est tout le problème qu'on referme ici.
+      //
+      // Le solde renvoyé par le serveur est celui qui autorise l'IA. Il était écrit
+      // par-dessus les Coins de la Boutique, qui portent le même nom et le même icône
+      // sans être la même chose : parler au coach faisait donc bouger la cagnotte des
+      // skins, et un achat en Boutique semblait retirer des messages. Chacun garde
+      // désormais son compteur, et celui-ci s'affiche sous le nom d'Énergie.
+      if (typeof data.coins === 'number') {
+        setEnergie(data.coins);
+        localStorage.setItem('mindset_energie', String(data.coins));
+      }
       window.dispatchEvent(new Event('storage'));
       
       setIsAiAwake(true);
 
       let replyText = data.reply || "Erreur lors de la génération.";
+
+      // Identifiant de la copie prise avant un remplacement, s'il y en a eu un.
+      let sauvegardePlan: string | null = null;
 
       let jsonStr = "";
       
@@ -513,7 +591,7 @@ export const AIChat: React.FC = () => {
             planData.replaceMacroObjectives || planData.replaceMicroObjectives;
 
           if (isCreation || isDeletion) {
-            applyPlanData(planData);
+            sauvegardePlan = applyPlanData(planData);
             if (isCreation) {
               replyText += "\n\n✅ **Plan appliqué avec succès ! L'interface a été mise à jour.**";
             } else if (isDeletion) {
@@ -529,7 +607,8 @@ export const AIChat: React.FC = () => {
         id: Date.now() + 1,
         text: replyText,
         sender: 'ai',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        sauvegardePlan: sauvegardePlan ?? undefined,
       };
       setMessages(prev => [...prev, aiResponse]);
     } catch (error: any) {
@@ -591,6 +670,17 @@ export const AIChat: React.FC = () => {
             <h2 className="chat-title">{aiName}</h2>
             <p className="chat-subtitle">
               {isAiAwake ? "Connecté et prêt à t'assister" : "Déconnecté, réveil en cours..."}
+              {/*
+                On n'affiche l'énergie qu'à ceux qu'elle concerne : un abonné ne la
+                dépense pas, la lui montrer laisserait croire qu'il est décompté.
+                Et tant que le serveur n'a rien dit, on n'invente pas de chiffre.
+              */}
+              {!estAbonne && energie !== null && (
+                <span className="chat-energie" title="Énergie restante pour parler au coach">
+                  <Zap size={12} />
+                  {energie}
+                </span>
+              )}
             </p>
           </div>
         </div>
@@ -657,6 +747,34 @@ export const AIChat: React.FC = () => {
                   >
                     <Sparkles size={14} />
                     Ou passe Pro pour ne plus compter
+                  </button>
+                )}
+                {/*
+                  Retour en arrière après un remplacement. Le bouton disparaît dès que
+                  la copie a été utilisée ou remplacée par une plus récente : proposer
+                  une annulation qui ne peut plus aboutir serait pire que ne rien
+                  proposer.
+                */}
+                {msg.sauvegardePlan && planPrecedentDisponible(msg.sauvegardePlan) && (
+                  <button
+                    onClick={() => annulerRemplacement(msg.sauvegardePlan!)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      marginTop: '10px',
+                      padding: '8px 14px',
+                      borderRadius: '100px',
+                      border: '1px solid rgba(255, 255, 255, 0.22)',
+                      background: 'rgba(255, 255, 255, 0.06)',
+                      color: 'rgba(255, 255, 255, 0.85)',
+                      fontWeight: 600,
+                      fontSize: '0.85rem',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <Undo2 size={14} />
+                    Revenir au plan précédent
                   </button>
                 )}
                 <span className="message-time">{msg.timestamp}</span>

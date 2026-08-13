@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MorningBriefService } from './morning-brief.service';
+import { WeeklyReviewService } from './weekly-review.service';
 import * as cron from 'node-cron';
 import * as webpush from 'web-push';
 
@@ -77,9 +78,20 @@ export class PushService implements OnModuleInit {
     return this.lienApp(`/?auth=true&vue=${vue}`);
   }
 
+  /**
+   * Statuts qui donnent droit à la version enrichie du bilan.
+   *
+   * Recopiés de `AiQuotaService.PAID_STATUSES` plutôt qu'importés : le module push
+   * ne dépend pas du module de coaching, et l'y accrocher pour deux chaînes créerait
+   * un lien entre l'envoi des notifications et le quota d'IA. `TRIALING` en fait
+   * partie — un abonné de sa première semaine paie déjà, à terme.
+   */
+  static readonly STATUTS_PAYANTS = ['ACTIVE', 'TRIALING'] as const;
+
   constructor(
     private prisma: PrismaService,
     private morningBrief: MorningBriefService,
+    private weeklyReview: WeeklyReviewService,
   ) {
     const vapidSubject = process.env.VAPID_SUBJECT || 'mailto:mindoraappli@gmail.com';
     const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
@@ -356,24 +368,67 @@ export class PushService implements OnModuleInit {
     }
   }
 
+  /**
+   * Le bilan du dimanche soir.
+   *
+   * Il annonçait à tout le monde la même phrase — « Voici ton plan d'attaque pour
+   * lundi. Ouvre l'app pour le découvrir ! » — alors que rien ne préparait ce plan.
+   * Une notification qui promet ce qui n'existe pas apprend surtout à ne plus les
+   * ouvrir. Elle citait par ailleurs le score mental du jour, c'est-à-dire celui
+   * d'un dimanche soir, présenté comme un bilan de semaine.
+   *
+   * Chacun reçoit désormais ses vrais chiffres, et les abonnés reçoivent en plus
+   * la lecture qu'en fait leur coach. C'est le seul avantage de l'abonnement qui se
+   * voie sans ouvrir l'application — et il n'enlève rien à personne.
+   */
   async sendWeeklyReports() {
     const users = await this.prisma.user.findMany({
-      include: { push_subscriptions: true, sync_data: true }
+      include: { push_subscriptions: true, sync_data: true, subscription: true },
     });
+
+    let envoyes = 0;
+    let ignores = 0;
+
     for (const user of users) {
       if (!user.push_subscriptions || user.push_subscriptions.length === 0) continue;
-      
-      const score = user.sync_data?.mental_score || 0;
+
+      // Une exception par personne ne doit pas arrêter la tournée : c'est ce qui
+      // avait déjà fait taire l'envoi du matin pour tout le monde.
       try {
+        const semaine = this.weeklyReview.resumerSemaine(
+          user.sync_data?.daily_scores as any,
+          user.sync_data?.habits as any,
+        );
+
+        // Rien à raconter : envoyer « 0 jour actif, score moyen 0 % » à quelqu'un qui
+        // n'a rien fait de la semaine est un reproche, pas un service.
+        if (!semaine) {
+          ignores++;
+          continue;
+        }
+
+        const prenom = user.first_name || '';
+        const abonne = (PushService.STATUTS_PAYANTS as readonly string[]).includes(
+          user.subscription?.status ?? '',
+        );
+
+        const texte =
+          (abonne ? await this.weeklyReview.generate(prenom, semaine) : null) ??
+          this.weeklyReview.texteFactuel(prenom, semaine);
+
         await this.sendNotification(user.id, {
           title: '📊 Bilan de ta semaine',
-          body: `Ton Score Mental est de ${score}%. Voici ton plan d'attaque pour lundi. Ouvre l'app pour le découvrir !`,
-          url: this.lienVers()
+          body: texte,
+          url: this.lienVers(abonne ? 'chat' : 'dashboard'),
         });
+        envoyes++;
       } catch (e) {
         this.logger.error(`Bilan hebdomadaire échoué pour ${user.id} : ${(e as any)?.message}`);
       }
     }
+
+    this.logger.log(`[Bilan hebdo] ${envoyes} envoyé(s), ${ignores} sans activité cette semaine`);
+    return { envoyes, ignores };
   }
 
   /**

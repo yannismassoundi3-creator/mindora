@@ -17,7 +17,12 @@ describe('AiCoachingController — débit et remboursement du chat', () => {
   let controller: AiCoachingController;
   let ia: { chatWithAi: jest.Mock };
   let quota: { consumeAiCredit: jest.Mock; refundAiCredit: jest.Mock; isSubscribed: jest.Mock };
-  let coins: { spend: jest.Mock; refund: jest.Mock; getBalance: jest.Mock };
+  let coins: {
+    spend: jest.Mock;
+    refund: jest.Mock;
+    getBalance: jest.Mock;
+    estEnDecouverte: jest.Mock;
+  };
 
   const requete = { user: { userId: 'u1' } } as any;
   const message = { prompt: 'Comment tu vas ?' } as any;
@@ -33,6 +38,9 @@ describe('AiCoachingController — débit et remboursement du chat', () => {
       spend: jest.fn().mockResolvedValue({ depense: 10, solde: 40 }),
       refund: jest.fn().mockResolvedValue({}),
       getBalance: jest.fn().mockResolvedValue(50),
+      // Le cas par défaut de ces tests est un compte qui a passé la découverte et
+      // paie donc ses messages ; les tests de la découverte la réactivent eux-mêmes.
+      estEnDecouverte: jest.fn().mockResolvedValue(false),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -135,5 +143,94 @@ describe('AiCoachingController — débit et remboursement du chat', () => {
       // Le crédit mensuel, lui, a bien été consommé : il doit être rendu.
       expect(quota.refundAiCredit).toHaveBeenCalledWith('u1', 'chat');
     });
+  });
+});
+
+/**
+ * Cinquante coins font cinq messages, et une conversation qui aboutit à un vrai plan
+ * en consomme trois ou quatre. Beaucoup de gens rencontraient donc le mur juste avant
+ * d'avoir vu ce que l'application sait faire — le pire moment pour parler d'abonnement,
+ * puisqu'il n'y a encore rien à acheter dans leur tête.
+ */
+describe('AiCoachingController — messages de découverte', () => {
+  let controller: AiCoachingController;
+  let ia: { chatWithAi: jest.Mock };
+  let quota: { consumeAiCredit: jest.Mock; refundAiCredit: jest.Mock; isSubscribed: jest.Mock };
+  let coins: { spend: jest.Mock; refund: jest.Mock; getBalance: jest.Mock; estEnDecouverte: jest.Mock };
+
+  const requete = { user: { userId: 'u1' } } as any;
+  const message = { prompt: 'Fais-moi un plan' } as any;
+
+  beforeEach(async () => {
+    ia = { chatWithAi: jest.fn().mockResolvedValue({ reply: 'Voilà.' }) };
+    quota = {
+      consumeAiCredit: jest.fn().mockResolvedValue({}),
+      refundAiCredit: jest.fn().mockResolvedValue({}),
+      isSubscribed: jest.fn().mockResolvedValue(false),
+    };
+    coins = {
+      spend: jest.fn().mockResolvedValue({ depense: 10, solde: 40 }),
+      refund: jest.fn().mockResolvedValue({}),
+      getBalance: jest.fn().mockResolvedValue(50),
+      estEnDecouverte: jest.fn().mockResolvedValue(true),
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [AiCoachingController],
+      providers: [
+        { provide: AiCoachingService, useValue: ia },
+        { provide: AiQuotaService, useValue: quota },
+        { provide: CoinLedgerService, useValue: coins },
+      ],
+    }).compile();
+
+    controller = module.get<AiCoachingController>(AiCoachingController);
+  });
+
+  it('ne débite aucun coin sur les premiers messages', async () => {
+    await controller.chat(requete, message);
+
+    expect(coins.spend).not.toHaveBeenCalled();
+  });
+
+  // La limite annoncée reste la vraie limite : on rend la gratuité au coin, pas au
+  // quota mensuel, sinon les dix messages promis deviendraient quinze sans le dire.
+  it('consomme quand même le quota mensuel gratuit', async () => {
+    await controller.chat(requete, message);
+
+    expect(quota.consumeAiCredit).toHaveBeenCalledWith('u1', 'chat');
+  });
+
+  it('renvoie le solde réel, intact', async () => {
+    const resultat: any = await controller.chat(requete, message);
+
+    expect(resultat.coins).toBe(50);
+  });
+
+  // Rien n'a été prélevé : rembourser offrirait dix coins à chaque panne du fournisseur.
+  it('ne rembourse rien quand le service tombe en panne', async () => {
+    ia.chatWithAi.mockResolvedValue({ erreur: true });
+
+    await controller.chat(requete, message);
+
+    expect(coins.refund).not.toHaveBeenCalled();
+  });
+
+  it('reprend le débit une fois la découverte terminée', async () => {
+    coins.estEnDecouverte.mockResolvedValue(false);
+
+    await controller.chat(requete, message);
+
+    expect(coins.spend).toHaveBeenCalledWith('u1');
+  });
+
+  // Un abonné ne paie jamais : inutile d'aller compter ses messages en base.
+  it('ne compte même pas les messages d\'un abonné', async () => {
+    quota.isSubscribed.mockResolvedValue(true);
+
+    await controller.chat(requete, message);
+
+    expect(coins.estEnDecouverte).not.toHaveBeenCalled();
+    expect(coins.spend).not.toHaveBeenCalled();
   });
 });

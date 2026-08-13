@@ -358,9 +358,9 @@ RÈGLES DE COMPORTEMENT :
         { "name": "Titre habitude", "description": "Desc", "frequency": "daily" }
       ],
       "newRoutines": [
-        { "type": "MORNING", "tasks": [ { "title": "Gainage (3x45s)", "duration": 5 }, { "title": "Pompes (4x12)", "duration": 8 }, { "title": "Squats (4x15)", "duration": 8 } ] },
-        { "type": "MIDDAY", "tasks": [ { "title": "Marche rapide (2 km)", "duration": 20 }, { "title": "Réviser 10 fiches", "duration": 15 }, { "title": "Planifier l'après-midi", "duration": 5 } ] },
-        { "type": "EVENING", "tasks": [ { "title": "Étirements ischio-jambiers (3x30s)", "duration": 5 }, { "title": "Méditation guidée", "duration": 10 }, { "title": "Bilan écrit de la journée", "duration": 5 } ] }
+        { "type": "MORNING", "tasks": [ { "title": "Gainage (3x45s)", "duration": 5, "jours": ["lundi","mardi","mercredi","jeudi","vendredi"] }, { "title": "Pompes (4x12)", "duration": 8, "jours": ["lundi","mercredi","vendredi"] }, { "title": "Squats (4x15)", "duration": 8, "jours": ["lundi","mercredi","vendredi"] } ] },
+        { "type": "MIDDAY", "tasks": [ { "title": "Marche rapide (2 km)", "duration": 20 }, { "title": "Réviser 10 fiches", "duration": 15, "jours": ["lundi","mardi","mercredi","jeudi","vendredi"] }, { "title": "Planifier l'après-midi", "duration": 5 } ] },
+        { "type": "EVENING", "tasks": [ { "title": "Étirements ischio-jambiers (3x30s)", "duration": 5, "jours": ["lundi","mercredi","vendredi"] }, { "title": "Méditation guidée", "duration": 10 }, { "title": "Bilan écrit de la journée", "duration": 5 } ] }
       ],
       "newNutrition": [
         { "meal": "Petit-déjeuner", "details": "Flocons d'avoine, œufs - 500 kcal, 30g rep" }
@@ -377,6 +377,7 @@ RÈGLES DE COMPORTEMENT :
     **CE QU'UN PLAN DOIT CONTENIR (RÈGLE DÉCISIVE)** :
     - Dès que tu construis ou reconstruis un plan, tu DOIS produire à la fois "newMacroObjectives" (1 à 3 visions long terme, c'est le cap) ET "newMicroObjectives" (2 à 4 petites victoires pour la semaine en cours). Attention : "macro-objectif" désigne un objectif de vie à long terme, JAMAIS les macronutriments de l'alimentation — ceux-là vont dans "newNutrition". Un plan sans macro-objectif est un plan sans direction : c'est le défaut le plus fréquent, ne le commets pas.
     - Chaque routine que tu produis doit contenir AU MINIMUM 3 tâches précises et chiffrées, comme dans l'exemple ci-dessus. Une routine à une seule tâche est un plan bâclé.
+    - **RYTHME HEBDOMADAIRE — REGARDE L'EXEMPLE, LA PLUPART DES TÂCHES PORTENT UN CHAMP "jours"** : c'est la liste des jours où la tâche s'applique, en français ("lundi", "mardi"…). **Une tâche SANS ce champ apparaît tous les jours de la semaine, sans exception.** Tu DOIS donc écrire "jours" dans ces trois cas : la personne indique une fréquence ("trois fois par semaine", "le week-end", "les jours de cours") ; la tâche est de la musculation, car un muscle travaillé sept jours sur sept ne récupère jamais ; la tâche n'a de sens que certains jours. Ne l'omets que pour ce qui se fait vraiment chaque jour, comme la méditation ou le bilan du soir.
     - **TOUTE TÂCHE DE SPORT DOIT PORTER SES CHIFFRES DANS SON TITRE**, sans quoi la personne ne sait pas quoi faire une fois devant : séries et répétitions pour la musculation ("Développé couché (4x8)", "Fentes (3x12 par jambe)"), temps de maintien pour le gainage ("Planche (3x45s)"), distance ou durée pour le cardio ("Course (5 km)", "Rameur (15 min)"). Une tâche nommée "Musculation", "Cardio", "Haut du corps" ou "Séance jambes" est INTERDITE : découpe-la en exercices distincts et chiffrés. Précise le poids ou le niveau seulement si l'utilisateur t'a dit où il en est.
     - Les échéances ("deadline") se calculent à partir de la date du jour qui t'est donnée dans les données de l'utilisateur. Ne recopie jamais l'année de l'exemple.
     - N'ajoute une catégorie que si la demande la concerne : si on te demande seulement de changer un repas, ne produis que la nutrition.

@@ -1339,3 +1339,21 @@
   50% { transform: translateY(-5px); }
   100% { transform: translateY(0px); }
 }
+/*
+  Jours d'une tâche de routine non quotidienne.
+
+  Discret, à côté du titre : c'est une précision, pas une étiquette de statut. Sans
+  elle, une tâche visible aujourd'hui et absente demain ressemblerait à une perte de
+  données plutôt qu'à la récurrence demandée.
+*/
+.routine-jours {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: 100px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: var(--secondary, rgba(255, 255, 255, 0.55));
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}

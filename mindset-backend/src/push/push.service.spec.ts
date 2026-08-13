@@ -3,6 +3,7 @@ import { Logger } from '@nestjs/common';
 import * as webpush from 'web-push';
 import { PushService } from './push.service';
 import { MorningBriefService } from './morning-brief.service';
+import { WeeklyReviewService } from './weekly-review.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 jest.mock('web-push', () => ({
@@ -63,6 +64,9 @@ describe('PushService — tournée des briefs du matin', () => {
         PushService,
         { provide: PrismaService, useValue: prisma },
         { provide: MorningBriefService, useValue: morningBrief },
+        // Le bilan hebdomadaire ne concerne aucun de ces tests, mais le service en
+        // dépend depuis qu'il ne raconte plus la même chose à tout le monde.
+        { provide: WeeklyReviewService, useValue: new WeeklyReviewService() },
       ],
     }).compile();
 

@@ -451,3 +451,22 @@
     margin-left: 2px;
   }
 }
+
+/*
+  Énergie restante, dans le sous-titre du chat. Discrète : c'est une information de
+  contexte, pas une alarme — l'afficher trop fort transformerait chaque message en
+  rappel qu'on est en train de consommer quelque chose.
+*/
+.chat-energie {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 8px;
+  padding: 1px 7px 1px 5px;
+  border-radius: 100px;
+  background: rgba(251, 191, 36, 0.14);
+  color: #fbbf24;
+  font-weight: 600;
+  font-size: 0.75rem;
+  vertical-align: middle;
+}

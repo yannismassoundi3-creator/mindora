@@ -10,6 +10,7 @@ import { RelanceOffre } from '../components/RelanceOffre';
 import type { JarvisPopupData } from '../components/JarvisPopup';
 import { api } from '../services/api';
 import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
+import { estPourAujourdhui, libelleJours } from '../utils/recurrence';
 import { RANKS, getRankForLevel } from '../utils/ranks';
 import { playClickSound, playBloopSound, playLevelUpSound } from '../utils/sounds';
 import './Dashboard.css';
@@ -304,8 +305,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   };
 
   // --- SCORE CALCULATION ---
-  const totalRoutines = Array.isArray(routineGroups) ? routineGroups.reduce((acc: number, group: any) => acc + (Array.isArray(group.items) ? group.items.length : 0), 0) : 0;
-  const doneRoutines = Array.isArray(routineGroups) ? routineGroups.reduce((acc: number, group: any) => acc + (Array.isArray(group.items) ? group.items.filter((i: any) => i.done).length : 0), 0) : 0;
+  // Seules les tâches prévues aujourd'hui entrent dans le score.
+  //
+  // Une tâche du lundi comptée un mardi plafonnerait la journée sous les 100 %
+  // quoi qu'on fasse : on serait puni pour ne pas avoir fait ce qui n'était pas
+  // prévu. Une tâche sans jours déclarés reste quotidienne, donc rien ne change
+  // pour tout ce qui existait avant.
+  const tachesDuJour = (group: any) =>
+    Array.isArray(group?.items) ? group.items.filter((i: any) => estPourAujourdhui(i)) : [];
+
+  const totalRoutines = Array.isArray(routineGroups) ? routineGroups.reduce((acc: number, group: any) => acc + tachesDuJour(group).length, 0) : 0;
+  const doneRoutines = Array.isArray(routineGroups) ? routineGroups.reduce((acc: number, group: any) => acc + tachesDuJour(group).filter((i: any) => i.done).length, 0) : 0;
 
   const [bonusScore, setBonusScore] = useState(0);
 
@@ -1026,10 +1036,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
                 <p className="section-desc mb-3" style={{ textAlign: 'center', width: '100%', flexShrink: 0 }}>{currentGroup.desc}</p>
                 <div className="routine-list" style={{ paddingRight: '4px', paddingBottom: '10px' }}>
                   <span className="time-est glass-badge mb-3" style={{ alignSelf: 'center', display: 'flex', margin: '0 auto', width: 'fit-content' }}>
-                    {Array.isArray(currentGroup.items) ? currentGroup.items.filter((r: any) => !r.done).length : 0} tâche(s) restante(s)
+                    {tachesDuJour(currentGroup).filter((r: any) => !r.done).length} tâche(s) restante(s)
                   </span>
-                  
-                  {Array.isArray(currentGroup.items) && currentGroup.items.map((routine: any) => (
+
+                  {tachesDuJour(currentGroup).map((routine: any) => (
                     <div key={routine.id} className={`routine-item ${routine.done ? 'done' : ''} glass-panel-interactive`}>
                       <div className="routine-checkbox" onClick={(e) => toggleRoutine(e, routine.id)}>
                         {routine.done ? <CheckCircle2 size={18} /> : <Circle size={18} color="rgba(255,255,255,0.4)" />}
@@ -1058,6 +1068,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
                         ) : (
                           <>
                             <span className="routine-title">{routine.title}</span>
+                            {/*
+                              Les jours d'une tâche non quotidienne. Sans cette
+                              mention, une tâche présente aujourd'hui et absente
+                              demain passerait pour une disparition — alors que
+                              c'est exactement ce qu'on a demandé au coach.
+                            */}
+                            {libelleJours(routine) && (
+                              <span className="routine-jours">{libelleJours(routine)}</span>
+                            )}
                             <span className="routine-time">{routine.time}</span>
                           </>
                         )}
