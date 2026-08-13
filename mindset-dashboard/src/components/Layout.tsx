@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Home, Brain, Target, Calendar, User, ShoppingBag, Coins, Backpack, Sparkles } from 'lucide-react';
 import { playHoverSound, playClickSound } from '../utils/sounds';
+import { BandeauCommande } from './BandeauCommande';
+import { JarvisPopup } from './JarvisPopup';
+import type { JarvisPopupData } from './JarvisPopup';
+import { EVENEMENT_TACHE_FAITE } from '../utils/journee';
 import './Layout.css';
 
 import { getSecurePoints } from '../utils/secureStorage';
@@ -78,6 +82,51 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, setView })
     e.preventDefault();
     playClickSound();
     setView(viewId);
+  };
+
+  /*
+    La bulle du coach après une tâche cochée depuis le bandeau.
+
+    Elle était rendue par le Dashboard, qui n'est plus le seul endroit d'où l'on
+    peut cocher : le bandeau vit sur toutes les pages. Le module de calcul émet un
+    événement, le Layout l'affiche — le Dashboard garde la sienne pour les cases
+    de sa propre liste, il n'y a donc jamais deux bulles pour un seul clic.
+  */
+  const [bulleCoach, setBulleCoach] = useState<JarvisPopupData | null>(null);
+
+  useEffect(() => {
+    const surTacheFaite = (e: Event) => {
+      const detail = (e as CustomEvent).detail || {};
+      setBulleCoach({
+        x: Math.min(detail.x ?? window.innerWidth / 2, window.innerWidth - 340),
+        y: detail.y ?? window.innerHeight / 2,
+        title: detail.titre || 'Tâche',
+        itemType: 'routine',
+      });
+    };
+    window.addEventListener(EVENEMENT_TACHE_FAITE, surTacheFaite);
+    return () => window.removeEventListener(EVENEMENT_TACHE_FAITE, surTacheFaite);
+  }, []);
+
+  /*
+    « Voir cette tâche dans la liste » depuis le bandeau.
+
+    La cible est le carrousel de routines du Dashboard, qui peut ne pas être
+    monté. Le créneau visé passe donc par `localStorage` — lu à l'arrivée par le
+    Dashboard — et l'événement ne sert qu'au cas où l'on y est déjà, où aucun
+    montage ne viendra relire la clé.
+  */
+  const allerAuCreneau = (indexGroupe: number) => {
+    playClickSound();
+    // Seul le créneau est écrit : c'est le Dashboard qui bascule sur l'onglet des
+    // routines en le lisant. Poser aussi `mindset_dashboard_tab` laisserait une
+    // clé non consommée quand on est déjà sur le tableau de bord.
+    localStorage.setItem('mindset_dashboard_creneau', String(indexGroupe));
+    if (activeView !== 'dashboard') {
+      setView('dashboard');
+    } else {
+      window.dispatchEvent(new Event('mindset:aller-creneau'));
+    }
   };
 
   return (
@@ -189,12 +238,37 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, setView })
         </header>
         
         <div className="content-scroll-area">
+          {/*
+            Le bandeau est ici et non dans le Dashboard : il doit rester sous les
+            yeux quel que soit l'onglet. Il est exclu du chat, qui occupe l'écran
+            entier avec son propre en-tête et où la question « quoi faire
+            maintenant » se pose justement au coach.
+          */}
+          {activeView !== 'chat' && (
+            <BandeauCommande
+              nomIa={localStorage.getItem('mindset_ai_name') || 'DISCIPLIX OS'}
+              onOuvrirChat={() => { playClickSound(); setView('chat'); }}
+              onAllerAuCreneau={allerAuCreneau}
+            />
+          )}
           {children}
           {activeView !== 'chat' && (
             <div style={{ height: '160px', width: '100%', flexShrink: 0 }}></div>
           )}
         </div>
       </main>
+
+      {bulleCoach && (
+        <JarvisPopup
+          data={bulleCoach}
+          onClose={() => setBulleCoach(null)}
+          onChatNavigate={(msg) => {
+            localStorage.setItem('mindset_pending_chat_msg', msg);
+            window.dispatchEvent(new CustomEvent('mindset_pending_chat_msg', { detail: msg }));
+            setView('chat');
+          }}
+        />
+      )}
 
       {/* Bottom Nav (Mobile) */}
       <nav className="bottom-nav glass-panel">

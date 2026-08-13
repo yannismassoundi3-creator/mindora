@@ -7,9 +7,8 @@ import { VictoryGlitchOverlay } from '../components/VictoryGlitchOverlay';
 import { JarvisPopup } from '../components/JarvisPopup';
 import { NotificationsOptIn } from '../components/NotificationsOptIn';
 import { RelanceOffre } from '../components/RelanceOffre';
-import { BandeauCommande } from '../components/BandeauCommande';
-import type { ProchaineAction } from '../components/BandeauCommande';
 import type { JarvisPopupData } from '../components/JarvisPopup';
+import { signalerJournee } from '../utils/journee';
 import { api } from '../services/api';
 import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
 import { estPourAujourdhui, libelleJours } from '../utils/recurrence';
@@ -220,6 +219,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   useEffect(() => {
     localStorage.setItem('mindset_routines', JSON.stringify(routineGroups));
     localStorage.setItem('mindset_last_routine_date', getTodayKey());
+    /*
+      Prévenir le bandeau, qui vit dans le Layout et lit `localStorage` de son
+      côté. C'est un événement à lui, et surtout pas `storage` : celui-ci
+      réveillerait l'écouteur juste au-dessus, qui rechargerait les routines,
+      donc relancerait cet effet — une boucle sans fin.
+    */
+    signalerJournee();
   }, [routineGroups]);
 
   // Écouter les changements venant de l'IA (storage)
@@ -373,10 +379,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   useEffect(() => {
     localStorage.setItem('mental_score', mentalScore.toString());
     saveDailyScore(getTodayKey(), mentalScore);
+    // Second signal : la série du bandeau se lit sur les scores quotidiens, qui
+    // viennent d'être écrits — celui de l'effet des routines est parti avant.
+    signalerJournee();
   }, [mentalScore]);
 
   // --- STREAK & HARDCORE MODE ---
-  const [streak, setStreak] = useState(0);
+  //
+  // La série n'est plus affichée ici — elle est dans le bandeau, qui la recalcule
+  // de son côté. L'effet plus bas reste : c'est lui qui détecte une série brisée,
+  // écrit `mindset_lost_streak`, prévient le coach et retire les 50 points.
   const [activeRightTab, setActiveRightTab] = useState<'routines' | 'nutrition'>(() => {
     const saved = localStorage.getItem('mindset_dashboard_tab');
     if (saved) {
@@ -414,7 +426,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
 
   useEffect(() => {
     const currentStreak = calculateStreak();
-    setStreak(currentStreak);
 
     const savedPreviousStreak = parseInt(localStorage.getItem('mindset_previous_streak') || '0', 10);
     
@@ -458,6 +469,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
       localStorage.setItem('mindset_previous_streak', currentStreak.toString());
       localStorage.removeItem('mindset_lost_streak'); // Clean up when streak is back on track
     }
+
+    // `mindset_lost_streak` vient d'être écrite ou effacée, et c'est elle qui
+    // décide de la ligne d'alerte du bandeau. Le signal envoyé par l'effet du
+    // score est parti avant celui-ci : sans ce second appel, l'alerte resterait
+    // affichée une manœuvre de trop.
+    signalerJournee();
   }, [mentalScore]);
 
   // --- MICRO OBJECTIVES (read from Objectives page via localStorage) ---
@@ -528,43 +545,29 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   const currentGroup = routineGroups[currentRoutineIndex] || { title: 'Aucune routine', desc: 'Créez vos routines', items: [] };
 
   /*
-    La prochaine action affichée par le bandeau : la première tâche du jour encore
-    à faire, en parcourant les créneaux dans l'ordre.
+    « Voir cette tâche dans la liste », demandé depuis le bandeau du Layout.
 
-    Il n'y a rien à trier par l'heure — une tâche porte une durée ("8 min"), pas un
-    horaire. L'ordre matin → midi → soir est déjà celui de la journée, et le nom du
-    créneau est affiché justement pour qu'une tâche du matin retrouvée le soir se
-    lise comme un retard et non comme une erreur.
+    Le créneau visé arrive par `localStorage` parce que le bandeau peut cliquer
+    depuis une page où ce composant n'existe pas : la clé est relue au montage.
+    L'événement couvre le cas inverse, celui où l'on est déjà sur le tableau de
+    bord et où aucun montage ne viendra la relire. Sans ce déplacement du
+    carrousel, on atterrirait sur la liste d'un autre moment de la journée.
   */
-  const NOMS_CRENEAUX: Record<string, string> = { morning: 'Matin', midday: 'Midi', evening: 'Soir' };
-
-  const prochaineAction: ProchaineAction | null = (() => {
-    if (!Array.isArray(routineGroups)) return null;
-    for (let i = 0; i < routineGroups.length; i++) {
-      const groupe = routineGroups[i];
-      const tache = tachesDuJour(groupe).find((t: any) => !t.done);
-      if (tache) {
-        return {
-          id: tache.id,
-          titre: tache.title || 'Tâche',
-          duree: tache.time,
-          creneau: NOMS_CRENEAUX[groupe?.id] || groupe?.title || '',
-          indexGroupe: i,
-        };
-      }
-    }
-    return null;
-  })();
-
-  // Le bandeau ne coche pas seulement : il permet aussi d'aller voir la tâche dans
-  // sa liste. Il faut alors amener le carrousel sur le bon créneau — sinon on
-  // arrive sur la liste d'un autre moment de la journée, sans la tâche annoncée.
-  const allerALaTache = (indexGroupe: number) => {
-    playClickSound();
-    setActiveRightTab('routines');
-    setCurrentRoutineIndex(indexGroupe);
-    routinesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  };
+  useEffect(() => {
+    const rejoindreCreneau = () => {
+      const cible = localStorage.getItem('mindset_dashboard_creneau');
+      if (cible === null) return;
+      localStorage.removeItem('mindset_dashboard_creneau');
+      const index = parseInt(cible, 10);
+      if (Number.isNaN(index)) return;
+      setActiveRightTab('routines');
+      setCurrentRoutineIndex(index);
+      routinesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
+    rejoindreCreneau();
+    window.addEventListener('mindset:aller-creneau', rejoindreCreneau);
+    return () => window.removeEventListener('mindset:aller-creneau', rejoindreCreneau);
+  }, []);
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState('');
@@ -719,37 +722,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (mentalScore / 100) * circumference;
 
-  const getFlameStyle = (streakValue: number): React.CSSProperties => {
-    if (streakValue <= 1) {
-      return { filter: 'grayscale(100%)', opacity: 0.3, animation: 'none' };
-    }
-    if (streakValue >= 365) {
-      return { filter: 'grayscale(100%) brightness(0) drop-shadow(0 0 8px rgba(255,255,255,0.8))' };
-    }
-    if (streakValue >= 100) {
-      return { filter: 'hue-rotate(240deg) saturate(2) brightness(1.2)' };
-    }
-    
-    // Entre le jour 2 et le jour 100
-    const progress = (streakValue - 2) / 98; // 0 à 1
-    
-    // Transition douce du gris vers la couleur (sur les 30 premiers jours)
-    let grayScale = 0;
-    let currentOpacity = 1;
-    if (streakValue < 30) {
-      const earlyProgress = (streakValue - 2) / 28; // 0 à 1
-      grayScale = 80 - (80 * earlyProgress); // Commence à 80% gris, descend à 0%
-      currentOpacity = 0.5 + (0.5 * earlyProgress); // Commence à 50% opaque, monte à 100%
-    }
-    
-    const hueShift = -45 * progress;
-    const saturate = 1 + progress;
-    
-    return { 
-      filter: `grayscale(${grayScale}%) hue-rotate(${hueShift}deg) saturate(${saturate})`,
-      opacity: currentOpacity
-    };
-  };
+  // `getFlameStyle` a suivi la flamme dans BandeauCommande.tsx, seul endroit qui
+  // l'affiche depuis que la carte de série a été retirée.
 
   const userName = localStorage.getItem('mindset_user_name') || 'Utilisateur';
   const aiName = localStorage.getItem('mindset_ai_name') || 'DISCIPLIX OS';
@@ -818,24 +792,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
         </div>
       </header>
 
-      {/*
-        Le bandeau passe avant les cartes d'avertissement : il porte l'état de la
-        journée et le geste suivant, c'est-à-dire la raison d'ouvrir l'application.
-        Une invitation aux notifications ou à l'abonnement ne passe pas devant.
-      */}
-      <BandeauCommande
-        score={mentalScore}
-        serie={streak}
-        faites={doneRoutines}
-        total={totalRoutines}
-        prochaine={prochaineAction}
-        seriePerdue={parseInt(localStorage.getItem('mindset_lost_streak') || '0', 10)}
-        styleFlamme={getFlameStyle(streak)}
-        nomIa={aiName}
-        onCocher={toggleRoutine}
-        onAller={allerALaTache}
-        onOuvrirChat={() => { playClickSound(); onOpenChat(); }}
-      />
+      {/* Le bandeau de commandement est rendu par le Layout : il vit sur tous les
+          onglets, pas seulement ici. */}
 
       <NotificationsOptIn />
       {/* Après la carte des notifications : les deux ne s'affichent presque jamais

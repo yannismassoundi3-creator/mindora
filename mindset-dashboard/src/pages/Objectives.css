@@ -478,6 +478,22 @@
     min-width: 0;
     box-sizing: border-box;
   }
+
+  /*
+    Une piste de grille se dimensionne sur le contenu de ses cases, et une case
+    refuse par défaut de descendre sous la largeur de ce qu'elle contient. La
+    section des macro-objectifs élargissait donc sa colonne à 353 px dans une
+    grille de 349 : quatre pixels que la rangée à fond perdu multipliait ensuite,
+    et que l'`overflow-x: hidden` de la zone de contenu tranchait à droite.
+
+    `min-width: 0` lève ce plancher : la colonne suit la grille, et c'est le
+    défilement horizontal interne de la rangée qui absorbe le trop-plein — ce
+    pour quoi il est là.
+  */
+  .macro-section,
+  .micro-section {
+    min-width: 0;
+  }
   .macro-cards-container {
     display: flex;
     flex-direction: row;
@@ -491,12 +507,21 @@
     margin-top: -24px;
     margin-bottom: -16px;
     -webkit-overflow-scrolling: touch;
-    /* Break out of Layout padding properly without pushing right edge off-screen */
+    /*
+      La rangée touche les deux bords de l'écran : elle annule le rembourrage
+      latéral de la zone de contenu, puis le rétablit en rembourrage à elle pour
+      que la première et la dernière carte ne collent pas au bord.
+
+      La valeur vient de `--marge-page` (Layout.css) et n'est plus recopiée : les
+      16 px écrits ici ne correspondaient plus aux 10 px du téléphone, la rangée
+      dépassait donc de 6 px à gauche et 10 px à droite, et se faisait couper par
+      l'`overflow-x: hidden` de la zone de contenu.
+    */
     width: auto;
-    margin-left: -16px;
-    margin-right: -16px;
-    padding-left: 16px;
-    padding-right: 16px;
+    margin-left: calc(-1 * var(--marge-page, 16px));
+    margin-right: calc(-1 * var(--marge-page, 16px));
+    padding-left: var(--marge-page, 16px);
+    padding-right: var(--marge-page, 16px);
   }
 
   /* Hide scrollbar for a cleaner look */

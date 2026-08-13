@@ -103,7 +103,22 @@
   display: none;
 }
 
+/*
+  `--marge-page` publie le rembourrage latéral de la zone de contenu.
+
+  Une bande qui veut toucher les bords de l'écran doit annuler ce rembourrage par
+  une marge négative. Tant que la valeur était recopiée à la main, elle a fini par
+  ne plus correspondre : la rangée de macro-objectifs annulait 16 px alors que le
+  téléphone n'en applique que 10, et débordait donc de 6 px à gauche et 10 px à
+  droite. La zone de contenu étant en `overflow-x: hidden`, cela se voyait à
+  l'écran sous forme de cartes coupées. Lire la variable rend l'annulation exacte
+  par construction.
+*/
 .content-scroll-area {
+  --marge-page: 40px;
+  /* Hauteur réservée en haut, que le bandeau collant doit masquer derrière lui :
+     sans quoi le contenu défile dans la bande laissée libre au-dessus de lui. */
+  --marge-haut: 40px;
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
@@ -182,7 +197,9 @@
     /* La barre de navigation basse est fixe et occupe 108px depuis le bas du viewport
        (84px de haut + son décalage). Les 100px précédents passaient dessous : le
        dernier bouton de la page finissait masqué. */
-    padding: calc(max(12px, env(safe-area-inset-top)) + 70px) 10px calc(130px + env(safe-area-inset-bottom, 0px)) 10px; 
+    --marge-page: 10px;
+    --marge-haut: calc(max(12px, env(safe-area-inset-top)) + 70px);
+    padding: var(--marge-haut) var(--marge-page) calc(130px + env(safe-area-inset-bottom, 0px)) var(--marge-page);
   }
 
   .bottom-nav {
