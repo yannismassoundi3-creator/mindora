@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { api } from '../services/api';
+import { api, memoriserSession } from '../services/api';
 import './AuthScreen.css';
 import { Brain, ArrowRight, Eye, EyeOff, ShieldCheck, KeyRound } from 'lucide-react';
 
@@ -98,7 +98,7 @@ export const AuthScreen = ({ onComplete }: { onComplete: () => void }) => {
     try {
       if (is2FAPending) {
         const res = await api.post('/auth/verify-2fa', { email, code: verificationCode });
-        localStorage.setItem('mindset_token', res.access_token);
+        memoriserSession(res);
         localStorage.setItem('mindset_user_name', res.user?.first_name || 'User');
         await api.downloadCloudState();
         memoriserOnboarding(res.has_ai_profile);
@@ -115,7 +115,7 @@ export const AuthScreen = ({ onComplete }: { onComplete: () => void }) => {
         }
         // Chemin sans 2FA (dev, ou compte dont le second facteur est désactivé)
         if (res.access_token) {
-          localStorage.setItem('mindset_token', res.access_token);
+          memoriserSession(res);
           localStorage.setItem('mindset_user_name', res.user?.first_name || 'User');
           await api.downloadCloudState();
           memoriserOnboarding(res.has_ai_profile);
@@ -137,7 +137,7 @@ export const AuthScreen = ({ onComplete }: { onComplete: () => void }) => {
           return;
         }
         if (res.access_token) {
-          localStorage.setItem('mindset_token', res.access_token);
+          memoriserSession(res);
           localStorage.setItem('mindset_user_name', firstName);
           localStorage.removeItem('hasCompletedOnboarding');
           await api.downloadCloudState();

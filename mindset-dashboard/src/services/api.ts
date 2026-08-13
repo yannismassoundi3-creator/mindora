@@ -11,18 +11,73 @@ const API_URL = import.meta.env.VITE_API_URL || 'https://mindora-backend-haku.on
  */
 let rafraichissementEnCours: Promise<boolean> | null = null;
 
+/**
+ * Réponses au questionnaire d'inscription que le serveur n'a pas encore acceptées.
+ *
+ * Le serveur est seul juge de « lui a-t-on déjà posé les questions » — il répond
+ * d'après la table des profils. Tant que l'enregistrement n'a pas abouti, les
+ * réponses attendent ici plutôt que d'être redemandées à leur auteur.
+ */
+export const CLE_PROFIL_EN_ATTENTE = 'mindset_profil_en_attente';
+
+/**
+ * Renvoie le questionnaire resté en attente. Rend `true` si le profil est
+ * désormais enregistré — ou s'il n'y avait rien à envoyer.
+ */
+export async function renvoyerProfilEnAttente(): Promise<boolean> {
+  const brut = localStorage.getItem(CLE_PROFIL_EN_ATTENTE);
+  if (!brut) return false;
+
+  try {
+    await api.post('/ai-coaching/onboarding', JSON.parse(brut));
+    localStorage.removeItem(CLE_PROFIL_EN_ATTENTE);
+    return true;
+  } catch (e) {
+    console.warn('Profil en attente toujours pas enregistré', e);
+    return false;
+  }
+}
+
+/**
+ * Range les deux jetons d'une réponse d'authentification.
+ *
+ * Le jeton de rafraîchissement n'était nulle part côté client : il ne vivait que
+ * dans un cookie, et un cookie tiers ne survit pas à Safari. Il est remplacé à
+ * chaque usage par le serveur, donc cette valeur doit être réécrite après chaque
+ * rafraîchissement — garder l'ancienne reviendrait à rejouer un jeton consommé, ce
+ * que le serveur traite comme un vol et qui révoque toutes les sessions du compte.
+ */
+export function memoriserSession(data: { access_token?: string; refresh_token?: string }) {
+  if (data?.access_token) localStorage.setItem('mindset_token', data.access_token);
+  if (data?.refresh_token) localStorage.setItem('mindset_refresh', data.refresh_token);
+}
+
 async function rafraichirSession(): Promise<boolean> {
   if (rafraichissementEnCours) return rafraichissementEnCours;
 
   const tentative = (async () => {
     try {
-      // credentials: 'include' est indispensable — le cookie de session vit sur le
-      // domaine de l'API, pas sur celui du front.
-      const res = await fetch(`${API_URL}/auth/refresh`, { method: 'POST', credentials: 'include' });
+      // Deux chemins, parce qu'un seul ne suffit pas.
+      //
+      // credentials: 'include' envoie le cookie de session, qui vit sur le domaine de
+      // l'API et non sur celui du front. Mais justement : ce sont deux domaines, donc
+      // pour le navigateur c'est un cookie tiers — et Safari les bloque tous par
+      // défaut. Sur iPhone, où tous les navigateurs reposent sur WebKit, le cookie
+      // n'arrivait jamais : la session tombait au bout de quinze minutes et il
+      // fallait se reconnecter à chaque ouverture de l'application.
+      //
+      // On présente donc aussi le jeton conservé ici. Le serveur prend le cookie
+      // quand il l'a, ce corps sinon.
+      const res = await fetch(`${API_URL}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: localStorage.getItem('mindset_refresh') || undefined }),
+        credentials: 'include',
+      });
       if (!res.ok) return false;
       const data = await res.json();
       if (!data?.access_token) return false;
-      localStorage.setItem('mindset_token', data.access_token);
+      memoriserSession(data);
       return true;
     } catch {
       return false;
@@ -38,6 +93,9 @@ async function rafraichirSession(): Promise<boolean> {
 
 function terminerSession() {
   localStorage.removeItem('mindset_token');
+  // Le jeton de rafraîchissement part avec : le laisser derrière ferait présenter à
+  // la connexion suivante un jeton que le serveur a déjà révoqué.
+  localStorage.removeItem('mindset_refresh');
   window.location.href = '/?auth=true';
 }
 

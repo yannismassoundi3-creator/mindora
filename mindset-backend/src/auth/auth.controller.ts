@@ -37,7 +37,27 @@ export class AuthController {
     };
   }
 
-  // Sécurité: Refresh Token en HttpOnly Cookie, jamais dans le corps de la réponse.
+  /**
+   * Le cookie reste posé — mais il ne peut plus être le seul chemin.
+   *
+   * Le front est servi par Vercel, l'API par Render : pour un navigateur, ce cookie
+   * est un **cookie tiers**. Safari les bloque tous par défaut depuis des années, et
+   * tous les navigateurs d'iPhone reposent sur WebKit. Sur un iPhone, ce cookie
+   * n'était donc ni conservé ni renvoyé, quelles que soient ses options : le
+   * rafraîchissement échouait, le jeton d'accès expirait au bout de quinze minutes,
+   * et la personne était renvoyée à l'écran de connexion à chaque ouverture de
+   * l'application. Signalé depuis un vrai téléphone, invisible sur un poste de
+   * développement où le cookie est de première partie.
+   *
+   * Le jeton est donc aussi renvoyé dans le corps de la réponse, à charge pour le
+   * client de le conserver et de le présenter quand le cookie manque. C'est un
+   * compromis assumé : un jeton lisible par le script est exposé à une injection de
+   * code, là où `httpOnly` l'en protégeait. Deux choses le bornent, et existaient
+   * déjà : il est remplacé à chaque usage, et rejouer un jeton déjà consommé révoque
+   * toutes les sessions du compte. La solution sans compromis serait de servir l'API
+   * derrière le même domaine que le front — c'est un changement d'infrastructure, pas
+   * un correctif.
+   */
   private setRefreshTokenCookie(response: Response, refreshToken: string) {
     response.cookie('refresh_token', refreshToken, {
       ...AuthController.optionsCookie(),
@@ -78,7 +98,7 @@ export class AuthController {
     if ('accessToken' in result) {
       const { accessToken, refreshToken, ...rest } = result;
       this.setRefreshTokenCookie(response, refreshToken);
-      return { access_token: accessToken, ...rest };
+      return { access_token: accessToken, refresh_token: refreshToken, ...rest };
     }
 
     return result;
@@ -96,6 +116,7 @@ export class AuthController {
 
     return {
       access_token: accessToken,
+      refresh_token: refreshToken,
       user,
       has_ai_profile
     };
@@ -135,12 +156,18 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Prolonger la session à partir du cookie de rafraîchissement' })
   @ApiResponse({ status: 401, description: 'Session expirée ou révoquée : il faut se reconnecter.' })
-  async refresh(@Req() req: Request, @Res({ passthrough: true }) response: Response) {
-    const ancien = req.cookies?.['refresh_token'];
+  async refresh(
+    @Req() req: Request,
+    @Res({ passthrough: true }) response: Response,
+    @Body() body: { refresh_token?: string },
+  ) {
+    // Le cookie d'abord quand il arrive, le corps sinon. Voir la note de
+    // setRefreshTokenCookie : sur iPhone, le cookie n'arrive jamais.
+    const ancien = req.cookies?.['refresh_token'] || body?.refresh_token;
     const { accessToken, refreshToken, user } = await this.authService.refreshSession(ancien);
 
     this.setRefreshTokenCookie(response, refreshToken);
-    return { access_token: accessToken, user };
+    return { access_token: accessToken, refresh_token: refreshToken, user };
   }
 
   @Post('logout')

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowRight, CheckCircle2, Loader2, Sparkles } from 'lucide-react';
 import './Onboarding.css';
-import { api } from '../services/api';
+import { api, CLE_PROFIL_EN_ATTENTE } from '../services/api';
 
 interface OnboardingProps {
   onComplete: () => void;
@@ -47,16 +47,28 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
 
     const enregistrer = async () => {
       const debut = Date.now();
+      const reponses = {
+        job: answers.job,
+        consistency: answers.consistency,
+        goal: answers.goal,
+      };
       try {
-        await api.post('/ai-coaching/onboarding', {
-          job: answers.job,
-          consistency: answers.consistency,
-          goal: answers.goal,
-        });
+        await api.post('/ai-coaching/onboarding', reponses);
+        localStorage.removeItem(CLE_PROFIL_EN_ATTENTE);
       } catch (e) {
         // Un profil non enregistré dégrade le coaching, il ne doit pas interdire
         // l'entrée dans l'application : la personne vient de créer son compte.
-        console.error('Profil non enregistré', e);
+        //
+        // Mais l'échec était purement et simplement avalé, et c'est ce qui coûtait
+        // cher : le serveur est seul juge de « a-t-on déjà posé les questions », et
+        // il répond d'après la table des profils. Une seule requête ratée — un jeton
+        // expiré, un réseau qui saute — et le questionnaire revenait à chaque
+        // connexion, indéfiniment, sans que rien n'ait l'air cassé.
+        //
+        // Les réponses sont donc gardées ici, et renvoyées au prochain démarrage.
+        // On ne redemande à quelqu'un que ce qu'on n'a vraiment pas.
+        console.error('Profil non enregistré, réponses conservées pour un nouvel essai', e);
+        localStorage.setItem(CLE_PROFIL_EN_ATTENTE, JSON.stringify(reponses));
       }
 
       // Durée plancher de l'écran de chargement : sans elle, une réponse rapide le

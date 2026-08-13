@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { api } from './services/api';
+import { api, renvoyerProfilEnAttente } from './services/api';
 import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { Onboarding } from './components/Onboarding';
@@ -214,8 +214,18 @@ function App() {
           // connaître. Un appareil neuf, un vidage de cache ou une session posée
           // par un autre chemin ne doivent ni le reposer, ni le sauter.
           if (user.has_ai_profile === false) {
-            localStorage.removeItem('hasCompletedOnboarding');
-            setCurrentView((vue) => (vue === 'auth' ? vue : 'onboarding'));
+            // Avant de reposer les questions, on vérifie qu'on ne les a pas déjà.
+            // L'enregistrement du questionnaire pouvait échouer sans bruit — un jeton
+            // expiré suffisait — et comme le serveur décide d'après la table des
+            // profils, la personne se voyait redemander à chaque connexion ce qu'elle
+            // avait déjà répondu. Les réponses sont conservées et renvoyées ici.
+            const rattrape = await renvoyerProfilEnAttente();
+            if (rattrape) {
+              localStorage.setItem('hasCompletedOnboarding', 'true');
+            } else {
+              localStorage.removeItem('hasCompletedOnboarding');
+              setCurrentView((vue) => (vue === 'auth' ? vue : 'onboarding'));
+            }
           } else if (user.has_ai_profile === true) {
             localStorage.setItem('hasCompletedOnboarding', 'true');
           }
