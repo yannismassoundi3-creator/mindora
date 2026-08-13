@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { MessageSquarePlus } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { AI_COSMETICS } from '../utils/cosmetics';
+import { lireEtatDuJour } from '../utils/journee';
 import './JarvisPopup.css';
 
 export interface JarvisPopupData {
@@ -55,34 +56,61 @@ export const JarvisPopup: React.FC<JarvisPopupProps> = ({ data, onClose, onChatN
     }, 300);
   };
 
-  const getMessageText = () => {
-    if (data.itemType === 'routine') return `Routine "${data.title}" terminée. Un retour à faire ?`;
-    if (data.itemType === 'objective') return `Objectif "${data.title}" avancé. Prêt pour la suite ?`;
-    return `"${data.title}" accompli. Bien joué !`;
-  };
+  /*
+    L'avancée du jour, lue au moment où la bulle apparaît.
+
+    La bulle annonçait la tâche et enchaînait aussitôt sur une question, sans
+    jamais dire où l'on en était. C'est pourtant le seul instant où la réponse
+    intéresse vraiment : on vient de cocher, on veut savoir ce qu'il reste. Le
+    `useMemo` fige la valeur à l'ouverture — recalculée, la jauge repartirait
+    en arrière au prochain rendu.
+  */
+  const journee = useMemo(() => lireEtatDuJour(), []);
+  const avancee = journee.total > 0 ? Math.round((journee.faites / journee.total) * 100) : 0;
+  const restantes = Math.max(0, journee.total - journee.faites);
+
+  const question = restantes === 0 ? 'Journée bouclée. Ça s’est passé comment ?' : 'Ça s’est passé comment ?';
 
   return createPortal(
-    <div 
+    <div
       className={`jarvis-popup-container ${isHiding ? 'hiding' : ''}`}
     >
       <div className="jarvis-popup-orb-container">
         {equippedCosmetic?.type === 'icon' ? (
           <div className="status-icon-skin-large" style={{ fontSize: '20px' }}>{equippedCosmetic.value}</div>
         ) : (
-          <div 
+          <div
             className="jarvis-popup-orb liquid-glass-orb"
             style={equippedCosmetic?.type === 'color' ? { background: equippedCosmetic.value } : {}}
           ></div>
         )}
       </div>
-      
+
       <div className="jarvis-popup-bubble">
         <div className="jarvis-popup-header">
           {aiName}
+          <span className="jarvis-gain">+5</span>
         </div>
-        <p className="jarvis-popup-text">
-          {getMessageText()}
-        </p>
+
+        <div className="jarvis-fait">
+          <Check size={14} strokeWidth={3} />
+          <span className="jarvis-fait-titre">{data.title}</span>
+        </div>
+
+        {journee.total > 0 && (
+          <div className="jarvis-avancee">
+            <div className="jarvis-jauge">
+              <div className="jarvis-jauge-remplie" style={{ width: `${avancee}%` }} />
+            </div>
+            <span className="jarvis-avancee-texte">
+              {restantes === 0
+                ? `${journee.total} / ${journee.total}`
+                : `${journee.faites} / ${journee.total} · ${restantes} restante${restantes > 1 ? 's' : ''}`}
+            </span>
+          </div>
+        )}
+
+        <p className="jarvis-popup-text">{question}</p>
         <div className="jarvis-popup-actions-row">
           <button className="jarvis-popup-btn success" onClick={(e) => handleActionClick(e, 'good')}>
             👍 Facile
@@ -91,6 +119,10 @@ export const JarvisPopup: React.FC<JarvisPopupProps> = ({ data, onClose, onChatN
             👎 Difficile
           </button>
         </div>
+
+        {/* Le temps qu'il reste avant que la bulle s'en aille d'elle-même. Sans
+            cette barre, sa disparition passe pour un raté d'affichage. */}
+        <span className="jarvis-minuteur" />
       </div>
     </div>,
     document.body

@@ -1,0 +1,61 @@
+/* Voir l'en-tête de GainFlottant.tsx. */
+
+.gain-flottant-couche {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9998;
+}
+
+.gain-flottant {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  color: #fbbf24;
+  text-shadow: 0 0 14px rgba(251, 191, 36, 0.65), 0 2px 6px rgba(0, 0, 0, 0.8);
+  animation: gainMonte 1.05s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.gain-flottant.negatif {
+  color: #f87171;
+  text-shadow: 0 0 14px rgba(248, 113, 113, 0.55), 0 2px 6px rgba(0, 0, 0, 0.8);
+}
+
+@keyframes gainMonte {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.6);
+  }
+  18% {
+    opacity: 1;
+    transform: translate(-50%, -60%) scale(1.12);
+  }
+  32% {
+    transform: translate(-50%, -68%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -190%) scale(0.95);
+  }
+}
+
+/*
+  Le mouvement est la seule information ici : sans lui, il ne resterait qu'un
+  chiffre posé au milieu de l'écran. On l'affiche donc immobile et on le laisse
+  disparaître de lui-même.
+*/
+@media (prefers-reduced-motion: reduce) {
+  .gain-flottant {
+    animation: gainFondu 1.05s linear forwards;
+  }
+
+  @keyframes gainFondu {
+    0% { opacity: 0; }
+    15% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+}

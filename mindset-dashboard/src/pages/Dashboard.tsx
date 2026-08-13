@@ -8,7 +8,7 @@ import { JarvisPopup } from '../components/JarvisPopup';
 import { NotificationsOptIn } from '../components/NotificationsOptIn';
 import { RelanceOffre } from '../components/RelanceOffre';
 import type { JarvisPopupData } from '../components/JarvisPopup';
-import { signalerJournee } from '../utils/journee';
+import { signalerJournee, annoncerGain } from '../utils/journee';
 import { api } from '../services/api';
 import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
 import { estPourAujourdhui, libelleJours } from '../utils/recurrence';
@@ -37,6 +37,22 @@ function getLastNDays(n: number): string[] {
     days.push(d.toISOString().slice(0, 10));
   }
   return days;
+}
+
+/*
+  La phrase lue sous le damier quand on touche un carré, et l'étiquette
+  d'accessibilité de ce même carré. Trois cas seulement, mais qui n'ont rien à
+  voir : le jour n'existait pas encore, le jour a été manqué, le jour a compté.
+*/
+function libelleJour(cle: string, score: number, avantLeDebut: boolean): string {
+  const date = new Date(cle).toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+  if (avantLeDebut) return `${date} — avant ton inscription`;
+  if (score <= 0) return `${date} — rien de fait`;
+  return `${date} — ${score} % de la journée`;
 }
 
 function loadDailyScores(): Record<string, number> {
@@ -130,6 +146,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   const [currentDate, setCurrentDate] = useState('');
   const heatmapRef = useRef<HTMLDivElement>(null);
   const routinesRef = useRef<HTMLElement>(null);
+  // Le jour du damier que l'on vient de toucher, écrit en clair sous la grille.
+  const [jourLu, setJourLu] = useState<string | null>(null);
   const [isSubscribed, setIsSubscribed] = useState(() => localStorage.getItem('mindset_is_subscribed') === 'true');
   const [showRankGlitch, setShowRankGlitch] = useState(false);
   const [jarvisPopup, setJarvisPopup] = useState<JarvisPopupData | null>(null);
@@ -649,6 +667,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
       setPoints(newPoints);
       setSecurePoints(newPoints);
       window.dispatchEvent(new CustomEvent('pointsChanged', { detail: newPoints }));
+      // Le même chiffre volant que depuis le bandeau : la récompense doit se lire
+      // au doigt, pas dans un compteur situé à l'autre bout de l'écran.
+      annoncerGain('+5', { x: e.clientX, y: e.clientY });
 
       // Le solde qui autorise l'IA est tenu par le serveur. La clé porte la tâche et
       // le jour : décocher puis recocher ne recrédite donc pas.
@@ -670,6 +691,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
       setPoints(newPoints);
       setSecurePoints(newPoints);
       window.dispatchEvent(new CustomEvent('pointsChanged', { detail: newPoints }));
+      annoncerGain('−5', { x: e.clientX, y: e.clientY }, true);
     }
 
     setRoutineGroups(newGroups);
@@ -904,88 +926,155 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
 
           {/* Heatmap Section */}
           <section className="heatmap-section glass-panel glass-panel-interactive pulse-glow fade-in delay-2" style={{ transition: 'transform 0.3s ease, opacity 0.3s ease, background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, color 0.3s ease', cursor: 'pointer' }}>
-            <div className="section-header-flex" style={{ marginBottom: '8px' }}>
+            <div className="section-header-flex" style={{ marginBottom: '6px' }}>
               <h3 className="section-title" style={{ fontSize: '1.2rem', margin: 0 }}>
-                <Calendar size={18} /> Ton Année (Régularité)
+                <Calendar size={18} /> Ton année
               </h3>
             </div>
-            <p style={{ fontSize: '0.85rem', color: 'var(--secondary)', marginBottom: '24px', lineHeight: 1.4 }}>
-              Ce graphique montre ta régularité sur l'année. Fais défiler horizontalement pour voir tes 365 derniers jours ! Chaque carré représente un jour. Plus tu complètes tes routines, plus le carré brille fort. L'objectif : <strong style={{color: '#10b981'}}>ne jamais briser la chaîne lumineuse !</strong>
+            <p className="heatmap-intro">
+              Un carré par jour, de gauche à droite jusqu’à aujourd’hui. Plus il est vif, plus la journée a compté.
             </p>
-            <div className="heatmap-container" ref={heatmapRef}>
-              {(() => {
-                const heatmapDays = getLastNDays(365).reverse();
-                const firstDate = new Date(heatmapDays[0]);
-                const emptyCellsCount = firstDate.getDay() === 0 ? 6 : firstDate.getDay() - 1;
-                
-                const monthLabels: { month: string, colIndex: number }[] = [];
-                let currentMonth = -1;
-                let totalCells = emptyCellsCount;
-                
-                heatmapDays.forEach((dateStr) => {
-                  const d = new Date(dateStr);
-                  const m = d.getMonth();
-                  if (m !== currentMonth) {
-                    if (currentMonth !== -1) {
-                      monthLabels.push({ month: d.toLocaleDateString('fr-FR', { month: 'short' }), colIndex: Math.floor(totalCells / 7) });
-                    }
-                    currentMonth = m;
-                  }
-                  totalCells++;
-                });
+            {(() => {
+              /*
+                Les 365 derniers jours, **dans l'ordre**.
 
-                const scores = loadDailyScores();
+                Le tableau était retourné par un `.reverse()` : aujourd'hui se
+                trouvait à gauche et l'année s'écoulait vers la droite, à rebours
+                de toute lecture — et comme le conteneur se positionne à droite au
+                chargement, on arrivait sur le jour le plus vieux. C'est ce qui
+                rendait ce graphique illisible.
+              */
+              const jours = getLastNDays(365);
+              const scores = loadDailyScores();
+              const aujourdhui = getTodayKey();
 
-                return (
-                  <div style={{ padding: '0 10px' }}>
-                    <div className="heatmap-months-row" style={{ position: 'relative', height: '20px', marginBottom: '4px', fontSize: '0.75rem', color: 'var(--secondary)' }}>
-                      {monthLabels.map((lbl, i) => (
-                        <span key={i} style={{ position: 'absolute', left: `calc(28px + ${lbl.colIndex} * 19px)`, textTransform: 'capitalize' }}>
-                          {lbl.month}
-                        </span>
-                      ))}
+              // Avant la première journée enregistrée, il n'y a pas « zéro », il n'y
+              // a rien : le compte n'existait pas. Sans cette distinction, quelqu'un
+              // qui vient de s'inscrire ouvre son tableau de bord sur trois cent
+              // soixante carrés éteints, c'est-à-dire sur une année d'échecs qu'il
+              // n'a pas vécue.
+              const joursConnus = Object.keys(scores).sort();
+              const debut = joursConnus.length > 0 ? joursConnus[0] : aujourdhui;
+
+              const suivis = jours.filter((j) => j >= debut);
+              const actifs = suivis.filter((j) => (scores[j] || 0) > 0).length;
+              const presence = suivis.length > 0 ? Math.round((actifs / suivis.length) * 100) : 0;
+
+              let record = 0;
+              let courante = 0;
+              for (const j of jours) {
+                if ((scores[j] || 0) > 0) {
+                  courante++;
+                  if (courante > record) record = courante;
+                } else {
+                  courante = 0;
+                }
+              }
+
+              const premierJour = new Date(jours[0]);
+              const casesVides = premierJour.getDay() === 0 ? 6 : premierJour.getDay() - 1;
+
+              const moisAffiches: { mois: string; colonne: number }[] = [];
+              let moisCourant = -1;
+              let rang = casesVides;
+              jours.forEach((j) => {
+                const d = new Date(j);
+                if (d.getMonth() !== moisCourant) {
+                  moisCourant = d.getMonth();
+                  moisAffiches.push({
+                    mois: d.toLocaleDateString('fr-FR', { month: 'short' }),
+                    colonne: Math.floor(rang / 7),
+                  });
+                }
+                rang++;
+              });
+
+              const niveau = (score: number) => {
+                if (score >= 100) return 'level-4';
+                if (score >= 50) return 'level-3';
+                if (score >= 20) return 'level-2';
+                if (score > 0) return 'level-1';
+                return 'level-0';
+              };
+
+              return (
+                <>
+                  <div className="heatmap-chiffres">
+                    <div className="heatmap-chiffre">
+                      <strong>{actifs}</strong>
+                      <span>jour{actifs > 1 ? 's' : ''} actif{actifs > 1 ? 's' : ''}</span>
                     </div>
-                    <div className="heatmap-body" style={{ display: 'flex', gap: '8px' }}>
-                      <div className="heatmap-days-col" style={{ display: 'grid', gridTemplateRows: 'repeat(7, 1fr)', fontSize: '0.7rem', color: 'var(--secondary)', textAlign: 'right', gap: '5px' }}>
-                        <span style={{ gridRow: 2, transform: 'translateY(-2px)' }}>Lun</span>
-                        <span style={{ gridRow: 4, transform: 'translateY(-2px)' }}>Mer</span>
-                        <span style={{ gridRow: 6, transform: 'translateY(-2px)' }}>Ven</span>
-                      </div>
-                      <div className="heatmap-grid">
-                        {Array.from({ length: emptyCellsCount }).map((_, i) => (
-                          <div key={`empty-${i}`} className="heatmap-cell" style={{ background: 'transparent' }} />
+                    <div className="heatmap-chiffre">
+                      <strong>{record} j</strong>
+                      <span>meilleure série</span>
+                    </div>
+                    <div className="heatmap-chiffre">
+                      <strong>{presence} %</strong>
+                      <span>depuis le début</span>
+                    </div>
+                  </div>
+
+                  <div className="heatmap-container" ref={heatmapRef}>
+                    <div style={{ padding: '0 10px' }}>
+                      <div className="heatmap-months-row">
+                        {moisAffiches.map((lbl, i) => (
+                          <span key={i} style={{ left: `calc(28px + ${lbl.colonne} * 19px)` }}>{lbl.mois}</span>
                         ))}
-                        {heatmapDays.map((dateStr, i) => {
-                          const score = scores[dateStr] || 0;
-                          let levelClass = 'level-0';
-                          if (score >= 100) levelClass = 'level-4';
-                          else if (score >= 50) levelClass = 'level-3';
-                          else if (score >= 20) levelClass = 'level-2';
-                          else if (score > 0) levelClass = 'level-1';
-                          
-                          return (
-                            <div 
-                              key={i} 
-                              className={`heatmap-cell ${levelClass}`}
-                              title={`${dateStr}: ${score} pts`}
-                            />
-                          );
-                        })}
+                      </div>
+                      <div className="heatmap-body">
+                        <div className="heatmap-days-col">
+                          <span style={{ gridRow: 2 }}>Lun</span>
+                          <span style={{ gridRow: 4 }}>Mer</span>
+                          <span style={{ gridRow: 6 }}>Ven</span>
+                        </div>
+                        <div className="heatmap-grid">
+                          {Array.from({ length: casesVides }).map((_, i) => (
+                            <div key={`vide-${i}`} className="heatmap-cell hors-suivi" />
+                          ))}
+                          {jours.map((j) => {
+                            const score = scores[j] || 0;
+                            const avantLeDebut = j < debut;
+                            return (
+                              /*
+                                Un bouton et non une case morte : l'infobulle native
+                                (`title`) n'existe pas au doigt, donc sur téléphone
+                                la moitié de l'information n'était accessible à
+                                personne. Le jour choisi s'écrit en toutes lettres
+                                sous la grille.
+                              */
+                              <button
+                                key={j}
+                                type="button"
+                                className={`heatmap-cell ${avantLeDebut ? 'hors-suivi' : niveau(score)} ${j === aujourdhui ? 'aujourdhui' : ''} ${j === jourLu ? 'choisi' : ''}`}
+                                onClick={() => setJourLu(j === jourLu ? null : j)}
+                                aria-label={libelleJour(j, score, avantLeDebut)}
+                              />
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
                   </div>
-                );
-              })()}
-            </div>
-            <div className="heatmap-legend">
-              <span>Moins</span>
-              <div className="heatmap-cell level-0"></div>
-              <div className="heatmap-cell level-1"></div>
-              <div className="heatmap-cell level-2"></div>
-              <div className="heatmap-cell level-3"></div>
-              <div className="heatmap-cell level-4"></div>
-              <span>Plus</span>
-            </div>
+
+                  <div className="heatmap-pied">
+                    <div className="heatmap-legend">
+                      <span>Rien</span>
+                      <div className="heatmap-cell level-0"></div>
+                      <div className="heatmap-cell level-1"></div>
+                      <div className="heatmap-cell level-2"></div>
+                      <div className="heatmap-cell level-3"></div>
+                      <div className="heatmap-cell level-4"></div>
+                      <span>Journée pleine</span>
+                    </div>
+                    <p className="heatmap-lecture">
+                      {jourLu
+                        ? libelleJour(jourLu, scores[jourLu] || 0, jourLu < debut)
+                        : 'Touche un carré pour lire la journée.'}
+                    </p>
+                  </div>
+                </>
+              );
+            })()}
           </section>
         </div>
         

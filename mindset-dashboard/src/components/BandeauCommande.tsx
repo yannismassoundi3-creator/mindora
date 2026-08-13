@@ -94,7 +94,7 @@ export const BandeauCommande: React.FC<BandeauCommandeProps> = ({
   };
 
   return (
-    <section className="bandeau-commande glass-panel">
+    <section className="bandeau-commande">
       <div className="bandeau-etat">
         <div className="bandeau-mesure">
           {/*

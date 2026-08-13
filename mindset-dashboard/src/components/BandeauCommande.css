@@ -9,8 +9,18 @@
   rembourrage haut — 40 px sur ordinateur, et sur téléphone la hauteur réservée à
   l'en-tête flottant. Le bandeau se fige donc exactement là où il se trouve au
   repos, sans bouger d'un pixel et sans qu'aucune valeur ne soit à recopier d'une
-  feuille à l'autre. Mesuré : au repos comme après 600 px de défilement, il reste
-  à 82 px sur téléphone.
+  feuille à l'autre.
+
+  **Ce n'est pas une carte de verre, c'est une barre.** Première version : un
+  `glass-panel` arrondi qui flottait au-dessus du contenu, avec un cache
+  rectangulaire au-dessus de lui et l'en-tête posé par-dessus le tout. Trois
+  couches translucides superposées se lisaient comme un gros bloc mobile, et deux
+  `backdrop-filter` empilés qui suivent le défilement coûtent cher sur iPhone —
+  ce qui les fait décrocher d'une image et accentue l'impression de glissement.
+
+  Désormais une seule surface opaque, d'un bord à l'autre, arrondie en bas
+  seulement : elle prolonge le haut de l'écran au lieu de flotter dessus, et rien
+  ne peut plus passer derrière.
 */
 
 .bandeau-commande {
@@ -21,13 +31,24 @@
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 12px 18px;
+  /* Pleine largeur : le rembourrage latéral de la page est annulé puis rendu. */
+  margin-left: calc(-1 * var(--marge-page, 40px));
+  margin-right: calc(-1 * var(--marge-page, 40px));
   margin-bottom: 20px;
+  padding: 12px calc(var(--marge-page, 40px) + 2px);
   flex-wrap: wrap;
+  background: var(--fond-bandeau);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 0 0 22px 22px;
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.55);
+}
+
+.bandeau-commande {
+  --fond-bandeau: rgb(14, 14, 17);
 }
 
 /*
-  Le cache de la bande laissée libre au-dessus du bandeau.
+  Le prolongement vers le haut.
 
   Le bandeau s'arrête au début du contenu, donc il reste au-dessus de lui la
   hauteur du rembourrage : 40 px sur ordinateur, et sur téléphone la place
@@ -35,20 +56,19 @@
   on voyait les onglets « Routines / Alimentation » glisser entre l'en-tête et le
   bandeau, comme une deuxième barre parasite.
 
-  Il s'étend jusqu'aux bords de l'écran (marges négatives) et reste sous
-  l'en-tête, dont le `z-index` est plus élevé. Translucide et flouté plutôt
-  qu'opaque : un rectangle noir franc trancherait sur le fond animé.
+  Même couleur exactement que la barre, et opaque : les deux ne font qu'une
+  surface, sans couture ni changement de matière. L'en-tête flottant, de
+  `z-index` supérieur, se pose dessus — c'est ce qui donne au haut de l'écran
+  l'aspect d'un seul plan fixe plutôt que d'un empilement.
 */
 .bandeau-commande::before {
   content: '';
   position: absolute;
-  left: calc(-1 * var(--marge-page, 40px));
-  right: calc(-1 * var(--marge-page, 40px));
+  left: 0;
+  right: 0;
   bottom: 100%;
   height: var(--marge-haut, 40px);
-  background: rgba(5, 5, 7, 0.96);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: var(--fond-bandeau);
   pointer-events: none;
 }
 
@@ -70,6 +90,21 @@
   width: 40px;
   height: 40px;
   flex-shrink: 0;
+}
+
+/*
+  L'arc rejoint sa nouvelle valeur au lieu d'y sauter. C'est le seul endroit où
+  l'on voit la journée avancer d'un cran juste après avoir coché : sans
+  transition, le geste et son effet ne sont reliés par rien.
+*/
+.bandeau-anneau circle + circle {
+  transition: stroke-dashoffset 0.75s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bandeau-anneau circle + circle {
+    transition: none;
+  }
 }
 
 .bandeau-anneau-valeur {
@@ -276,8 +311,9 @@
 @media (max-width: 900px) {
   .bandeau-commande {
     gap: 10px;
-    padding: 9px 12px;
+    padding: 9px calc(var(--marge-page, 10px) + 4px) 11px;
     margin-bottom: 14px;
+    border-radius: 0 0 18px 18px;
   }
 
   .bandeau-etat {

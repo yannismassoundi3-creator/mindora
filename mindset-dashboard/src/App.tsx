@@ -14,6 +14,7 @@ import { ParticlesBackground } from './components/ParticlesBackground';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { PwaInstallPrompt } from './components/PwaInstallPrompt';
 import { ShockwaveOverlay } from './components/ShockwaveOverlay';
+import { GainFlottant } from './components/GainFlottant';
 import { AiNotification } from './components/AiNotification';
 import { AiExplanationModal } from './components/AiExplanationModal';
 import { getSecurePoints, setSecurePoints } from './utils/secureStorage';
@@ -392,6 +393,7 @@ function App() {
         <LevelUpOverlay />
         <RankUpOverlay />
         <ShockwaveOverlay />
+        <GainFlottant />
         <PwaInstallPrompt />
       </Layout>
     </ErrorBoundary>

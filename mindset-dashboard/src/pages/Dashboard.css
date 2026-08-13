@@ -417,24 +417,169 @@
 .heatmap-cell {
   width: 14px;
   height: 14px;
+  padding: 0;
+  border: none;
   border-radius: 3px;
   background: rgba(255, 255, 255, 0.05);
   transition: transform 0.2s, opacity 0.2s, background-color 0.2s, border-color 0.2s, box-shadow 0.2s, color 0.2s;
   cursor: pointer;
 }
 
-.heatmap-cell:hover {
-  transform: scale(1.2);
+/* Les cases sont des boutons : le survol général des boutons les soulèverait de
+   quatre pixels et les ferait sortir de la grille. */
+.heatmap-grid .heatmap-cell:hover,
+.heatmap-legend .heatmap-cell:hover {
+  transform: scale(1.35);
   z-index: 10;
   box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+  filter: none;
 }
 
 .heatmap-cell.level-1 { background: rgba(16, 185, 129, 0.3); }
-.heatmap-cell.level-2 { background: rgba(16, 185, 129, 0.5); }
+.heatmap-cell.level-2 { background: rgba(16, 185, 129, 0.55); }
 .heatmap-cell.level-3 { background: rgba(16, 185, 129, 0.8); }
-.heatmap-cell.level-4 { 
+.heatmap-cell.level-4 {
   background: rgba(16, 185, 129, 1);
   box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+}
+
+/*
+  Les jours antérieurs à la première journée enregistrée.
+
+  Ils étaient rendus comme des journées à zéro, donc un compte de trois jours
+  s'ouvrait sur une année entière de carrés éteints — une année d'échecs qui n'a
+  pas eu lieu. Presque invisibles, ils redeviennent ce qu'ils sont : rien.
+*/
+.heatmap-cell.hors-suivi {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+  cursor: default;
+}
+
+/* Aujourd'hui : le seul jour encore modifiable, et le point de lecture de tout
+   le reste. Un anneau plutôt qu'une couleur, pour ne pas mentir sur le niveau. */
+.heatmap-cell.aujourdhui {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.75);
+}
+
+.heatmap-cell.choisi {
+  box-shadow: 0 0 0 2px var(--accent-text), 0 0 12px rgba(255, 255, 255, 0.35);
+}
+
+.heatmap-intro {
+  font-size: 0.85rem;
+  color: var(--secondary);
+  line-height: 1.4;
+  margin-bottom: 16px;
+}
+
+/*
+  Trois chiffres avant la grille.
+
+  Le damier montrait une forme sans jamais donner un nombre : impossible d'y lire
+  « combien de jours » ou « quelle est ma meilleure série » sans compter les
+  carrés un à un. Le paragraphe d'explication de quatre lignes qui tenait cette
+  place n'apprenait rien de tout cela.
+*/
+.heatmap-chiffres {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.heatmap-chiffre {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 92px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.heatmap-chiffre strong {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--primary);
+  line-height: 1.1;
+}
+
+.heatmap-chiffre span {
+  font-size: 0.7rem;
+  color: var(--secondary);
+}
+
+.heatmap-months-row {
+  position: relative;
+  height: 20px;
+  margin-bottom: 4px;
+  font-size: 0.75rem;
+  color: var(--secondary);
+}
+
+.heatmap-months-row span {
+  position: absolute;
+  text-transform: capitalize;
+}
+
+/*
+  `width: max-content` est ce qui rend la colonne des jours collante utilisable.
+
+  Sans lui, cette boîte ne fait que la largeur visible (251 px pour une grille de
+  1002) : l'élément collant n'a alors aucun espace où se déplacer et reste
+  simplement emporté par le défilement, comme s'il n'était pas collant du tout.
+*/
+.heatmap-body {
+  display: flex;
+  gap: 8px;
+  width: max-content;
+}
+
+/*
+  Les jours de la semaine restent visibles quand on fait défiler l'année.
+
+  Ils étaient posés à l'intérieur du défilement horizontal : dès qu'on regardait
+  les mois récents — c'est-à-dire toujours, puisque la grille s'ouvre à droite —
+  ils étaient sortis de l'écran depuis longtemps, et il ne restait qu'un nuage de
+  carrés sans axe. Collés à gauche, ils accompagnent la lecture.
+*/
+.heatmap-days-col {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  display: grid;
+  grid-template-rows: repeat(7, 1fr);
+  gap: 5px;
+  padding-right: 6px;
+  font-size: 0.7rem;
+  color: var(--secondary);
+  text-align: right;
+  background: linear-gradient(90deg, rgb(17, 17, 19) 70%, rgba(17, 17, 19, 0));
+}
+
+.heatmap-days-col span {
+  transform: translateY(-2px);
+}
+
+.heatmap-pied {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+/* La ligne de lecture remplace l'infobulle native, qui n'existe pas au doigt. */
+.heatmap-lecture {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--secondary);
+  min-height: 1.1em;
 }
 
 .heatmap-legend {

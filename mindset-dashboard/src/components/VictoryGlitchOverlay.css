@@ -22,15 +22,131 @@
   justify-content: center;
   align-items: center;
   pointer-events: none;
-  background: transparent;
-  animation: glitch-fade-in-out 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  /* Un voile sombre : sans lui le message se lisait par-dessus le tableau de
+     bord, donc sur un fond différent à chaque fois et rarement lisible. */
+  background: radial-gradient(circle at 50% 45%, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.9));
+  opacity: 0;
+  animation: victoireEntree 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-@keyframes glitch-fade-in-out {
-  0% { opacity: 0; }
-  2% { opacity: 1; }
-  99% { opacity: 1; }
-  100% { opacity: 0; }
+.cyber-glitch-container.sort {
+  animation: victoireSortie 0.5s ease forwards;
+}
+
+@keyframes victoireEntree {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes victoireSortie {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/*
+  Le message : ce que l'effet ne disait pas.
+*/
+.victoire-carte {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 0 24px;
+  text-align: center;
+  animation: victoireCarte 0.75s cubic-bezier(0.16, 1, 0.3, 1) 0.12s backwards;
+}
+
+@keyframes victoireCarte {
+  0% { opacity: 0; transform: translateY(18px) scale(0.94); }
+  100% { opacity: 1; transform: none; }
+}
+
+.victoire-sur-titre {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #fbbf24;
+  text-shadow: 0 0 18px rgba(251, 191, 36, 0.6);
+}
+
+.victoire-titre {
+  font-family: var(--font-display);
+  font-size: clamp(2.1rem, 11vw, 3.6rem);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: #fff;
+  text-shadow: 0 0 30px rgba(255, 255, 255, 0.55), 0 0 80px rgba(79, 172, 254, 0.45);
+}
+
+.victoire-chiffres {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.victoire-chiffres strong {
+  color: #fff;
+  font-weight: 800;
+}
+
+.victoire-separateur {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+/*
+  La gerbe d'éclats. Chaque éclat porte son propre angle et sa propre distance :
+  une seule règle d'animation suffit, les variables font le reste.
+*/
+.victoire-eclats {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+}
+
+.victoire-eclat {
+  position: absolute;
+  width: var(--taille);
+  height: var(--taille);
+  border-radius: 2px;
+  background: linear-gradient(135deg, #fbbf24, #4facfe);
+  box-shadow: 0 0 12px rgba(251, 191, 36, 0.7);
+  animation: victoireEclat 1.1s cubic-bezier(0.12, 0.85, 0.25, 1) forwards;
+}
+
+@keyframes victoireEclat {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--angle)) translateX(0) scale(0.4);
+  }
+  12% { opacity: 1; }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--angle)) translateX(var(--distance)) scale(1);
+  }
+}
+
+/*
+  Le mouvement peut être désactivé par le système. Le message, lui, reste : c'est
+  l'information, et elle ne dépend d'aucune animation.
+*/
+@media (prefers-reduced-motion: reduce) {
+  .cyber-glitch-active { animation: none; }
+  .victoire-eclats { display: none; }
+  .glitch-lines { display: none; }
+  .cyber-shockwave { display: none; }
+  .victoire-carte { animation: none; }
 }
 
 .cyber-shockwave {
@@ -57,7 +173,9 @@
   width: 100%;
   height: 100%;
   transform-origin: center center;
-  animation: crt-off 0.8s cubic-bezier(0.8, 0, 0.2, 1) forwards;
+  /* Les parasites s'éteignent en même temps que la secousse : ils ponctuent
+     l'arrivée, ils ne restent pas derrière le texte pendant qu'on le lit. */
+  animation: crt-off 0.55s cubic-bezier(0.8, 0, 0.2, 1) forwards;
 }
 
 @keyframes crt-off {

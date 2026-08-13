@@ -23,6 +23,17 @@ import { api } from '../services/api';
 
 export const EVENEMENT_JOURNEE = 'mindset:journee';
 export const EVENEMENT_TACHE_FAITE = 'mindset:tache-faite';
+export const EVENEMENT_GAIN = 'mindset:gain';
+
+/*
+  Le chiffre qui s'envole du point touché. Défini ici plutôt que dans le
+  composant qui l'affiche : les deux chemins de cochage — le bandeau et la liste
+  du Dashboard — l'émettent, et aucun des deux n'a à connaître la couche
+  graphique qui l'écoute.
+*/
+export function annoncerGain(texte: string, position: { x: number; y: number }, negatif = false) {
+  window.dispatchEvent(new CustomEvent(EVENEMENT_GAIN, { detail: { ...position, texte, negatif } }));
+}
 
 const NOMS_CRENEAUX: Record<string, string> = {
   morning: 'Matin',
@@ -212,6 +223,7 @@ export function basculerTache(id: number, position: { x: number; y: number }): v
     const nouveauSolde = points + 5;
     setSecurePoints(nouveauSolde);
     window.dispatchEvent(new CustomEvent('pointsChanged', { detail: nouveauSolde }));
+    annoncerGain('+5', position);
     // La clé porte la tâche et le jour : décocher puis recocher ne recrédite pas.
     api.claimCoins(`routine-${tacheTouchee.title || 'tache'}-${cleUTC()}`);
     /*
@@ -228,6 +240,7 @@ export function basculerTache(id: number, position: { x: number; y: number }): v
     const nouveauSolde = Math.max(0, points - 5);
     setSecurePoints(nouveauSolde);
     window.dispatchEvent(new CustomEvent('pointsChanged', { detail: nouveauSolde }));
+    annoncerGain('−5', position, true);
   }
 
   enregistrerScoreDuJour();
