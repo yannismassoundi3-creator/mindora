@@ -1402,7 +1402,7 @@
                         <li>Tout ce que contient la version gratuite</li>
                         <li>Aucun engagement de durée</li>
                     </ul>
-                    <a href="#" class="btn btn-primary open-modal-btn">
+                    <a href="#" class="btn btn-primary open-modal-btn" data-plan="monthly">
                         Essayer 7 jours gratuitement
                         <span class="btn-icon">→</span>
                     </a>
@@ -1417,7 +1417,7 @@
                         <li>Tout ce que contient Pro</li>
                         <li>Réponse prioritaire par e-mail</li>
                     </ul>
-                    <a href="#" class="btn btn-secondary open-modal-btn">Passer à vie</a>
+                    <a href="#" class="btn btn-secondary open-modal-btn" data-plan="lifetime">Passer à vie</a>
                 </div>
             </div>
         </div>
@@ -1684,12 +1684,21 @@
    * n'importe quel bouton oublié dans la liste ci-dessous les rouvrait, et la
    * personne se retrouvait devant un formulaire qui ne pouvait pas aboutir. Ils sont
    * supprimés. Il n'existe plus qu'une seule inscription, celle de l'application.
+   *
+   * Deuxième correction : les trois boutons de la grille de tarifs menaient tous à
+   * cette même adresse. Quelqu'un qui cliquait « Essayer 7 jours gratuitement » ou
+   * « Passer à vie » se retrouvait donc devant une inscription ordinaire, puis dans
+   * l'application gratuite, sans qu'on lui reparle jamais du plan qu'il venait de
+   * choisir. L'intention d'achat était perdue à la seconde même où elle s'exprimait.
+   * Elle voyage maintenant dans l'adresse, et l'app rouvre l'offre sur la bonne
+   * formule une fois le compte créé.
    */
   document.querySelectorAll('.open-modal-btn, .open-login-btn, #hero-cta-primary, #final-cta-primary').forEach(el => {
     el.addEventListener('click', e => {
       e.preventDefault();
       e.stopPropagation();
-      window.location.href = '/?auth=true';
+      const plan = el.getAttribute('data-plan');
+      window.location.href = plan ? '/?auth=true&plan=' + plan : '/?auth=true';
     }, true);
   });
 </script>

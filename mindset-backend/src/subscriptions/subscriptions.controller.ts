@@ -1,13 +1,22 @@
-import { Controller, Post, Body, Req, Headers, UseGuards, Get } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { Controller, Post, Body, Req, Headers, UseGuards, Get, BadRequestException } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
 import { SubscriptionsService } from './subscriptions.service';
+import { OfferPromptService, type Palier } from './offer-prompt.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { Request } from 'express';
+
+const PALIERS: Palier[] = ['j3', 'j7', 'j21', 'recurrent'];
+const ACTIONS = ['vue', 'reporte', 'ouvert'] as const;
 
 @ApiTags('Subscriptions & Payments')
 @Controller('subscriptions')
 export class SubscriptionsController {
-  constructor(private readonly subscriptionsService: SubscriptionsService) {}
+  constructor(
+    private readonly subscriptionsService: SubscriptionsService,
+    private readonly offerPrompt: OfferPromptService,
+  ) {}
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
@@ -25,6 +34,51 @@ export class SubscriptionsController {
   async createPortalSession(@Req() req: Request) {
     const userId = (req.user as any).userId;
     return this.subscriptionsService.createPortalSession(userId);
+  }
+
+  /**
+   * La relance ne peut pas être décidée dans le navigateur : il ignore l'âge réel du
+   * compte, l'usage réel, et il oublie tout ce qu'on lui a déjà montré dès qu'on
+   * change d'appareil. Le serveur dit s'il faut parler et de quoi ; le front écrit
+   * la phrase, parce que le nom du coach n'existe que chez lui.
+   */
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Get('relance')
+  @ApiOperation({ summary: "Faut-il reparler de l'abonnement à ce compte, et sous quel angle" })
+  async relance(@Req() req: Request) {
+    return this.offerPrompt.decider((req.user as any).userId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post('relance/reponse')
+  @ApiOperation({ summary: "Enregistrer l'affichage d'une relance et la réponse qui a suivi" })
+  async repondreRelance(@Req() req: Request, @Body() body: { palier?: string; action?: string }) {
+    // Sans ce filtre, n'importe quelle chaîne finirait en base comme palier et
+    // rendrait la progression incalculable — un palier inconnu ne se compare à
+    // aucun autre, donc la personne ne serait plus jamais relancée.
+    if (!PALIERS.includes(body?.palier as Palier)) {
+      throw new BadRequestException('Palier inconnu.');
+    }
+    if (!ACTIONS.includes(body?.action as (typeof ACTIONS)[number])) {
+      throw new BadRequestException('Action inconnue.');
+    }
+    return this.offerPrompt.enregistrer(
+      (req.user as any).userId,
+      body.palier as Palier,
+      body.action as (typeof ACTIONS)[number],
+    );
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiResponse({ status: 403, description: 'Réservé aux comptes ADMIN.' })
+  @Get('relance/stats')
+  @ApiOperation({ summary: "L'entonnoir de la relance : vues, reports, ouvertures de l'offre" })
+  async statistiquesRelance() {
+    return this.offerPrompt.statistiques();
   }
 
   @Post('webhook')

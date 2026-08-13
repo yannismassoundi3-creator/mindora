@@ -37,6 +37,7 @@ model User {
   ai_usages          AiUsage[]
   coin_claims        CoinClaim[]
   push_permissions   PushPermission[]
+  offer_prompt       OfferPrompt?
 }
 
 /// Ce que le navigateur a répondu à la demande de notifications, par appareil.
@@ -358,4 +359,34 @@ model ChatMessage {
 
   @@index([user_id])
   @@index([created_at])
+}
+
+/// Mémoire des relances vers l'abonnement.
+///
+/// Sans elle, la cadence ne peut vivre que dans le localStorage du navigateur —
+/// c'est-à-dire nulle part : un second appareil, un vidage de cache ou une session
+/// ouverte ailleurs remettrait le compteur à zéro et la même personne recevrait la
+/// même sollicitation indéfiniment. C'est exactement ce qui transforme une relance
+/// en harcèlement.
+///
+/// Une seule ligne par personne : les paliers sont ordonnés et ne se parcourent que
+/// vers l'avant, donc le dernier atteint résume tout l'historique. Les compteurs
+/// séparent « a vu » de « a repoussé » et de « a ouvert l'offre » — sans quoi une
+/// relance qui ne convertit jamais est indiscernable d'une relance jamais affichée,
+/// et les deux appellent des corrections opposées.
+model OfferPrompt {
+  id             String   @id @default(uuid())
+  user_id        String   @unique
+  /// Dernier palier atteint : j3 | j7 | j21 | recurrent
+  dernier_palier String
+  /// Dernier affichage effectif, base du délai minimum entre deux relances.
+  derniere_vue   DateTime @default(now())
+  vues           Int      @default(0)
+  reports        Int      @default(0)
+  ouvertures     Int      @default(0)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+  user           User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([dernier_palier])
 }

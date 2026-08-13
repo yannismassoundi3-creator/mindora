@@ -268,8 +268,46 @@ export const api = {
     await api.post('/push/subscribe', { subscription, deviceId: identifiantAppareil() });
     await api.signalerPermissionPush('accorde');
     return true;
+  },
+
+  /**
+   * Demande au serveur s'il faut reparler de l'abonnement, et sous quel angle.
+   *
+   * La décision ne peut pas se prendre ici : le navigateur ignore l'âge réel du
+   * compte et l'usage réel, et sa mémoire de ce qu'on a déjà montré disparaît au
+   * premier changement d'appareil — la même personne recevrait la même sollicitation
+   * indéfiniment.
+   */
+  relanceOffre: async (): Promise<DecisionRelance> => {
+    try {
+      return await api.get('/subscriptions/relance');
+    } catch (e) {
+      // Une relance ratée ne doit jamais abîmer le dashboard : dans le doute, on se tait.
+      console.warn('Relance non récupérée', e);
+      return { afficher: false };
+    }
+  },
+
+  repondreRelance: async (palier: string, action: 'vue' | 'reporte' | 'ouvert') => {
+    try {
+      await api.post('/subscriptions/relance/reponse', { palier, action });
+    } catch (e) {
+      console.warn('Réponse à la relance non remontée', e);
+    }
   }
 };
+
+/** Ce que le serveur décide d'une relance vers l'abonnement. */
+export interface DecisionRelance {
+  afficher: boolean;
+  raison?: 'abonne' | 'trop_jeune' | 'trop_recent' | 'palier_atteint';
+  palier?: 'j3' | 'j7' | 'j21' | 'recurrent';
+  angle?: 'coins' | 'quota' | 'temps';
+  jours?: number;
+  messagesUtilises?: number;
+  messagesRestants?: number;
+  coins?: number;
+}
 
 /** Ce que l'appareil a répondu, ou ce qui l'empêche de répondre. */
 export type EtatPush = 'accorde' | 'refuse' | 'non_supporte' | 'ios_a_installer' | 'reporte';

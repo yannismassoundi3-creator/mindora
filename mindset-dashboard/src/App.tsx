@@ -135,6 +135,20 @@ function App() {
   const hasCompletedOnboarding = localStorage.getItem('hasCompletedOnboarding') === 'true';
 
   /**
+   * Formule choisie sur la page d'accueil, mise de côté le temps de l'inscription.
+   *
+   * Les trois boutons de la grille de tarifs menaient tous à la même inscription, et
+   * personne ne reparlait jamais du plan à la sortie : quelqu'un qui avait cliqué
+   * « Passer à vie » se retrouvait dans l'app gratuite. Le trajet passe par le 2FA
+   * et un rechargement complet, donc l'adresse ne survit pas : c'est localStorage
+   * qui porte l'intention jusqu'au dashboard, et elle est effacée dès qu'on l'a
+   * honorée — sinon l'offre se rouvrirait à chaque visite.
+   */
+  const PLANS = ['monthly', 'lifetime'];
+  const planUrl = urlParams.get('plan');
+  if (planUrl && PLANS.includes(planUrl)) localStorage.setItem('mindset_plan_voulu', planUrl);
+
+  /**
    * Écran demandé par le lien d'arrivée, s'il en désigne un qui existe.
    *
    * Les notifications promettent un endroit précis — « Ouvre le Chat IA pour
@@ -159,7 +173,21 @@ function App() {
   const [slideDirection, setSlideDirection] = useState<'right' | 'left' | 'none'>('none');
 
   const [showPricingModal, setShowPricingModal] = useState(false);
+  const [planInitial, setPlanInitial] = useState<'monthly' | 'lifetime'>('monthly');
   const [isInitializing, setIsInitializing] = useState(true);
+
+  // L'offre venue de la page d'accueil attend d'avoir un dashboard sous elle : la
+  // rouvrir pendant le questionnaire d'inscription couperait la parole au seul
+  // moment où l'on demande quelque chose à la personne.
+  useEffect(() => {
+    if (isInitializing || currentView !== 'dashboard') return;
+    const voulu = localStorage.getItem('mindset_plan_voulu');
+    if (!voulu) return;
+    localStorage.removeItem('mindset_plan_voulu');
+    if (localStorage.getItem('mindset_is_subscribed') === 'true') return;
+    setPlanInitial(voulu === 'lifetime' ? 'lifetime' : 'monthly');
+    setShowPricingModal(true);
+  }, [isInitializing, currentView]);
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -345,9 +373,10 @@ function App() {
         </div>
         
         {showPricingModal && (
-          <PricingScreen 
-            onSubscribe={handleSubscribe} 
-            onClose={() => setShowPricingModal(false)} 
+          <PricingScreen
+            onSubscribe={handleSubscribe}
+            onClose={() => setShowPricingModal(false)}
+            planInitial={planInitial}
           />
         )}
         <LevelUpOverlay />

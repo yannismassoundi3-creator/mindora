@@ -7,12 +7,16 @@ import './PricingScreen.css';
 interface PricingScreenProps {
   onSubscribe: () => void;
   onClose?: () => void;
+  /** Formule déjà choisie ailleurs — sur la page d'accueil, notamment. */
+  planInitial?: 'monthly' | 'lifetime';
 }
 
-export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClose }) => {
+export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClose, planInitial = 'monthly' }) => {
   const [loading, setLoading] = useState(false);
   const [erreur, setErreur] = useState('');
-  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'lifetime'>('monthly');
+  // Quelqu'un qui a cliqué « Passer à vie » sur la page d'accueil ne doit pas avoir
+  // à le rechoisir : on lui reproposerait le mensuel après qu'il a tranché.
+  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'lifetime'>(planInitial);
   const aiName = localStorage.getItem('mindset_ai_name') || 'Coach IA';
 
   const handlePurchase = async (e: React.MouseEvent) => {

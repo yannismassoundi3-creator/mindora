@@ -6,6 +6,7 @@ import { RankIcon } from '../components/RankIcon';
 import { VictoryGlitchOverlay } from '../components/VictoryGlitchOverlay';
 import { JarvisPopup } from '../components/JarvisPopup';
 import { NotificationsOptIn } from '../components/NotificationsOptIn';
+import { RelanceOffre } from '../components/RelanceOffre';
 import type { JarvisPopupData } from '../components/JarvisPopup';
 import { api } from '../services/api';
 import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
@@ -744,6 +745,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
       </header>
 
       <NotificationsOptIn />
+      {/* Après la carte des notifications : les deux ne s'affichent presque jamais
+          ensemble (l'une part au bout de trois jours de report, l'autre ne commence
+          qu'au troisième jour), et si cela arrive, c'est l'abonnement qui cède le pas. */}
+      <RelanceOffre />
 
       <div className="dashboard-grid">
         <div className="dashboard-left-col">
