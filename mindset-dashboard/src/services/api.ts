@@ -1,4 +1,5 @@
 import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
+import { nettoyerSemis } from '../utils/semis';
 
 /**
  * L'API est jointe sous notre propre domaine, et non à son adresse Render.
@@ -498,6 +499,15 @@ try {
     isSyncing = true;
     await originalDownload();
     isSyncing = false;
+
+    // Le ménage se fait ici, et surtout **après** `isSyncing = false`.
+    //
+    // Le serveur renvoie encore aux anciens comptes les objectifs et routines que
+    // l'application distribuait d'office. Nettoyer pendant la redescente les
+    // retirerait de l'écran mais pas du serveur, qui les réexpédierait à la
+    // connexion suivante, indéfiniment. Écrire hors de cette fenêtre déclenche la
+    // remontée automatique et referme le sujet pour de bon.
+    if (nettoyerSemis()) window.dispatchEvent(new Event('storage'));
   };
 
   // Force sync when page is hidden/closed to prevent data loss

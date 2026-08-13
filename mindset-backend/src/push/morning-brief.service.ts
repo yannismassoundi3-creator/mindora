@@ -79,13 +79,28 @@ export class MorningBriefService {
    * même construction (« prénom, jour N, tâches ») et le message redevient un
    * automatisme au bout d'une semaine — le défaut qu'on cherchait justement à corriger.
    */
-  private angleDuJour(toutEstFait: boolean): string {
+  private angleDuJour(etat: 'rien' | 'reste' | 'toutFait'): string {
     // Journée déjà bouclée : réclamer quoi que ce soit serait absurde. On félicite
     // et on projette, sans jamais redemander une tâche cochée.
-    if (toutEstFait) {
+    if (etat === 'toutFait') {
       const angles = [
         "Sa journée est déjà bouclée : félicite-le franchement et souligne sa régularité.",
         "Tout est fait : félicite-le et invite-le à préparer demain ou à viser plus haut.",
+      ];
+      const jour = Math.floor(Date.now() / 86400000);
+      return angles[jour % angles.length];
+    }
+
+    // Rien de planifié : c'est l'état d'un compte qui débute, et le troisième que
+    // ce code ignorait. Les angles ci-dessous réclament « une tâche précise encore
+    // à faire » — n'en ayant aucune sous les yeux, le modèle en fabriquait une.
+    // C'est ainsi qu'un compte sans la moindre routine s'est vu ordonner « 10m de
+    // footing » un matin. Ici on ne demande rien : on invite à décider quoi faire,
+    // ce qui est exactement le geste attendu à ce moment-là.
+    if (etat === 'rien') {
+      const angles = [
+        "Il n'a rien de prévu aujourd'hui. Ne lui donne AUCUNE tâche : invite-le à ouvrir le chat pour décider avec toi de sa première action.",
+        "Sa journée est vide. Ne propose aucune activité précise : demande-lui simplement ce qu'il veut accomplir aujourd'hui, et dis-lui que tu l'attends dans le chat.",
       ];
       const jour = Math.floor(Date.now() / 86400000);
       return angles[jour % angles.length];
@@ -109,6 +124,7 @@ export class MorningBriefService {
 
     const riens = routines.restantes.length === 0 && routines.faites.length === 0;
     const toutEstFait = !riens && routines.restantes.length === 0;
+    const etat: 'rien' | 'reste' | 'toutFait' = riens ? 'rien' : toutEstFait ? 'toutFait' : 'reste';
 
     return [
       `Prénom : ${prenom || 'champion'}`,
@@ -121,7 +137,7 @@ export class MorningBriefService {
           : `Aucune tâche planifiée aujourd'hui`,
       objectifs.restantes.length ? `Objectifs de la semaine en cours : ${objectifs.restantes.slice(0, 2).join(', ')}` : '',
       '',
-      `Angle imposé aujourd'hui : ${this.angleDuJour(toutEstFait)}`,
+      `Angle imposé aujourd'hui : ${this.angleDuJour(etat)}`,
     ]
       .filter(Boolean)
       .join('\n');
@@ -141,6 +157,7 @@ export class MorningBriefService {
       "Maximum 140 caractères, une à deux phrases. Pas de guillemets.",
       "Appuie-toi sur ses données réelles et respecte l'angle imposé pour aujourd'hui.",
       "INTERDIT de réclamer une tâche listée comme DÉJÀ FAIT : il l'a validée, le lui redemander détruit ta crédibilité.",
+      "INTERDIT d'inventer une tâche, un objectif, une durée ou un chiffre absents des données ci-dessous : reprends leurs mots, ne les remplace pas par les tiens. S'il n'y a rien à citer, n'invente rien et invite-le à définir sa journée avec toi.",
       "Ne commence pas systématiquement par son prénom : varie l'attaque.",
       "Ton direct et motivant, un seul emoji maximum. Réponds uniquement par le texte de la notification.",
     ].join(' ');
