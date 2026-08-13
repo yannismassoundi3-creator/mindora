@@ -234,3 +234,43 @@ describe('AiCoachingService — chat', () => {
     });
   });
 });
+
+/**
+ * Le coach recevait le niveau d'une habitude mais jamais sa régularité — or un
+ * niveau 4 peut n'avoir pas été tenu depuis trois semaines. Il ne pouvait donc pas
+ * faire la seule observation qui compte vraiment : « tu as sauté ça quatre fois
+ * cette semaine ». L'historique était pourtant déjà envoyé par le client.
+ */
+describe('AiCoachingService.joursTenus — régularité des habitudes', () => {
+  const cle = (ilYaNJours: number) =>
+    new Date(Date.now() - ilYaNJours * 86400000).toLocaleDateString('sv-SE', { timeZone: 'Europe/Paris' });
+
+  it('compte les jours tenus dans la fenêtre de sept jours', () => {
+    expect(AiCoachingService.joursTenus([cle(0), cle(1), cle(3)])).toBe(3);
+  });
+
+  it('ignore ce qui est plus vieux que sept jours', () => {
+    expect(AiCoachingService.joursTenus([cle(0), cle(30), cle(200)])).toBe(1);
+  });
+
+  // Une habitude cochée deux fois le même jour affichait 8/7, ce qui décrédibilise
+  // instantanément le coach qui s'appuie dessus.
+  it('compte les jours et non les lignes, si une date revient deux fois', () => {
+    expect(AiCoachingService.joursTenus([cle(2), cle(2), cle(2)])).toBe(1);
+  });
+
+  it("accepte une date horodatée, en n'en gardant que le jour", () => {
+    expect(AiCoachingService.joursTenus([`${cle(1)}T08:30:00.000Z`])).toBe(1);
+  });
+
+  it('rend 0 sur une habitude sans historique, quelle qu\'en soit la forme', () => {
+    expect(AiCoachingService.joursTenus(undefined)).toBe(0);
+    expect(AiCoachingService.joursTenus(null)).toBe(0);
+    expect(AiCoachingService.joursTenus('pas un tableau')).toBe(0);
+    expect(AiCoachingService.joursTenus([])).toBe(0);
+  });
+
+  it('ne se laisse pas déborder par des entrées qui ne sont pas des dates', () => {
+    expect(AiCoachingService.joursTenus([null, 42, {}, cle(0)])).toBe(1);
+  });
+});

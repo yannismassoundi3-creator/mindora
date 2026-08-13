@@ -31,6 +31,33 @@ export class AiCoachingService {
     private readonly memoire: CoachMemoryService,
   ) {}
 
+  /** Le serveur tourne en UTC ; les personnes à qui il parle vivent en France. */
+  private static readonly FUSEAU = 'Europe/Paris';
+
+  /**
+   * Nombre de jours tenus sur les sept derniers, historique de l'habitude en main.
+   *
+   * Les dates sont comparées sous forme de chaînes `AAAA-MM-JJ`, comme le client les
+   * écrit : passer par des objets `Date` rejouerait le décalage de fuseau que la clé
+   * du jour évite précisément.
+   */
+  static joursTenus(historique: unknown): number {
+    if (!Array.isArray(historique)) return 0;
+
+    const recents = new Set<string>();
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(Date.now() - i * 86400000);
+      recents.add(d.toLocaleDateString('sv-SE', { timeZone: AiCoachingService.FUSEAU }));
+    }
+
+    // Un même jour peut figurer deux fois dans l'historique : on compte les jours,
+    // pas les lignes, sinon une habitude cochée deux fois afficherait 8/7.
+    const tenus = new Set(
+      historique.filter((d): d is string => typeof d === 'string' && recents.has(d.slice(0, 10))).map((d) => d.slice(0, 10)),
+    );
+    return tenus.size;
+  }
+
   /** Ce que le questionnaire d'inscription propose, traduit pour le coach. */
   private static readonly OBJECTIFS_LISIBLES: Record<string, string> = {
     business: 'Développer son business',
@@ -198,16 +225,38 @@ export class AiCoachingService {
         .map((r: any) => `• ${couper(r.title)}: ` + borner(r.items).map((t: any) => `${couper(t.title)} (${t.done ? '✅' : '⬜'})`).join(', '))
         .join('\n') || 'Aucune routine';
 
+      // Le niveau seul ne dit rien de la régularité : une habitude niveau 4 peut
+      // n'avoir pas été tenue depuis trois semaines. Le client envoie déjà
+      // l'historique complet, il n'était simplement pas lu — le coach ne pouvait
+      // donc jamais dire « tu as sauté la méditation quatre fois cette semaine »,
+      // qui est pourtant l'observation la plus utile qu'il puisse faire.
       const habitsList = borner(userContext.habits)
-        .map((h: any) => `• ${couper(h.title || h.name)} (Niveau ${h.level || 1})`)
+        .map((h: any) => {
+          const tenue = AiCoachingService.joursTenus(h.history ?? h.completed_dates);
+          return `• ${couper(h.title || h.name)} (Niveau ${h.level || 1}) — tenue ${tenue}/7 sur les 7 derniers jours`;
+        })
         .join('\n') || 'Aucune habitude';
 
       const nutritionList = borner(userContext.nutrition)
         .map((n: any) => `• ${couper(n.title)}: ${couper(n.details)} (${n.done ? '✅' : '⬜'})`)
         .join('\n') || 'Aucun repas défini';
 
+      // Le coach ignorait la date. Il pouvait donc écrire « on est mercredi » un
+      // samedi, promettre un bilan « dimanche » sans savoir combien de jours cela
+      // laisse, et surtout poser des échéances de plan qui ne tombent nulle part.
+      // C'est le genre de détail qui trahit immédiatement un coach qui ne suit pas.
+      const maintenant = new Date();
+      const dateLisible = maintenant.toLocaleDateString('fr-FR', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        timeZone: AiCoachingService.FUSEAU,
+      });
+
       contextString = `
 --- DONNÉES TEMPS RÉEL DE L'UTILISATEUR ---
+Nous sommes le ${dateLisible}.
 Score Mental du jour : ${userContext.mentalScore ?? 0}%
 Mindset Coins accumulés : ${userContext.coins ?? 0}
 
@@ -309,22 +358,27 @@ RÈGLES DE COMPORTEMENT :
         { "name": "Titre habitude", "description": "Desc", "frequency": "daily" }
       ],
       "newRoutines": [
-        { "type": "MORNING", "tasks": [ { "title": "50 Abdos et 20 Pompes", "duration": 15 } ] },
-        { "type": "MIDDAY", "tasks": [ { "title": "Marche rapide (2km)", "duration": 15 } ] },
-        { "type": "EVENING", "tasks": [ { "title": "10 minutes de méditation guidée", "duration": 10 } ] }
+        { "type": "MORNING", "tasks": [ { "title": "Gainage (3x45s)", "duration": 5 }, { "title": "Pompes (4x12)", "duration": 8 }, { "title": "Squats (4x15)", "duration": 8 } ] },
+        { "type": "MIDDAY", "tasks": [ { "title": "Marche rapide (2 km)", "duration": 20 }, { "title": "Réviser 10 fiches", "duration": 15 }, { "title": "Planifier l'après-midi", "duration": 5 } ] },
+        { "type": "EVENING", "tasks": [ { "title": "Étirements ischio-jambiers (3x30s)", "duration": 5 }, { "title": "Méditation guidée", "duration": 10 }, { "title": "Bilan écrit de la journée", "duration": 5 } ] }
       ],
       "newNutrition": [
         { "meal": "Petit-déjeuner", "details": "Flocons d'avoine, œufs - 500 kcal, 30g rep" }
       ],
       "newMacroObjectives": [
-        { "title": "Vision long terme (ex: Corps de Rêve)", "category": "Physique", "deadline": "6 mois" }
+        { "title": "Prendre 5 kg de muscle sec", "category": "Physique", "deadline": "Juin 2027" },
+        { "title": "Valider mon année avec mention", "category": "Apprentissage", "deadline": "Mai 2027" }
       ],
       "newMicroObjectives": [
         { "title": "Aller à la salle 3 fois cette semaine", "category": "Physique", "deadline": "Dimanche" }
       ]
     }
     </PLAN>
-    Si l'utilisateur demande un NOUVEAU PLAN COMPLET, tu DOIS obligatoirement générer des "newMicroObjectives" pour lui donner des petites victoires immédiates pour sa semaine, en plus des routines, habitudes, nutrition et macros.
+    **CE QU'UN PLAN DOIT CONTENIR (RÈGLE DÉCISIVE)** :
+    - Dès que tu construis ou reconstruis un plan, tu DOIS produire à la fois "newMacroObjectives" (1 à 3 visions long terme, c'est le cap) ET "newMicroObjectives" (2 à 4 petites victoires pour la semaine en cours). Attention : "macro-objectif" désigne un objectif de vie à long terme, JAMAIS les macronutriments de l'alimentation — ceux-là vont dans "newNutrition". Un plan sans macro-objectif est un plan sans direction : c'est le défaut le plus fréquent, ne le commets pas.
+    - Chaque routine que tu produis doit contenir AU MINIMUM 3 tâches précises et chiffrées, comme dans l'exemple ci-dessus. Une routine à une seule tâche est un plan bâclé.
+    - Les échéances ("deadline") se calculent à partir de la date du jour qui t'est donnée dans les données de l'utilisateur. Ne recopie jamais l'année de l'exemple.
+    - N'ajoute une catégorie que si la demande la concerne : si on te demande seulement de changer un repas, ne produis que la nutrition.
     Si l'utilisateur dit de "tout supprimer" ou "remplacer" UNE catégorie spécifique (ex: l'alimentation), mets SEULEMENT le flag correspondant (ex: "replaceNutrition": true) et laisse les autres à false. Ainsi, tu ne détruiras pas le reste de son plan.
     Si l'utilisateur ne demande rien de spécifique à modifier, ou si tu refuses une demande (comme le mode développeur), tu as l'INTERDICTION STRICTE de générer le bloc JSON. Réponds uniquement avec du texte.
  11. **RÈGLE ABSOLUE POUR LE JSON** : Ton code JSON DOIT IMPÉRATIVEMENT commencer par { et se terminer par }. Ne génère JAMAIS de syntaxe cassée comme "] , , , ]". 

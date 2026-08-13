@@ -42,19 +42,26 @@ export function AiNotification({ onNavigate }: AiNotificationProps) {
 
   const [isHiding, setIsHiding] = useState(false);
 
+  // Le compte à rebours suit la notification affichée, pas le tableau.
+  //
+  // `loadNotifications` reconstruit un tableau neuf à chaque événement `storage`, et
+  // l'application en émet à tout bout de champ — une routine cochée, une remontée au
+  // serveur. Dépendre du tableau relançait donc les six secondes à chaque fois : la
+  // bannière restait collée à l'écran tant que la personne se servait de l'app,
+  // c'est-à-dire précisément quand elle gêne. En suivant l'identifiant, le délai
+  // court une fois, pour cette notification-là.
+  const notifAffichee = notifications[0];
   useEffect(() => {
-    if (notifications.length > 0) {
-      setIsHiding(false);
-      const timer = setTimeout(() => {
-        // Les deux derniers arguments manquaient : `navigate` valait undefined, donc
-        // faux, ce qui donnait par chance le bon comportement — une disparition au
-        // bout de six secondes ne doit surtout pas emmener la personne ailleurs.
-        // Autant l'écrire, plutôt que de dépendre d'un oubli.
-        handleDismiss(notifications[0].id, notifications[0].type, false);
-      }, 6000);
-      return () => clearTimeout(timer);
-    }
-  }, [notifications]);
+    if (!notifAffichee) return;
+
+    setIsHiding(false);
+    const timer = setTimeout(() => {
+      // Une disparition au bout de six secondes ne doit surtout pas emmener la
+      // personne ailleurs : elle n'a rien demandé.
+      handleDismiss(notifAffichee.id, notifAffichee.type, false);
+    }, 6000);
+    return () => clearTimeout(timer);
+  }, [notifAffichee?.id]);
 
   const dismissNotification = (id: string, clearAll: boolean = false) => {
     try {
@@ -101,9 +108,20 @@ export function AiNotification({ onNavigate }: AiNotificationProps) {
   const latestNotif = notifications[0];
 
   return (
-    <div 
-      className={`ai-notification-banner ${isHiding ? 'hiding' : ''}`} 
-      onPointerDown={() => handleDismiss(latestNotif.id, latestNotif.type, true)}
+    // `onPointerDown` partait au premier contact du doigt, avant même de savoir si
+    // le geste était un appui ou le début d'un défilement. Sur téléphone, la
+    // bannière occupe le haut de l'écran : faire défiler la page en la touchant
+    // suffisait à se retrouver projeté sur une autre page. `onClick` attend que le
+    // geste soit terminé et reconnu comme un appui — et il vaut aussi pour le
+    // clavier.
+    <div
+      className={`ai-notification-banner ${isHiding ? 'hiding' : ''}`}
+      role="button"
+      tabIndex={0}
+      onClick={() => handleDismiss(latestNotif.id, latestNotif.type, true)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') handleDismiss(latestNotif.id, latestNotif.type, true);
+      }}
     >
       <div className="ai-notification-icon-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {equippedCosmetic?.type === 'icon' ? (
@@ -124,6 +142,23 @@ export function AiNotification({ onNavigate }: AiNotificationProps) {
           <ChevronRight size={14} />
         </div>
       </div>
+      {/*
+        La croix était importée mais n'avait jamais été posée : le seul geste
+        possible était d'ouvrir, ou d'attendre. Écarter une notification sans être
+        emmené ailleurs doit rester à portée de pouce — d'où l'arrêt de la
+        propagation, sans quoi le clic serait aussi celui de la bannière.
+      */}
+      <button
+        type="button"
+        className="ai-notification-close"
+        aria-label="Fermer la notification"
+        onClick={(e) => {
+          e.stopPropagation();
+          handleDismiss(latestNotif.id, latestNotif.type, false);
+        }}
+      >
+        <X size={16} />
+      </button>
     </div>
   );
 }

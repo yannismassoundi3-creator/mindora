@@ -82,3 +82,32 @@
 .ai-notification-close {
   display: none; /* Hide the close button for cleaner iOS look, clicking the banner dismisses it */
 }
+
+/*
+  La croix d'écartement. La bannière étant elle-même cliquable, cette cible doit
+  être assez large pour le pouce sans mordre sur le texte : 32 px, la taille en
+  dessous de laquelle un appui devient un pari sur téléphone.
+
+  `flex-shrink: 0` parce que le contenu à sa gauche est en `flex: 1` et l'écraserait
+  sur un message long — la croix disparaîtrait au moment où elle sert le plus.
+*/
+.ai-notification-close {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+}
+
+.ai-notification-close:hover,
+.ai-notification-close:focus-visible {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
