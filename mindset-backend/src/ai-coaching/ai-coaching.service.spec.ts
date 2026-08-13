@@ -274,3 +274,51 @@ describe('AiCoachingService.joursTenus — régularité des habitudes', () => {
     expect(AiCoachingService.joursTenus([null, 42, {}, cle(0)])).toBe(1);
   });
 });
+
+/**
+ * Un bloc technique s'est affiché en clair dans la conversation, sous une phrase
+ * annonçant fièrement le plan : quarante lignes de JSON, et rien d'appliqué. La
+ * fermeture était arrivée mutilée (« ; ↘'PLAN> »), et l'expression employée exigeait
+ * les deux balises intactes.
+ *
+ * Côté serveur, la conséquence était pire qu'un affichage : le bloc restait dans
+ * l'historique et repartait au modèle à chaque message suivant, qui y lisait un
+ * exemple de sa propre production ratée.
+ */
+describe('AiCoachingService.retirerPlan — nettoyage de l\'historique', () => {
+  it('retire un bloc correctement fermé', () => {
+    expect(AiCoachingService.retirerPlan('Voici ton plan.<PLAN>{"newHabits":[]}</PLAN>')).toBe('Voici ton plan.');
+  });
+
+  it('retire un bloc dont la fermeture est mutilée', () => {
+    const abime = `Voici ton plan.<PLAN> , , { "newMicroObjectives": [] } ] ; ↘'PLAN>`;
+
+    const propre = AiCoachingService.retirerPlan(abime);
+
+    expect(propre).toBe('Voici ton plan.');
+    expect(propre).not.toContain('{');
+  });
+
+  it('retire un bloc sans aucune fermeture', () => {
+    expect(AiCoachingService.retirerPlan('Allez !<PLAN>\n{ "newRoutines": [] }')).toBe('Allez !');
+  });
+
+  // Le modèle écrit parfois une phrase après son bloc : elle appartient à la
+  // conversation et doit survivre.
+  it('conserve ce qui suit le bloc', () => {
+    expect(AiCoachingService.retirerPlan('Avant.<PLAN>{}</PLAN>Après.')).toBe('Avant.\nAprès.');
+  });
+
+  it('ne touche pas à un message ordinaire', () => {
+    const message = 'Bravo pour ta séance ! On continue comme ça 💪';
+
+    expect(AiCoachingService.retirerPlan(message)).toBe(message);
+  });
+
+  // Le mot « plan » est courant dans la bouche d'un coach : seule la balise compte.
+  it('ne confond pas le mot « plan » avec la balise', () => {
+    const message = "Ton plan d'action est prêt, on l'attaque demain.";
+
+    expect(AiCoachingService.retirerPlan(message)).toBe(message);
+  });
+});

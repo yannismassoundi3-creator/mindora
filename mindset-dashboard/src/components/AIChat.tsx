@@ -6,6 +6,7 @@ import { AI_COSMETICS } from '../utils/cosmetics';
 import { getSecurePoints } from '../utils/secureStorage';
 import { sauvegarderPlanPrecedent, planPrecedentDisponible, restaurerPlanPrecedent } from '../utils/planPrecedent';
 import { normaliserJours } from '../utils/recurrence';
+import { extrairePlan, reparerJson } from '../utils/extractionPlan';
 import './AIChat.css';
 import { api } from '../services/api';
 
@@ -522,56 +523,22 @@ export const AIChat: React.FC = () => {
       // Identifiant de la copie prise avant un remplacement, s'il y en a eu un.
       let sauvegardePlan: string | null = null;
 
-      let jsonStr = "";
-      
-      const planMatch = replyText.match(/<PLAN>([\s\S]*?)<\/PLAN>/i);
-      if (planMatch) {
-        jsonStr = planMatch[1];
-        replyText = replyText.replace(/<PLAN>[\s\S]*?<\/PLAN>/i, '').trim();
-      } else {
-        const codeBlockRegex = /```[a-zA-Z]*\s*([\s\S]*?)\s*```/g;
-        
-        replyText = replyText.replace(codeBlockRegex, (match, content) => {
-          if (content.includes('newHabits') || content.includes('newRoutines') || content.includes('replaceNutrition') || content.includes('newNutrition') || content.includes('macroObjectives')) {
-            if (!jsonStr) {
-              const start = content.indexOf('{');
-              const end = content.lastIndexOf('}');
-              if (start !== -1 && end !== -1) {
-                jsonStr = content.substring(start, end + 1);
-              } else {
-                jsonStr = "{" + content + "}";
-              }
-            }
-            return '';
-          }
-          return match;
-        });
-
-        if (!jsonStr) {
-          const firstBrace = replyText.indexOf('{');
-          const lastBrace = replyText.lastIndexOf('}');
-          if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-            const potentialJson = replyText.substring(firstBrace, lastBrace + 1);
-            if (potentialJson.includes('newHabits') || potentialJson.includes('newRoutines') || potentialJson.includes('replaceNutrition')) {
-              jsonStr = potentialJson;
-              replyText = replyText.replace(potentialJson, '').trim();
-            }
-          }
-        }
-      }
-      
-      replyText = cleanMessageText(replyText);
+      // Le bloc technique est retiré du message quoi qu'il arrive.
+      //
+      // L'extraction exigeait auparavant les deux balises intactes. Une fermeture
+      // mutilée — « ; ↘'PLAN> » a été vue en production — et plus rien ne
+      // correspondait : le plan n'était ni appliqué ni retiré, et quarante lignes de
+      // JSON s'affichaient sous une phrase annonçant fièrement le plan.
+      const extraction = extrairePlan(replyText);
+      replyText = cleanMessageText(extraction.texte);
+      let jsonStr = extraction.json;
 
       if (jsonStr) {
         try {
-          // Nettoyage agressif pour rattraper un JSON mal formaté par l'IA
-          jsonStr = jsonStr.trim();
-          const firstBrace = jsonStr.indexOf('{');
-          const lastBrace = jsonStr.lastIndexOf('}');
-          if (firstBrace !== -1 && lastBrace !== -1) {
-            jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
-          }
-          
+          // Rattrape les maladresses de format les plus courantes — virgules en
+          // rafale, virgule traînante — sans jamais inventer de données.
+          jsonStr = reparerJson(jsonStr);
+
           const planData = JSON.parse(jsonStr);
 
           if (planData.planExplanation || planData.routineExplanation) {
@@ -599,7 +566,13 @@ export const AIChat: React.FC = () => {
             }
           }
         } catch(e) {
+          // Le plan est illisible et le restera : c'est le modèle qui l'a mal écrit.
+          //
+          // Se taire serait le pire choix — la réponse annonce souvent « il est temps
+          // de l'appliquer », et on laisserait croire que c'est fait alors que rien
+          // n'a bougé. On le dit, et on indique le geste qui débloque.
           console.error("Failed to parse plan JSON", e);
+          replyText += "\n\n⚠️ **Je n'ai pas réussi à appliquer ce plan** — il est arrivé mal formé de mon côté. Redemande-le-moi, ça passe presque toujours au second essai.";
         }
       }
       

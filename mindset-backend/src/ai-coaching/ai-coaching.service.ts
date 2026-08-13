@@ -35,6 +35,28 @@ export class AiCoachingService {
   private static readonly FUSEAU = 'Europe/Paris';
 
   /**
+   * Retire d'une réponse passée le bloc technique destiné à l'interface.
+   *
+   * L'expression employée jusqu'ici exigeait les deux balises intactes. Or le modèle
+   * en abîme parfois la fermeture — « ; ↘'PLAN> » observé en production. Le bloc
+   * restait alors dans l'historique **pour toujours**, renvoyé au modèle à chaque
+   * message : il y lisait un exemple de sa propre production ratée, et l'imitait.
+   *
+   * L'ouverture suffit donc à condamner la suite. Tout ce qui vient après `<PLAN>`
+   * s'adresse à l'application, jamais à la conversation.
+   */
+  static retirerPlan(texte: string): string {
+    const ouverture = texte.search(/<\s*PLAN\s*>/i);
+    if (ouverture === -1) return texte.trim();
+
+    const apres = texte.slice(ouverture).replace(/<\s*PLAN\s*>/i, '');
+    const fermeture = apres.search(/<?\s*\/?\s*PLAN\s*>/i);
+    const suite = fermeture === -1 ? '' : apres.slice(fermeture).replace(/<?\s*\/?\s*PLAN\s*>/i, '');
+
+    return `${texte.slice(0, ouverture)}\n${suite}`.replace(/<?\s*\/?\s*PLAN\s*>/gi, '').trim();
+  }
+
+  /**
    * Nombre de jours tenus sur les sept derniers, historique de l'habitude en main.
    *
    * Les dates sont comparées sous forme de chaînes `AAAA-MM-JJ`, comme le client les
@@ -406,7 +428,7 @@ RÈGLES DE COMPORTEMENT :
         .map((m: any) => ({
           role: m.sender === 'ai' ? 'assistant' : 'user',
           content: m.sender === 'ai'
-            ? String(m.text).replace(/<PLAN>[\s\S]*?<\/PLAN>/g, '').trim()
+            ? AiCoachingService.retirerPlan(String(m.text))
             : String(m.text),
         }))
         .filter((m) => m.content.length > 0);
@@ -441,10 +463,14 @@ RÈGLES DE COMPORTEMENT :
 
         const { response, modele } = await this.appelerGroqAvecRepli(apiKey, {
           messages,
-          // 0.8 laissait trop de latitude au modèle alors qu'il doit produire un JSON
-          // strictement valide : d'où les plans cassés que le prompt tente d'interdire
-          // à coups de règles. 0.6 garde le ton du coach tout en fiabilisant le format.
-          temperature: 0.6,
+          // Deux exigences opposées, donc deux réglages.
+          //
+          // Quand le schéma est joint, la réponse doit contenir un JSON strictement
+          // valide : toute latitude accordée au modèle se paie en virgules en rafale
+          // et en balises mutilées, vues l'une comme l'autre en production. Quand il
+          // s'agit seulement de parler, la chaleur du ton compte davantage que la
+          // ponctuation, et 0,6 la préserve.
+          temperature: avecPlan ? 0.3 : 0.6,
           // Un plan complet fait à lui seul près de mille jetons de JSON : rogner ici
           // le tronquerait en plein objet et casserait son application dans l'app.
           max_tokens: 1500,
