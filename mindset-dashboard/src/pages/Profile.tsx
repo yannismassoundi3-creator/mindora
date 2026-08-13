@@ -305,7 +305,10 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
                   <button 
                     onClick={async () => {
                       try {
-                        const res = await api.post('/subscriptions/portal', {});
+                        // Même raison que sur l'écran de tarifs : l'adresse de retour ne
+                        // doit pas dépendre de FRONTEND_URL, qui a déjà ramené les
+                        // acheteurs sur un domaine mort.
+                        const res = await api.post('/subscriptions/portal', { origine: window.location.origin });
                         if (res.portalUrl) {
                           window.location.href = res.portalUrl;
                         }

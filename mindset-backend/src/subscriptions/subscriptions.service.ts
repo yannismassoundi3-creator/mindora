@@ -13,19 +13,52 @@ export class SubscriptionsService {
   }
 
   /**
+   * Les seules adresses vers lesquelles on accepte de renvoyer après un paiement.
+   *
+   * Sans cette liste, accepter l'origine envoyée par le navigateur ouvrirait une
+   * redirection arbitraire : n'importe qui pourrait faire fabriquer par notre serveur
+   * un lien Stripe qui ramène sur son propre site, avec notre nom sur la page de
+   * paiement. La liste est écrite ici, en clair, plutôt que dans une variable — c'est
+   * précisément la variable qui s'est révélée fausse.
+   */
+  private static readonly ORIGINES_AUTORISEES = ['https://disciplix-ai.vercel.app'];
+
+  private origineValide(origine?: string): string | null {
+    if (!origine) return null;
+    let url: URL;
+    try {
+      url = new URL(origine);
+    } catch {
+      return null;
+    }
+    if (SubscriptionsService.ORIGINES_AUTORISEES.includes(url.origin)) return url.origin;
+    // En développement, front et API tournent sur des ports différents de localhost.
+    const local = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+    if (local && process.env.NODE_ENV !== 'production') return url.origin;
+    return null;
+  }
+
+  /**
    * Adresse de retour après paiement.
    *
+   * Elle vient d'abord du navigateur, et seulement ensuite de FRONTEND_URL. L'ordre
+   * n'est pas anodin : le 13 août 2026, cette variable pointait sur un
+   * « …-dashboard.onrender.com » qui n'existe plus, et tous les acheteurs
+   * atterrissaient sur une page « Not Found » au retour de leur paiement — au moment
+   * précis où il faut les rassurer. Le navigateur, lui, sait toujours d'où il vient ;
+   * il suffit de vérifier qu'il ne raconte pas n'importe quoi, d'où la liste blanche.
+   *
    * La barre finale est retirée : selon la façon dont FRONTEND_URL est saisie sur
-   * Render, on renvoyait sinon les gens sur « //?success=true » au retour de leur
-   * paiement. Le même défaut avait déjà été corrigé côté notifications ; il était
-   * resté ici, c'est-à-dire sur la page qui suit un achat.
+   * Render, on renvoyait sinon les gens sur « //?success=true ».
    */
-  private lienRetour(chemin: string): string {
-    const base = (process.env.FRONTEND_URL || 'http://localhost:3001').replace(/\/+$/, '');
+  private lienRetour(chemin: string, origine?: string): string {
+    const base =
+      this.origineValide(origine) ??
+      (process.env.FRONTEND_URL || 'https://disciplix-ai.vercel.app').replace(/\/+$/, '');
     return base + chemin;
   }
 
-  async createCheckoutSession(userId: string, planType: string) {
+  async createCheckoutSession(userId: string, planType: string, origine?: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new BadRequestException('User not found');
 
@@ -56,8 +89,8 @@ export class SubscriptionsService {
             trial_period_days: 7,
           },
         }),
-        success_url: this.lienRetour('/?success=true'),
-        cancel_url: this.lienRetour('/?canceled=true'),
+        success_url: this.lienRetour('/?success=true', origine),
+        cancel_url: this.lienRetour('/?canceled=true', origine),
         client_reference_id: userId,
       });
 
@@ -85,7 +118,7 @@ export class SubscriptionsService {
       const cle = process.env.STRIPE_SECRET_KEY;
       const enMock = !cle || cle.startsWith('sk_test_mock');
       if (enMock && process.env.NODE_ENV !== 'production') {
-        return { checkoutUrl: this.lienRetour('/?success=true&mock=true') };
+        return { checkoutUrl: this.lienRetour('/?success=true&mock=true', origine) };
       }
 
       // Le message de Stripe reste dans les logs. Le recopier au client exposait la
@@ -383,7 +416,7 @@ export class SubscriptionsService {
     });
   }
 
-  async createPortalSession(userId: string) {
+  async createPortalSession(userId: string, origine?: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user || !user.stripe_customer_id) {
       throw new BadRequestException('Aucun compte Stripe associé trouvé.');
@@ -392,7 +425,7 @@ export class SubscriptionsService {
     try {
       const session = await this.stripe.billingPortal.sessions.create({
         customer: user.stripe_customer_id,
-        return_url: this.lienRetour('/?auth=true'),
+        return_url: this.lienRetour('/?auth=true', origine),
       });
 
       return { portalUrl: session.url };

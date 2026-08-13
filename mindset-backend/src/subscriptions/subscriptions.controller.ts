@@ -23,9 +23,16 @@ export class SubscriptionsController {
   @UseGuards(JwtAuthGuard)
   @Post('checkout')
   @ApiOperation({ summary: 'Créer une session de paiement Stripe' })
-  async createCheckoutSession(@Req() req: Request, @Body('planType') planType: string) {
+  async createCheckoutSession(
+    @Req() req: Request,
+    @Body('planType') planType: string,
+    @Body('origine') origine?: string,
+  ) {
     const userId = (req.user as any).userId;
-    return this.subscriptionsService.createCheckoutSession(userId, planType);
+    // L'origine est proposée par le navigateur et vérifiée contre une liste blanche
+    // côté service : c'est le seul moyen de ne pas dépendre d'une variable
+    // d'environnement pour ramener l'acheteur chez lui après son paiement.
+    return this.subscriptionsService.createCheckoutSession(userId, planType, origine);
   }
 
   /**
@@ -50,9 +57,9 @@ export class SubscriptionsController {
   @UseGuards(JwtAuthGuard)
   @Post('portal')
   @ApiOperation({ summary: 'Créer une session portail client Stripe' })
-  async createPortalSession(@Req() req: Request) {
+  async createPortalSession(@Req() req: Request, @Body('origine') origine?: string) {
     const userId = (req.user as any).userId;
-    return this.subscriptionsService.createPortalSession(userId);
+    return this.subscriptionsService.createPortalSession(userId, origine);
   }
 
   /**

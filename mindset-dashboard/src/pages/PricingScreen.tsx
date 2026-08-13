@@ -53,7 +53,14 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
     playLevelUpSound();
 
     try {
-      const res = await api.post('/subscriptions/checkout', { planType: selectedPlan });
+      // On dit au serveur où nous ramener. Il vérifie l'adresse contre sa propre liste
+      // blanche avant de s'en servir — sans quoi ce serait une redirection ouverte.
+      // Sans ça, l'adresse de retour vient de FRONTEND_URL, qui pointait sur un domaine
+      // mort : tous les acheteurs atterrissaient sur « Not Found ».
+      const res = await api.post('/subscriptions/checkout', {
+        planType: selectedPlan,
+        origine: window.location.origin,
+      });
       if (res.checkoutUrl) {
         if (res.checkoutUrl.includes('mock=true')) {
           window.dispatchEvent(new CustomEvent('triggerShockwave', {

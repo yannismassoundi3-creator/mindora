@@ -451,3 +451,99 @@ describe('SubscriptionsService — réconciliation avec Stripe', () => {
     await expect(service.verifierAbonnement('u1')).rejects.toThrow(/Impossible de joindre Stripe/);
   });
 });
+
+/**
+ * L'adresse de retour après paiement.
+ *
+ * Elle était construite sur FRONTEND_URL, et cette variable pointait en production sur
+ * un « …-dashboard.onrender.com » qui n'existe pas : tout acheteur atterrissait sur une
+ * page « Not Found » juste après avoir payé. On accepte donc l'origine du navigateur —
+ * mais une origine venue du client est une donnée hostile tant qu'elle n'est pas
+ * vérifiée : sans liste blanche, ce serait une redirection ouverte fabriquée par notre
+ * propre serveur, sur une page Stripe portant notre nom.
+ */
+describe('SubscriptionsService — adresse de retour', () => {
+  let service: SubscriptionsService;
+  const envInitial = { ...process.env };
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    mockCreerSession.mockResolvedValue({ url: 'https://checkout.stripe.com/x' });
+    process.env.STRIPE_SECRET_KEY = 'sk_live_vraie';
+    process.env.NODE_ENV = 'production';
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        SubscriptionsService,
+        {
+          provide: PrismaService,
+          useValue: { user: { findUnique: jest.fn().mockResolvedValue({ id: 'u1', email: 'y@example.com' }) } },
+        },
+      ],
+    }).compile();
+    service = module.get<SubscriptionsService>(SubscriptionsService);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    process.env = { ...envInitial };
+  });
+
+  const retour = () => mockCreerSession.mock.calls[0][0].success_url;
+
+  it('préfère l’origine du navigateur à une FRONTEND_URL fausse', async () => {
+    // Le cas réel : la variable pointe sur un domaine mort, le navigateur sait où il est.
+    process.env.FRONTEND_URL = 'https://mindset-dashboard.onrender.com';
+
+    await service.createCheckoutSession('u1', 'monthly', 'https://disciplix-ai.vercel.app');
+
+    expect(retour()).toBe('https://disciplix-ai.vercel.app/?success=true');
+  });
+
+  it('refuse une origine étrangère et retombe sur la configuration', async () => {
+    process.env.FRONTEND_URL = 'https://disciplix-ai.vercel.app';
+
+    await service.createCheckoutSession('u1', 'monthly', 'https://pirate.example');
+
+    expect(retour()).toBe('https://disciplix-ai.vercel.app/?success=true');
+  });
+
+  it('refuse un sous-domaine qui ressemble au nôtre', async () => {
+    // « disciplix-ai.vercel.app.pirate.example » commence bien par notre nom : une
+    // comparaison par préfixe l'aurait accepté.
+    await service.createCheckoutSession('u1', 'monthly', 'https://disciplix-ai.vercel.app.pirate.example');
+
+    expect(retour()).toBe('https://disciplix-ai.vercel.app/?success=true');
+  });
+
+  it('refuse localhost en production', async () => {
+    await service.createCheckoutSession('u1', 'monthly', 'http://localhost:3001');
+
+    expect(retour()).toBe('https://disciplix-ai.vercel.app/?success=true');
+  });
+
+  it('accepte localhost hors production', async () => {
+    process.env.NODE_ENV = 'development';
+
+    await service.createCheckoutSession('u1', 'monthly', 'http://localhost:5173');
+
+    expect(retour()).toBe('http://localhost:5173/?success=true');
+  });
+
+  it('ignore une origine illisible sans lever d’exception', async () => {
+    await service.createCheckoutSession('u1', 'monthly', 'pas une adresse');
+
+    expect(retour()).toBe('https://disciplix-ai.vercel.app/?success=true');
+  });
+
+  it('ne renvoie plus sur localhost quand FRONTEND_URL manque en production', async () => {
+    // L'ancien repli était « http://localhost:3001 » : en production, il envoyait les
+    // acheteurs sur leur propre machine.
+    delete process.env.FRONTEND_URL;
+
+    await service.createCheckoutSession('u1', 'monthly');
+
+    expect(retour()).toBe('https://disciplix-ai.vercel.app/?success=true');
+  });
+});
