@@ -228,6 +228,47 @@
   cursor: wait;
 }
 
+/*
+  Rattrapage « J'ai déjà payé ».
+
+  Volontairement discret : c'est une issue de secours, elle ne doit pas concurrencer
+  le bouton d'achat. La règle est écrite avec l'ancêtre `.pricing-card` — donc deux
+  classes — parce que `body.theme-monochrome-dark button` (index.css) impose un
+  `border-radius` et un halo en `!important` à *tous* les boutons de l'app : une classe
+  seule ne passe pas devant, et ce bouton de texte s'entourerait d'un rectangle
+  lumineux qu'on lirait comme une seconde carte.
+*/
+.pricing-card .pricing-deja-paye {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 8px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--secondary);
+  font-family: var(--font-main);
+  font-size: 0.8rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+/* Trois classes plus le survol, pour passer devant
+   `button:not(:disabled):not(.btn-primary):hover` de global.css, qui soulève et
+   éclaircit tout bouton survolé. */
+.pricing-container .pricing-card .pricing-deja-paye:hover:not(:disabled) {
+  color: var(--primary);
+  background: transparent;
+  transform: none;
+  box-shadow: none;
+}
+
+.pricing-card .pricing-deja-paye:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
 .secure-text {
   display: flex;
   align-items: center;

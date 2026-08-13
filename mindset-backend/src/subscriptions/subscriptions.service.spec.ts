@@ -6,15 +6,20 @@ import { PrismaService } from '../prisma/prisma.service';
 const mockCreerSession = jest.fn();
 const mockCreerPortail = jest.fn();
 const mockConstruireEvenement = jest.fn();
+const mockListerClients = jest.fn();
+const mockListerAbos = jest.fn();
+const mockListerSessions = jest.fn();
 
 // `import Stripe from 'stripe'` se compile en `stripe_1.default` : le mock doit
 // exposer la classe sous `default`, pas à la racine du module.
 jest.mock('stripe', () => ({
   __esModule: true,
   default: jest.fn().mockImplementation(() => ({
-    checkout: { sessions: { create: mockCreerSession } },
+    checkout: { sessions: { create: mockCreerSession, list: mockListerSessions } },
     billingPortal: { sessions: { create: mockCreerPortail } },
     webhooks: { constructEvent: mockConstruireEvenement },
+    customers: { list: mockListerClients },
+    subscriptions: { list: mockListerAbos },
   })),
 }));
 
@@ -285,5 +290,164 @@ describe('SubscriptionsService — cycle de vie de l’abonnement', () => {
     await envoyer('customer.subscription.deleted', abonnement({ status: 'canceled' }));
 
     expect(updateMany.mock.calls[0][0].where).toEqual({ stripe_sub_id: 'sub_123' });
+  });
+});
+
+/**
+ * La réconciliation : demander à Stripe plutôt qu'attendre son appel.
+ *
+ * Le 13 août 2026, le tout premier achat réel a été encaissé sans que le compte passe
+ * Pro — le webhook n'a rien écrit. Un webhook est une notification poussée : quand elle
+ * se perd, l'argent est pris et l'accès jamais ouvert, sans que rien ne le signale.
+ * Ces tests couvrent le chemin inverse, celui qui ne dépend d'aucun webhook.
+ */
+describe('SubscriptionsService — réconciliation avec Stripe', () => {
+  let service: SubscriptionsService;
+  const majUtilisateur = jest.fn();
+  const upsert = jest.fn();
+
+  const construire = async (utilisateur: any = { id: 'u1', email: 'y@example.com', stripe_customer_id: null }) => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        SubscriptionsService,
+        {
+          provide: PrismaService,
+          useValue: {
+            user: { findUnique: jest.fn().mockResolvedValue(utilisateur), update: majUtilisateur },
+            subscription: { upsert },
+          },
+        },
+      ],
+    }).compile();
+    return module.get<SubscriptionsService>(SubscriptionsService);
+  };
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    jest.spyOn(console, 'log').mockImplementation(() => undefined);
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    mockListerClients.mockResolvedValue({ data: [] });
+    mockListerAbos.mockResolvedValue({ data: [] });
+    mockListerSessions.mockResolvedValue({ data: [] });
+    service = await construire();
+  });
+
+  afterEach(() => jest.restoreAllMocks());
+
+  it('ouvre le Pro sur un essai en cours, sans rien avoir reçu de Stripe', async () => {
+    // C'est le cas exact du 13 août : formule mensuelle, essai de 7 jours, statut
+    // « trialing » chez Stripe, et aucune ligne en base parce que le webhook a échoué.
+    mockListerClients.mockResolvedValue({ data: [{ id: 'cus_1' }] });
+    mockListerAbos.mockResolvedValue({
+      data: [
+        {
+          id: 'sub_1',
+          customer: 'cus_1',
+          status: 'trialing',
+          cancel_at_period_end: false,
+          items: { data: [{ current_period_start: 1000, current_period_end: 2000 }] },
+        },
+      ],
+    });
+
+    const res = await service.verifierAbonnement('u1');
+
+    expect(res).toEqual({ abonne: true, status: 'TRIALING', formule: 'monthly' });
+    expect(upsert).toHaveBeenCalledTimes(1);
+    expect(upsert.mock.calls[0][0].create.status).toBe('TRIALING');
+  });
+
+  it('rattache le client Stripe au compte, que le webhook n’avait pas écrit', async () => {
+    // Sans cette écriture, le portail de gestion resterait inaccessible à quelqu'un
+    // dont on vient pourtant de retrouver le paiement.
+    mockListerClients.mockResolvedValue({ data: [{ id: 'cus_9' }] });
+    mockListerAbos.mockResolvedValue({
+      data: [{ id: 'sub_9', customer: 'cus_9', status: 'active', cancel_at_period_end: false, items: { data: [] } }],
+    });
+
+    await service.verifierAbonnement('u1');
+
+    expect(majUtilisateur).toHaveBeenCalledWith({ where: { id: 'u1' }, data: { stripe_customer_id: 'cus_9' } });
+  });
+
+  it('retrouve un achat à vie, qui ne crée aucun abonnement chez Stripe', async () => {
+    // Un paiement unique n'a pas d'objet Subscription : le chercher parmi les
+    // abonnements ne le trouverait jamais.
+    mockListerClients.mockResolvedValue({ data: [{ id: 'cus_2' }] });
+    mockListerSessions.mockResolvedValue({ data: [{ mode: 'payment', payment_status: 'paid' }] });
+
+    const res = await service.verifierAbonnement('u1');
+
+    expect(res).toEqual({ abonne: true, status: 'ACTIVE', formule: 'lifetime' });
+    expect(upsert.mock.calls[0][0].create.stripe_sub_id).toBeNull();
+  });
+
+  it('fait primer l’achat à vie sur un ancien mensuel résilié', async () => {
+    // Sinon la résiliation d'un mensuel effacerait l'accès définitif du même acheteur.
+    mockListerClients.mockResolvedValue({ data: [{ id: 'cus_3' }] });
+    mockListerAbos.mockResolvedValue({
+      data: [{ id: 'sub_3', customer: 'cus_3', status: 'canceled', cancel_at_period_end: false, items: { data: [] } }],
+    });
+    mockListerSessions.mockResolvedValue({ data: [{ mode: 'payment', payment_status: 'paid' }] });
+
+    const res = await service.verifierAbonnement('u1');
+
+    expect(res.abonne).toBe(true);
+    expect(res.formule).toBe('lifetime');
+  });
+
+  it('retient l’abonnement vivant quand le compte en porte plusieurs', async () => {
+    // Quelqu'un qui a résilié puis repris en a deux. Prendre le plus récemment
+    // modifié désignerait le résilié : une résiliation est elle-même une modification.
+    mockListerClients.mockResolvedValue({ data: [{ id: 'cus_4' }] });
+    mockListerAbos.mockResolvedValue({
+      data: [
+        { id: 'sub_vieux', customer: 'cus_4', status: 'canceled', cancel_at_period_end: false, items: { data: [] } },
+        { id: 'sub_neuf', customer: 'cus_4', status: 'active', cancel_at_period_end: false, items: { data: [] } },
+      ],
+    });
+
+    const res = await service.verifierAbonnement('u1');
+
+    expect(res.status).toBe('ACTIVE');
+    expect(upsert.mock.calls[0][0].create.stripe_sub_id).toBe('sub_neuf');
+  });
+
+  it('n’ouvre pas le Pro sur un impayé', async () => {
+    // PAST_DUE se retrouve bien en base — c'est l'information utile — mais il ne donne
+    // pas accès : Stripe repasse en « active » de lui-même dès qu'une relance aboutit.
+    mockListerClients.mockResolvedValue({ data: [{ id: 'cus_5' }] });
+    mockListerAbos.mockResolvedValue({
+      data: [{ id: 'sub_5', customer: 'cus_5', status: 'past_due', cancel_at_period_end: false, items: { data: [] } }],
+    });
+
+    const res = await service.verifierAbonnement('u1');
+
+    expect(res).toEqual({ abonne: false, status: 'PAST_DUE', formule: 'monthly' });
+  });
+
+  it('ne touche pas à la base quand Stripe ne connaît pas cet e-mail', async () => {
+    const res = await service.verifierAbonnement('u1');
+
+    expect(res).toEqual({ abonne: false, status: null, formule: null });
+    expect(upsert).not.toHaveBeenCalled();
+    expect(majUtilisateur).not.toHaveBeenCalled();
+  });
+
+  it('interroge aussi le client déjà connu, pas seulement l’e-mail', async () => {
+    // Un acheteur peut avoir changé l'e-mail de son compte Stripe après coup : la
+    // recherche par e-mail le manquerait, alors qu'on a déjà son identifiant.
+    service = await construire({ id: 'u1', email: 'y@example.com', stripe_customer_id: 'cus_connu' });
+    mockListerClients.mockResolvedValue({ data: [] });
+
+    await service.verifierAbonnement('u1');
+
+    expect(mockListerAbos).toHaveBeenCalledWith(expect.objectContaining({ customer: 'cus_connu' }));
+  });
+
+  it('parle français quand Stripe est injoignable, plutôt que de laisser fuir l’erreur', async () => {
+    mockListerClients.mockRejectedValue(new Error('Invalid API Key provided: sk_live_…'));
+
+    await expect(service.verifierAbonnement('u1')).rejects.toThrow(/Impossible de joindre Stripe/);
   });
 });

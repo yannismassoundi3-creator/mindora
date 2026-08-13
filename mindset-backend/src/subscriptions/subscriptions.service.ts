@@ -177,6 +177,30 @@ export class SubscriptionsService {
     paused: 'INACTIVE',
   };
 
+  /** Les deux statuts qui ouvrent le Pro. Doit rester aligné sur `AiQuotaService.PAID_STATUSES`. */
+  private static readonly PAYANTS = ['ACTIVE', 'TRIALING'];
+
+  /**
+   * Début et fin de la période en cours, quel que soit l'emplacement où Stripe les met.
+   *
+   * La destination Stripe envoie ses événements dans SA version d'API — ici
+   * 2026-06-24.dahlia — quelle que soit celle déclarée par le SDK (14.25.0, figé sur
+   * 2023-10-16). Or depuis Basil (2025-03-31), « current_period_start » et
+   * « current_period_end » ne sont plus sur l'abonnement : ils vivent sur chacun de
+   * ses items. Les lire à la racine ne lèverait aucune erreur, les deux colonnes
+   * seraient simplement restées vides pour toujours. On accepte les deux emplacements
+   * pour ne dépendre ni de la version du SDK ni de celle de la destination — et ça vaut
+   * aussi bien pour l'objet reçu par le webhook que pour celui lu par la réconciliation.
+   */
+  private static periodes(sub: Stripe.Subscription): { debut: Date | null; fin: Date | null } {
+    const enSeconde = (t?: number | null) => (typeof t === 'number' ? new Date(t * 1000) : null);
+    const item = (sub as any).items?.data?.[0];
+    return {
+      debut: enSeconde((sub as any).current_period_start ?? item?.current_period_start),
+      fin: enSeconde((sub as any).current_period_end ?? item?.current_period_end),
+    };
+  }
+
   /**
    * Reporte l'état réel d'un abonnement Stripe dans notre base.
    *
@@ -197,18 +221,7 @@ export class SubscriptionsService {
       return;
     }
 
-    const enSeconde = (t?: number | null) => (typeof t === 'number' ? new Date(t * 1000) : null);
-
-    // La destination Stripe envoie ses événements dans SA version d'API — ici
-    // 2026-06-24.dahlia — quelle que soit celle déclarée par le SDK (14.25.0, figé sur
-    // 2023-10-16). Or depuis Basil (2025-03-31), « current_period_start » et
-    // « current_period_end » ne sont plus sur l'abonnement : ils vivent sur chacun de
-    // ses items. Les lire à la racine ne lèverait aucune erreur, les deux colonnes
-    // seraient simplement restées vides pour toujours. On accepte les deux emplacements
-    // pour ne dépendre ni de la version du SDK ni de celle de la destination.
-    const item = (sub as any).items?.data?.[0];
-    const debut = (sub as any).current_period_start ?? item?.current_period_start;
-    const fin = (sub as any).current_period_end ?? item?.current_period_end;
+    const { debut, fin } = SubscriptionsService.periodes(sub);
 
     // updateMany plutôt que update : l'abonnement peut appartenir à un compte supprimé,
     // ou l'événement précéder le checkout qui l'a créé. Aucune ligne touchée est un
@@ -218,8 +231,8 @@ export class SubscriptionsService {
       where: { stripe_sub_id: sub.id },
       data: {
         status: statut,
-        current_period_start: enSeconde(debut),
-        current_period_end: enSeconde(fin),
+        current_period_start: debut,
+        current_period_end: fin,
         cancel_at_period_end: sub.cancel_at_period_end ?? false,
       },
     });
@@ -229,6 +242,145 @@ export class SubscriptionsService {
       return;
     }
     console.log(`[Stripe Webhook] Abonnement ${sub.id} → ${statut}.`);
+  }
+
+  /**
+   * Rang d'un statut Stripe, pour départager plusieurs abonnements du même acheteur.
+   *
+   * Quelqu'un qui a résilié puis repris en a deux ; c'est le vivant qui compte, pas le
+   * plus récemment modifié — une résiliation étant elle-même une modification.
+   */
+  private static rang(statut: string): number {
+    if (statut === 'active' || statut === 'trialing') return 3;
+    if (statut === 'past_due' || statut === 'unpaid') return 2;
+    return 1;
+  }
+
+  /**
+   * Va demander à Stripe l'état réel de l'abonnement, sans passer par le webhook.
+   *
+   * Le webhook est une notification *poussée* : s'il échoue — signature qui ne
+   * correspond pas, événement non déclaré sur la destination, service en train de
+   * redémarrer — l'argent est encaissé et l'accès n'est jamais ouvert, sans que rien
+   * ne le signale nulle part. C'est exactement ce qui s'est produit le 13 août 2026 sur
+   * le tout premier achat. Cette route est le chemin inverse : c'est l'application qui
+   * interroge Stripe, donc elle ne dépend ni de la signature, ni de la liste
+   * d'événements de la destination, ni du fait que le service tournait à cet instant.
+   *
+   * La correspondance se fait **par e-mail**, et non par `stripe_customer_id` : cette
+   * colonne n'est écrite que par le webhook, donc s'y fier ne réparerait justement pas
+   * le cas où il n'a pas tourné. L'e-mail est celui passé à Stripe au moment du
+   * paiement (`customer_email` du checkout), c'est donc la clé du paiement lui-même.
+   */
+  async verifierAbonnement(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new BadRequestException('User not found');
+
+    let clients: string[];
+    try {
+      const parEmail = await this.stripe.customers.list({ email: user.email, limit: 10 });
+      // L'identifiant déjà connu est gardé en tête : un acheteur peut avoir changé
+      // l'e-mail de son compte Stripe après coup, la recherche par e-mail le manquerait.
+      clients = [
+        ...new Set([
+          ...(user.stripe_customer_id ? [user.stripe_customer_id] : []),
+          ...parEmail.data.map((c) => c.id),
+        ]),
+      ];
+    } catch (error: any) {
+      console.error('[Stripe] Vérification impossible :', error);
+      throw new BadRequestException(
+        "Impossible de joindre Stripe pour vérifier ton abonnement. Réessaie dans un moment.",
+      );
+    }
+
+    if (clients.length === 0) {
+      return { abonne: false, status: null as string | null, formule: null as string | null };
+    }
+
+    let meilleur: Stripe.Subscription | null = null;
+    let clientAVie: string | null = null;
+
+    for (const client of clients) {
+      const abos = await this.stripe.subscriptions.list({ customer: client, status: 'all', limit: 10 });
+      for (const abo of abos.data) {
+        if (!meilleur || SubscriptionsService.rang(abo.status) > SubscriptionsService.rang(meilleur.status)) {
+          meilleur = abo;
+        }
+      }
+
+      // L'achat « à vie » est un paiement unique : il ne crée aucun objet Subscription
+      // chez Stripe, et resterait donc invisible à la boucle ci-dessus.
+      if (!clientAVie) {
+        const sessions = await this.stripe.checkout.sessions.list({ customer: client, limit: 20 });
+        if (sessions.data.some((s) => s.mode === 'payment' && s.payment_status === 'paid')) {
+          clientAVie = client;
+        }
+      }
+    }
+
+    // L'achat à vie prime sur tout le reste : il n'expire pas, et il ne doit pas être
+    // écrasé par la résiliation d'un ancien mensuel du même acheteur.
+    if (clientAVie) {
+      await this.ecrire(userId, clientAVie, {
+        status: 'ACTIVE',
+        stripe_sub_id: null,
+        current_period_start: null,
+        current_period_end: null,
+        cancel_at_period_end: false,
+      });
+      console.log(`[Stripe] Réconciliation ${userId} : achat à vie retrouvé.`);
+      return { abonne: true, status: 'ACTIVE' as string | null, formule: 'lifetime' as string | null };
+    }
+
+    if (meilleur) {
+      const statut = SubscriptionsService.STATUTS[meilleur.status] ?? 'INACTIVE';
+      const { debut, fin } = SubscriptionsService.periodes(meilleur);
+      await this.ecrire(userId, meilleur.customer as string, {
+        status: statut,
+        stripe_sub_id: meilleur.id,
+        current_period_start: debut,
+        current_period_end: fin,
+        cancel_at_period_end: meilleur.cancel_at_period_end ?? false,
+      });
+      console.log(`[Stripe] Réconciliation ${userId} : abonnement ${meilleur.id} → ${statut}.`);
+      return {
+        abonne: SubscriptionsService.PAYANTS.includes(statut),
+        status: statut as string | null,
+        formule: 'monthly' as string | null,
+      };
+    }
+
+    return { abonne: false, status: null as string | null, formule: null as string | null };
+  }
+
+  /**
+   * Écrit l'état constaté chez Stripe, et rattache le client au passage.
+   *
+   * `stripe_customer_id` n'était posé que par le webhook ; sans cette écriture, le
+   * portail de gestion de l'abonnement resterait inaccessible à quelqu'un dont le
+   * webhook a échoué, alors même qu'on vient de retrouver son paiement.
+   */
+  private async ecrire(
+    userId: string,
+    clientStripe: string,
+    donnees: {
+      status: 'ACTIVE' | 'TRIALING' | 'PAST_DUE' | 'CANCELED' | 'INACTIVE';
+      stripe_sub_id: string | null;
+      current_period_start: Date | null;
+      current_period_end: Date | null;
+      cancel_at_period_end: boolean;
+    },
+  ) {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { stripe_customer_id: clientStripe },
+    });
+    await this.prisma.subscription.upsert({
+      where: { user_id: userId },
+      update: { ...donnees, plan_type: 'ELITE' },
+      create: { user_id: userId, ...donnees, plan_type: 'ELITE' },
+    });
   }
 
   async createPortalSession(userId: string) {

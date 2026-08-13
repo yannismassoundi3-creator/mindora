@@ -2,16 +2,93 @@
   display: flex;
   flex-direction: column;
   flex: 1;
-  padding-bottom: 80px;
   box-sizing: border-box;
   gap: 20px;
 }
 
-.chat-header {
+/*
+  Le rembourrage bas de 80 px est parti avec la barre de saisie devenue collante.
+  Il réservait la place de la barre de navigation du téléphone, ce que la zone de
+  défilement fait déjà (130 px). Le garder laissait à la barre 80 px de course sous sa
+  position collée : en arrivant tout en bas, elle remontait d'un coup de 20 px.
+*/
+
+/*
+  La barre du coach et la barre de saisie suivent l'écran.
+
+  Elles défilaient toutes les deux avec les messages : l'énergie restante — la seule
+  chose qui dise combien de messages il reste avant le mur — disparaissait dès le
+  premier défilement, et il fallait revenir tout en bas pour écrire. Sur une
+  conversation, ce sont précisément les deux éléments dont on a besoin en permanence.
+
+  Motif repris de `BandeauCommande` : fond opaque plutôt que translucide flouté, un
+  `backdrop-filter` sur un élément collant se recomposant à chaque image de défilement
+  (constaté sur iPhone lors du lot `42d736c`).
+*/
+/*
+  Sélecteur composé, et non `.chat-header` seul : les deux barres portent aussi
+  `glass-panel`, qui pose dans global.css un fond translucide, un `backdrop-filter`,
+  une bordure, un rayon et une ombre — le tout avec une seule classe, donc au même
+  poids. C'est l'ordre de concaténation du build qui départageait, et il donnait
+  global.css gagnant : mesuré ici, le fond restait `rgba(25,25,25,0.45)` et le flou
+  actif, malgré les déclarations ci-dessous. Une barre collante translucide laisse voir
+  les messages défiler à travers, et son flou se recompose à chaque image.
+*/
+.chat-header.glass-panel {
+  --fond-barre-chat: rgb(14, 14, 17);
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  flex-shrink: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
+  gap: 12px;
+  /* Pleine largeur : le rembourrage latéral de la page est annulé puis rendu. */
+  margin-left: calc(-1 * var(--marge-page, 40px));
+  margin-right: calc(-1 * var(--marge-page, 40px));
+  padding: 12px calc(var(--marge-page, 40px) + 2px);
+  background: var(--fond-barre-chat);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 0 0 22px 22px;
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.55);
+}
+
+/*
+  Le prolongement vers le haut : la barre s'arrête au début du contenu, donc il reste
+  au-dessus d'elle la hauteur du rembourrage — 40 px sur ordinateur, la place réservée
+  à l'en-tête flottant sur téléphone. Sans ce cache, les messages défilent en clair
+  dans cette bande, entre l'en-tête et la barre.
+*/
+/*
+  Le thème monochrome impose à tout `.glass-panel` une bordure claire et un halo blanc,
+  les deux en `!important` (index.css). Sur une barre à fond perdu prolongée vers le
+  haut par un cache, cette bordure haute devient une couture visible entre les deux
+  surfaces qui sont censées n'en faire qu'une, et le halo déborde sur les messages.
+
+  Trois classes passent devant `body.theme-monochrome-dark .glass-panel` (deux classes
+  et un élément) : à nombre de classes supérieur, l'élément ne rattrape rien. Le
+  `!important` est là pour répondre au sien, pas pour forcer le passage.
+*/
+.chat-container .chat-header.glass-panel {
+  border-top: 0 !important;
+  border-left: 0 !important;
+  border-right: 0 !important;
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.55) !important;
+}
+
+.chat-header::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: var(--marge-haut, 40px);
+  background: var(--fond-barre-chat);
+  pointer-events: none;
 }
 
 .chat-header-info {
@@ -274,9 +351,28 @@
   40% { transform: scale(1); background-color: #ec4899; }
 }
 
-.chat-input-area {
+/*
+  La barre de saisie reste au bas de l'écran.
+
+  `bottom: 0` suffit sans valeur à recopier : un élément collant ne peut pas sortir de
+  son bloc conteneur, et celui-ci s'arrête au rembourrage bas de la zone de défilement
+  — laquelle réserve déjà la place de la barre de navigation sur téléphone. Recopier
+  ici la hauteur de cette barre l'aurait fait dériver au premier changement.
+
+  Fond opaque et non `glass-panel` : voir la barre du coach, plus haut.
+*/
+.chat-input-area.glass-panel {
+  position: sticky;
+  bottom: 0;
+  z-index: 30;
+  flex-shrink: 0;
   padding: 12px;
   border-radius: 16px;
+  background: rgb(20, 20, 25);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 -10px 26px rgba(0, 0, 0, 0.5);
 }
 
 .chat-form {
@@ -444,8 +540,10 @@
   .messages-list {
     padding: 5px;
   }
+  /* Même raison qu'au-dessus : tout rembourrage bas ici est de la course laissée à la
+     barre de saisie collée, donc un ressaut au moment où l'on atteint le bas. */
   .chat-container {
-    padding-bottom: 20px;
+    padding-bottom: 0;
   }
   .message-avatar-orb {
     margin-left: 2px;

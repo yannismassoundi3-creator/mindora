@@ -1,4 +1,5 @@
 import { Controller, Post, Body, Req, Headers, UseGuards, Get, BadRequestException } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
 import { SubscriptionsService } from './subscriptions.service';
 import { OfferPromptService, type Palier } from './offer-prompt.service';
@@ -25,6 +26,24 @@ export class SubscriptionsController {
   async createCheckoutSession(@Req() req: Request, @Body('planType') planType: string) {
     const userId = (req.user as any).userId;
     return this.subscriptionsService.createCheckoutSession(userId, planType);
+  }
+
+  /**
+   * Filet de sécurité de l'encaissement : demander à Stripe plutôt qu'attendre son appel.
+   *
+   * Le webhook peut échouer sans bruit, et alors quelqu'un a payé sans rien recevoir.
+   * Cette route referme ce trou depuis l'autre bout. La cadence est serrée parce que
+   * chaque appel interroge l'API de Stripe : trois par minute suffisent largement au
+   * retour d'un paiement, et empêchent d'en faire une boucle.
+   */
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  @Post('verifier')
+  @ApiOperation({ summary: "Demander à Stripe l'état réel de l'abonnement et le reporter en base" })
+  async verifierAbonnement(@Req() req: Request) {
+    const userId = (req.user as any).userId;
+    return this.subscriptionsService.verifierAbonnement(userId);
   }
 
   @ApiBearerAuth()

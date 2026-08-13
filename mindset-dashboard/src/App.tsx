@@ -18,6 +18,7 @@ import { GainFlottant } from './components/GainFlottant';
 import { AiNotification } from './components/AiNotification';
 import { AiExplanationModal } from './components/AiExplanationModal';
 import { getSecurePoints, setSecurePoints } from './utils/secureStorage';
+import { reconcilierPaiement } from './utils/paiement';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import './styles/global.css';
 import './index.css';
@@ -196,6 +197,8 @@ function App() {
         if (hasToken) {
           // Download the latest data from the Cloud DB to localStorage
           await api.downloadCloudState();
+
+          await reconcilierPaiement();
 
           const user = await api.get('/auth/me');
           // TRIALING compte comme abonné : c'est l'essai de 7 jours du forfait mensuel.

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { CheckCircle, Zap, Shield, Crown, Sparkles, X } from 'lucide-react';
 import { playLevelUpSound } from '../utils/sounds';
 import { api } from '../services/api';
+import { marquerPaiementLance, verifierAbonnement } from '../utils/paiement';
 import './PricingScreen.css';
 
 interface PricingScreenProps {
@@ -17,7 +18,33 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
   // Quelqu'un qui a cliqué « Passer à vie » sur la page d'accueil ne doit pas avoir
   // à le rechoisir : on lui reproposerait le mensuel après qu'il a tranché.
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'lifetime'>(planInitial);
+  const [verification, setVerification] = useState(false);
+  const [resultat, setResultat] = useState<{ ok: boolean; texte: string } | null>(null);
   const aiName = localStorage.getItem('mindset_ai_name') || 'Coach IA';
+
+  /**
+   * Va lire chez Stripe si un paiement existe, et ouvre l'accès le cas échéant.
+   *
+   * `onSubscribe()` fait exactement ce que ferait un achat réussi : il n'y a donc
+   * qu'un seul chemin d'ouverture du Pro dans l'app, quel que soit le maillon qui
+   * avait échoué.
+   */
+  const verifierDejaPaye = async () => {
+    setVerification(true);
+    setResultat(null);
+    const abonne = await verifierAbonnement();
+    setVerification(false);
+    if (abonne) {
+      setResultat({ ok: true, texte: 'Paiement retrouvé — ton accès Pro est ouvert.' });
+      playLevelUpSound();
+      onSubscribe();
+    } else {
+      setResultat({
+        ok: false,
+        texte: "Aucun paiement trouvé pour ton adresse e-mail. Si tu viens de payer, attends une minute et réessaie.",
+      });
+    }
+  };
 
   const handlePurchase = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -34,6 +61,12 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
           }));
           onSubscribe();
         } else {
+          // On note qu'un paiement part, pour aller en vérifier l'issue au prochain
+          // démarrage. Le retour de Stripe n'est pas un chemin sur lequel on peut
+          // compter : il dépend de FRONTEND_URL côté serveur, et le 13 août 2026 il a
+          // renvoyé sur un domaine mort — personne n'est jamais revenu dans l'app.
+          // Cette marque, elle, survit à n'importe quel atterrissage.
+          marquerPaiementLance();
           // Redirection vers la vraie page Stripe
           window.location.href = res.checkoutUrl;
         }
@@ -161,6 +194,21 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
             </p>
           ) : (
             <p className="secure-text"><Shield size={14} style={{ marginRight: '4px' }}/> Paiement unique sécurisé via Stripe</p>
+          )}
+
+          {/*
+            Rattrapage manuel. Quelqu'un qui a payé mais n'a pas reçu son accès revient
+            forcément ici : c'est l'écran derrière le bouton « Passer Pro », le seul
+            qu'on lui montre encore. Sans cette porte, sa seule issue apparente est de
+            payer une seconde fois.
+          */}
+          <button className="pricing-deja-paye" onClick={verifierDejaPaye} disabled={verification}>
+            {verification ? 'Vérification auprès de Stripe...' : "J'ai déjà payé — vérifier mon accès"}
+          </button>
+          {resultat && (
+            <p className="secure-text" style={{ color: resultat.ok ? '#10b981' : '#f87171', fontWeight: 600 }} role="status">
+              {resultat.texte}
+            </p>
           )}
         </div>
       </div>
