@@ -23,6 +23,8 @@ const DELAI_REPORT_MS = 3 * 24 * 3600 * 1000;
  */
 export const NotificationsOptIn: React.FC = () => {
   const [etat, setEtat] = useState<EtatPush | 'a_demander'>(() => diagnostiquerPush());
+  /** Marche à suivre du cas « bloquées », repliée par défaut. */
+  const [detailOuvert, setDetailOuvert] = useState(false);
   const [occupe, setOccupe] = useState(false);
   const [masquee, setMasquee] = useState(() => {
     const reporte = Number(localStorage.getItem(CLE_REPORT) || 0);
@@ -61,6 +63,43 @@ export const NotificationsOptIn: React.FC = () => {
   };
 
   if (masquee || etat === 'accorde' || etat === 'non_supporte') return null;
+
+  /*
+    Le refus tient sur une ligne, pas sur une carte.
+
+    Une carte pleine se justifie quand elle propose un geste : « Activer », ou les
+    étapes d'installation sur iPhone. Ici il n'y en a aucun — le navigateur a
+    tranché et seule sa propre interface peut revenir dessus. Ces 237 pixels
+    d'explications étaient les premiers du tableau de bord, avant la série, avant
+    les tâches du jour : le premier écran parlait d'un réglage de navigateur plutôt
+    que de la journée de la personne. La marche à suivre reste à un doigt, repliée.
+  */
+  if (etat === 'refuse') {
+    return (
+      <section className="push-optin-ligne glass-panel fade-in">
+        <div className="push-optin-ligne-tete">
+          <span aria-hidden="true">🔔</span>
+          <p>Notifications bloquées — tu ne recevras pas ton brief du matin.</p>
+          <button
+            className="push-optin-btn secondaire"
+            onClick={() => setDetailOuvert((v) => !v)}
+            aria-expanded={detailOuvert}
+          >
+            {detailOuvert ? 'Fermer' : 'Réactiver'}
+          </button>
+          <button className="push-optin-fermer" onClick={reporter} aria-label="Masquer">
+            ×
+          </button>
+        </div>
+        {detailOuvert && (
+          <p className="push-optin-ligne-detail">
+            Touche le {estIOS() ? 'bouton « aA »' : 'cadenas'} à gauche de l'adresse du site,
+            puis autorise les notifications.
+          </p>
+        )}
+      </section>
+    );
+  }
 
   return (
     <section className="push-optin glass-panel fade-in">
@@ -103,21 +142,6 @@ export const NotificationsOptIn: React.FC = () => {
         </>
       )}
 
-      {etat === 'refuse' && (
-        <>
-          <h3>Les notifications sont bloquées</h3>
-          {/* Un refus navigateur ne se rattrape pas depuis la page : requestPermission()
-              rend « denied » sans rien afficher. Seuls les réglages du site le peuvent. */}
-          <p>
-            Ton navigateur les a refusées pour Disciplix, et seule cette page ne peut plus
-            rien y faire. Touche le {estIOS() ? 'bouton « aA »' : 'cadenas'} à gauche de
-            l'adresse du site, puis autorise les notifications.
-          </p>
-          <div className="push-optin-actions">
-            <button className="push-optin-btn secondaire" onClick={reporter}>Plus tard</button>
-          </div>
-        </>
-      )}
     </section>
   );
 };

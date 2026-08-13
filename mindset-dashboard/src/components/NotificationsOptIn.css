@@ -83,3 +83,64 @@
     justify-content: center;
   }
 }
+
+/*
+  Version repliée, pour l'état « bloquées ».
+
+  Une carte pleine annonce un geste à faire ; ici il n'y en a aucun côté page, le
+  navigateur ayant tranché. La ligne informe, la marche à suivre se déplie à la
+  demande — et le tableau de bord recommence à parler de la journée dès le premier
+  écran plutôt que d'un réglage de navigateur.
+*/
+.push-optin-ligne {
+  margin-bottom: 16px;
+  padding: 10px 12px;
+}
+
+.push-optin-ligne-tete {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.push-optin-ligne-tete p {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.3;
+  color: var(--secondary, rgba(255, 255, 255, 0.65));
+}
+
+.push-optin-ligne-tete .push-optin-btn {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  font-size: 0.78rem;
+}
+
+.push-optin-fermer {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--secondary, rgba(255, 255, 255, 0.55));
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.push-optin-fermer:hover,
+.push-optin-fermer:focus-visible {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.push-optin-ligne-detail {
+  margin: 8px 0 0;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--secondary, rgba(255, 255, 255, 0.65));
+}

@@ -737,24 +737,39 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
       {showVictoryOverlay && <VictoryGlitchOverlay onClose={() => setShowVictoryOverlay(false)} />}
       <header className="dashboard-header">
           <div>
-            <p className="date-display">{currentDate.toUpperCase()}</p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-              <h1>Bonjour, {localStorage.getItem('mindset_user_name') || 'Champion'} 👋</h1>
-              <div 
+            {/*
+              La date et le rang tiennent sur la même ligne.
+
+              Le rang suivait le « Bonjour », et sur un téléphone le titre occupe
+              toute la largeur : le badge retombait donc systématiquement à la ligne,
+              coûtant une bande entière du premier écran pour une information de
+              second plan. À côté de la date, il ne coûte rien — ce sont deux
+              renseignements de contexte, ils vont ensemble.
+            */}
+            <div className="dashboard-meta">
+              <p className="date-display">{currentDate.toUpperCase()}</p>
+              <div
                 className={`rank-badge ${rank.cssClass || ''}`}
                 onClick={handleRankClick}
-                style={{ 
-                display: 'inline-flex', alignItems: 'center', gap: '6px', 
-                background: 'rgba(0,0,0,0.3)', padding: '4px 12px', 
-                borderRadius: '20px', border: `1px solid ${rank.color}60`, 
-                color: rank.color, boxShadow: `0 0 15px ${rank.color}40`, 
-                fontSize: '0.85rem', fontWeight: 600, backdropFilter: 'blur(10px)',
+                style={{
+                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                background: 'rgba(0,0,0,0.3)', padding: '3px 10px',
+                borderRadius: '20px', border: `1px solid ${rank.color}60`,
+                color: rank.color, boxShadow: `0 0 15px ${rank.color}40`,
+                fontSize: '0.78rem', fontWeight: 600, backdropFilter: 'blur(10px)',
                 cursor: 'pointer', transition: 'transform 0.3s, opacity 0.3s, background-color 0.3s, border-color 0.3s, box-shadow 0.3s, color 0.3s'
               }}>
-                <RankIcon iconName={rank.iconName} size={16} /> Rang {rank.name}
+                <RankIcon iconName={rank.iconName} size={14} /> {rank.name}
               </div>
             </div>
-            <p style={{ marginTop: '8px' }}>L'assistant IA est prêt. Dominons cette journée.</p>
+            <h1>Bonjour, {localStorage.getItem('mindset_user_name') || 'Champion'} 👋</h1>
+            {/*
+              « L'assistant IA est prêt. Dominons cette journée. » a été retiré.
+              Cette ligne occupait la troisième position du tableau de bord sans rien
+              apprendre : ni où on en est, ni quoi faire. Le bouton juste en dessous
+              dit déjà que le coach est joignable, et le reste de l'écran doit parler
+              de la journée de la personne, pas de l'état du logiciel.
+            */}
           </div>
         
         <div className="header-actions">

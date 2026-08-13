@@ -1357,3 +1357,49 @@
   letter-spacing: 0.02em;
   white-space: nowrap;
 }
+
+/*
+  Ligne de contexte du tableau de bord : la date et le rang, côte à côte.
+
+  Qualifiée par `.dashboard-container` parce que `dashboard-header` habille aussi
+  les en-têtes des Objectifs, des Habitudes et du Profil — une règle non qualifiée
+  irait les modifier au passage.
+*/
+.dashboard-container > .dashboard-header .dashboard-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 2px;
+}
+
+.dashboard-container > .dashboard-header .dashboard-meta .date-display {
+  margin: 0;
+}
+
+/*
+  Écrans intermédiaires : tablettes, petits portables, fenêtre réduite.
+
+  Entre 901 et 1200 px, la grille restait en deux colonnes alors que le menu latéral
+  prélève déjà 230 px : la colonne de droite tombait à moins de 200 px de large et
+  les titres se coupaient lettre par lettre — « Ga / in / ag / e ». La bascule en une
+  colonne n'arrivait qu'en dessous de 900 px, c'est-à-dire trop tard.
+
+  Seule la mise en colonne est reprise ici, pas le reste des styles téléphone : à
+  cette largeur les cartes et les textes gardent leurs proportions de bureau. L'ordre
+  de lecture, lui, doit suivre — empilées, les colonnes se lisent dans l'ordre du
+  code, et ce qui se fait doit passer devant ce qui se regarde.
+*/
+@media (min-width: 901px) and (max-width: 1200px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-right-col {
+    order: 1;
+  }
+
+  .dashboard-left-col {
+    order: 2;
+  }
+}
