@@ -1,0 +1,197 @@
+/*
+  Noms préfixés `retention-` : `.stat-value` et `.stat-label` sont déjà définis
+  dans trois feuilles de ce projet (AdminDashboard, Dashboard, Profile), et
+  l'ordre de concaténation du build départage — il diffère entre développement et
+  production. Ne pas réutiliser ces noms ici.
+*/
+
+.retention {
+  margin-top: 32px;
+}
+
+.retention-titre,
+.retention-sous-titre {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.retention-titre {
+  font-size: 1.15rem;
+  margin: 0 0 16px;
+}
+
+.retention-sous-titre {
+  font-size: 0.95rem;
+  margin: 28px 0 12px;
+  color: var(--text-secondary, #94a3b8);
+}
+
+.retention-erreur,
+.retention-attente {
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.9rem;
+}
+
+/* --- Les taux --- */
+
+.retention-cartes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.retention-carte {
+  padding: 14px 16px;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  /* Un enfant de grille refuse par défaut de descendre sous la largeur de son
+     contenu, et élargit alors toute sa piste. */
+  min-width: 0;
+}
+
+.retention-carte__libelle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  color: var(--text-secondary, #94a3b8);
+}
+
+.retention-carte__valeur {
+  font-size: 1.7rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.retention-carte__valeur--vide {
+  color: var(--text-secondary, #94a3b8);
+  opacity: 0.5;
+}
+
+.retention-carte__base {
+  font-size: 0.72rem;
+  color: var(--text-secondary, #94a3b8);
+  opacity: 0.85;
+  line-height: 1.35;
+}
+
+.retention-carte--alerte .retention-carte__valeur {
+  color: #f59e0b;
+}
+
+.retention-actifs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin-top: 14px;
+  font-size: 0.82rem;
+  color: var(--text-secondary, #94a3b8);
+}
+
+/* --- L'entonnoir --- */
+
+.retention-marche {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) 2fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 0;
+}
+
+.retention-marche__libelle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  min-width: 0;
+}
+
+.retention-marche__piste {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.retention-marche__jauge {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #3b82f6, #00f2fe);
+  transition: width 0.5s ease;
+}
+
+.retention-marche__valeur {
+  font-weight: 700;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.retention-marche__part {
+  font-weight: 400;
+  font-size: 0.76rem;
+  color: var(--text-secondary, #94a3b8);
+}
+
+/* --- Les cohortes --- */
+
+/* Un tableau ne se comprime pas : il doit défiler dans sa propre boîte, sinon
+   c'est la page entière qui déborde sur téléphone. */
+.retention-tableau-cadre {
+  overflow-x: auto;
+}
+
+.retention-tableau {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  min-width: 320px;
+}
+
+.retention-tableau th,
+.retention-tableau td {
+  text-align: left;
+  padding: 8px 12px 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  white-space: nowrap;
+}
+
+.retention-tableau th {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary, #94a3b8);
+}
+
+.retention-trop-jeune {
+  color: var(--text-secondary, #94a3b8);
+  opacity: 0.6;
+  font-style: italic;
+}
+
+.retention-note {
+  margin-top: 14px;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  color: var(--text-secondary, #94a3b8);
+  opacity: 0.8;
+}
+
+@media (max-width: 640px) {
+  .retention-marche {
+    grid-template-columns: 1fr auto;
+  }
+  /* Sous cette largeur, la barre n'a plus assez de place pour dire quoi que ce
+     soit : le chiffre et son pourcentage suffisent. */
+  .retention-marche__piste {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .retention-marche__jauge {
+    transition: none;
+  }
+}

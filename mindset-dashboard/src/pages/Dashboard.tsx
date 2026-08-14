@@ -4,6 +4,7 @@ import { Play, CheckCircle2, TrendingUp, Sparkles, Pencil, Coins, Circle, Chevro
 import { AiNotification } from '../components/AiNotification';
 import { RankIcon } from '../components/RankIcon';
 import { ProgressionRang } from '../components/ProgressionRang';
+import { PartageSemaine } from '../components/PartageSemaine';
 import { VictoryGlitchOverlay } from '../components/VictoryGlitchOverlay';
 import { JarvisPopup } from '../components/JarvisPopup';
 import { NotificationsOptIn } from '../components/NotificationsOptIn';
@@ -948,6 +949,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
               )}
             </div>
           </section>
+
+          {/*
+            Juste sous le graphique de la semaine : c'est là qu'on vient regarder
+            ce qu'on a fait, donc là qu'on peut avoir envie de le montrer. Le
+            composant ne rend rien tant que la semaine n'a pas de quoi être
+            montrée — proposer de publier une semaine vide serait demander à
+            quelqu'un d'afficher son échec.
+          */}
+          <PartageSemaine />
 
           {/* Heatmap Section */}
           <section className="heatmap-section glass-panel glass-panel-interactive pulse-glow fade-in delay-2" style={{ transition: 'transform 0.3s ease, opacity 0.3s ease, background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, color 0.3s ease', cursor: 'pointer' }}>

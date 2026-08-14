@@ -1,0 +1,132 @@
+/*
+  Deux pièges connus de ce projet sont traités ici, et il ne faut pas les défaire.
+
+  1. Les thèmes monochromes restylent *tous* les boutons de l'application :
+     `body.theme-monochrome-dark button` impose un rayon et un halo en
+     `!important`, et `button:not(:disabled):not(.btn-primary):hover` de
+     `global.css` soulève et éclaircit tout bouton au survol. Un sélecteur d'une
+     seule classe ne passe pas devant — d'où les sélecteurs composés ci-dessous.
+
+  2. Un ancêtre porteur de `transform` ou `filter` devient le bloc conteneur de
+     ses descendants en `position: fixed`, et la fenêtre s'ouvre alors au mauvais
+     endroit, voire hors écran. Le voile est donc mesuré (`getBoundingClientRect`)
+     après toute modification de cette feuille, jamais jugé à l'œil.
+*/
+
+.partage-semaine__declencheur.partage-semaine__declencheur {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 2px 0 4px;
+  padding: 8px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.partage-semaine__declencheur.partage-semaine__declencheur:hover {
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.partage-semaine__fond {
+  position: fixed;
+  inset: 0;
+  z-index: 4000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(4, 8, 18, 0.82);
+  backdrop-filter: blur(6px);
+}
+
+.partage-semaine__boite {
+  position: relative;
+  width: min(420px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 22px;
+  border-radius: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.partage-semaine__fermer.partage-semaine__fermer {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text-secondary, #94a3b8);
+  cursor: pointer;
+}
+
+.partage-semaine__titre {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.partage-semaine__apercu {
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 1 / 1;
+  border-radius: 16px;
+  display: block;
+}
+
+.partage-semaine__attente {
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 1 / 1;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.85rem;
+}
+
+.partage-semaine__action.partage-semaine__action {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 13px 18px;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  color: #ffffff;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.partage-semaine__action.partage-semaine__action:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.partage-semaine__note {
+  margin: 0;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--text-secondary, #94a3b8);
+}

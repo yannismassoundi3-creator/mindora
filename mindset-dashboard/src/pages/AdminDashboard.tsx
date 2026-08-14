@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, Users, CreditCard, Activity, Key } from 'lucide-react';
 import { api } from '../services/api';
+import { TableauRetention } from '../components/TableauRetention';
 import './AdminDashboard.css';
 
 interface AdminStats {
@@ -110,6 +111,13 @@ export const AdminDashboard: React.FC = () => {
           <div className="stat-label">Actifs Aujourd'hui</div>
         </div>
       </div>
+
+      {/*
+        Les trois cartes ci-dessus comptent les arrivées. Elles ne disent pas si
+        les gens restent — la seule question qui décide s'il faut faire connaître
+        l'application ou d'abord la corriger.
+      */}
+      <TableauRetention />
     </div>
   );
 };
