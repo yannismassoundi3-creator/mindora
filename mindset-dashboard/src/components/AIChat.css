@@ -80,6 +80,76 @@
   box-shadow: 0 14px 28px rgba(0, 0, 0, 0.55) !important;
 }
 
+/* Sur ordinateur, seul le libellé long existe. */
+.chat-action-court {
+  display: none;
+}
+
+/*
+  Compaction du chat sur téléphone.
+
+  Mesuré à 430 × 932 avec les zones sûres d'un iPhone : les barres occupaient 48 % de
+  l'écran, dont 56 px de vide pur entre la saisie et les onglets. Une conversation est
+  l'écran où la place manque le plus — c'est le seul contenu qu'on lit en continu — et
+  c'était celui qui en laissait le moins.
+
+  Le seuil est 900 px et non 768 : c'est en dessous de 900 qu'apparaissent l'en-tête
+  flottant et la barre de navigation, donc que la place se paie. Entre les deux, la
+  compaction ne se serait pas appliquée là où elle sert.
+*/
+@media (max-width: 900px) {
+  .chat-header.glass-panel {
+    padding: 8px calc(var(--marge-page, 10px) + 2px);
+    gap: 8px;
+  }
+
+  /* L'état « connecté » disparaît : le point pulsant le dit déjà. Le cas déconnecté
+     reste, lui — c'est une information, pas une décoration. */
+  .chat-statut:not(.chat-statut-alerte) {
+    display: none;
+  }
+
+  .chat-header .ai-status-indicator {
+    width: 32px;
+    height: 32px;
+  }
+
+  .chat-header .chat-title {
+    font-size: 1rem;
+  }
+
+  .chat-header-info {
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .chat-action-long {
+    display: none;
+  }
+
+  .chat-action-court {
+    display: inline;
+  }
+
+  .chat-header .chat-action-btn {
+    white-space: nowrap;
+    flex-shrink: 0;
+    padding: 8px 12px;
+  }
+
+  /* 20 px d'écart au-dessus et en dessous des messages, soit 40 px pris sur la seule
+     zone qu'on lit. Sur un écran de 932 px, ça vaut deux lignes de conversation. */
+  .chat-container {
+    gap: 10px;
+  }
+
+  /* Trois classes : la règle de base porte déjà deux classes et vient plus loin dans
+     le fichier, donc à poids égal c'est elle qui l'emporterait. */
+  .chat-container .chat-input-area.glass-panel {
+    padding: 8px calc(var(--marge-page, 10px) + 2px);
+  }
+}
+
 .chat-header::before {
   content: '';
   position: absolute;

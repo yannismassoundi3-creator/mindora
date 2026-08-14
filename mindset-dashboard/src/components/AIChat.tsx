@@ -642,7 +642,16 @@ export const AIChat: React.FC = () => {
           <div>
             <h2 className="chat-title">{aiName}</h2>
             <p className="chat-subtitle">
-              {isAiAwake ? "Connecté et prêt à t'assister" : "Déconnecté, réveil en cours..."}
+              {/*
+                L'état est enveloppé pour pouvoir disparaître sur téléphone : « Connecté
+                et prêt à t'assister » passe sur deux lignes et fait à lui seul un tiers
+                de la hauteur d'une barre qui, elle, ne quitte plus l'écran. Le point
+                pulsant à gauche dit déjà la même chose sans occuper de place — et le
+                cas « déconnecté », lui, reste affiché : il change quelque chose.
+              */}
+              <span className={`chat-statut ${isAiAwake ? '' : 'chat-statut-alerte'}`}>
+                {isAiAwake ? "Connecté et prêt à t'assister" : "Déconnecté, réveil en cours..."}
+              </span>
               {/*
                 On n'affiche l'énergie qu'à ceux qu'elle concerne : un abonné ne la
                 dépense pas, la lui montrer laisserait croire qu'il est décompté.
@@ -664,7 +673,10 @@ export const AIChat: React.FC = () => {
           style={{ opacity: isTyping ? 0.5 : 1, cursor: isTyping ? 'not-allowed' : 'pointer' }}
         >
           <Sparkles size={18} />
-          <span>Générer un plan</span>
+          {/* « Générer un plan » passe sur deux lignes sous 900 px et impose sa hauteur
+              à toute la barre. Le libellé court garde l'action lisible sur une ligne. */}
+          <span className="chat-action-long">Générer un plan</span>
+          <span className="chat-action-court">Plan</span>
         </button>
       </header>
 

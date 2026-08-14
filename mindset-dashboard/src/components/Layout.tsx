@@ -243,7 +243,15 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, setView })
           </div>
         </header>
         
-        <div className="content-scroll-area">
+        {/*
+          Le chat réserve moins de place en haut et en bas que les autres onglets.
+
+          Ailleurs, ces marges empêchent le dernier bouton d'une page de finir sous la
+          barre de navigation. Sur le chat, la barre de saisie est collée juste au-dessus
+          d'elle et la prolonge : la marge générique n'y protégeait plus rien et laissait
+          56 px de vide entre les deux, sur le seul écran qu'on lit en continu.
+        */}
+        <div className={`content-scroll-area${activeView === 'chat' ? ' zone-chat' : ''}`}>
           {/*
             Le bandeau est ici et non dans le Dashboard : il doit rester sous les
             yeux quel que soit l'onglet. Il est exclu du chat, qui occupe l'écran

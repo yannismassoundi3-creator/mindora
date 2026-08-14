@@ -208,6 +208,24 @@
     padding: var(--marge-haut) var(--marge-page) var(--marge-bas) var(--marge-page);
   }
 
+  /*
+    Le chat serre les deux marges.
+
+    En bas, la barre de navigation occupe 108 px depuis le bord de l'écran (84 px de
+    haut plus son décalage de 24) et n'utilise pas la zone sûre. La marge générique en
+    réservait 130 plus la zone sûre, soit 56 px de vide entre la barre de saisie et les
+    onglets sur un iPhone — visible parce que la saisie est collée et opaque. 116 px
+    laissent 8 px de respiration au-dessus des onglets, et rien de plus.
+
+    En haut, la barre du coach est à fond perdu et son prolongement passe derrière
+    l'en-tête flottant : elle n'a pas à se ranger dessous, seulement à ne pas le
+    recouvrir. 52 px au lieu de 70 la posent juste en dessous.
+  */
+  .content-scroll-area.zone-chat {
+    --marge-haut: calc(max(12px, env(safe-area-inset-top)) + 52px);
+    --marge-bas: 116px;
+  }
+
   .bottom-nav {
     display: flex;
     justify-content: space-between;
