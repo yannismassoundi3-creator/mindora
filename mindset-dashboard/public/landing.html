@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Disciplix — Forge ta discipline. La plateforme technologique qui transforme ta mentalité pour atteindre tes objectifs.">
-    <title>Disciplix — Forge ta discipline</title>
+    <meta name="description" content="Tu dis qui tu veux devenir. Disciplix te donne quoi faire aujourd'hui. Tu le fais. Demain, on recommence — et c'est la répétition qui te change.">
+    <title>Disciplix — Deviens la personne que tu prétends vouloir être</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -288,12 +288,62 @@
 
         .hero-title {
             font-family: var(--font-display);
-            font-size: clamp(3rem, 8vw, 6.5rem);
+            /* Le plafond était calibré pour deux mots (« Reprogramme ton esprit »).
+               Le slogan en fait sept : à 8vw il montait à 102 px sur un portable,
+               trois lignes, et poussait le bouton d'inscription à 798 px sur un
+               écran de 800. */
+            font-size: clamp(2.6rem, 6.2vw, 5rem);
             font-weight: 800;
             line-height: 1.05;
             letter-spacing: -0.04em;
             margin-bottom: 1.5rem;
             animation: fadeInUp 0.8s var(--ease-out-expo) 0.1s both;
+        }
+
+        /*
+           Le slogan est plus long que le titre qu'il remplace, et le plancher du
+           clamp ci-dessus (3rem) avait été choisi pour deux mots. Mesuré sur un
+           iPhone : cinq lignes de 48 px poussaient le bouton d'inscription à
+           810 px sur un écran de 812 — hors de vue à la moindre barre de
+           navigateur. Un appel à l'action sous la ligne de flottaison n'est pas
+           un appel à l'action.
+        */
+        @media (max-width: 768px) {
+            .hero {
+                padding: 5rem 1.5rem 3rem;
+            }
+
+            .hero-title {
+                font-size: clamp(2.1rem, 8.5vw, 3rem);
+                margin-bottom: 1.1rem;
+            }
+
+            .hero-subtitle {
+                font-size: 1rem;
+                line-height: 1.6;
+                margin-bottom: 2rem;
+            }
+        }
+
+        /*
+           Les petits écrans en hauteur (iPhone SE et compagnie). Le hero est plus
+           haut que l'écran à cause de l'aperçu du tableau de bord placé dessous,
+           donc `justify-content: center` ne rattrape rien : c'est le rembourrage
+           du haut et la taille du titre qui décident si le bouton est visible.
+        */
+        @media (max-width: 768px) and (max-height: 720px) {
+            .hero {
+                padding-top: 3.5rem;
+            }
+
+            .hero-title {
+                font-size: clamp(1.85rem, 8.5vw, 3rem);
+            }
+
+            .hero-subtitle {
+                font-size: 0.95rem;
+                margin-bottom: 1.5rem;
+            }
         }
 
         .hero-title .gradient-text {
@@ -1188,8 +1238,8 @@
             disciplix
         </a>
         <ul class="navbar-links">
-            <li><a href="#features">Fonctionnalités</a></li>
             <li><a href="#how-it-works">Comment ça marche</a></li>
+            <li><a href="#features">Ce que tu obtiens</a></li>
             <li><a href="#testimonials">Témoignages</a></li>
             <li><a href="#pricing">Tarifs</a></li>
             <li><a href="#" class="btn btn-secondary open-login-btn" style="padding: 0.6rem 1rem; font-size: 0.8rem; margin-right: 0.5rem;">Connexion</a></li>
@@ -1206,14 +1256,15 @@
     <section class="hero">
         <div class="hero-badge">
             <span class="badge-dot"></span>
-            Nouveau — Intelligence Adaptative v2.0
+            Bêta ouverte — le suivi est gratuit, pour toujours
         </div>
         <h1 class="hero-title">
-            <span class="gradient-text">Reprogramme</span><br>
-            ton esprit.
+            <span class="gradient-text">Deviens</span> la personne<br>
+            que tu prétends vouloir être.
         </h1>
         <p class="hero-subtitle">
-            La plateforme qui utilise la science cognitive et l'IA pour transformer ta mentalité, tes habitudes et ton potentiel.
+            Tu dis qui tu veux devenir. Ton coach te donne quoi faire aujourd'hui. Tu le fais.
+            Demain, on recommence — et c'est la répétition qui te change, pas la motivation.
         </p>
         <div class="hero-cta-group">
             <a href="#cta" class="btn btn-primary btn-large btn-glow" id="hero-cta-primary">
@@ -1233,82 +1284,99 @@
                 <div class="metric-label">Places Bêta</div>
             </div>
             <div class="metric">
-                <div class="metric-value">24/7</div>
-                <div class="metric-label">Coaching IA</div>
+                <div class="metric-value">0€</div>
+                <div class="metric-label">Le suivi, pour toujours</div>
             </div>
             <div class="metric">
-                <div class="metric-value">100%</div>
-                <div class="metric-label">Discipline</div>
+                <div class="metric-value">24/7</div>
+                <div class="metric-label">Ton coach répond</div>
             </div>
         </div>
     </section>
 
-    <!-- Features Section -->
-    <section id="features">
-        <div class="section-container">
-            <div class="features-header reveal">
-                <span class="section-label">Fonctionnalités</span>
-                <h2 class="section-title">Tout ce dont tu as besoin<br>pour évoluer.</h2>
-                <p class="section-desc">Des outils puissants alimentés par l'intelligence artificielle, conçus pour accélérer ta transformation personnelle.</p>
-            </div>
-            <div class="features-grid">
-                <div class="feature-card reveal">
-                    <div class="feature-icon">🧠</div>
-                    <h3 class="feature-title">Coaching IA Personnalisé</h3>
-                    <p class="feature-desc">Un coach intelligent qui s'adapte à ton profil, tes objectifs et ton rythme pour maximiser ton potentiel.</p>
-                </div>
-                <div class="feature-card reveal">
-                    <div class="feature-icon">⚡</div>
-                    <h3 class="feature-title">Routines Dynamiques</h3>
-                    <p class="feature-desc">Des routines matinales et nocturnes générées intelligemment et ajustées selon tes performances.</p>
-                </div>
-                <div class="feature-card reveal">
-                    <div class="feature-icon">📊</div>
-                    <h3 class="feature-title">Analytics Mentaux</h3>
-                    <p class="feature-desc">Visualise ta progression avec des métriques avancées : résilience, focus, motivation et bien plus.</p>
-                </div>
-                <div class="feature-card reveal">
-                    <div class="feature-icon">🎯</div>
-                    <h3 class="feature-title">Objectifs Intelligents</h3>
-                    <p class="feature-desc">Définis et suis tes objectifs avec un système de décomposition automatique en micro-étapes.</p>
-                </div>
-                <div class="feature-card reveal">
-                    <div class="feature-icon">🔄</div>
-                    <h3 class="feature-title">Reprogrammation</h3>
-                    <p class="feature-desc">Techniques de PNL et neuroscience intégrées pour recâbler tes schémas de pensée limitants.</p>
-                </div>
-                <div class="feature-card reveal">
-                    <div class="feature-icon">🤝</div>
-                    <h3 class="feature-title">Communauté Elite</h3>
-                    <p class="feature-desc">Rejoins un réseau de leaders et d'ambitieux qui partagent ta vision et t'élèvent au quotidien.</p>
-                </div>
-            </div>
-        </div>
-    </section>
+    <!--
+        La boucle passe AVANT la liste de ce qu'on obtient.
 
-    <!-- How It Works -->
+        C'est elle qu'il faut avoir comprise en trente secondes : qui je veux
+        devenir, ce que je fais aujourd'hui, et pourquoi je reviens demain. Une
+        liste de fonctionnalités lue avant la boucle n'est qu'un inventaire.
+    -->
     <section id="how-it-works" class="steps-section">
         <div class="section-container">
             <div class="features-header reveal">
                 <span class="section-label">Comment ça marche</span>
-                <h2 class="section-title">3 étapes vers ta<br>transformation.</h2>
-                <p class="section-desc">Un processus simple et scientifiquement validé pour reprogrammer ton mindset en profondeur.</p>
+                <h2 class="section-title">Trois gestes,<br>tous les jours.</h2>
+                <p class="section-desc">Rien à installer, rien à configurer. Tu arrives les mains vides, le plan se construit ici.</p>
             </div>
             <div class="steps-grid">
                 <div class="step-card reveal">
                     <div class="step-number">01</div>
-                    <h3 class="step-title">Diagnostic Mental</h3>
-                    <p class="step-desc">Notre IA analyse ton profil psychologique, tes habitudes et tes blocages en quelques minutes.</p>
+                    <h3 class="step-title">Tu dis qui tu veux devenir</h3>
+                    <p class="step-desc">Une phrase, la tienne. Elle reste en haut de ton écran, et c'est de là que part tout le reste.</p>
                 </div>
                 <div class="step-card reveal">
                     <div class="step-number">02</div>
-                    <h3 class="step-title">Plan Personnalisé</h3>
-                    <p class="step-desc">Reçois un programme sur-mesure avec des exercices quotidiens adaptés à tes objectifs spécifiques.</p>
+                    <h3 class="step-title">Ton coach te donne quoi faire</h3>
+                    <p class="step-desc">Pas des conseils : des tâches datées, pour aujourd'hui, appliquées dans l'app en un clic.</p>
                 </div>
                 <div class="step-card reveal">
                     <div class="step-number">03</div>
-                    <h3 class="step-title">Évolution Continue</h3>
-                    <p class="step-desc">L'algorithme s'adapte en temps réel à ta progression et optimise ton parcours continuellement.</p>
+                    <h3 class="step-title">Tu le fais. Demain, on recommence</h3>
+                    <p class="step-desc">Chaque jour tenu allonge la série. C'est la répétition qui te change, et c'est elle qu'on rend visible.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!--
+        Ce que l'application fait réellement, et rien d'autre.
+
+        Cette grille annonçait « techniques de PNL et neuroscience intégrées »,
+        des « analytics » de résilience et de motivation que rien ne mesure, et une
+        « communauté elite » qui est un serveur Discord. Une promesse invérifiable
+        ne coûte rien à écrire et coûte l'abonnement le jour où elle se démonte —
+        et ici elle se démonte au premier écran.
+
+        Chacun des six points ci-dessous correspond à quelque chose qui existe
+        dans le produit, et ils sont rangés dans l'ordre de la boucle.
+    -->
+    <section id="features">
+        <div class="section-container">
+            <div class="features-header reveal">
+                <span class="section-label">Ce que tu obtiens</span>
+                <h2 class="section-title">De qui tu veux devenir<br>à qui tu deviens.</h2>
+                <p class="section-desc">Six maillons, dans l'ordre. Aucun ne sert à grand-chose tout seul.</p>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card reveal">
+                    <div class="feature-icon">🎯</div>
+                    <h3 class="feature-title">Ton cap, écrit noir sur blanc</h3>
+                    <p class="feature-desc">Ce que tu veux devenir reste affiché en haut de l'application. Ton coach le relit à chaque message, et tu peux en changer quand tu changes.</p>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon">🧠</div>
+                    <h3 class="feature-title">Un coach qui écrit ton plan</h3>
+                    <p class="feature-desc">Tu lui parles comme à quelqu'un. Il te rend des routines, des habitudes et des objectifs découpés en étapes — appliqués dans l'app d'un seul clic.</p>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon">⚡</div>
+                    <h3 class="feature-title">Une seule chose à faire maintenant</h3>
+                    <p class="feature-desc">Ta prochaine tâche est en haut de chaque écran, avec de quoi la cocher sur place. Pas de liste à trier avant de commencer.</p>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon">🔥</div>
+                    <h3 class="feature-title">Une série que tu ne veux plus casser</h3>
+                    <p class="feature-desc">Un jour tenu, un carré rempli. Ton année entière tient sur un écran, et c'est en voyant la chaîne qu'on refuse de la rompre.</p>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon">📈</div>
+                    <h3 class="feature-title">Des rangs qui se méritent</h3>
+                    <p class="feature-desc">Chaque tâche cochée donne de l'expérience. Six rangs, de Novice à Légende, et l'écran te dit toujours ce qui te sépare du suivant.</p>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon">💬</div>
+                    <h3 class="feature-title">Il se souvient de toi</h3>
+                    <p class="feature-desc">Ton coach garde ce que tu lui as confié, connaît ta semaine et ta régularité, et t'ouvre la conversation lui-même au lieu d'attendre.</p>
                 </div>
             </div>
         </div>
@@ -1374,8 +1442,8 @@
         <div class="section-container">
             <div class="pricing-header reveal">
                 <span class="section-label">Tarifs</span>
-                <h2 class="section-title">Investis dans<br>ton potentiel.</h2>
-                <p class="section-desc">Le suivi est gratuit, pour toujours. Tu ne paies que le coach IA.</p>
+                <h2 class="section-title">Gratuit pour agir.<br>Payant pour être accompagné.</h2>
+                <p class="section-desc">Tout le suivi est gratuit, pour toujours. Tu ne paies que le coach IA.</p>
             </div>
             <div class="pricing-grid">
                 <div class="pricing-card reveal">
@@ -1428,8 +1496,8 @@
         <div class="cta-glow"></div>
         <div class="section-container">
             <div class="reveal">
-                <h2 class="cta-title">Prêt à reprogrammer<br>ton esprit ?</h2>
-                <p class="cta-desc">Disciplix est en bêta. Rejoins les premiers à l'utiliser au quotidien.</p>
+                <h2 class="cta-title">Tu sais déjà<br>qui tu veux devenir.</h2>
+                <p class="cta-desc">Il ne manque que la première journée. Disciplix est en bêta — rejoins les premiers à l'utiliser au quotidien.</p>
                 <div class="cta-buttons">
                     <a href="#" class="btn btn-primary btn-large btn-glow" id="final-cta-primary">
                         Commencer maintenant
@@ -1452,14 +1520,14 @@
                     <img src="disciplix_tiktok_pp.jpg" alt="Logo" style="width: 24px; height: 24px; border-radius: 50%;">
                     disciplix
                 </a>
-                <p>La plateforme de transformation mentale alimentée par l'intelligence artificielle.</p>
+                <p>Deviens la personne que tu prétends vouloir être.</p>
             </div>
             <div class="footer-col">
                 <h4>Produit</h4>
                 <ul>
-                    <li><a href="#features">Fonctionnalités</a></li>
-                    <li><a href="#pricing">Tarifs</a></li>
                     <li><a href="#how-it-works">Comment ça marche</a></li>
+                    <li><a href="#features">Ce que tu obtiens</a></li>
+                    <li><a href="#pricing">Tarifs</a></li>
                 </ul>
             </div>
             <div class="footer-col">

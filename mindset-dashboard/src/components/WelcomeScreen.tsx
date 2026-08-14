@@ -11,9 +11,15 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onComplete }) => {
   const aiName = localStorage.getItem('mindset_ai_name') || 'DISCIPLIX OS';
   const userName = localStorage.getItem('mindset_user_name');
 
-  const welcomeMessage = userName 
+  /*
+    L'écran d'accueil doit dire la même chose que la page publique, sinon la
+    promesse qui a fait cliquer se perd entre les deux. Pour quelqu'un qui arrive
+    sans compte, c'est donc le slogan lui-même ; pour quelqu'un qu'on connaît,
+    c'est la question qui ouvre sa journée.
+  */
+  const welcomeMessage = userName
     ? `Bonjour ${userName}. Qu'est-ce qu'on accomplit aujourd'hui ?`
-    : `"Initialisation des protocoles. Prêt à forger une discipline d'acier ?"`;
+    : `Deviens la personne que tu prétends vouloir être.`;
 
   const handleStart = () => {
     setIsFadingOut(true);
@@ -35,8 +41,16 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onComplete }) => {
         <h1 className="welcome-message">
           {welcomeMessage}
         </h1>
+        {/*
+          « Une interface neuronale pour […] maximiser ton potentiel quotidien »
+          ne décrivait rien de ce que fait l'application, et employait un mot qui
+          ne veut rien dire. À la place, la boucle : c'est elle qu'il faut avoir
+          comprise avant de créer un compte, et c'est la même phrase que sur la
+          page publique et dans la carte des premiers pas.
+        */}
         <p className="welcome-subtext">
-          Une interface neuronale pour traquer tes objectifs, automatiser tes habitudes et maximiser ton potentiel quotidien.
+          Tu dis qui tu veux devenir, {aiName} te donne quoi faire aujourd'hui, tu le fais.
+          Demain, on recommence — et c'est la répétition qui te change.
         </p>
         
         <button className="welcome-btn" onClick={handleStart}>
