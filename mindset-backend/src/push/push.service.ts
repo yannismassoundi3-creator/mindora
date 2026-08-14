@@ -5,6 +5,7 @@ import { WeeklyReviewService } from './weekly-review.service';
 import * as cron from 'node-cron';
 import * as webpush from 'web-push';
 import { lienApp } from '../common/origines';
+import { titreProgression } from './jauge';
 
 /** Décompte d'une tournée de briefs, identique dans le log et dans la réponse HTTP. */
 export interface ResumeTournee {
@@ -287,7 +288,11 @@ export class PushService implements OnModuleInit {
 
     planifier('0 10 * * *', 'Briefs du matin', () => this.sendMorningBriefs());
     planifier('0 18 * * *', 'Check-in 18h', () =>
-      this.sendBulkReminders('Check-in de 18h 🎯', 'Où en es-tu dans tes objectifs ? Viens faire le point.'));
+      this.sendBulkReminders(
+        'Check-in de 18h 🎯',
+        'Voilà où tu en es. Il te reste la soirée pour finir.',
+        true,
+      ));
     planifier('0 20 * * *', 'Alerte série 20h', () => this.checkStreaksAndWarn(20));
     planifier('0 22 * * *', 'Dernière chance 22h', () => this.checkStreaksAndWarn(22));
     planifier('0 20 * * 0', 'Bilan hebdomadaire', () => this.sendWeeklyReports());
@@ -323,6 +328,18 @@ export class PushService implements OnModuleInit {
         }
       }
 
+      // Le titre porte l'état du jour plutôt qu'une interjection.
+      //
+      // « Attention ! 😡 » ne dit rien qu'on ne sache déjà en voyant l'expéditeur, et
+      // ne se distingue pas de la notification de la veille. La jauge, elle, se lit
+      // sans déverrouiller et n'est jamais deux fois la même — c'est ce que fait la
+      // barre de Duolingo. Une notification web ne peut pas être animée, mais elle
+      // peut au moins dire où en est la personne. Voir `jauge.ts`.
+      // Calculée à la demande : la plupart des comptes examinés ne reçoivent rien ce
+      // soir-là, et parcourir leur historique pour un titre qu'on n'enverra pas se
+      // paie sur toute la base à chaque tournée.
+      const progression = () => titreProgression(scoreToday, this.morningBrief.computeStreak(scores));
+
       // Comme pour le brief du matin : un échec sur une personne ne doit pas
       // interrompre la tournée des suivantes.
       try {
@@ -337,8 +354,8 @@ export class PushService implements OnModuleInit {
           } else if (scoreToday === 0 && scoreYesterday > 0) {
             // Warning 1st day miss
             await this.sendNotification(user.id, {
-              title: 'Attention ! 😡',
-              body: 'Tu n\'as pas encore fait tes routines aujourd\'hui. Ne brise pas ton rythme !',
+              title: progression(),
+              body: 'Rien de coché aujourd\'hui, et tu avais tenu hier. Il te reste la soirée.',
               url: this.lienVers()
             });
           }
@@ -353,8 +370,8 @@ export class PushService implements OnModuleInit {
           } else if (scoreToday === 0 && scoreYesterday > 0) {
             // Normal night review for those who just haven't finished today yet
             await this.sendNotification(user.id, {
-              title: 'C\'est l\'heure du bilan 🌙',
-              body: 'Valide tes dernières routines avant de dormir.',
+              title: progression(),
+              body: 'Deux heures avant minuit. Valide ce que tu as fait avant de dormir.',
               url: this.lienVers()
             });
           }
@@ -612,25 +629,49 @@ export class PushService implements OnModuleInit {
     };
   }
 
-  async sendBulkReminders(title: string, body: string) {
+  /**
+   * Le point de 18 h : où en est la journée, pendant qu'elle est encore rattrapable.
+   *
+   * C'était le seul envoi strictement identique pour tout le monde — même titre,
+   * même phrase, tous les soirs. Il porte maintenant la jauge du jour, qui n'est
+   * jamais deux fois la même et se lit sans déverrouiller. `titreParDefaut` sert
+   * aux rappels envoyés à la main, qui n'ont pas d'état du jour à montrer.
+   */
+  async sendBulkReminders(titreParDefaut: string, body: string, avecProgression = false) {
     const users = await this.prisma.user.findMany({
-      include: { push_subscriptions: true }
+      include: { push_subscriptions: true, ...(avecProgression ? { sync_data: true } : {}) },
     });
+    const aujourdhui = new Date().toISOString().slice(0, 10);
     let echecs = 0;
     for (const user of users) {
       if (user.push_subscriptions && user.push_subscriptions.length > 0) {
         try {
+          const donnees = (user as any).sync_data;
+          const scores = (donnees?.daily_scores as Record<string, number>) || {};
+
+          // Une jauge vide n'a de sens que face à quelque chose qu'on n'a pas fait.
+          // Quelqu'un dont la journée est vide n'a pas échoué : il n'a rien à cocher,
+          // et lui montrer « 0 % » le lui reproche. Même distinction que dans le brief
+          // du matin, qui l'avait déjà payée une fois.
+          const aDesTaches = Array.isArray(donnees?.routines)
+            ? donnees.routines.some((r: any) => Array.isArray(r?.items) && r.items.length > 0)
+            : false;
+
           await this.sendNotification(user.id, {
-            title,
-            body,
+            title: avecProgression && aDesTaches
+              ? titreProgression(scores[aujourdhui] || 0, this.morningBrief.computeStreak(scores))
+              : titreParDefaut,
+            body: avecProgression && !aDesTaches
+              ? "Ta journée est vide. Ouvre le chat et dis-moi ce que tu veux accomplir demain."
+              : body,
             url: this.lienVers()
           });
         } catch (e) {
           echecs++;
-          this.logger.error(`Rappel « ${title} » échoué pour ${user.id} : ${(e as any)?.message}`);
+          this.logger.error(`Rappel « ${titreParDefaut} » échoué pour ${user.id} : ${(e as any)?.message}`);
         }
       }
     }
-    this.logger.log(`Sent bulk push reminders: ${title} (${echecs} échec(s))`);
+    this.logger.log(`Sent bulk push reminders: ${titreParDefaut} (${echecs} échec(s))`);
   }
 }

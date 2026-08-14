@@ -26,7 +26,7 @@ const attendre = (ms: number) => new Promise((r) => setTimeout(r, ms));
 describe('PushService — tournée des briefs du matin', () => {
   let service: PushService;
   let prisma: any;
-  let morningBrief: { isActive: jest.Mock; generate: jest.Mock };
+  let morningBrief: { isActive: jest.Mock; generate: jest.Mock; computeStreak: jest.Mock };
   const frontendUrlInitiale = process.env.FRONTEND_URL;
 
   const compteActif = (id: string) => ({
@@ -57,7 +57,12 @@ describe('PushService — tournée des briefs du matin', () => {
         findMany: jest.fn().mockResolvedValue([]),
       },
     };
-    morningBrief = { isActive: jest.fn().mockReturnValue(true), generate: jest.fn().mockResolvedValue(null) };
+    morningBrief = {
+      isActive: jest.fn().mockReturnValue(true),
+      generate: jest.fn().mockResolvedValue(null),
+      // Sert au titre des notifications du soir, qui portent la jauge du jour.
+      computeStreak: jest.fn().mockReturnValue(0),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
