@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Trophy, TrendingUp, Calendar, Zap, AlertTriangle, Play, Edit2, Pencil, Trash2, Plus, Target, BookOpen, Dumbbell, Brain, Coffee, Sparkles, X } from 'lucide-react';
 import { playLevelUpSound, playClickSound, playErrorSound, playBloopSound } from '../utils/sounds';
 import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
+import { ajouterXp } from '../utils/progression';
 import { annoncerGain } from '../utils/journee';
 import { api } from '../services/api';
 import './Habits.css';
@@ -247,6 +248,7 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
       const newPoints = points + pointsGained;
       setPoints(newPoints);
       setSecurePoints(newPoints);
+      ajouterXp(pointsGained);
       window.dispatchEvent(new CustomEvent('pointsChanged', { detail: newPoints }));
 
       /*
@@ -293,6 +295,7 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
       const newPoints = Math.max(0, points - pointsGained);
       setPoints(newPoints);
       setSecurePoints(newPoints);
+      ajouterXp(-pointsGained); // Annulation d'un gain, pas une dépense.
       window.dispatchEvent(new CustomEvent('pointsChanged', { detail: newPoints }));
       annoncerGain(`−${pointsGained}`, { x: e.clientX, y: e.clientY }, true);
     }

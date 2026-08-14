@@ -3,6 +3,7 @@ import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, LineCh
 import { Play, CheckCircle2, TrendingUp, Sparkles, Pencil, Coins, Circle, ChevronLeft, ChevronRight, Plus, Trophy, Calendar, Trash2, X } from 'lucide-react';
 import { AiNotification } from '../components/AiNotification';
 import { RankIcon } from '../components/RankIcon';
+import { ProgressionRang } from '../components/ProgressionRang';
 import { VictoryGlitchOverlay } from '../components/VictoryGlitchOverlay';
 import { JarvisPopup } from '../components/JarvisPopup';
 import { NotificationsOptIn } from '../components/NotificationsOptIn';
@@ -12,7 +13,8 @@ import { signalerJournee, annoncerGain } from '../utils/journee';
 import { api } from '../services/api';
 import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
 import { estPourAujourdhui, libelleJours } from '../utils/recurrence';
-import { RANKS, getRankForLevel } from '../utils/ranks';
+import { RANKS } from '../utils/ranks';
+import { EVENEMENT_XP, ajouterXp, definirXp, lireProgression, xpDuNiveau } from '../utils/progression';
 import { playClickSound, playBloopSound, playLevelUpSound } from '../utils/sounds';
 import './Dashboard.css';
 
@@ -176,23 +178,34 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   }, []);
 
   const [points, setPoints] = useState(() => getSecurePoints());
-  const level = Math.floor(Math.sqrt(points / 50)) + 1;
-  const rank = getRankForLevel(level);
+
+  /*
+    Le niveau se lit sur l'expérience et non sur les points : ceux-ci sont la
+    monnaie de la Boutique, et s'en servir pour le rang faisait rétrograder
+    quiconque s'achetait un cosmétique. Le calcul vit dans `progression.ts`, seul
+    endroit qui connaisse la courbe — il était recopié dans quatre fichiers.
+  */
+  const [progression, setProgression] = useState(() => lireProgression());
+  useEffect(() => {
+    const relire = () => setProgression(lireProgression());
+    window.addEventListener(EVENEMENT_XP, relire);
+    return () => window.removeEventListener(EVENEMENT_XP, relire);
+  }, []);
+  const { niveau: level, rang: rank } = progression;
 
   const handleRankClick = () => {
-    // SECURITY: The only way to trigger this cheat is to manually type 
+    // SECURITY: The only way to trigger this cheat is to manually type
     // localStorage.setItem('dev_mode', 'true') in the browser console.
     if (localStorage.getItem('dev_mode') !== 'true') {
-      return; 
+      return;
     }
 
     const currentRankIndex = RANKS.findIndex(r => r.name === rank.name);
     const nextRank = RANKS[(currentRankIndex + 1) % RANKS.length];
-    const targetLevel = nextRank.minLevel;
-    const pointsNeeded = 50 * Math.pow(targetLevel - 1, 2) + 50;
-    setPoints(pointsNeeded);
-    setSecurePoints(pointsNeeded);
-    window.dispatchEvent(new CustomEvent('pointsChanged', { detail: pointsNeeded }));
+    // Exactement le seuil du rang visé : l'ancien calcul y ajoutait 50 points,
+    // reste d'une formule inverse qui ne correspondait plus à la directe.
+    definirXp(xpDuNiveau(nextRank.minLevel));
+    setProgression(lireProgression());
   };
 
 
@@ -475,6 +488,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
         localStorage.setItem('mindset_ai_chat_history', JSON.stringify(parsed));
         window.dispatchEvent(new Event('storage'));
         
+        // La pénalité porte sur la monnaie, jamais sur l'expérience : une série
+        // perdue se paie déjà par la perte de la série, elle n'a pas en plus à
+        // effacer du parcours déjà accompli. Avant la séparation des deux
+        // compteurs, ces 50 points pouvaient coûter un rang (4050 → 4000 faisait
+        // retomber Initié à Novice).
         const currentPoints = getSecurePoints();
         const newPoints = Math.max(0, currentPoints - 50);
         setPoints(newPoints);
@@ -666,6 +684,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
       const newPoints = points + 5;
       setPoints(newPoints);
       setSecurePoints(newPoints);
+      ajouterXp(5);
       window.dispatchEvent(new CustomEvent('pointsChanged', { detail: newPoints }));
       // Le même chiffre volant que depuis le bandeau : la récompense doit se lire
       // au doigt, pas dans un compteur situé à l'autre bout de l'écran.
@@ -690,6 +709,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
       const newPoints = Math.max(0, points - 5);
       setPoints(newPoints);
       setSecurePoints(newPoints);
+      ajouterXp(-5); // Annulation d'un gain, pas une dépense.
       window.dispatchEvent(new CustomEvent('pointsChanged', { detail: newPoints }));
       annoncerGain('−5', { x: e.clientX, y: e.clientY }, true);
     }
@@ -791,6 +811,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
                 <RankIcon iconName={rank.iconName} size={14} /> {rank.name}
               </div>
             </div>
+            {/*
+              Le badge disait le rang sans jamais dire ce qui mène au suivant. Une
+              ligne de 4 px suffit à transformer une étiquette en objectif.
+            */}
+            <ProgressionRang />
             <h1>Bonjour, {localStorage.getItem('mindset_user_name') || 'Champion'} 👋</h1>
             {/*
               « L'assistant IA est prêt. Dominons cette journée. » a été retiré.

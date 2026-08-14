@@ -41,8 +41,22 @@ export const Shop: React.FC = () => {
     };
   }, []);
 
+  /*
+    Une dépense ne touche que la monnaie.
+
+    C'est tout l'objet de la séparation entre `mindset_points` et l'expérience :
+    avant, acheter ici faisait rétrograder de rang, puisque le compteur débité
+    était aussi celui qui décidait du niveau. Mesuré : 4050 points (niveau 10,
+    rang Initié) moins « Démon du Feu » à 3000 rendait le niveau 5 et le rang
+    Novice, sans que rien ne le signale.
+
+    L'événement, lui, doit partir : cette écriture ne prévenait que par
+    `mindset_points_updated`, que les animations de niveau n'écoutent pas — leur
+    valeur mémorisée restait donc périmée.
+  */
   const handlePointsUpdate = (newPoints: number) => {
     setSecurePoints(newPoints);
+    window.dispatchEvent(new CustomEvent('pointsChanged', { detail: newPoints }));
   };
 
   const [rewards, setRewards] = useState<Reward[]>(() => {

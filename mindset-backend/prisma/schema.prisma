@@ -243,6 +243,12 @@ model SyncData {
   habits           Json?
   nutrition        Json?
   points           Int      @default(0)
+  /// Expérience cumulée, qui décide du niveau et du rang. Distincte de `points` :
+  /// ceux-ci sont la monnaie de la Boutique et redescendent à chaque achat, ce qui
+  /// faisait rétrograder de rang quiconque s'achetait un cosmétique. L'XP, elle, ne
+  /// baisse que si un gain est annulé (une tâche décochée). Nullable : les comptes
+  /// antérieurs la reçoivent au premier envoi, initialisée à leur solde de points.
+  xp               Int?
   /// Solde de coins faisant foi pour l'IA. Jamais alimenté par la synchro : le
   /// client peut y écrire ce qu'il veut, c'est justement ce qu'on corrige.
   ai_credits       Int?

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Backpack, CheckCircle2, Sparkles, CheckSquare } from 'lucide-react';
 import { playClickSound, playLevelUpSound, playBloopSound } from '../utils/sounds';
 import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
+import { ajouterXp } from '../utils/progression';
 import { api } from '../services/api';
 import { AI_COSMETICS } from '../utils/cosmetics';
 import type { Cosmetic } from '../utils/cosmetics';
@@ -54,7 +55,13 @@ export const Inventory: React.FC = () => {
     
     // Give 5 XP
     let currentExp = getSecurePoints();
-    setSecurePoints(currentExp + 5);
+    const newPoints = currentExp + 5;
+    setSecurePoints(newPoints);
+    ajouterXp(5);
+    // Cette écriture ne prévenait que par `storage` : les compteurs de l'en-tête
+    // suivaient, mais pas les animations de niveau, qui gardaient donc une valeur
+    // périmée jusqu'au rechargement.
+    window.dispatchEvent(new CustomEvent('pointsChanged', { detail: newPoints }));
     window.dispatchEvent(new Event('storage'));
 
     setTimeout(() => {

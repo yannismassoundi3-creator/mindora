@@ -99,4 +99,44 @@ describe('SyncService', () => {
       expect(appel.create.user_id).toBe('u42');
     });
   });
+
+  /**
+   * L'expérience est le compteur qui décide du niveau et du rang. Elle est
+   * séparée des points depuis que la Boutique s'est révélée capable de faire
+   * rétrograder : les deux vivaient dans la même valeur, si bien qu'acheter un
+   * cosmétique à 3000 faisait retomber un compte du rang Initié à Novice.
+   *
+   * Ce qui se joue ici n'est pas la valeur — l'économie de jeu reste tenue par le
+   * navigateur, et c'est assumé — mais le fait qu'un client silencieux ou d'une
+   * version antérieure ne puisse pas effacer une progression déjà acquise.
+   */
+  describe('expérience', () => {
+    it("laisse la colonne intacte quand le client n'envoie pas d'XP", async () => {
+      // Le cas d'un navigateur resté sur l'ancien script : sans ce garde, chacune
+      // de ses synchros remettrait l'XP du compte à zéro.
+      const appel: any = await service.updateSyncData('u1', { points: 900 });
+
+      expect(appel.update.xp).toBeUndefined();
+    });
+
+    it('enregistre une XP valide', async () => {
+      const appel: any = await service.updateSyncData('u1', { points: 40, xp: 1210 });
+
+      expect(appel.update.xp).toBe(1210);
+      expect(appel.create.xp).toBe(1210);
+    });
+
+    it('ignore une XP négative, illisible ou infinie', async () => {
+      for (const valeur of [-5, 'beaucoup', NaN, Infinity, null]) {
+        const appel: any = await service.updateSyncData('u1', { xp: valeur });
+        expect(appel.update.xp).toBeUndefined();
+      }
+    });
+
+    it('arrondit une XP décimale', async () => {
+      const appel: any = await service.updateSyncData('u1', { xp: 42.9 });
+
+      expect(appel.update.xp).toBe(42);
+    });
+  });
 });

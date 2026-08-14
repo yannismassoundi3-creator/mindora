@@ -3,6 +3,7 @@ import { Target, Flag, Trophy, Plus, CheckCircle2, Circle, Sparkles, Pencil, Tra
 import { playClickSound, playLevelUpSound } from '../utils/sounds';
 import { AI_COSMETICS } from '../utils/cosmetics';
 import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
+import { ajouterXp } from '../utils/progression';
 import { api } from '../services/api';
 import './Objectives.css';
 
@@ -163,6 +164,9 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
     const currentPoints = getSecurePoints();
     const newPoints = Math.max(0, currentPoints + amount);
     setSecurePoints(newPoints);
+    // Un montant négatif est ici l'annulation d'un avancement, pas une dépense :
+    // l'expérience suit donc dans les deux sens.
+    ajouterXp(amount);
     window.dispatchEvent(new CustomEvent('pointsChanged', { detail: newPoints }));
 
     // Seul un gain est crédité côté serveur, et une seule fois par objectif et par

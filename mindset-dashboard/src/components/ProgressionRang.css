@@ -1,0 +1,119 @@
+/*
+  Les noms sont en BEM et préfixés `progression-rang` à dessein : ce projet a déjà
+  connu deux collisions entre feuilles (`.heatmap-cell`, `.stat-value`), que
+  l'ordre de concaténation du build départage — et cet ordre diffère entre le
+  développement et la production.
+*/
+
+.progression-rang {
+  --rang-couleur: #94a3b8;
+}
+
+.progression-rang__piste {
+  background: rgba(255, 255, 255, 0.09);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progression-rang__jauge {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--rang-couleur) 55%, transparent), var(--rang-couleur));
+  box-shadow: 0 0 8px color-mix(in srgb, var(--rang-couleur) 60%, transparent);
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* --- Forme compacte : une ligne sous la date du tableau de bord --- */
+
+.progression-rang--compact {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 0.7rem;
+  color: var(--text-secondary, #94a3b8);
+  /* Sans quoi la piste, qui grandit, pousserait la ligne hors de l'écran étroit. */
+  min-width: 0;
+  max-width: 340px;
+}
+
+.progression-rang--compact .progression-rang__niveau {
+  font-weight: 700;
+  color: var(--rang-couleur);
+  white-space: nowrap;
+}
+
+.progression-rang--compact .progression-rang__piste {
+  flex: 1 1 auto;
+  min-width: 40px;
+  height: 4px;
+}
+
+.progression-rang--compact .progression-rang__reste {
+  white-space: nowrap;
+  opacity: 0.85;
+}
+
+/* Le texte de droite est ce que la barre apporte de neuf — « Élite dans 4360 XP ».
+   Le masquer sur téléphone reviendrait à le retirer pour presque tout le monde :
+   un iPhone fait 375 ou 390 px de large. Il ne part donc qu'en dessous de 340 px,
+   où la piste elle-même n'aurait plus de place. */
+@media (max-width: 340px) {
+  .progression-rang--compact .progression-rang__reste {
+    display: none;
+  }
+}
+
+/* --- Forme complète : le Profil, seul écran où l'on vient regarder son parcours --- */
+
+.progression-rang--complet {
+  margin-top: 14px;
+  text-align: left;
+}
+
+.progression-rang__entete {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.progression-rang__actuel,
+.progression-rang__cible {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.progression-rang__actuel {
+  color: var(--rang-couleur);
+}
+
+.progression-rang__cible {
+  opacity: 0.6;
+}
+
+.progression-rang--complet .progression-rang__piste {
+  height: 7px;
+}
+
+.progression-rang__detail {
+  margin: 7px 0 0;
+  font-size: 0.75rem;
+  color: var(--text-secondary, #94a3b8);
+  line-height: 1.45;
+}
+
+.progression-rang__detail strong {
+  color: var(--rang-couleur);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progression-rang__jauge {
+    transition: none;
+  }
+}

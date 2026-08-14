@@ -4,7 +4,8 @@ import { PricingScreen } from './PricingScreen';
 import { playHoverSound, playClickSound, playToggleSound, playLevelUpSound } from '../utils/sounds';
 import { api } from '../services/api';
 import { RankIcon } from '../components/RankIcon';
-import { getRankForLevel } from '../utils/ranks';
+import { ProgressionRang } from '../components/ProgressionRang';
+import { lireProgression } from '../utils/progression';
 import { getSecurePoints, removeSecurePoints } from '../utils/secureStorage';
 import { bufferToBase64url } from '../utils/webauthn';
 import { activerPro, formuleActuelle, type Formule } from '../utils/paiement';
@@ -52,8 +53,8 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
   const [legalModal, setLegalModal] = useState<'legal' | 'cgu' | 'privacy' | null>(null);
 
   const points = getSecurePoints();
-  const level = Math.floor(Math.sqrt(points / 50)) + 1;
-  const rank = getRankForLevel(level);
+  // Le niveau se lit sur l'expérience, pas sur les Coins : ceux-ci se dépensent.
+  const { niveau: level, rang: rank } = lireProgression();
   const joinDate = localStorage.getItem('mindset_join_date') || new Date().toLocaleDateString('fr-FR');
 
   useEffect(() => {
@@ -235,6 +236,13 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
                 <span className="stat-label">Coins 🪙</span>
               </div>
             </div>
+            {/*
+              Le niveau était affiché nu, sans rien indiquer de la suite. C'est
+              pourtant l'écran où l'on vient regarder son parcours — et les Coins
+              juste à côté descendent à chaque achat, ce qui rendait leur voisinage
+              trompeur tant que les deux compteurs n'en faisaient qu'un.
+            */}
+            <ProgressionRang variante="complet" />
             <p className="join-date">Membre depuis le {joinDate}</p>
           </div>
 

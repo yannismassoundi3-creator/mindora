@@ -1,5 +1,6 @@
 import { estPourAujourdhui } from './recurrence';
 import { getSecurePoints, setSecurePoints } from './secureStorage';
+import { ajouterXp } from './progression';
 import { playBloopSound } from './sounds';
 import { api } from '../services/api';
 
@@ -227,6 +228,9 @@ export function basculerTache(id: number, position: { x: number; y: number }): v
     );
     const nouveauSolde = points + 5;
     setSecurePoints(nouveauSolde);
+    // Les points sont la monnaie, l'XP le parcours : une tâche faite alimente les
+    // deux, mais la Boutique ne dépensera que la première.
+    ajouterXp(5);
     window.dispatchEvent(new CustomEvent('pointsChanged', { detail: nouveauSolde }));
     annoncerGain('+5', position);
     // La clé porte la tâche et le jour : décocher puis recocher ne recrédite pas.
@@ -244,6 +248,9 @@ export function basculerTache(id: number, position: { x: number; y: number }): v
   } else {
     const nouveauSolde = Math.max(0, points - 5);
     setSecurePoints(nouveauSolde);
+    // Décocher annule le gain, ce n'est pas une dépense : sans cette reprise,
+    // cocher et décocher en boucle serait une machine à niveaux.
+    ajouterXp(-5);
     window.dispatchEvent(new CustomEvent('pointsChanged', { detail: nouveauSolde }));
     annoncerGain('−5', position, true);
   }

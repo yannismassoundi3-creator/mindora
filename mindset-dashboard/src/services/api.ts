@@ -1,4 +1,5 @@
 import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
+import { definirXp, lireXp } from '../utils/progression';
 import { nettoyerSemis } from '../utils/semis';
 
 /**
@@ -213,6 +214,20 @@ export const api = {
         if (data.habits) localStorage.setItem('mindset_habits', JSON.stringify(data.habits));
         if (data.nutrition) localStorage.setItem('mindset_nutrition', JSON.stringify(data.nutrition));
         if (data.points !== undefined) setSecurePoints(data.points);
+        /*
+          L'expérience, et la reprise des comptes antérieurs à sa création.
+
+          Le serveur fait autorité : une colonne renseignée est reprise telle
+          quelle. Une colonne vide désigne un compte d'avant la séparation des
+          deux compteurs — son solde de points tient alors lieu d'expérience de
+          départ, une seule fois. Personne ne rétrograde à ce passage, et comme
+          un niveau coûte désormais cinq fois moins, certains montent d'un rang.
+
+          C'est ici que la reprise doit vivre, et pas dans un repli local :
+          l'appareil qui se synchronise n'est pas forcément celui qui a joué.
+        */
+        if (typeof data.xp === 'number') definirXp(data.xp);
+        else if (data.points !== undefined) definirXp(data.points);
         if (data.mental_score !== undefined) localStorage.setItem('mental_score', data.mental_score.toString());
         if (data.bonus_score !== undefined) localStorage.setItem('bonus_mental_score', data.bonus_score.toString());
         if (data.daily_scores) localStorage.setItem('mindset_daily_scores', JSON.stringify(data.daily_scores));
@@ -246,6 +261,7 @@ export const api = {
         habits: JSON.parse(localStorage.getItem('mindset_habits') || '[]'),
         nutrition: JSON.parse(localStorage.getItem('mindset_nutrition') || '[]'),
         points: getSecurePoints(),
+        xp: lireXp(),
         mental_score: parseInt(localStorage.getItem('mental_score') || '0', 10),
         bonus_score: parseInt(localStorage.getItem('bonus_mental_score') || '0', 10),
         daily_scores: JSON.parse(localStorage.getItem('mindset_daily_scores') || '{}'),
