@@ -9,6 +9,7 @@ import { lireProgression } from '../utils/progression';
 import { getSecurePoints, removeSecurePoints } from '../utils/secureStorage';
 import { bufferToBase64url } from '../utils/webauthn';
 import { activerPro, formuleActuelle, type Formule } from '../utils/paiement';
+import { oublierLaSession } from '../utils/session';
 import './Profile.css';
 
 interface ProfileProps {
@@ -460,24 +461,16 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
               className="btn-purge" 
               style={{ marginTop: '12px', background: 'rgba(255, 255, 255, 0.05)', color: 'var(--primary)', border: '1px solid rgba(255, 255, 255, 0.2)' }} 
               onClick={async () => {
+                // L'appel part avant le ménage : c'est lui qui révoque la session
+                // côté serveur, et il a besoin des jetons qu'on s'apprête à effacer.
                 try {
                   await api.post('/auth/logout', {});
                 } catch(e) {}
-                localStorage.removeItem('mindset_token');
-                localStorage.removeItem('mindset_is_subscribed');
-                // Sinon la personne suivante à se connecter sur cet appareil voit
-                // l'entrée « Admin » jusqu'à ce que `/auth/me` réponde.
-                localStorage.removeItem('mindset_role');
-                localStorage.removeItem('mindset_habits');
-                localStorage.removeItem('mindset_routines_data');
-                removeSecurePoints();
-                localStorage.removeItem('mindset_daily_scores');
-                localStorage.removeItem('mindset_objectives');
-                localStorage.removeItem('mindset_user_name');
-                localStorage.removeItem('mindset_ai_name');
-                localStorage.removeItem('hasCompletedOnboarding');
-                localStorage.removeItem('mindset_inventory');
-                localStorage.removeItem('mindset_ai_skin');
+                // Tout ce qui appartient au compte s'en va, y compris ce qui sera
+                // ajouté plus tard. Voir `utils/session.ts` : la liste manuelle qui
+                // tenait ici laissait derrière elle la conversation avec le coach,
+                // les objectifs, le score mental, la série, l'XP et l'énergie.
+                oublierLaSession();
                 window.location.reload();
               }}
             >
