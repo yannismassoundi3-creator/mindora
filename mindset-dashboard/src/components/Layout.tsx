@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, Brain, Target, Calendar, User, ShoppingBag, Coins, Backpack, Sparkles } from 'lucide-react';
+import { Home, Brain, Target, Calendar, User, ShoppingBag, Coins, Backpack, Sparkles, Shield } from 'lucide-react';
 import { playHoverSound, playClickSound } from '../utils/sounds';
 import { BandeauCommande } from './BandeauCommande';
 import { JarvisPopup } from './JarvisPopup';
@@ -32,6 +32,10 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, setView })
     () => localStorage.getItem('mindset_is_subscribed') === 'true',
   );
 
+  // Renseigné au démarrage par la réponse de `/auth/me`. Voir la note du lien
+  // « Admin » plus bas : ce drapeau n'ouvre aucun droit.
+  const [estAdmin, setEstAdmin] = useState(() => localStorage.getItem('mindset_role') === 'ADMIN');
+
   const ouvrirOffre = (e: React.MouseEvent) => {
     e.preventDefault();
     playClickSound();
@@ -43,6 +47,9 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, setView })
     const handleStorage = () => {
       setPoints(getSecurePoints());
       setEstAbonne(localStorage.getItem('mindset_is_subscribed') === 'true');
+      // `/auth/me` répond après le premier rendu : sans cette relecture, le lien
+      // n'apparaîtrait qu'au rechargement suivant.
+      setEstAdmin(localStorage.getItem('mindset_role') === 'ADMIN');
     };
     window.addEventListener('storage', handleStorage);
     window.addEventListener('mindset_points_updated', handleStorage);
@@ -207,6 +214,24 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, setView })
             <User size={20} />
             <span>Profil</span>
           </a>
+          {/*
+            Le panneau d'administration n'était atteignable que par « ?admin=true »,
+            un paramètre qu'aucun écran ne mentionnait : la page existait sans que
+            rien n'y mène. Il n'apparaît que pour un compte ADMIN — et ce n'est pas
+            ce test qui protège quoi que ce soit, les routes `/admin/*` étant
+            gardées côté serveur.
+          */}
+          {estAdmin && (
+            <a
+              href="?admin=true"
+              className="nav-item"
+              onMouseEnter={() => playHoverSound()}
+              style={{ color: '#00f2fe' }}
+            >
+              <Shield size={20} />
+              <span>Admin</span>
+            </a>
+          )}
         </div>
       </aside>
 

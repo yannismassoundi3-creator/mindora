@@ -267,6 +267,29 @@ input:checked + .slider:before {
   margin-bottom: 20px;
 }
 
+/* Raccourci vers le panneau d'administration. C'est un lien et non un bouton :
+   il change d'adresse, et il échappe ainsi aux règles des thèmes monochromes qui
+   redessinent tout `button` en `!important`. */
+.btn-admin-acces {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 242, 254, 0.3);
+  background: rgba(0, 242, 254, 0.1);
+  color: #00f2fe;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.btn-admin-acces:hover {
+  background: rgba(0, 242, 254, 0.2);
+  border-color: rgba(0, 242, 254, 0.6);
+}
+
 .btn-purge {
   background: rgba(239, 68, 68, 0.1);
   color: #ef4444;

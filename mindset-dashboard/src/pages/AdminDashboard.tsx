@@ -63,7 +63,15 @@ export const AdminDashboard: React.FC = () => {
         <div className="admin-error glass-panel">
           <Shield size={64} className="text-danger" />
           <h2>{error}</h2>
-          
+          {/*
+            C'est ici qu'atterrit un compte non administrateur — l'écran le plus
+            susceptible d'être une impasse, puisqu'il ne charge rien. Le retour
+            doit donc y figurer avant tout.
+          */}
+          <a className="admin-retour admin-retour--seul" href="/">
+            ← Retour à l'app
+          </a>
+
           <div style={{ marginTop: '20px', width: '100%', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '20px' }}>
             <p style={{ textAlign: 'center', marginBottom: '15px' }}>Devenir Administrateur (Clé Secrète)</p>
             <form className="claim-form" onSubmit={handleClaimAdmin}>
@@ -90,6 +98,14 @@ export const AdminDashboard: React.FC = () => {
       <div className="admin-header">
         <Shield size={32} color="#00f2fe" />
         <h1>Panneau d'Administration</h1>
+        {/*
+          Cette page se substitue à toute l'application : elle est rendue avant le
+          Layout, donc sans menu ni barre du bas. Sans ce lien, le seul moyen de
+          revenir est de retirer le paramètre de l'adresse à la main.
+        */}
+        <a className="admin-retour" href="/">
+          ← Retour à l'app
+        </a>
       </div>
 
       <div className="stats-grid">

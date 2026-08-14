@@ -205,6 +205,14 @@ function App() {
           await controlerAbonnement();
 
           const user = await api.get('/auth/me');
+          /*
+            Le rôle, retenu pour que le menu puisse proposer le panneau
+            d'administration. Il n'ouvre aucun droit : les routes `/admin/*` sont
+            gardées côté serveur par `@Roles('ADMIN')`. Quelqu'un qui écrirait
+            « ADMIN » ici s'afficherait une entrée de menu menant à une page qui
+            lui refuse toute donnée.
+          */
+          localStorage.setItem('mindset_role', user.role === 'ADMIN' ? 'ADMIN' : 'USER');
           // TRIALING compte comme abonné : c'est l'essai de 7 jours du forfait mensuel.
           // Le serveur ouvre le coach dans les deux cas (AiQuotaService.PAID_STATUSES) ;
           // ne garder qu'ACTIVE ici afficherait « Passer Pro » à quelqu'un qui vient de

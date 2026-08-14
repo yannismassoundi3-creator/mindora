@@ -1,5 +1,10 @@
 .admin-dashboard {
   padding: 40px 20px;
+  /* Cette page se substitue à toute l'application : elle n'est pas rendue dans le
+     Layout, donc rien au-dessus d'elle ne réserve la place de la barre d'état.
+     Sur un iPhone en mode application, le titre passerait sous l'encoche. */
+  padding-top: max(40px, calc(env(safe-area-inset-top) + 16px));
+  padding-bottom: max(40px, calc(env(safe-area-inset-bottom) + 20px));
   max-width: 800px;
   margin: 0 auto;
   color: #fff;
@@ -14,6 +19,9 @@
   align-items: center;
   gap: 15px;
   margin-bottom: 20px;
+  /* Le titre et le lien de retour se retrouvent à l'étroit sur téléphone :
+     sans ce retour à la ligne, l'un des deux se fait couper. */
+  flex-wrap: wrap;
 }
 
 .admin-header h1 {
@@ -22,6 +30,48 @@
   background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+}
+
+/* Le seul chemin de retour : la page n'a ni menu latéral ni barre du bas. */
+.admin-retour {
+  margin-left: auto;
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+/* Dans `.admin-error`, l'axe est vertical : `margin-left: auto` ne pousserait plus
+   le lien vers la droite d'une ligne, il annulerait le centrage de la colonne. */
+.admin-retour--seul {
+  margin-left: 0;
+}
+
+.admin-retour:hover {
+  background: rgba(0, 242, 254, 0.12);
+  border-color: rgba(0, 242, 254, 0.5);
+  color: #00f2fe;
+}
+
+@media (max-width: 600px) {
+  .admin-header h1 {
+    font-size: 1.4rem;
+  }
+
+  /* Sous 600 px le titre occupe déjà toute la ligne : `margin-left: auto` ne
+     pousse plus rien, le lien se retrouve collé à gauche sous lui. On lui rend
+     la largeur pour qu'il reste une cible franche au doigt. */
+  .admin-retour {
+    width: 100%;
+    text-align: center;
+    padding: 12px 14px;
+  }
 }
 
 .stats-grid {

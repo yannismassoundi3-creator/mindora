@@ -34,6 +34,10 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
   // pour quelqu'un qui paie déjà.
   const [formule, setFormule] = useState<Formule | null>(() => formuleActuelle());
 
+  // Écrit au démarrage par la réponse de `/auth/me` (voir `App.tsx`). N'ouvre aucun
+  // droit : il ne décide que de l'affichage d'un raccourci.
+  const estAdmin = localStorage.getItem('mindset_role') === 'ADMIN';
+
   // Identity
   const [userName, setUserName] = useState(() => localStorage.getItem('mindset_user_name') || 'Yannis');
   const [aiName, setAiName] = useState(() => localStorage.getItem('mindset_ai_name') || 'Coach IA');
@@ -421,6 +425,29 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
             </div>
           </div>
 
+          {/*
+            Le menu latéral porte déjà l'entrée « Admin », mais il est masqué sous
+            900 px : sans ce relais, le panneau reste inatteignable depuis un
+            téléphone, qui est justement d'où l'application est le plus consultée.
+            Comme dans le menu, ce test ne protège rien — les routes `/admin/*`
+            sont gardées côté serveur par `@Roles('ADMIN')`.
+          */}
+          {estAdmin && (
+            <div className="profile-card glass-panel">
+              <h3 className="card-title"><Shield size={18} color="#00f2fe"/> Administration</h3>
+              <p className="setting-desc" style={{ marginBottom: '14px' }}>
+                Inscrits, abonnements et rétention.
+              </p>
+              <a
+                href="?admin=true"
+                className="btn-admin-acces"
+                onClick={() => playClickSound()}
+              >
+                <Shield size={16}/> Ouvrir le panneau
+              </a>
+            </div>
+          )}
+
           <div className="profile-card glass-panel danger-zone">
             <h3 className="card-title text-danger"><AlertTriangle size={18}/> Zone de Danger</h3>
             <p className="danger-text">
@@ -438,6 +465,9 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
                 } catch(e) {}
                 localStorage.removeItem('mindset_token');
                 localStorage.removeItem('mindset_is_subscribed');
+                // Sinon la personne suivante à se connecter sur cet appareil voit
+                // l'entrée « Admin » jusqu'à ce que `/auth/me` réponde.
+                localStorage.removeItem('mindset_role');
                 localStorage.removeItem('mindset_habits');
                 localStorage.removeItem('mindset_routines_data');
                 removeSecurePoints();
