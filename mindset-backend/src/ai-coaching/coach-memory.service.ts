@@ -14,6 +14,43 @@ import { PrismaService } from '../prisma/prisma.service';
 export class CoachMemoryService {
   private readonly logger = new Logger(CoachMemoryService.name);
 
+  /**
+   * Le point de départ physique déclaré, dit au coach en termes de prescription.
+   *
+   * Sans lui, le modèle propose « Pompes (4x12) » à tout le monde — y compris à
+   * quelqu'un qui ne peut pas en faire trois. Un plan infaisable est abandonné le
+   * premier jour, et la personne en conclut que c'est elle qui a échoué.
+   */
+  static readonly NIVEAU_LISIBLE: Record<string, string> = {
+    sedentaire:
+      "Sédentaire, ne fait aucun sport actuellement. Commence par des mouvements au poids du corps sans matériel, des séries courtes, et de la marche. Aucune séance de plus de 20 minutes la première semaine.",
+    reprise:
+      "Reprend après un arrêt. A déjà su faire, mais le volume d'avant le blesserait. Remonte progressivement, en dessous de ce qu'il croit pouvoir tenir.",
+    regulier:
+      "S'entraîne déjà, mais irrégulièrement. Ce qui lui manque n'est pas l'effort mais le rythme : donne-lui une structure fixe plutôt que des séances plus dures.",
+    confirme:
+      "Sportif confirmé. Des séances exigeantes et chiffrées, avec une progression d'une semaine sur l'autre ; un plan trop facile lui fera quitter l'application.",
+  };
+
+  /**
+   * Ce que le métier déclaré impose à la forme du plan.
+   *
+   * C'est la donnée la plus souvent gâchée : elle était enregistrée puis récitée au
+   * modèle comme une étiquette (« Métier : Entrepreneur »), ce qui ne change rien à
+   * ce qu'il produit. Traduite en contrainte d'emploi du temps, elle change tout —
+   * un salarié et un étudiant ne peuvent pas recevoir les mêmes créneaux.
+   */
+  static readonly METIER_LISIBLE: Record<string, string> = {
+    Entrepreneur:
+      "pas d'horaires imposés, mais des journées qui débordent et des urgences qui écrasent le reste. Ancre ses tâches tôt le matin, avant que la journée ne lui soit prise. Ne place rien d'important en fin de journée.",
+    Étudiant:
+      "des cours en journée, des horaires qu'il ne choisit pas, et des périodes d'examens. Ses créneaux fiables sont tôt le matin et le soir. Découpe les révisions en blocs courts plutôt qu'en longues sessions.",
+    Salarié:
+      "journée bloquée, une pause déjeuner exploitable, des soirées courtes où l'énergie est basse. Le matin avant le travail et la pause de midi sont ses deux vrais créneaux ; ne compte pas sur de longues séances en semaine.",
+    Freelance:
+      "horaires souples mais revenus irréguliers, donc une charge mentale continue et des journées sans structure. C'est la structure qui lui manque : donne-lui des heures fixes, pas des durées.",
+  };
+
   /** Au-delà, on recompresse les anciens échanges en une note. */
   private static readonly SEUIL_MESSAGES = 40;
   /** On ne résume pas plus d'une fois par jour : inutile et facturé. */
@@ -21,15 +58,34 @@ export class CoachMemoryService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Le questionnaire d'inscription, mis en forme pour le prompt. */
+  /**
+   * Le questionnaire d'inscription, mis en forme pour le prompt.
+   *
+   * Chaque réponse est écrite comme une contrainte à respecter, jamais comme une
+   * étiquette : « Métier : Entrepreneur » ne change rien à ce que produit un modèle,
+   * là où « pas d'horaires imposés, des journées qui débordent, ancre ses tâches tôt »
+   * change la forme du plan. La traduction se fait dans `AiCoachingService`, ici on
+   * ne fait que présenter — en mettant en tête ce qui rend un conseil inapplicable
+   * quand on l'ignore.
+   */
   formatProfil(profil: any): string {
     if (!profil) return '';
     const l: string[] = [];
     if (profil.age) l.push(`Âge : ${profil.age} ans`);
     if (profil.occupation) l.push(`Métier : ${profil.occupation}`);
+    if (profil.metier_contrainte) l.push(`CE QUE SON MÉTIER IMPOSE : ${profil.metier_contrainte}`);
     if (profil.objectives?.length) l.push(`Objectifs déclarés : ${profil.objectives.join(', ')}`);
-    // Les contraintes passent en premier plan : c'est ce qui rend un conseil
-    // inapplicable quand on l'ignore.
+    // Ce que la personne a écrit elle-même passe avant les réponses à choix fermés :
+    // c'est la seule chose qu'aucun autre compte ne partage avec elle.
+    if (profil.situation) l.push(`CE QU'IL T'A DIT DE SA SITUATION, DANS SES MOTS : « ${profil.situation} »`);
+    if (profil.minutes_par_jour) {
+      l.push(
+        `TEMPS DISPONIBLE : ${profil.minutes_par_jour} minutes par jour, pas davantage. ` +
+          `La somme des durées que tu prescris pour une journée ne doit jamais dépasser ce nombre — ` +
+          `un plan qui déborde n'est pas ambitieux, il est abandonné dès le premier jour.`,
+      );
+    }
+    if (profil.niveau_lisible) l.push(`SON POINT DE DÉPART : ${profil.niveau_lisible}`);
     if (profil.constraints?.length) l.push(`CONTRAINTES À RESPECTER ABSOLUMENT : ${profil.constraints.join(', ')}`);
     if (profil.current_habits?.length) l.push(`Habitudes déjà en place : ${profil.current_habits.join(', ')}`);
     if (profil.personality) l.push(`Personnalité : ${profil.personality}`);
@@ -78,8 +134,21 @@ export class CoachMemoryService {
       .join('\n');
   }
 
+  /**
+   * Le profil, enrichi de ce que ses réponses fermées impliquent.
+   *
+   * Les deux champs dérivés ne sont pas stockés : ce sont des traductions, et les
+   * figer en base voudrait dire qu'améliorer une formulation n'atteindrait plus
+   * jamais les comptes déjà inscrits.
+   */
   async chargerProfil(userId: string) {
-    return this.prisma.aIProfile.findUnique({ where: { user_id: userId } });
+    const profil = await this.prisma.aIProfile.findUnique({ where: { user_id: userId } });
+    if (!profil) return profil;
+    return {
+      ...profil,
+      metier_contrainte: profil.occupation ? CoachMemoryService.METIER_LISIBLE[profil.occupation] ?? null : null,
+      niveau_lisible: profil.niveau_depart ? CoachMemoryService.NIVEAU_LISIBLE[profil.niveau_depart] ?? null : null,
+    };
   }
 
   /**

@@ -7,18 +7,39 @@ interface OnboardingProps {
   onComplete: () => void;
 }
 
+/**
+ * L'écran de chargement final, celui qui envoie le profil.
+ *
+ * Nommé plutôt que codé en dur : il était écrit « 5 » à un endroit et le nombre
+ * d'étapes ailleurs, si bien qu'insérer une question au milieu envoyait le profil
+ * avant qu'elle ait été posée — sans que rien n'ait l'air cassé.
+ */
+const ETAPE_ENREGISTREMENT = 8;
+
 export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   const [step, setStep] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
 
   // Réponses envoyées au serveur à la dernière étape, et relues par le coach ensuite.
+  //
+  // Les trois premières ne suffisaient pas : quatre métiers, trois constances, quatre
+  // objectifs, soit quarante-huit profils possibles pour toute la base. Le coach ne
+  // pouvait pas écrire un plan qui ressemble à quelqu'un, et retombait sur l'exemple
+  // de son prompt — tout le monde recevait le même programme. D'où le temps réellement
+  // disponible (qui borne le volume), le point de départ (qui décide de la difficulté)
+  // et un champ libre, seul endroit du parcours où l'on peut dire ce qu'aucun bouton
+  // ne prévoyait.
   const [answers, setAnswers] = useState({
     job: '',
     consistency: '',
     goal: '',
+    minutesParJour: 0,
+    niveau: '',
+    situation: '',
     aiName: ''
   });
   const [tempAiName, setTempAiName] = useState('');
+  const [tempSituation, setTempSituation] = useState('');
 
   const nextStep = () => {
     setIsAnimating(true);
@@ -28,7 +49,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
     }, 400); // Temps de la transition CSS
   };
 
-  const handleAnswer = (key: string, value: string) => {
+  const handleAnswer = (key: string, value: string | number) => {
     if (isAnimating) return; // Prevent double click
     setAnswers(prev => ({ ...prev, [key]: value }));
     nextStep();
@@ -41,7 +62,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   // et respecter ce qui lui a été déclaré — il lisait une table que personne ne
   // remplissait jamais.
   useEffect(() => {
-    if (step !== 5) return;
+    if (step !== ETAPE_ENREGISTREMENT) return;
 
     let annule = false;
 
@@ -51,6 +72,9 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
         job: answers.job,
         consistency: answers.consistency,
         goal: answers.goal,
+        minutesParJour: answers.minutesParJour,
+        niveau: answers.niveau,
+        situation: answers.situation,
       };
       try {
         await api.post('/ai-coaching/onboarding', reponses);
@@ -157,7 +181,74 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
           </div>
         )}
 
+        {/* Le temps réel, pas le temps rêvé : c'est lui qui borne le volume du plan.
+            Sans cette réponse, le coach prescrivait une heure et demie à des gens qui
+            en avaient vingt minutes, et le plan était abandonné le premier jour. */}
         {step === 4 && (
+          <div className="step-card">
+            <h2 className="question-title">Combien de temps par jour, vraiment ?</h2>
+            <p className="onboarding-subtitle" style={{marginBottom: '20px'}}>Réponds honnêtement. Je construirai ton plan autour de ce chiffre, pas autour de celui que tu aimerais.</p>
+            <div className="options-grid">
+              <button className="glass-panel option-btn" disabled={isAnimating} onClick={() => handleAnswer('minutesParJour', 15)}>15 min</button>
+              <button className="glass-panel option-btn" disabled={isAnimating} onClick={() => handleAnswer('minutesParJour', 30)}>30 min</button>
+              <button className="glass-panel option-btn" disabled={isAnimating} onClick={() => handleAnswer('minutesParJour', 60)}>1 heure</button>
+              <button className="glass-panel option-btn" disabled={isAnimating} onClick={() => handleAnswer('minutesParJour', 120)}>2 heures ou plus</button>
+            </div>
+          </div>
+        )}
+
+        {/* Le point de départ décide de la difficulté. Se tromper de niveau est la
+            façon la plus rapide de perdre quelqu'un : trop dur, il échoue et s'en veut ;
+            trop facile, il s'ennuie et part. */}
+        {step === 5 && (
+          <div className="step-card">
+            <h2 className="question-title">Où en es-tu physiquement ?</h2>
+            <div className="options-list">
+              <button className="glass-panel option-btn" disabled={isAnimating} onClick={() => handleAnswer('niveau', 'sedentaire')}>
+                <strong>Sédentaire</strong>
+                <span>Je ne fais aucun sport en ce moment.</span>
+              </button>
+              <button className="glass-panel option-btn" disabled={isAnimating} onClick={() => handleAnswer('niveau', 'reprise')}>
+                <strong>En reprise</strong>
+                <span>J'en ai fait, j'ai arrêté, je m'y remets.</span>
+              </button>
+              <button className="glass-panel option-btn" disabled={isAnimating} onClick={() => handleAnswer('niveau', 'regulier')}>
+                <strong>Irrégulier</strong>
+                <span>J'en fais, mais sans rythme fixe.</span>
+              </button>
+              <button className="glass-panel option-btn" disabled={isAnimating} onClick={() => handleAnswer('niveau', 'confirme')}>
+                <strong>Confirmé</strong>
+                <span>Je m'entraîne sérieusement et régulièrement.</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* La seule question ouverte du parcours, et de loin la plus utile : c'est le
+            seul endroit où quelqu'un peut dire ce qu'aucun bouton ne prévoyait. Elle
+            est explicitement facultative — la rendre obligatoire ferait écrire
+            n'importe quoi à ceux qui n'ont rien à dire, et le coach lirait ce bruit
+            à chaque message. */}
+        {step === 6 && (
+          <div className="step-card">
+            <h2 className="question-title">Ce que je dois absolument savoir ?</h2>
+            <p className="onboarding-subtitle" style={{marginBottom: '20px'}}>Une blessure, des horaires impossibles, pas de salle, un enfant, une échéance. En une phrase — c'est ce qui fera que ton plan est le tien.</p>
+            <textarea
+              className="routine-edit-input"
+              style={{width: '100%', padding: '16px', fontSize: '1rem', marginBottom: '20px', minHeight: '110px', resize: 'none'}}
+              placeholder="Ex : genou fragile, je bosse en 3x8, pas de matériel chez moi..."
+              maxLength={600}
+              value={tempSituation}
+              onChange={(e) => setTempSituation(e.target.value)}
+              autoFocus
+            />
+            <button className="btn-primary onboarding-btn" disabled={isAnimating} onClick={() => handleAnswer('situation', tempSituation.trim())}>
+              {tempSituation.trim() ? 'Continuer' : 'Rien de particulier'} <ArrowRight size={18} />
+            </button>
+          </div>
+        )}
+
+        {step === 7 && (
           <div className="step-card">
             <h2 className="question-title">Comment veux-tu m'appeler ?</h2>
             <p className="onboarding-subtitle" style={{marginBottom: '20px'}}>Donne-moi un prénom. (ex: Athena, Jarvis, Coach...)</p>
@@ -181,7 +272,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
           </div>
         )}
 
-        {step === 5 && (
+        {step === ETAPE_ENREGISTREMENT && (
           <div className="step-card center-all">
             <Loader2 size={48} className="spinner" color="var(--accent-purple)" />
             <h2 className="loading-title">Analyse en cours...</h2>

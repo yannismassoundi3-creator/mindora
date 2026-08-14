@@ -94,6 +94,7 @@ export class AiCoachingService {
     low: "Se disperse et abandonne vite. Vise des victoires courtes et immédiates plutôt que des programmes ambitieux.",
   };
 
+
   /**
    * Enregistre le questionnaire d'inscription.
    *
@@ -104,10 +105,30 @@ export class AiCoachingService {
    *
    * Les réponses arrivent sous la forme brute du questionnaire (`job`, `consistency`,
    * `goal`) : on les traduit ici, car c'est un prompt qui les lira, pas une machine.
+   *
+   * Le questionnaire ne posait que trois questions à choix fermés — quarante-huit
+   * profils possibles pour toute la base. Aucune consigne ne fabrique un plan unique
+   * à partir de « Entrepreneur / en dents de scie / discipline » : le modèle retombe
+   * alors sur l'exemple du prompt, et tout le monde reçoit le même programme. Trois
+   * réponses ont donc été ajoutées, dont la seule ouverte du parcours.
    */
   async processOnboarding(userId: string, data: any) {
     const objectif = AiCoachingService.OBJECTIFS_LISIBLES[data?.goal] || data?.goal;
     const constance = AiCoachingService.CONSTANCE_LISIBLE[data?.consistency];
+
+    // Le temps déclaré n'a de valeur que borné : une valeur fantaisiste venue d'un
+    // client modifié ferait produire un plan de vingt heures ou de zéro minute.
+    const minutes = Number(data?.minutesParJour ?? data?.minutes_par_jour);
+    const minutesParJour = Number.isFinite(minutes) ? Math.min(240, Math.max(5, Math.round(minutes))) : null;
+
+    const niveau = typeof data?.niveau === 'string' ? data.niveau : data?.niveau_depart;
+    const niveauDepart = niveau && niveau in CoachMemoryService.NIVEAU_LISIBLE ? niveau : null;
+
+    // Le seul champ libre du parcours, et donc le seul endroit où quelqu'un peut dire
+    // ce qu'aucun bouton ne prévoyait. Plafonné : il repart dans le prompt à chaque
+    // message, et un roman s'y facturerait indéfiniment.
+    const situation =
+      typeof data?.situation === 'string' && data.situation.trim() ? data.situation.trim().slice(0, 600) : null;
 
     const champs = {
       // Les deux formes sont acceptées : celle du questionnaire et celle, déjà
@@ -118,6 +139,9 @@ export class AiCoachingService {
       age: data?.age ?? null,
       constraints: data?.constraints || [],
       current_habits: data?.current_habits || [],
+      situation,
+      minutes_par_jour: minutesParJour,
+      niveau_depart: niveauDepart,
     };
 
     // upsert et non create : une inscription rejouée — reconnexion, double clic,
@@ -440,26 +464,35 @@ RÈGLES DE COMPORTEMENT :
       "objectiveExplanation": "Le cap, et en quoi les micro-objectifs de la semaine y mènent vraiment.",
       "nutritionExplanation": "Ce que ce plan alimentaire vise, et la contrainte qu'il respecte.",
       "newHabits": [
-        { "name": "Titre habitude", "description": "Desc", "frequency": "daily" }
+        { "name": "<habitude quotidienne, 3 à 5 mots>", "description": "<ce qu'elle implique concrètement>", "frequency": "daily" }
       ],
       "newRoutines": [
-        { "type": "MORNING", "tasks": [ { "title": "Gainage (3x45s)", "duration": 5, "jours": ["lundi","mardi","mercredi","jeudi","vendredi"] }, { "title": "Pompes (4x12)", "duration": 8, "jours": ["lundi","mercredi","vendredi"] }, { "title": "Squats (4x15)", "duration": 8, "jours": ["lundi","mercredi","vendredi"] } ] },
-        { "type": "MIDDAY", "tasks": [ { "title": "Marche rapide (2 km)", "duration": 20 }, { "title": "Réviser 10 fiches", "duration": 15, "jours": ["lundi","mardi","mercredi","jeudi","vendredi"] }, { "title": "Planifier l'après-midi", "duration": 5 } ] },
-        { "type": "EVENING", "tasks": [ { "title": "Étirements ischio-jambiers (3x30s)", "duration": 5, "jours": ["lundi","mercredi","vendredi"] }, { "title": "Méditation guidée", "duration": 10 }, { "title": "Bilan écrit de la journée", "duration": 5 } ] }
+        { "type": "MORNING", "tasks": [ { "title": "<exercice précis avec ses chiffres>", "duration": 8, "jours": ["lundi","mercredi","vendredi"] }, { "title": "<deuxième tâche précise>", "duration": 5 }, { "title": "<troisième tâche précise>", "duration": 7 } ] },
+        { "type": "MIDDAY", "tasks": [ { "title": "<tâche réalisable dans sa pause>", "duration": 15, "jours": ["lundi","mardi","mercredi","jeudi","vendredi"] } ] },
+        { "type": "EVENING", "tasks": [ { "title": "<tâche de fin de journée>", "duration": 10 } ] }
       ],
       "newNutrition": [
-        { "meal": "Petit-déjeuner", "details": "Flocons d'avoine, œufs - 500 kcal, 30g rep" }
+        { "meal": "<nom du repas>", "details": "<aliments - kcal, protéines>" }
       ],
       "newMacroObjectives": [
-        { "title": "Prendre 5 kg de muscle sec", "category": "Physique", "deadline": "Juin 2027" },
-        { "title": "Valider mon année avec mention", "category": "Apprentissage", "deadline": "Mai 2027" }
+        { "title": "<son cap à long terme, tiré de ce qu'il t'a dit>", "category": "Physique", "deadline": "<mois année>" }
       ],
       "newMicroObjectives": [
-        { "title": "Aller à la salle 3 fois cette semaine", "category": "Physique", "deadline": "Dimanche" }
+        { "title": "<une victoire atteignable cette semaine>", "category": "Physique", "deadline": "Dimanche" }
       ]
     }
     </PLAN>
-    **LES TÂCHES DE L'EXEMPLE SONT ILLUSTRATIVES — NE LES RECOPIE JAMAIS.** L'exemple ci-dessus montre le FORMAT, pas le contenu. "Gainage (3x45s)", "Pompes (4x12)", "Réviser 10 fiches", "Marche rapide (2 km)", "Flocons d'avoine" sont des tâches d'exemple : les reprendre telles quelles est une faute. Compose à partir de ce que tu sais de LUI — son métier, son âge, ses contraintes, son objectif déclaré, ce qu'il t'a raconté. Deux personnes différentes ne doivent jamais recevoir le même plan. Garde le format chiffré, change les exercices.
+    **LES CHEVRONS CI-DESSUS SONT DES TROUS À REMPLIR**, jamais à recopier : aucun chevron ne doit apparaître dans ton JSON. Ils remplacent les tâches d'exemple qui figuraient ici : le modèle les recopiait mot pour mot, et deux personnes aux situations opposées repartaient avec le même programme. Le nombre de tâches et de routines de ce squelette n'est pas une consigne non plus — c'est le temps disponible de la personne qui le décide.
+    **AUCUNE TÂCHE NOMMÉE AILLEURS DANS CES INSTRUCTIONS NE DOIT SE RETROUVER DANS TON PLAN.** Les titres cités plus haut ("Squats (4x12)", "Planche (3x45s)", "Course (5 km)"…) montrent la FORME attendue — un mouvement précis suivi de ses chiffres — jamais le contenu à livrer. Reprendre l'un d'eux tel quel est une faute : c'est le signe que tu as recopié au lieu de composer.
+
+    **COMMENT COMPOSER CE PLAN (C'EST LA PARTIE QUI COMPTE)** :
+    Son profil est dans les données ci-dessous. Ce ne sont pas des étiquettes à réciter, ce sont les contraintes qui décident du contenu. Avant d'écrire le JSON, dérive-le dans cet ordre :
+    1. **SON TEMPS DISPONIBLE fixe le volume.** Additionne les "duration" que tu prescris pour une même journée : le total doit tenir sous le nombre de minutes qu'il a déclaré. S'il a vingt minutes, il reçoit vingt minutes — pas une séance d'une heure « au cas où ». Un plan qui déborde n'est pas ambitieux, il est abandonné le premier jour.
+    2. **CE QUE SON MÉTIER IMPOSE fixe les créneaux.** Un salarié n'est pas libre à 14 h, un étudiant a cours, un entrepreneur se fait dévorer sa fin de journée. Place les tâches là où il est réellement disponible, et dis-le dans l'explication.
+    3. **SON POINT DE DÉPART fixe la difficulté.** Un sédentaire ne reçoit pas quatre séries de douze pompes. Un confirmé ne reçoit pas de la marche. Se tromper de niveau est la façon la plus rapide de perdre quelqu'un.
+    4. **CE QU'IL T'A DIT DANS SES MOTS prime sur tout le reste.** S'il a mentionné une blessure, un horaire, un matériel qu'il n'a pas, un enfant, une échéance — le plan doit visiblement en tenir compte. C'est la seule chose qu'aucun autre compte ne partage avec lui : c'est là que se joue le fait que ce plan soit le sien.
+    5. **SA CONSTANCE fixe l'ambition.** Quelqu'un qui abandonne vite reçoit peu de tâches, très courtes, et une victoire atteignable dès aujourd'hui. Quelqu'un de discipliné reçoit de quoi progresser réellement.
+    **Les quatre champs "...Explanation" doivent nommer explicitement ce qui a guidé tes choix** — son métier, son temps, son niveau, ce qu'il t'a raconté. Une explication qui pourrait être envoyée à n'importe qui d'autre est une explication ratée. **Deux personnes différentes ne doivent jamais recevoir le même plan.**
     **CE QU'UN PLAN DOIT CONTENIR (RÈGLE DÉCISIVE)** :
     - Dès que tu construis ou reconstruis un plan, tu DOIS produire à la fois "newMacroObjectives" (1 à 3 visions long terme, c'est le cap) ET "newMicroObjectives" (2 à 4 petites victoires pour la semaine en cours). Attention : "macro-objectif" désigne un objectif de vie à long terme, JAMAIS les macronutriments de l'alimentation — ceux-là vont dans "newNutrition". Un plan sans macro-objectif est un plan sans direction : c'est le défaut le plus fréquent, ne le commets pas.
     - Chaque routine que tu produis doit contenir AU MINIMUM 3 tâches précises et chiffrées, comme dans l'exemple ci-dessus. Une routine à une seule tâche est un plan bâclé.

@@ -84,6 +84,19 @@ model AIProfile {
   current_habits String[]
   personality    String?
   coaching_style String?
+  /// Ce que la personne raconte d'elle en texte libre a l'inscription : horaires,
+  /// blessure, materiel, contexte. C'est le seul champ ou elle peut dire quelque
+  /// chose qu'aucun bouton ne prevoyait, et donc le plus utile au coach : sans lui,
+  /// le profil se resume a trois reponses parmi quarante-huit combinaisons possibles,
+  /// et tout le monde recoit le meme plan.
+  situation      String?
+  /// Minutes par jour qu'elle dit pouvoir y consacrer. Borne le volume du plan : un
+  /// programme de deux heures propose a quelqu'un qui en a vingt minutes n'est pas
+  /// ambitieux, il est abandonne des le premier jour.
+  minutes_par_jour Int?
+  /// Point de depart physique declare. Decide des exercices : on ne prescrit pas
+  /// quatre series de douze pompes a quelqu'un qui se declare sedentaire.
+  niveau_depart  String?
   /// Note de synthese sur la personne, recompressee periodiquement a partir des
   /// anciens echanges. L'historique brut est plafonne : sans ce resume, tout ce qui
   /// depasse la fenetre est definitivement oublie.
