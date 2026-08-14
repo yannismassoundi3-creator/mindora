@@ -357,6 +357,9 @@ describe('AiCoachingService — l\'objectif déclaré', () => {
       occupation: 'Étudiant',
       personality: null,
       coaching_style: null,
+      situation: 'Genou fragile',
+      minutes_par_jour: 30,
+      niveau_depart: 'reprise',
     });
 
     expect(await service.lireProfil('u1')).toEqual({
@@ -364,7 +367,48 @@ describe('AiCoachingService — l\'objectif déclaré', () => {
       occupation: 'Étudiant',
       personality: null,
       coaching_style: null,
+      situation: 'Genou fragile',
+      minutesParJour: 30,
+      niveau: 'reprise',
+      cadrageManquant: false,
     });
+  });
+
+  /**
+   * Le questionnaire ne se rejoue que pour un compte sans profil du tout. Les comptes
+   * ouverts avant que le temps et le niveau ne soient demandés ont donc un profil
+   * complet à l'ancienne et ne repasseront jamais par l'inscription : sans ce
+   * drapeau, leur coach doserait leurs plans au hasard indéfiniment.
+   */
+  it('signale le cadrage manquant sur un compte ouvert avant ces questions', async () => {
+    prisma.aIProfile.findUnique.mockResolvedValue({
+      objectives: ['Devenir constant'],
+      occupation: 'Salarié',
+      personality: null,
+      coaching_style: null,
+      situation: null,
+      minutes_par_jour: null,
+      niveau_depart: null,
+    });
+
+    const profil = await service.lireProfil('u1');
+    expect(profil.cadrageManquant).toBe(true);
+  });
+
+  // La situation est facultative : n'avoir aucune blessure à déclarer ne rend pas un
+  // profil incomplet, et redemanderait indéfiniment à ceux qui n'ont rien à dire.
+  it('ne réclame rien à qui a répondu temps et niveau sans situation', async () => {
+    prisma.aIProfile.findUnique.mockResolvedValue({
+      objectives: [],
+      occupation: null,
+      personality: null,
+      coaching_style: null,
+      situation: null,
+      minutes_par_jour: 15,
+      niveau_depart: 'sedentaire',
+    });
+
+    expect((await service.lireProfil('u1')).cadrageManquant).toBe(false);
   });
 
   // Un compte peut n'avoir aucun profil : le questionnaire a longtemps échoué en
@@ -375,7 +419,45 @@ describe('AiCoachingService — l\'objectif déclaré', () => {
       occupation: null,
       personality: null,
       coaching_style: null,
+      situation: null,
+      minutesParJour: null,
+      niveau: null,
+      cadrageManquant: true,
     });
+  });
+
+  it('borne un temps disponible venu d\'un client modifié', async () => {
+    await service.majCadrage('u1', { minutesParJour: 9999 });
+    expect(prisma.aIProfile.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ update: { minutes_par_jour: 240 } }),
+    );
+  });
+
+  it('refuse un niveau de départ inventé', async () => {
+    await expect(service.majCadrage('u1', { niveau: 'champion' })).rejects.toThrow('Niveau de départ inconnu.');
+  });
+
+  /**
+   * Une blessure guérit, des examens passent. Sans ce cas, une contrainte périmée
+   * resterait dans le prompt du coach pour toujours, et il continuerait à composer
+   * des plans autour d'un genou qui ne fait plus mal.
+   */
+  it('accepte la chaîne vide pour retirer une contrainte périmée', async () => {
+    await service.majCadrage('u1', { situation: '   ' });
+    expect(prisma.aIProfile.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ update: { situation: null } }),
+    );
+  });
+
+  it('ne touche que ce qu\'on lui envoie', async () => {
+    await service.majCadrage('u1', { niveau: 'confirme' });
+    expect(prisma.aIProfile.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ update: { niveau_depart: 'confirme' } }),
+    );
+  });
+
+  it('refuse un appel qui ne changerait rien', async () => {
+    await expect(service.majCadrage('u1', {})).rejects.toThrow('Rien à mettre à jour.');
   });
 
   it('enregistre un objectif en le nettoyant', async () => {

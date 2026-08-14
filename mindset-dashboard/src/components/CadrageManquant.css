@@ -1,0 +1,183 @@
+/*
+  La carte qui rattrape le cadrage du plan sur les comptes anciens.
+
+  Elle vit sur le tableau de bord, au-dessus du reste, et n'y reste que le temps de
+  deux réponses. D'où la contrainte : rester nettement plus courte que ce qu'elle
+  précède, sans quoi elle repousserait sous la ligne de flottaison ce que la
+  personne est venue voir.
+*/
+
+.cadrage-manquant {
+  padding: 20px 22px;
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  /* Un enfant de grille refuse de descendre sous la largeur de son contenu et
+     élargit sa piste : sans ceci, une option longue emporterait la colonne. */
+  min-width: 0;
+}
+
+.cadrage-intro h3 {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+}
+
+.cadrage-intro p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--secondary);
+}
+
+.cadrage-bloc {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.cadrage-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--secondary);
+}
+
+.cadrage-choix {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+
+/* Les niveaux portent une phrase d'explication : à quatre par ligne elle serait
+   illisible, à une par ligne la carte doublerait de hauteur. */
+.cadrage-choix-liste {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/*
+  Trois classes sur les options : `body.theme-monochrome-dark button` impose
+  bordure et halo en !important, comme pour `.premiers-pas-action`. Sans cette
+  spécificité, l'état choisi ne se distingue pas du reste.
+*/
+.cadrage-manquant .cadrage-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 11px 8px;
+  /* Une cible tactile descend ici à 37 px, sous le plancher de 44 px : sur un
+     choix à quatre tuiles serrées, ce sont les erreurs de doigt qui suivent. */
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+  color: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+  box-shadow: none !important;
+  min-width: 0;
+  /* Une phrase longue déborderait de sa tuile sur les petits écrans. */
+  max-width: 100%;
+  text-align: center;
+}
+
+.cadrage-manquant .cadrage-option-large {
+  align-items: flex-start;
+  text-align: left;
+  padding: 10px 12px;
+}
+
+.cadrage-manquant .cadrage-option-large strong {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.cadrage-manquant .cadrage-option-large span {
+  font-size: 0.76rem;
+  color: var(--secondary);
+  line-height: 1.35;
+}
+
+.cadrage-manquant .cadrage-option.choisie {
+  border-color: color-mix(in srgb, var(--primary) 55%, transparent) !important;
+  background: color-mix(in srgb, var(--primary) 16%, transparent) !important;
+  color: var(--accent-text, var(--primary));
+}
+
+.cadrage-manquant .cadrage-option.choisie span {
+  color: inherit;
+  opacity: 0.85;
+}
+
+.cadrage-manquant .cadrage-valider {
+  width: 100%;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--primary) 55%, transparent) !important;
+  background: color-mix(in srgb, var(--primary) 16%, transparent) !important;
+  color: var(--accent-text, var(--primary));
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  box-shadow: none !important;
+}
+
+/* Désactivé tant que les deux réponses ne sont pas données : le bouton dit alors
+   qu'il manque quelque chose, ce qu'aucun message d'erreur n'aurait à faire. */
+.cadrage-manquant .cadrage-valider:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.cadrage-manquant.cadrage-termine {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  color: var(--success, #10b981);
+}
+
+.cadrage-manquant.cadrage-termine p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--secondary);
+}
+
+@media (max-width: 900px) {
+  .cadrage-manquant {
+    padding: 16px 14px;
+    gap: 14px;
+  }
+
+  /* Quatre durées côte à côte tombent à ~70 px sur un iPhone : « 2 h ou + » y
+     passe à la ligne au milieu du mot. Deux colonnes tiennent. */
+  .cadrage-choix {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /*
+    Les descriptions de niveau disparaissent sur téléphone.
+
+    Mesurée à 587 px sur un écran de 812, la carte occupait 72 % de la page — sur
+    un tableau de bord qu'on venait justement de faire passer de 2121 à 1476 px.
+    Or « Sédentaire », « En reprise », « Irrégulier », « Confirmé » se comprennent
+    seuls : la phrase sous chacun était le seul poste vraiment compressible.
+  */
+  .cadrage-manquant .cadrage-option-large span {
+    display: none;
+  }
+
+  .cadrage-manquant .cadrage-option-large {
+    align-items: center;
+    text-align: center;
+  }
+
+  .cadrage-intro p {
+    font-size: 0.85rem;
+  }
+}

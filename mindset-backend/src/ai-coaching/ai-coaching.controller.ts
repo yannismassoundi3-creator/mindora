@@ -7,6 +7,7 @@ import { CoinLedgerService } from './coin-ledger.service';
 import { CoachOuvertureService } from './coach-ouverture.service';
 import { ChatDto } from './dto/chat.dto';
 import { ObjectifDto } from './dto/objectif.dto';
+import { CadrageDto } from './dto/cadrage.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Request } from 'express';
 
@@ -127,6 +128,21 @@ export class AiCoachingController {
   @ApiOperation({ summary: 'Changer l\'objectif déclaré' })
   async patchProfil(@Req() req: Request, @Body() body: ObjectifDto) {
     return this.aiCoachingService.majObjectif((req.user as any).userId, body?.objectif);
+  }
+
+  /**
+   * Compléter après coup ce qui cadre le plan.
+   *
+   * Route séparée de `PATCH profil` plutôt qu'un champ de plus : l'objectif est
+   * obligatoire et non vide, alors qu'ici tout est optionnel et la chaîne vide a un
+   * sens (effacer une contrainte périmée). Mélanger les deux aurait obligé à relâcher
+   * la validation de l'objectif, qui s'affiche en haut de l'application.
+   */
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @Patch('profil/cadrage')
+  @ApiOperation({ summary: 'Temps disponible, niveau de départ et contraintes' })
+  async patchCadrage(@Req() req: Request, @Body() body: CadrageDto) {
+    return this.aiCoachingService.majCadrage((req.user as any).userId, body);
   }
 
   /**

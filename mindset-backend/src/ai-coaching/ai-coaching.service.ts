@@ -190,14 +190,89 @@ export class AiCoachingService {
   async lireProfil(userId: string) {
     const profil = await this.prisma.aIProfile.findUnique({
       where: { user_id: userId },
-      select: { objectives: true, occupation: true, personality: true, coaching_style: true },
+      select: {
+        objectives: true,
+        occupation: true,
+        personality: true,
+        coaching_style: true,
+        situation: true,
+        minutes_par_jour: true,
+        niveau_depart: true,
+      },
     });
     return {
       objectif: profil?.objectives?.[0] ?? null,
       occupation: profil?.occupation ?? null,
       personality: profil?.personality ?? null,
       coaching_style: profil?.coaching_style ?? null,
+      situation: profil?.situation ?? null,
+      minutesParJour: profil?.minutes_par_jour ?? null,
+      niveau: profil?.niveau_depart ?? null,
+      // Le questionnaire ne se rejoue que si le serveur ignore tout de la personne
+      // (`has_ai_profile`), donc les comptes ouverts avant ces trois questions ne les
+      // verront jamais : leurs réponses resteraient vides à vie, et leur coach
+      // continuerait à composer des plans sans savoir de combien de temps ils
+      // disposent. Ce drapeau permet à l'app de le leur demander après coup.
+      // La situation est facultative : ne pas avoir de blessure à déclarer n'est pas
+      // un profil incomplet, et redemander indéfiniment à ceux qui n'ont rien à dire
+      // transformerait la carte en harcèlement.
+      cadrageManquant: !profil?.minutes_par_jour || !profil?.niveau_depart,
     };
+  }
+
+  /**
+   * Complète ou corrige ce qui cadre le plan : temps, niveau, situation.
+   *
+   * Ces trois réponses ne sont pas décoratives — ce sont elles qui bornent le volume
+   * du plan, sa difficulté et ce qu'il doit éviter. Elles se périment par ailleurs
+   * toutes seules dès que le produit marche : quelqu'un de sédentaire qui s'entraîne
+   * deux mois n'est plus sédentaire, et un coach qui continue à lui prescrire de la
+   * marche nie la progression qu'il est censé produire.
+   *
+   * Chaque champ est optionnel : la carte du Dashboard n'en envoie que deux, l'écran
+   * Profil n'en corrige souvent qu'un seul.
+   */
+  async majCadrage(
+    userId: string,
+    donnees: { minutesParJour?: number; niveau?: string; situation?: string },
+  ) {
+    const champs: Record<string, unknown> = {};
+
+    if (donnees.minutesParJour !== undefined) {
+      const n = Number(donnees.minutesParJour);
+      if (!Number.isFinite(n)) throw new BadRequestException('Temps disponible invalide.');
+      champs.minutes_par_jour = Math.min(240, Math.max(5, Math.round(n)));
+    }
+
+    if (donnees.niveau !== undefined) {
+      if (!(donnees.niveau in CoachMemoryService.NIVEAU_LISIBLE)) {
+        throw new BadRequestException('Niveau de départ inconnu.');
+      }
+      champs.niveau_depart = donnees.niveau;
+    }
+
+    // Une chaîne vide efface : c'est la façon dont on retire une blessure guérie ou
+    // des partiels passés. Sans ce cas, une contrainte périmée serait indélébile.
+    if (donnees.situation !== undefined) {
+      const propre = String(donnees.situation).trim().slice(0, 600);
+      champs.situation = propre || null;
+    }
+
+    if (!Object.keys(champs).length) throw new BadRequestException('Rien à mettre à jour.');
+
+    await this.prisma.aIProfile.upsert({
+      where: { user_id: userId },
+      update: champs,
+      create: { user_id: userId, ...champs },
+    });
+
+    // Même raison que pour l'objectif : la phrase d'ouverture en cache a été écrite
+    // en ignorant ce qu'on vient d'apprendre.
+    await this.prisma.aIProfile
+      .update({ where: { user_id: userId }, data: { ouverture_texte: null, ouverture_genere_le: null } })
+      .catch(() => {});
+
+    return this.lireProfil(userId);
   }
 
   /**
@@ -491,7 +566,8 @@ RÈGLES DE COMPORTEMENT :
     2. **CE QUE SON MÉTIER IMPOSE fixe les créneaux.** Un salarié n'est pas libre à 14 h, un étudiant a cours, un entrepreneur se fait dévorer sa fin de journée. Place les tâches là où il est réellement disponible, et dis-le dans l'explication.
     3. **SON POINT DE DÉPART fixe la difficulté.** Un sédentaire ne reçoit pas quatre séries de douze pompes. Un confirmé ne reçoit pas de la marche. Se tromper de niveau est la façon la plus rapide de perdre quelqu'un.
     4. **CE QU'IL T'A DIT DANS SES MOTS prime sur tout le reste.** S'il a mentionné une blessure, un horaire, un matériel qu'il n'a pas, un enfant, une échéance — le plan doit visiblement en tenir compte. C'est la seule chose qu'aucun autre compte ne partage avec lui : c'est là que se joue le fait que ce plan soit le sien.
-    5. **SA CONSTANCE fixe l'ambition.** Quelqu'un qui abandonne vite reçoit peu de tâches, très courtes, et une victoire atteignable dès aujourd'hui. Quelqu'un de discipliné reçoit de quoi progresser réellement.
+    5. **TES OBJECTIFS NE DOIVENT PAS CONTREDIRE TON PROPRE PLAN.** Un objectif qui réclame trente minutes de marche par jour, alors que les routines en prescrivent cinq, se lit comme un reproche permanent : la personne voit chaque jour qu'elle est en dessous d'une barre que tu as toi-même placée hors de portée. Relis tes routines avant d'écrire les objectifs, et n'y fixe jamais un volume quotidien supérieur à ce que tu viens de prescrire.
+    6. **SA CONSTANCE fixe l'ambition.** Quelqu'un qui abandonne vite reçoit peu de tâches, très courtes, et une victoire atteignable dès aujourd'hui. Quelqu'un de discipliné reçoit de quoi progresser réellement.
     **Les quatre champs "...Explanation" doivent nommer explicitement ce qui a guidé tes choix** — son métier, son temps, son niveau, ce qu'il t'a raconté. Une explication qui pourrait être envoyée à n'importe qui d'autre est une explication ratée. **Deux personnes différentes ne doivent jamais recevoir le même plan.**
     **CE QU'UN PLAN DOIT CONTENIR (RÈGLE DÉCISIVE)** :
     - Dès que tu construis ou reconstruis un plan, tu DOIS produire à la fois "newMacroObjectives" (1 à 3 visions long terme, c'est le cap) ET "newMicroObjectives" (2 à 4 petites victoires pour la semaine en cours). Attention : "macro-objectif" désigne un objectif de vie à long terme, JAMAIS les macronutriments de l'alimentation — ceux-là vont dans "newNutrition". Un plan sans macro-objectif est un plan sans direction : c'est le défaut le plus fréquent, ne le commets pas.

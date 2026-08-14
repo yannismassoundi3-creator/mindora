@@ -12,6 +12,7 @@ import { RelanceOffre } from '../components/RelanceOffre';
 import type { JarvisPopupData } from '../components/JarvisPopup';
 import { signalerJournee, annoncerGain, lireEtatDuJour } from '../utils/journee';
 import { PremiersPas } from '../components/PremiersPas';
+import { CadrageManquant } from '../components/CadrageManquant';
 import { lireObjectif, rafraichirObjectif, EVENEMENT_OBJECTIF } from '../utils/objectif';
 import { api } from '../services/api';
 import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
@@ -905,6 +906,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
           ensemble (l'une part au bout de trois jours de report, l'autre ne commence
           qu'au troisième jour), et si cela arrive, c'est l'abonnement qui cède le pas. */}
       <RelanceOffre />
+
+      {/*
+        Les comptes ouverts avant que l'inscription ne demande le temps disponible et
+        le point de départ ne repasseront jamais par le questionnaire : il ne se
+        rejoue que pour qui n'a aucun profil. Sans cette carte, leur coach doserait
+        leurs plans au hasard indéfiniment. Elle se décide côté serveur et disparaît
+        dès qu'on lui a répondu.
+
+        Placée après la relance d'abonnement, et pas avant : les deux ne peuvent se
+        croiser que rarement, et si cela arrive, une question qui améliore le produit
+        passe après une offre déjà retardée de trois jours — mais avant les premiers
+        pas, qu'elle conditionne.
+      */}
+      <CadrageManquant nomCoach={aiName} />
 
       {/*
         Tant qu'il n'y a pas d'historique, la place du graphique et du damier

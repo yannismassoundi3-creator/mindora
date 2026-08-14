@@ -68,6 +68,33 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
     }
   };
 
+  // Ce que le coach croit savoir de la situation. Contrairement au cap, il n'a pas
+  // de cache local : il n'est affiché nulle part ailleurs, et le lire au serveur
+  // évite de montrer une contrainte périmée par un autre appareil.
+  const [situation, setSituation] = useState('');
+  const [etatSituation, setEtatSituation] = useState<'idle' | 'envoi' | 'ok' | 'erreur'>('idle');
+
+  useEffect(() => {
+    api
+      .get('/ai-coaching/profil')
+      .then((p) => {
+        // Même précaution que pour le cap : ne pas écraser une saisie en cours.
+        setSituation((actuel) => (actuel ? actuel : p?.situation || ''));
+      })
+      .catch(() => {});
+  }, []);
+
+  const enregistrerSituation = async () => {
+    playClickSound();
+    setEtatSituation('envoi');
+    try {
+      await api.patch('/ai-coaching/profil/cadrage', { situation });
+      setEtatSituation('ok');
+    } catch {
+      setEtatSituation('erreur');
+    }
+  };
+
   // Identity
   const [userName, setUserName] = useState(() => localStorage.getItem('mindset_user_name') || 'Yannis');
   const [aiName, setAiName] = useState(() => localStorage.getItem('mindset_ai_name') || 'Coach IA');
@@ -323,6 +350,43 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
               sa phrase et croire qu'elle a été enregistrée.
             */}
             {etatObjectif === 'erreur' && (
+              <p className="text-danger cap-retour">Pas pu enregistrer. Réessaie dans un instant.</p>
+            )}
+
+            {/*
+              Ce que le coach croit savoir de la situation, et le moyen de le
+              corriger. Même raison que pour le cap, en plus net : une contrainte
+              se périme toute seule. Un genou guérit, des partiels passent, un
+              emploi change — et sans cet endroit, le coach continuerait à composer
+              des plans autour d'une blessure qui n'existe plus, sans que personne
+              puisse le lui dire. Le champ vide est accepté, c'est ainsi qu'on
+              retire une contrainte.
+            */}
+            <div className="form-group form-group-situation">
+              <label>Ce que {aiName} doit savoir</label>
+              <textarea
+                className="glass-input"
+                rows={3}
+                value={situation}
+                maxLength={600}
+                placeholder="Ex : genou fragile, je bosse en 3x8, pas de matériel chez moi..."
+                onChange={(e) => { setSituation(e.target.value); setEtatSituation('idle'); }}
+              />
+              <small>Blessure, horaires, matériel, échéance. C'est ce qui rend ton plan applicable — laisse vide s'il n'y a plus rien.</small>
+            </div>
+
+            <button
+              className="btn-primary btn-cap"
+              disabled={etatSituation === 'envoi'}
+              onClick={enregistrerSituation}
+            >
+              {etatSituation === 'envoi' ? 'Enregistrement…' : <><Save size={16}/> Enregistrer</>}
+            </button>
+
+            {etatSituation === 'ok' && (
+              <p className="text-success cap-retour"><CheckCircle size={14}/> C'est noté. Ton prochain plan en tiendra compte.</p>
+            )}
+            {etatSituation === 'erreur' && (
               <p className="text-danger cap-retour">Pas pu enregistrer. Réessaie dans un instant.</p>
             )}
           </div>
