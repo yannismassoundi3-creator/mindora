@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CoachMemoryService } from './coach-memory.service';
 
@@ -145,6 +145,67 @@ export class AiCoachingService {
     // Le message annonçait « et premier programme généré », ce qui n'a jamais été le
     // cas. Un retour qui décrit autre chose que ce qui s'est produit finit par être cru.
     return { message: 'Profil enregistré.', profile };
+  }
+
+  /** Longueur au-delà de laquelle un objectif n'est plus une phrase mais un texte. */
+  static readonly MAX_OBJECTIF = 120;
+
+  /**
+   * Ce que la personne a déclaré vouloir devenir.
+   *
+   * Cette table était en écriture seule : remplie à l'inscription, lue uniquement
+   * par le prompt du serveur, et jamais réaffichée. On demandait donc à quelqu'un
+   * « quel est ton objectif numéro 1 ? » pour ne plus jamais le lui redire — alors
+   * que c'est la seule phrase qui explique pourquoi il coche des cases tous les
+   * jours. L'app peut maintenant la lui remettre sous les yeux.
+   *
+   * Le sous-ensemble rendu est délibéré : ni la mémoire longue, ni l'ouverture en
+   * cache n'ont à sortir d'ici. La première est une fiche de suivi écrite pour le
+   * modèle, pas pour la personne qu'elle décrit.
+   */
+  async lireProfil(userId: string) {
+    const profil = await this.prisma.aIProfile.findUnique({
+      where: { user_id: userId },
+      select: { objectives: true, occupation: true, personality: true, coaching_style: true },
+    });
+    return {
+      objectif: profil?.objectives?.[0] ?? null,
+      occupation: profil?.occupation ?? null,
+      personality: profil?.personality ?? null,
+      coaching_style: profil?.coaching_style ?? null,
+    };
+  }
+
+  /**
+   * Change l'objectif déclaré.
+   *
+   * Sans cette route, afficher l'objectif en permanence serait pire que de ne pas
+   * l'afficher : un objectif figé sur ce qu'on a coché en trente secondes le jour
+   * de l'inscription, impossible à corriger, devient un reproche quotidien.
+   *
+   * `upsert` parce qu'un compte peut n'avoir jamais eu de profil — le questionnaire
+   * a longtemps échoué en silence, et ces comptes-là existent toujours.
+   */
+  async majObjectif(userId: string, objectif: string) {
+    const propre = String(objectif ?? '').trim().slice(0, AiCoachingService.MAX_OBJECTIF);
+    if (!propre) throw new BadRequestException('Un objectif ne peut pas être vide.');
+
+    const profil = await this.prisma.aIProfile.upsert({
+      where: { user_id: userId },
+      update: { objectives: [propre] },
+      create: { user_id: userId, objectives: [propre] },
+      select: { objectives: true },
+    });
+
+    // L'ouverture en cache a été écrite en connaissant l'ancien objectif. La garder
+    // ferait accueillir quelqu'un qui vient de changer de cap par une phrase qui
+    // parle de l'ancien — exactement le genre de détail qui trahit un coach qui ne
+    // suit pas. On la jette, la suivante sera régénérée.
+    await this.prisma.aIProfile
+      .update({ where: { user_id: userId }, data: { ouverture_texte: null, ouverture_genere_le: null } })
+      .catch(() => {});
+
+    return { objectif: profil.objectives?.[0] ?? propre };
   }
 
   // generateRoutinesForUser a été supprimé avec la route qui l'exposait.

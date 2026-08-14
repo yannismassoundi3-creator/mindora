@@ -267,6 +267,31 @@ input:checked + .slider:before {
   margin-bottom: 20px;
 }
 
+/* Le bouton d'enregistrement du cap. `btn-primary` porte déjà l'apparence ; il ne
+   manque que la mise en page, la carte n'ayant pas de rangée de boutons. */
+.btn-cap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 16px;
+}
+
+.btn-cap:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Le retour d'enregistrement, sous le bouton. */
+.cap-retour {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0 0;
+  font-size: 0.85rem;
+}
+
 /* Raccourci vers le panneau d'administration. C'est un lien et non un bouton :
    il change d'adresse, et il échappe ainsi aux règles des thèmes monochromes qui
    redessinent tout `button` en `!important`. */

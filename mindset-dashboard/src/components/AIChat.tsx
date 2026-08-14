@@ -7,6 +7,7 @@ import { getSecurePoints } from '../utils/secureStorage';
 import { sauvegarderPlanPrecedent, planPrecedentDisponible, restaurerPlanPrecedent } from '../utils/planPrecedent';
 import { normaliserJours } from '../utils/recurrence';
 import { extrairePlan, reparerJson } from '../utils/extractionPlan';
+import { composerOuverture } from '../utils/ouverture';
 import './AIChat.css';
 import { api } from '../services/api';
 
@@ -25,6 +26,13 @@ interface Message {
    */
   offreAbonnement?: boolean;
   /**
+   * Marque la phrase d'ouverture, celle que le coach dit avant qu'on lui ait rien
+   * demandé. Elle est d'abord composée localement puis remplacée par celle du
+   * modèle : ce drapeau est ce qui permet de ne la remplacer que si elle est
+   * encore seule à l'écran, jamais au milieu d'une conversation entamée.
+   */
+  estOuverture?: boolean;
+  /**
    * Identifiant de la copie prise juste avant que ce plan n'écrase le précédent.
    *
    * Présent uniquement quand quelque chose a réellement été remplacé : un ajout n'a
@@ -39,13 +47,28 @@ export const AIChat: React.FC = () => {
   const aiName = localStorage.getItem('mindset_ai_name') || 'Coach IA';
 
   const [messages, setMessages] = useState<Message[]>(() => {
+    /*
+      La première phrase n'est plus « Bonjour, je suis X. Comment je peux t'aider
+      aujourd'hui ? ».
+
+      C'était une chaîne écrite en dur, alors que le navigateur connaît déjà la
+      journée, la série et l'objectif déclaré, et que le serveur connaît en plus
+      les échanges passés et la tendance. Autrement dit : le coach avait tout ce
+      qu'il fallait pour dire quelque chose que personne d'autre ne pouvait dire,
+      et ouvrait sur la phrase d'accueil d'un service client. C'est la première
+      impression, et c'est là qu'on comprend — ou non — pourquoi il existe.
+
+      Celle-ci est composée localement, donc affichée immédiatement ; la version
+      du modèle la remplace quelques instants plus tard si elle arrive.
+    */
     const defaultMessage = {
       id: 1,
-      text: `Bonjour, je suis ${aiName}. Comment je peux t'aider aujourd'hui ?`,
+      text: composerOuverture(localStorage.getItem('mindset_user_name') || ''),
       sender: 'ai' as const,
+      estOuverture: true,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
-    
+
     const today = new Date().toLocaleDateString();
     const savedDate = localStorage.getItem('mindset_ai_chat_date');
     if (savedDate !== today) {
@@ -92,6 +115,45 @@ export const AIChat: React.FC = () => {
         setMessages(cleanedData);
       }
     }).catch(e => console.error("Could not fetch persistent chat history", e));
+  }, []);
+
+  /*
+    La version écrite par le coach lui-même.
+
+    Elle ne remplace la phrase locale que si la conversation en est toujours à
+    cette seule phrase : entre-temps, l'historique du serveur a pu arriver, ou la
+    personne a pu écrire. Dans les deux cas, glisser une ouverture au milieu
+    d'une conversation déjà commencée serait absurde.
+
+    On n'envoie que les routines : c'est tout ce que le serveur lit pour situer
+    la journée, et le reste du contexte se paierait en jetons pour rien.
+
+    L'échec est silencieux et sans conséquence — la phrase locale est déjà à
+    l'écran, elle reste. C'est aussi le comportement quand le quota Groq est
+    épuisé, ce qui ne doit surtout pas se lire comme une panne.
+  */
+  useEffect(() => {
+    let vivant = true;
+
+    api
+      .post('/ai-coaching/ouverture', {
+        context: { routines: JSON.parse(localStorage.getItem('mindset_routines') || '[]') },
+        aiName,
+      })
+      .then((data: any) => {
+        const texte = typeof data?.texte === 'string' ? data.texte.trim() : '';
+        if (!vivant || !texte) return;
+        setMessages((actuels) =>
+          actuels.length === 1 && (actuels[0] as any).estOuverture
+            ? [{ ...actuels[0], text: texte }]
+            : actuels,
+        );
+      })
+      .catch(() => {});
+
+    return () => {
+      vivant = false;
+    };
   }, []);
 
   useEffect(() => {

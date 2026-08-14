@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, Area, AreaChart } from 'recharts';
-import { Play, CheckCircle2, TrendingUp, Sparkles, Pencil, Coins, Circle, ChevronLeft, ChevronRight, Plus, Trophy, Calendar, Trash2, X } from 'lucide-react';
+import { Play, CheckCircle2, TrendingUp, Sparkles, Pencil, Coins, Circle, ChevronLeft, ChevronRight, Plus, Trophy, Calendar, Trash2, Target, X } from 'lucide-react';
 import { AiNotification } from '../components/AiNotification';
 import { RankIcon } from '../components/RankIcon';
 import { ProgressionRang } from '../components/ProgressionRang';
@@ -10,7 +10,9 @@ import { JarvisPopup } from '../components/JarvisPopup';
 import { NotificationsOptIn } from '../components/NotificationsOptIn';
 import { RelanceOffre } from '../components/RelanceOffre';
 import type { JarvisPopupData } from '../components/JarvisPopup';
-import { signalerJournee, annoncerGain } from '../utils/journee';
+import { signalerJournee, annoncerGain, lireEtatDuJour } from '../utils/journee';
+import { PremiersPas } from '../components/PremiersPas';
+import { lireObjectif, rafraichirObjectif, EVENEMENT_OBJECTIF } from '../utils/objectif';
 import { api } from '../services/api';
 import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
 import { estPourAujourdhui, libelleJours } from '../utils/recurrence';
@@ -528,6 +530,38 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   const microDone = Array.isArray(microObjectives) ? microObjectives.filter((o: any) => o.done).length : 0;
   const microTotal = Array.isArray(microObjectives) ? microObjectives.length : 0;
 
+  /**
+   * Nombre de jours vécus au-delà duquel le graphique et le damier valent la place
+   * qu'ils prennent.
+   *
+   * Trois, parce que c'est le premier chiffre à partir duquel une courbe montre une
+   * direction et un damier montre une régularité. En dessous, ils affichent la même
+   * chose pour tout le monde : une ligne plate et une année vide.
+   */
+  const JOURS_AVANT_HISTORIQUE = 3;
+
+  const aAssezDHistorique = useMemo(() => {
+    const scores = loadDailyScores();
+    return Object.values(scores || {}).filter((s: any) => Number(s) > 0).length >= JOURS_AVANT_HISTORIQUE;
+    // `mentalScore` change à chaque case cochée : c'est ce qui fait réapparaître les
+    // deux blocs le jour où le troisième s'ajoute, sans recharger la page.
+  }, [mentalScore]);
+
+  /*
+    Ce que la personne a déclaré vouloir devenir.
+
+    Lu depuis le cache local pour être affiché dès le premier rendu, puis rafraîchi
+    depuis le serveur — qui fait autorité, et que relit le coach.
+  */
+  const [objectifDeclare, setObjectifDeclare] = useState<string | null>(() => lireObjectif());
+
+  useEffect(() => {
+    rafraichirObjectif().then(setObjectifDeclare).catch(() => {});
+    const surObjectif = (e: Event) => setObjectifDeclare((e as CustomEvent).detail ?? lireObjectif());
+    window.addEventListener(EVENEMENT_OBJECTIF, surObjectif);
+    return () => window.removeEventListener(EVENEMENT_OBJECTIF, surObjectif);
+  }, []);
+
   // --- WEEKLY DATA (real) ---
   const weeklyData = getLastNDays(7).map(dateStr => {
     const scores = loadDailyScores();
@@ -771,6 +805,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   const userName = localStorage.getItem('mindset_user_name') || 'Utilisateur';
   const aiName = localStorage.getItem('mindset_ai_name') || 'DISCIPLIX OS';
 
+  // Les tâches d'aujourd'hui, telles que le bandeau les compte — mêmes formules,
+  // un seul endroit de calcul, sinon les deux affichent des chiffres différents.
+  const { faites: routineDone, total: routineTotal } = lireEtatDuJour();
+
   return (
     <div className="dashboard-container">
       {jarvisPopup && (
@@ -824,7 +862,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
               apprendre : ni où on en est, ni quoi faire. Le bouton juste en dessous
               dit déjà que le coach est joignable, et le reste de l'écran doit parler
               de la journée de la personne, pas de l'état du logiciel.
+
+              À sa place, la seule phrase qui explique pourquoi on coche des cases
+              tous les jours. Elle est demandée à l'inscription — « quel est ton
+              objectif numéro 1 ici ? » — puis elle partait en base pour n'être lue
+              que par le prompt du coach, et n'était plus jamais réaffichée. Sans
+              elle, l'application est un tableau de bord posé sur rien, et
+              l'abonnement se vend comme un compteur épuisé plutôt que comme la
+              personne qu'on essaie de devenir.
+
+              Elle est modifiable depuis le Profil : figée sur ce qu'on a coché en
+              trente secondes le jour de l'inscription, elle deviendrait un reproche.
             */}
+            {objectifDeclare && (
+              <p className="objectif-declare" title="Modifiable depuis ton profil">
+                <Target size={14} />
+                <span>
+                  Tu veux <strong>{objectifDeclare.charAt(0).toLocaleLowerCase('fr-FR') + objectifDeclare.slice(1)}</strong>
+                </span>
+              </p>
+            )}
           </div>
         
         <div className="header-actions">
@@ -849,14 +906,47 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
           qu'au troisième jour), et si cela arrive, c'est l'abonnement qui cède le pas. */}
       <RelanceOffre />
 
-      <div className="dashboard-grid">
+      {/*
+        Tant qu'il n'y a pas d'historique, la place du graphique et du damier
+        revient à la boucle elle-même. Ici et non dans la grille : sur téléphone,
+        la colonne de gauche passe après celle de droite (voir l'ordre défini dans
+        la requête média des 900 px), et ces trois lignes se retrouveraient donc
+        sous les routines — après ce qu'elles sont censées expliquer.
+      */}
+      {!aAssezDHistorique && (
+        <PremiersPas
+          objectifPose={!!objectifDeclare}
+          planPose={routineTotal > 0}
+          premiereTacheFaite={routineDone > 0}
+          nomCoach={aiName}
+          onOuvrirChat={onOpenChat}
+        />
+      )}
+
+      <div className={`dashboard-grid ${aAssezDHistorique ? '' : 'dashboard-grid--sans-historique'}`}>
+        {/*
+          Le graphique et le damier ne s'affichent qu'à partir du moment où ils ont
+          quelque chose à montrer.
+
+          Mesuré sur un compte neuf, sur iPhone : à eux deux ils occupaient 913 px,
+          soit 43 % d'une page qui en faisait 2121 — pour afficher une courbe plate
+          et 365 cases vides. C'est la première impression de l'application, et
+          c'était celle d'un instrument de mesure branché sur rien.
+
+          Rien n'est supprimé : ces deux blocs réapparaissent d'eux-mêmes, et ils
+          valent alors beaucoup, parce qu'ils montrent quelque chose de vécu.
+        */}
+        {aAssezDHistorique && (
         <div className="dashboard-left-col">
           {/* Main Chart Section */}
           <section className="glass-panel chart-section glass-panel-interactive pulse-glow" style={{ transition: 'transform 0.3s ease, opacity 0.3s ease, background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, color 0.3s ease', cursor: 'pointer' }}>
             <div className="section-header">
               <div>
                 <h3>Évolution Mentale</h3>
-                <p className="section-desc">Ton niveau d'énergie et de focus</p>
+                {/* « Ton niveau d'énergie et de focus » : le mot Énergie est celui
+                    du solde qui autorise à parler au coach. Ici on parle du score
+                    de la journée, c'est-à-dire d'autre chose. */}
+                <p className="section-desc">Ton score jour après jour</p>
               </div>
               
               <div className="chart-tabs">
@@ -910,7 +1000,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
                         color: mentalScore >= 100 ? '#ffb199' : '#ffffff',
                         textShadow: mentalScore >= 100 ? '0 0 20px rgba(255,8,68,0.8)' : '0 0 10px rgba(255,255,255,0.2)'
                       }}>{mentalScore}</span>
-                      <span className="gauge-label">ÉNERGIE</span>
+                      {/*
+                        Cette jauge affichait « ÉNERGIE », et le chat affiche aussi
+                        une « Énergie » — qui est le solde autorisant à parler au
+                        coach. Deux choses sans rapport sous le même mot, dans la
+                        même application : ici c'est le score mental du jour, et
+                        c'est ce que dit déjà le titre de la carte.
+                      */}
+                      <span className="gauge-label">MENTAL</span>
                     </div>
 
                   </div>
@@ -1112,7 +1209,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
             })()}
           </section>
         </div>
-        
+        )}
+
         <div className="dashboard-right-col">
           {/*
             La carte « Série de focus » a été retirée d'ici : la série est passée
@@ -1124,21 +1222,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
             commentait la série sans rien apprendre. L'avertissement de série perdue,
             lui, a suivi la série dans le bandeau.
           */}
+          {/*
+            « Objectifs atteints : 0/0 terminés » ne dit rien à quelqu'un qui n'a
+            pas encore d'objectifs — c'est une case d'un tableau de bord qui compte
+            ce qui n'existe pas. Elle revient dès qu'il y a quelque chose à compter.
+          */}
+          {microTotal > 0 && (
           <div className="stats-row">
             <div className="glass-panel stat-card glass-panel-interactive">
               <div className="stat-icon blue"><Trophy size={22} /></div>
               <div className="stat-info">
                 <span className="stat-label">Objectifs atteints</span>
                 <span className="stat-value">{microDone}/{microTotal} terminés</span>
-                {microTotal > 0 && (
-                  <div className="obj-progress-bar">
-                    <div className="obj-progress-fill" style={{ width: `${(microDone / microTotal) * 100}%` }}></div>
-                  </div>
-                )}
+                <div className="obj-progress-bar">
+                  <div className="obj-progress-fill" style={{ width: `${(microDone / microTotal) * 100}%` }}></div>
+                </div>
               </div>
             </div>
           </div>
-  
+          )}
+
           <section ref={routinesRef} className="glass-panel routines-section" style={{ display: 'flex', flexDirection: 'column' }}>
             <div className="section-header" style={{ marginBottom: '20px' }}>
               <div className="chart-tabs" style={{ width: '100%', display: 'flex' }}>

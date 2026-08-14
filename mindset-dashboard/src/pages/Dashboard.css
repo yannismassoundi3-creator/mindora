@@ -51,6 +51,75 @@
   gap: 24px;
 }
 
+/*
+  Tant qu'il n'y a pas d'historique, la colonne de gauche n'est pas rendue. Sans
+  cette règle, la colonne restante garderait son tiers de largeur : la liste des
+  routines s'écraserait dans une bande étroite, les deux tiers vides à côté.
+*/
+.dashboard-grid--sans-historique {
+  grid-template-columns: 1fr;
+}
+
+/*
+  Ce que la personne a déclaré vouloir devenir, sous son prénom.
+
+  Discrète par construction : c'est un cap, pas une notification. Elle doit se
+  lire une fois, se laisser oublier, et se retrouver quand on la cherche.
+*/
+/*
+  La colonne de gauche de l'en-tête doit rester dans la largeur de l'écran.
+
+  Sur téléphone, `.dashboard-header` passe en `flex-direction: column` avec
+  `align-items: flex-start` : ses enfants sont alors dimensionnés sur leur contenu
+  et **peuvent dépasser leur parent**, ce que `min-width: 0` ne corrige pas — cette
+  propriété ne joue que sur l'axe principal, et ici la largeur est l'axe croisé.
+
+  Mesuré à 320 px : la ligne de cap portait la boîte à 327 px dans une zone de 314,
+  et l'`overflow-x: hidden` coupait tout l'en-tête — le rang et la date compris,
+  alors qu'eux tenaient très bien. `max-width` les ramène dans la largeur du
+  parent, et le `text-overflow` de la ligne de cap fait le reste.
+
+  Le sélecteur est qualifié par `.dashboard-container` parce que `dashboard-header`
+  habille aussi les en-têtes des Objectifs, des Habitudes et du Profil.
+*/
+.dashboard-container > .dashboard-header > div {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.objectif-declare {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 6px 0 0;
+  font-size: 0.92rem;
+  color: var(--secondary);
+  min-width: 0;
+}
+
+.objectif-declare svg {
+  flex-shrink: 0;
+  color: var(--accent-text, var(--primary));
+}
+
+.objectif-declare span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.objectif-declare strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .objectif-declare {
+    font-size: 0.85rem;
+  }
+}
+
 .dashboard-left-col {
   display: flex;
   flex-direction: column;

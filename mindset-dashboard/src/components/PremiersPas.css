@@ -1,0 +1,135 @@
+/*
+  La carte des premiers pas. Elle prend la place laissée par le graphique et le
+  damier tant que ceux-ci n'ont rien à montrer — et doit donc rester nettement
+  plus courte qu'eux, sans quoi on aurait remplacé du vide par du volume.
+*/
+
+.premiers-pas {
+  padding: 20px 22px;
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.premiers-pas-intro h3 {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+}
+
+.premiers-pas-intro p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--secondary);
+}
+
+.premiers-pas-liste {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  /* Un enfant de grille refuse de descendre sous la largeur de son contenu et
+     élargit sa piste : sans ceci, un titre long emporterait toute la colonne. */
+  min-width: 0;
+}
+
+.premiers-pas-etape {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  min-width: 0;
+}
+
+/* L'étape du moment est la seule mise en avant : trois lignes également
+   soulignées ne diraient pas par où commencer. */
+.premiers-pas-etape.en-cours {
+  border-color: color-mix(in srgb, var(--primary) 45%, transparent);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+
+.premiers-pas-etape.faite {
+  opacity: 0.55;
+}
+
+.premiers-pas-etape.faite .premiers-pas-texte strong {
+  text-decoration: line-through;
+}
+
+.premiers-pas-puce {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--accent-text, var(--primary));
+}
+
+.premiers-pas-etape.faite .premiers-pas-puce {
+  background: color-mix(in srgb, var(--success, #10b981) 25%, transparent);
+  color: var(--success, #10b981);
+}
+
+.premiers-pas-texte {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.premiers-pas-texte strong {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.premiers-pas-detail {
+  font-size: 0.82rem;
+  color: var(--secondary);
+}
+
+/*
+  Un lien déguisé en bouton serait plus simple, mais celui-ci ouvre une vue et non
+  une adresse. Il faut donc passer devant `body.theme-monochrome-dark button`, qui
+  impose bordure et halo en !important : deux classes suffisent pour la règle de
+  base, la troisième couvre le survol de `global.css`.
+*/
+.premiers-pas .premiers-pas-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--primary) 55%, transparent) !important;
+  background: color-mix(in srgb, var(--primary) 16%, transparent) !important;
+  color: var(--accent-text, var(--primary));
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  box-shadow: none !important;
+}
+
+.premiers-pas .premiers-pas-action:hover {
+  background: color-mix(in srgb, var(--primary) 26%, transparent) !important;
+}
+
+@media (max-width: 900px) {
+  .premiers-pas {
+    padding: 16px 14px;
+    gap: 14px;
+  }
+
+  .premiers-pas-intro p {
+    font-size: 0.85rem;
+  }
+}

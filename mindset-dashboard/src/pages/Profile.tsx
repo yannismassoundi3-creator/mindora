@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Shield, Lock, HardDrive, AlertTriangle, Save, CheckCircle, Database, Palette, FileText, X, Crown, LogOut, Sparkles } from 'lucide-react';
+import { User, Shield, Lock, HardDrive, AlertTriangle, Save, CheckCircle, Database, Palette, FileText, X, Crown, LogOut, Sparkles, Target } from 'lucide-react';
 import { PricingScreen } from './PricingScreen';
 import { playHoverSound, playClickSound, playToggleSound, playLevelUpSound } from '../utils/sounds';
 import { api } from '../services/api';
@@ -10,6 +10,7 @@ import { getSecurePoints, removeSecurePoints } from '../utils/secureStorage';
 import { bufferToBase64url } from '../utils/webauthn';
 import { activerPro, formuleActuelle, type Formule } from '../utils/paiement';
 import { oublierLaSession } from '../utils/session';
+import { lireObjectif, rafraichirObjectif, definirObjectif, MAX_OBJECTIF } from '../utils/objectif';
 import './Profile.css';
 
 interface ProfileProps {
@@ -38,6 +39,34 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
   // Écrit au démarrage par la réponse de `/auth/me` (voir `App.tsx`). N'ouvre aucun
   // droit : il ne décide que de l'affichage d'un raccourci.
   const estAdmin = localStorage.getItem('mindset_role') === 'ADMIN';
+
+  // Le cap déclaré. Affiché depuis le cache local, puis confirmé par le serveur —
+  // qui fait autorité, puisque c'est lui que relit le coach.
+  const [objectif, setObjectif] = useState(() => lireObjectif() || '');
+  const [etatObjectif, setEtatObjectif] = useState<'idle' | 'envoi' | 'ok' | 'erreur'>('idle');
+
+  useEffect(() => {
+    rafraichirObjectif()
+      .then((valeur) => {
+        // Ne rien écraser si la personne est déjà en train de taper : le serveur
+        // répond après le premier rendu, et reprendre la main ici effacerait sa
+        // phrase en cours sous ses doigts.
+        setObjectif((actuel) => (actuel ? actuel : valeur || ''));
+      })
+      .catch(() => {});
+  }, []);
+
+  const enregistrerObjectif = async () => {
+    playClickSound();
+    setEtatObjectif('envoi');
+    try {
+      const retenu = await definirObjectif(objectif);
+      setObjectif(retenu);
+      setEtatObjectif('ok');
+    } catch {
+      setEtatObjectif('erreur');
+    }
+  };
 
   // Identity
   const [userName, setUserName] = useState(() => localStorage.getItem('mindset_user_name') || 'Yannis');
@@ -249,6 +278,53 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
             */}
             <ProgressionRang variante="complet" />
             <p className="join-date">Membre depuis le {joinDate}</p>
+          </div>
+
+          {/*
+            Le cap, en premier.
+
+            Il est demandé à l'inscription — « quel est ton objectif numéro 1 ? » —
+            puis il partait en base pour n'être lu que par le prompt du coach. Il
+            est maintenant affiché en haut du tableau de bord, ce qui n'est
+            défendable qu'à une condition : qu'il reste modifiable. Un cap choisi
+            en trente secondes le jour de l'inscription, et impossible à corriger,
+            deviendrait un reproche quotidien plutôt qu'une direction.
+          */}
+          <div className="profile-card glass-panel form-card">
+            <h3 className="card-title"><Target size={18}/> Qui tu veux devenir</h3>
+
+            <div className="form-group">
+              <label>Ton cap</label>
+              <input
+                type="text"
+                className="glass-input"
+                value={objectif}
+                maxLength={MAX_OBJECTIF}
+                placeholder="Ex : Construire une discipline de fer"
+                onChange={(e) => { setObjectif(e.target.value); setEtatObjectif('idle'); }}
+              />
+              <small>{aiName} s'en sert à chaque message, et c'est ce que tu lis en haut du tableau de bord.</small>
+            </div>
+
+            <button
+              className="btn-primary btn-cap"
+              disabled={etatObjectif === 'envoi' || !objectif.trim()}
+              onClick={enregistrerObjectif}
+            >
+              {etatObjectif === 'envoi' ? 'Enregistrement…' : <><Save size={16}/> Enregistrer mon cap</>}
+            </button>
+
+            {etatObjectif === 'ok' && (
+              <p className="text-success cap-retour"><CheckCircle size={14}/> C'est noté. {aiName} en tiendra compte.</p>
+            )}
+            {/*
+              L'échec est dit, et le champ garde ce qui a été tapé : effacer la
+              saisie de quelqu'un parce que le réseau a hoqueté lui ferait perdre
+              sa phrase et croire qu'elle a été enregistrée.
+            */}
+            {etatObjectif === 'erreur' && (
+              <p className="text-danger cap-retour">Pas pu enregistrer. Réessaie dans un instant.</p>
+            )}
           </div>
 
           <div className="profile-card glass-panel form-card">

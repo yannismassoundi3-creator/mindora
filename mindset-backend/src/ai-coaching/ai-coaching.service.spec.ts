@@ -322,3 +322,100 @@ describe('AiCoachingService.retirerPlan — nettoyage de l\'historique', () => {
     expect(AiCoachingService.retirerPlan(message)).toBe(message);
   });
 });
+
+/**
+ * L'objectif déclaré était en écriture seule : rempli à l'inscription, lu par le
+ * seul prompt du serveur, jamais réaffiché. L'app le remet maintenant sous les yeux
+ * de la personne — ce qui n'est défendable que s'il reste modifiable, sinon un choix
+ * fait en trente secondes le jour de l'inscription devient un reproche quotidien.
+ */
+describe('AiCoachingService — l\'objectif déclaré', () => {
+  let service: AiCoachingService;
+  let prisma: any;
+
+  beforeEach(async () => {
+    prisma = {
+      aIProfile: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        upsert: jest.fn().mockImplementation(({ update, create }: any) => ({
+          objectives: (update?.objectives ?? create?.objectives) as string[],
+        })),
+        update: jest.fn().mockResolvedValue({}),
+      },
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [AiCoachingService, CoachMemoryService, { provide: PrismaService, useValue: prisma }],
+    }).compile();
+
+    service = module.get(AiCoachingService);
+  });
+
+  it('rend le premier objectif du profil', async () => {
+    prisma.aIProfile.findUnique.mockResolvedValue({
+      objectives: ['Devenir constant', 'Autre chose'],
+      occupation: 'Étudiant',
+      personality: null,
+      coaching_style: null,
+    });
+
+    expect(await service.lireProfil('u1')).toEqual({
+      objectif: 'Devenir constant',
+      occupation: 'Étudiant',
+      personality: null,
+      coaching_style: null,
+    });
+  });
+
+  // Un compte peut n'avoir aucun profil : le questionnaire a longtemps échoué en
+  // silence, et ces comptes-là existent toujours en production.
+  it('ne casse pas sur un compte sans profil', async () => {
+    expect(await service.lireProfil('u1')).toEqual({
+      objectif: null,
+      occupation: null,
+      personality: null,
+      coaching_style: null,
+    });
+  });
+
+  it('enregistre un objectif en le nettoyant', async () => {
+    expect(await service.majObjectif('u1', '   Devenir quelqu\'un de fiable   ')).toEqual({
+      objectif: 'Devenir quelqu\'un de fiable',
+    });
+  });
+
+  // Cette phrase est affichée en haut de l'écran et repart dans le prompt à chaque
+  // message : sans plafond, elle déborderait de l'un et serait facturée dans l'autre.
+  it('borne la longueur', async () => {
+    const { objectif } = await service.majObjectif('u1', 'a'.repeat(300));
+
+    expect(objectif).toHaveLength(AiCoachingService.MAX_OBJECTIF);
+  });
+
+  it('refuse un objectif vide ou fait d\'espaces', async () => {
+    await expect(service.majObjectif('u1', '   ')).rejects.toThrow();
+    expect(prisma.aIProfile.upsert).not.toHaveBeenCalled();
+  });
+
+  /*
+    L'ouverture en cache a été écrite en connaissant l'ancien objectif. La garder
+    ferait accueillir par une phrase qui parle du cap qu'on vient d'abandonner.
+  */
+  it('jette la phrase d\'ouverture en cache', async () => {
+    await service.majObjectif('u1', 'Nouveau cap');
+
+    expect(prisma.aIProfile.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { ouverture_texte: null, ouverture_genere_le: null } }),
+    );
+  });
+
+  // Un compte sans profil doit pouvoir s'en donner un : c'est justement celui à qui
+  // l'app n'a jamais réussi à poser la question.
+  it('crée le profil s\'il n\'existe pas', async () => {
+    await service.majObjectif('u1', 'Premier cap');
+
+    expect(prisma.aIProfile.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ create: expect.objectContaining({ user_id: 'u1', objectives: ['Premier cap'] }) }),
+    );
+  });
+});

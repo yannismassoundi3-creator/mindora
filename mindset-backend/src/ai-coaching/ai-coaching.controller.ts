@@ -1,10 +1,12 @@
-import { Controller, Post, Get, Body, UseGuards, Req } from '@nestjs/common';
+import { Controller, Post, Patch, Get, Body, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { AiCoachingService } from './ai-coaching.service';
 import { AiQuotaService } from './ai-quota.service';
 import { CoinLedgerService } from './coin-ledger.service';
+import { CoachOuvertureService } from './coach-ouverture.service';
 import { ChatDto } from './dto/chat.dto';
+import { ObjectifDto } from './dto/objectif.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Request } from 'express';
 
@@ -17,6 +19,7 @@ export class AiCoachingController {
     private readonly aiCoachingService: AiCoachingService,
     private readonly aiQuota: AiQuotaService,
     private readonly coins: CoinLedgerService,
+    private readonly ouverture: CoachOuvertureService,
   ) {}
 
   @Get('quota')
@@ -111,6 +114,42 @@ export class AiCoachingController {
       gratuit ? Promise.resolve() : this.coins.refund(userId).catch(() => {}),
       this.aiQuota.refundAiCredit(userId, 'chat').catch(() => {}),
     ]);
+  }
+
+  @Get('profil')
+  @ApiOperation({ summary: 'Ce que la personne a déclaré vouloir devenir' })
+  async getProfil(@Req() req: Request) {
+    return this.aiCoachingService.lireProfil((req.user as any).userId);
+  }
+
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @Patch('profil')
+  @ApiOperation({ summary: 'Changer l\'objectif déclaré' })
+  async patchProfil(@Req() req: Request, @Body() body: ObjectifDto) {
+    return this.aiCoachingService.majObjectif((req.user as any).userId, body?.objectif);
+  }
+
+  /**
+   * La première phrase du coach.
+   *
+   * Ni Énergie ni quota mensuel ne sont décomptés : la personne n'a rien demandé,
+   * elle vient d'ouvrir un écran. C'est un POST et non un GET parce qu'elle envoie
+   * l'état de sa journée — les routines vivent dans le navigateur, pas en base.
+   *
+   * `@Throttle` est le seul garde-fou contre le rechargement en boucle ; le cache
+   * du service borne déjà le coût dans le cas normal.
+   */
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @Post('ouverture')
+  @ApiOperation({ summary: 'Phrase d\'ouverture du coach (gratuite, mise en cache)' })
+  async getOuverture(@Req() req: Request, @Body() body: { context?: any; aiName?: string }) {
+    const texte = await this.ouverture
+      .ouverture((req.user as any).userId, body?.context, body?.aiName)
+      // Une ouverture ratée n'est pas un incident : le navigateur sait composer la
+      // sienne. Lever ici afficherait une erreur à quelqu'un qui a seulement ouvert
+      // une conversation.
+      .catch(() => null);
+    return { texte };
   }
 
   @Get('history')

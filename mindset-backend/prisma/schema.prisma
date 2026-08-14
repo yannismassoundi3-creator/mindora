@@ -89,6 +89,12 @@ model AIProfile {
   /// depasse la fenetre est definitivement oublie.
   memory_summary String?
   memory_updated_at DateTime?
+  /// Phrase d'ouverture du coach, celle qu'il dit avant qu'on lui ait rien demande.
+  /// Mise en cache parce qu'elle coute un appel au modele : sans cache, recharger la
+  /// page en rappellerait un a chaque fois. Regeneree quand elle date de plus de
+  /// quelques heures, sinon elle parlerait du matin a quelqu'un qui ouvre le soir.
+  ouverture_texte String?
+  ouverture_genere_le DateTime?
   created_at     DateTime @default(now())
   updated_at     DateTime @updatedAt
   user           User     @relation(fields: [user_id], references: [id], onDelete: Cascade)

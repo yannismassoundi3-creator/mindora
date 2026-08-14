@@ -203,7 +203,45 @@ export const api = {
     }
     return res.json();
   },
-  
+
+  /*
+    Mêmes reprises et mêmes erreurs que `post` — seul le verbe change.
+
+    Écrit à la main plutôt qu'en factorisant les deux : `post` porte un paramètre
+    `keepalive` dont dépendent les envois de fin de session, et les fondre en une
+    seule fonction ferait porter ce détail à un appel qui n'en a pas besoin.
+  */
+  patch: async (endpoint: string, data: any) => {
+    const lancer = () =>
+      fetch(`${API_URL}${endpoint}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('mindset_token')}`,
+        },
+        body: JSON.stringify(data),
+        credentials: 'include',
+      });
+
+    let res = await envoyer(lancer);
+
+    if (res.status === 401 && !endpoint.startsWith('/auth/')) {
+      if (await rafraichirSession()) res = await envoyer(lancer);
+    }
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      if (res.status === 401 && !endpoint.includes('/auth/')) {
+        terminerSession();
+      }
+      const error: any = new Error(err.message || 'API Error');
+      error.status = res.status;
+      error.code = err.code;
+      throw error;
+    }
+    return res.json();
+  },
+
   downloadCloudState: async () => {
     try {
       const data = await api.get('/sync/state');

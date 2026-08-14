@@ -3,6 +3,7 @@ import { AiCoachingController } from './ai-coaching.controller';
 import { AiCoachingService } from './ai-coaching.service';
 import { AiQuotaService } from './ai-quota.service';
 import { CoinLedgerService } from './coin-ledger.service';
+import { CoachOuvertureService } from './coach-ouverture.service';
 
 /**
  * Le remboursement est la contrepartie du débit anticipé : on prélève avant l'appel
@@ -23,6 +24,7 @@ describe('AiCoachingController — débit et remboursement du chat', () => {
     getBalance: jest.Mock;
     estEnDecouverte: jest.Mock;
   };
+  let ouverture: { ouverture: jest.Mock };
 
   const requete = { user: { userId: 'u1' } } as any;
   const message = { prompt: 'Comment tu vas ?' } as any;
@@ -42,6 +44,7 @@ describe('AiCoachingController — débit et remboursement du chat', () => {
       // paie donc ses messages ; les tests de la découverte la réactivent eux-mêmes.
       estEnDecouverte: jest.fn().mockResolvedValue(false),
     };
+    ouverture = { ouverture: jest.fn().mockResolvedValue(null) };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AiCoachingController],
@@ -49,6 +52,7 @@ describe('AiCoachingController — débit et remboursement du chat', () => {
         { provide: AiCoachingService, useValue: ia },
         { provide: AiQuotaService, useValue: quota },
         { provide: CoinLedgerService, useValue: coins },
+        { provide: CoachOuvertureService, useValue: ouverture },
       ],
     }).compile();
 
@@ -157,6 +161,7 @@ describe('AiCoachingController — messages de découverte', () => {
   let ia: { chatWithAi: jest.Mock };
   let quota: { consumeAiCredit: jest.Mock; refundAiCredit: jest.Mock; isSubscribed: jest.Mock };
   let coins: { spend: jest.Mock; refund: jest.Mock; getBalance: jest.Mock; estEnDecouverte: jest.Mock };
+  let ouverture: { ouverture: jest.Mock };
 
   const requete = { user: { userId: 'u1' } } as any;
   const message = { prompt: 'Fais-moi un plan' } as any;
@@ -174,6 +179,7 @@ describe('AiCoachingController — messages de découverte', () => {
       getBalance: jest.fn().mockResolvedValue(50),
       estEnDecouverte: jest.fn().mockResolvedValue(true),
     };
+    ouverture = { ouverture: jest.fn().mockResolvedValue(null) };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AiCoachingController],
@@ -181,6 +187,7 @@ describe('AiCoachingController — messages de découverte', () => {
         { provide: AiCoachingService, useValue: ia },
         { provide: AiQuotaService, useValue: quota },
         { provide: CoinLedgerService, useValue: coins },
+        { provide: CoachOuvertureService, useValue: ouverture },
       ],
     }).compile();
 
@@ -232,5 +239,83 @@ describe('AiCoachingController — messages de découverte', () => {
 
     expect(coins.estEnDecouverte).not.toHaveBeenCalled();
     expect(coins.spend).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * La phrase d'ouverture est offerte, et elle doit le rester.
+ *
+ * C'est la première chose que voit quelqu'un qui découvre le coach, et il n'a rien
+ * demandé pour l'obtenir — il a ouvert un écran. La faire payer en Énergie ou en
+ * quota mensuel reviendrait à facturer l'accueil, et à vider en silence le compteur
+ * de ceux qui n'ont pas encore compris à quoi il sert.
+ */
+describe('AiCoachingController — la phrase d\'ouverture', () => {
+  let controller: AiCoachingController;
+  let quota: any;
+  let coins: any;
+  let ouverture: { ouverture: jest.Mock };
+
+  const requete = { user: { userId: 'u1' } } as any;
+
+  beforeEach(async () => {
+    quota = {
+      consumeAiCredit: jest.fn().mockResolvedValue({}),
+      refundAiCredit: jest.fn().mockResolvedValue({}),
+      isSubscribed: jest.fn().mockResolvedValue(false),
+      assertSubscribed: jest.fn(),
+    };
+    coins = {
+      spend: jest.fn(),
+      refund: jest.fn(),
+      getBalance: jest.fn().mockResolvedValue(50),
+      estEnDecouverte: jest.fn().mockResolvedValue(false),
+    };
+    ouverture = { ouverture: jest.fn().mockResolvedValue('Il te reste ta séance.') };
+
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [AiCoachingController],
+      providers: [
+        { provide: AiCoachingService, useValue: {} },
+        { provide: AiQuotaService, useValue: quota },
+        { provide: CoinLedgerService, useValue: coins },
+        { provide: CoachOuvertureService, useValue: ouverture },
+      ],
+    }).compile();
+
+    controller = module.get<AiCoachingController>(AiCoachingController);
+  });
+
+  it('ne débite ni Énergie ni quota mensuel', async () => {
+    await controller.getOuverture(requete, { context: {} });
+
+    expect(coins.spend).not.toHaveBeenCalled();
+    expect(quota.consumeAiCredit).not.toHaveBeenCalled();
+  });
+
+  it('transmet le contexte et le nom du coach', async () => {
+    const context = { routines: [{ items: [{ title: 'Sport', done: false }] }] };
+
+    await controller.getOuverture(requete, { context, aiName: 'Jarvis' });
+
+    expect(ouverture.ouverture).toHaveBeenCalledWith('u1', context, 'Jarvis');
+  });
+
+  /*
+    Le navigateur sait composer sa propre phrase à partir des mêmes données locales.
+    Laisser remonter l'exception afficherait une erreur à quelqu'un dont le seul
+    geste a été d'ouvrir une conversation — et lui montrerait un coach en panne
+    avant de lui montrer un coach.
+  */
+  it('rend une réponse vide plutôt qu\'une erreur quand le service échoue', async () => {
+    ouverture.ouverture.mockRejectedValue(new Error('Groq injoignable'));
+
+    await expect(controller.getOuverture(requete, {})).resolves.toEqual({ texte: null });
+  });
+
+  it('supporte un corps de requête absent', async () => {
+    await expect(controller.getOuverture(requete, undefined as any)).resolves.toEqual({
+      texte: 'Il te reste ta séance.',
+    });
   });
 });
