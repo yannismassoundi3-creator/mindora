@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import Stripe from 'stripe';
+import { origineApp, origineValide } from '../common/origines';
 
 @Injectable()
 export class SubscriptionsService {
@@ -13,49 +14,18 @@ export class SubscriptionsService {
   }
 
   /**
-   * Les seules adresses vers lesquelles on accepte de renvoyer après un paiement.
-   *
-   * Sans cette liste, accepter l'origine envoyée par le navigateur ouvrirait une
-   * redirection arbitraire : n'importe qui pourrait faire fabriquer par notre serveur
-   * un lien Stripe qui ramène sur son propre site, avec notre nom sur la page de
-   * paiement. La liste est écrite ici, en clair, plutôt que dans une variable — c'est
-   * précisément la variable qui s'est révélée fausse.
-   */
-  private static readonly ORIGINES_AUTORISEES = ['https://disciplix-ai.vercel.app'];
-
-  private origineValide(origine?: string): string | null {
-    if (!origine) return null;
-    let url: URL;
-    try {
-      url = new URL(origine);
-    } catch {
-      return null;
-    }
-    if (SubscriptionsService.ORIGINES_AUTORISEES.includes(url.origin)) return url.origin;
-    // En développement, front et API tournent sur des ports différents de localhost.
-    const local = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
-    if (local && process.env.NODE_ENV !== 'production') return url.origin;
-    return null;
-  }
-
-  /**
    * Adresse de retour après paiement.
    *
-   * Elle vient d'abord du navigateur, et seulement ensuite de FRONTEND_URL. L'ordre
-   * n'est pas anodin : le 13 août 2026, cette variable pointait sur un
-   * « …-dashboard.onrender.com » qui n'existe plus, et tous les acheteurs
+   * Elle vient d'abord du navigateur, et seulement ensuite de la configuration.
+   * L'ordre n'est pas anodin : le 13 août 2026, `FRONTEND_URL` pointait sur un
+   * « …-dashboard.onrender.com » qui n'existe pas, et tous les acheteurs
    * atterrissaient sur une page « Not Found » au retour de leur paiement — au moment
    * précis où il faut les rassurer. Le navigateur, lui, sait toujours d'où il vient ;
-   * il suffit de vérifier qu'il ne raconte pas n'importe quoi, d'où la liste blanche.
-   *
-   * La barre finale est retirée : selon la façon dont FRONTEND_URL est saisie sur
-   * Render, on renvoyait sinon les gens sur « //?success=true ».
+   * il suffit de vérifier qu'il ne raconte pas n'importe quoi, d'où la liste blanche
+   * de `common/origines.ts`, qui filtre aussi le repli.
    */
   private lienRetour(chemin: string, origine?: string): string {
-    const base =
-      this.origineValide(origine) ??
-      (process.env.FRONTEND_URL || 'https://disciplix-ai.vercel.app').replace(/\/+$/, '');
-    return base + chemin;
+    return (origineValide(origine) ?? origineApp()) + chemin;
   }
 
   async createCheckoutSession(userId: string, planType: string, origine?: string) {

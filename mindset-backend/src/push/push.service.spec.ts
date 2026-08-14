@@ -243,7 +243,7 @@ describe('PushService — tournée des briefs du matin', () => {
 
   describe('lien ouvert au clic', () => {
     it('suit FRONTEND_URL et tolère la barre finale', async () => {
-      process.env.FRONTEND_URL = 'https://exemple.test/';
+      process.env.FRONTEND_URL = 'https://disciplix-ai.vercel.app/';
       prisma.user.findUnique.mockResolvedValue({
         id: 'u1',
         first_name: 'Yannis',
@@ -258,11 +258,32 @@ describe('PushService — tournée des briefs du matin', () => {
       const charge = JSON.parse((webpush.sendNotification as jest.Mock).mock.calls[0][1]);
       // Cette adresse était écrite en dur, seule rescapée du passage des autres
       // notifications par lienApp() : un changement de domaine l'aurait oubliée.
-      expect(charge.url).toBe('https://exemple.test/?auth=true&vue=dashboard');
+      expect(charge.url).toBe('https://disciplix-ai.vercel.app/?auth=true&vue=dashboard');
+    });
+
+    it('ignore une FRONTEND_URL qui ne désigne pas notre application', async () => {
+      // Le cas réel : la variable pointait sur un « …-dashboard.onrender.com » qui
+      // n'existe pas. Les sept notifications partaient quand même, et chaque clic
+      // tombait sur « Not Found ». Une notification qui n'ouvre rien est pire que pas
+      // de notification, et rien dans les logs ne le signale.
+      process.env.FRONTEND_URL = 'https://mindset-dashboard.onrender.com';
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'u1',
+        first_name: 'Yannis',
+        sync_data: { updated_at: new Date() },
+      });
+      prisma.pushSubscription.findMany.mockResolvedValue([
+        { id: 's1', endpoint: 'https://push.example/abc', p256dh: 'p', auth: 'a' },
+      ]);
+
+      await service.sendMorningBriefTo('u1');
+
+      const charge = JSON.parse((webpush.sendNotification as jest.Mock).mock.calls[0][1]);
+      expect(charge.url).toBe('https://disciplix-ai.vercel.app/?auth=true&vue=dashboard');
     });
 
     it("envoie vers le chat la notification qui demande d'ouvrir le chat", async () => {
-      process.env.FRONTEND_URL = 'https://exemple.test';
+      process.env.FRONTEND_URL = 'https://disciplix-ai.vercel.app';
       // Quatre jours sans le moindre score : c'est le cas qui déclenche le message
       // « Ouvre le Chat IA pour réduire la difficulté de tes objectifs ».
       prisma.user.findMany.mockResolvedValue([
@@ -282,7 +303,7 @@ describe('PushService — tournée des briefs du matin', () => {
       expect(charge.title).toContain('Stratégie');
       // Le corps promet le Chat IA ; l'adresse doit y mener, sinon la notification
       // ouvre l'accueil et la promesse tombe à plat.
-      expect(charge.url).toBe('https://exemple.test/?auth=true&vue=chat');
+      expect(charge.url).toBe('https://disciplix-ai.vercel.app/?auth=true&vue=chat');
     });
   });
 });

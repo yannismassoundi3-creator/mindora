@@ -4,6 +4,7 @@ import { MorningBriefService } from './morning-brief.service';
 import { WeeklyReviewService } from './weekly-review.service';
 import * as cron from 'node-cron';
 import * as webpush from 'web-push';
+import { lienApp } from '../common/origines';
 
 /** Décompte d'une tournée de briefs, identique dans le log et dans la réponse HTTP. */
 export interface ResumeTournee {
@@ -56,14 +57,13 @@ export class PushService implements OnModuleInit {
    * visait le vrai site. Une notification de relance qui n'ouvre rien est pire que
    * pas de notification : elle consomme l'attention et détruit la confiance.
    *
-   * On passe par FRONTEND_URL, déjà utilisée par l'authentification et les abonnements,
-   * pour qu'un changement de domaine n'ait plus à être répercuté à six endroits.
+   * On passe par l'aide partagée, déjà utilisée par l'authentification et les
+   * abonnements, pour qu'un changement de domaine n'ait plus à être répercuté à
+   * six endroits — et pour qu'une `FRONTEND_URL` fausse ne puisse plus les
+   * envoyer toutes dans le vide, ce qui est arrivé (voir `common/origines.ts`).
    */
   private lienApp(chemin = ''): string {
-    // La barre finale est retirée : selon comment la variable est saisie sur Render,
-    // on obtiendrait sinon une adresse en « //?auth=true » sur la moitié des envois.
-    const base = (process.env.FRONTEND_URL || 'https://disciplix-ai.vercel.app').replace(/\/+$/, '');
-    return base + chemin;
+    return lienApp(chemin);
   }
 
   /**

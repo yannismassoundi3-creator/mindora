@@ -67,14 +67,14 @@ describe('SubscriptionsService — création du paiement', () => {
   });
 
   it('tolère une barre finale dans FRONTEND_URL', async () => {
-    process.env.FRONTEND_URL = 'https://exemple.test/';
+    process.env.FRONTEND_URL = 'https://disciplix-ai.vercel.app/';
 
     await service.createCheckoutSession('u1', 'monthly');
 
     // Sans le nettoyage, l'acheteur atterrissait sur « //?success=true » au retour.
     const args = mockCreerSession.mock.calls[0][0];
-    expect(args.success_url).toBe('https://exemple.test/?success=true');
-    expect(args.cancel_url).toBe('https://exemple.test/?canceled=true');
+    expect(args.success_url).toBe('https://disciplix-ai.vercel.app/?success=true');
+    expect(args.cancel_url).toBe('https://disciplix-ai.vercel.app/?canceled=true');
   });
 
   it('rattache la session au compte, seul lien lu par le webhook', async () => {

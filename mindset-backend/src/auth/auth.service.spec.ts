@@ -208,4 +208,40 @@ describe('AuthService — prolongation de session', () => {
     await expect(service.refreshSession('jeton-valide')).rejects.toThrow(UnauthorizedException);
     expect(prisma.refreshToken.create).not.toHaveBeenCalled();
   });
+
+  /**
+   * Le lien de réinitialisation est le seul de l'application qu'on ne peut pas
+   * contourner : quelqu'un qui a perdu son mot de passe n'a aucun autre chemin de
+   * retour. Il était construit sur `FRONTEND_URL`, variable qui a pointé en
+   * production sur un domaine inexistant — l'e-mail partait, le bouton menait sur
+   * « Not Found », et le compte devenait irrécupérable sans que rien ne le signale.
+   */
+  describe('lien de réinitialisation', () => {
+    const envInitial = { ...process.env };
+    afterEach(() => {
+      process.env = { ...envInitial };
+    });
+
+    const lienEnvoye = () => {
+      const corps = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
+      return corps.htmlContent.match(/href="([^"]+)"/)[1];
+    };
+
+    it("ouvre l'application même quand FRONTEND_URL est fausse", async () => {
+      process.env.NODE_ENV = 'production';
+      process.env.FRONTEND_URL = 'https://mindset-dashboard.onrender.com';
+
+      await service.sendPasswordResetEmail('y@example.com', 'jeton-brut');
+
+      expect(lienEnvoye()).toBe('https://disciplix-ai.vercel.app/?reset_token=jeton-brut');
+    });
+
+    it('ne double pas la barre quand la variable en porte une', async () => {
+      process.env.FRONTEND_URL = 'https://disciplix-ai.vercel.app/';
+
+      await service.sendPasswordResetEmail('y@example.com', 'jeton-brut');
+
+      expect(lienEnvoye()).toBe('https://disciplix-ai.vercel.app/?reset_token=jeton-brut');
+    });
+  });
 });

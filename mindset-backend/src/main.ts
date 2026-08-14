@@ -4,6 +4,7 @@ import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as cookieParser from 'cookie-parser';
+import { ORIGINES_AUTORISEES } from './common/origines';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { rawBody: true });
@@ -11,9 +12,7 @@ async function bootstrap() {
   // Sécurité
   app.use(helmet());
   app.enableCors({
-    origin: process.env.NODE_ENV === 'production' 
-      ? ['https://disciplix-ai.vercel.app'] 
-      : true,
+    origin: process.env.NODE_ENV === 'production' ? ORIGINES_AUTORISEES : true,
     credentials: true,
   });
   app.use(cookieParser());

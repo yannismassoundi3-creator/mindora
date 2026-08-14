@@ -6,6 +6,7 @@ import * as argon2 from 'argon2';
 import * as crypto from 'crypto';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { lienApp } from '../common/origines';
 
 @Injectable()
 export class AuthService {
@@ -343,8 +344,11 @@ export class AuthService {
     try {
       const apiKey = this.configService.get<string>('BREVO_API_KEY');
       const senderEmail = this.configService.get<string>('BREVO_SENDER_EMAIL') || 'mindoraappli@gmail.com';
-      const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';
-      const resetLink = `${frontendUrl}/?reset_token=${rawToken}`;
+      // Passe par l'aide partagée : une `FRONTEND_URL` fausse (le cas sur Render
+      // au 13 août 2026) envoyait ce lien sur une page « Not Found ». Or c'est le
+      // seul lien de l'application que personne ne peut contourner — quelqu'un qui
+      // a perdu son mot de passe n'a pas d'autre chemin de retour.
+      const resetLink = lienApp(`/?reset_token=${rawToken}`);
 
       if (!apiKey) {
         if (this.configService.get<string>('NODE_ENV') !== 'production') {
