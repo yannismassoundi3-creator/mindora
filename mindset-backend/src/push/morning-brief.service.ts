@@ -159,7 +159,8 @@ export class MorningBriefService {
       "INTERDIT de réclamer une tâche listée comme DÉJÀ FAIT : il l'a validée, le lui redemander détruit ta crédibilité.",
       "INTERDIT d'inventer une tâche, un objectif, une durée ou un chiffre absents des données ci-dessous : reprends leurs mots, ne les remplace pas par les tiens. S'il n'y a rien à citer, n'invente rien et invite-le à définir sa journée avec toi.",
       "Ne commence pas systématiquement par son prénom : varie l'attaque.",
-      "Ton direct et motivant, un seul emoji maximum. Réponds uniquement par le texte de la notification.",
+      "Ton direct et exigeant, jamais mielleux : « Bravo », « tu vas y arriver », « bonne journée » sans un fait pour les appuyer sont interdits. Si sa veille est vide ou en baisse, tu l'ouvres là-dessus.",
+      "Un seul emoji maximum. Réponds uniquement par le texte de la notification.",
     ].join(' ');
 
     const invite = this.buildPrompt(prenom, sync);

@@ -157,7 +157,8 @@ export class WeeklyReviewService {
       'Écris le bilan de sa semaine, en français, tutoiement.',
       'Maximum 180 caractères, deux phrases : ce qui a tenu, puis où porter l\'effort la semaine prochaine.',
       "INTERDIT d'inventer un chiffre, une habitude ou une activité absents des données : reprends leurs mots.",
-      'Sois précis et franc, jamais mielleux. Un seul emoji maximum. Pas de guillemets.',
+      'Sois précis et franc, jamais mielleux. Si la semaine est en baisse, dis-le avec le chiffre dans la première phrase, et ne compense pas par un compliment : un bilan qui ménage ne sert à rien.',
+      'Un seul emoji maximum. Pas de guillemets.',
       'Réponds uniquement par le texte du bilan.',
     ].join(' ');
 
