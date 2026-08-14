@@ -145,10 +145,21 @@ function App() {
    * et un rechargement complet, donc l'adresse ne survit pas : c'est localStorage
    * qui porte l'intention jusqu'au dashboard, et elle est effacée dès qu'on l'a
    * honorée — sinon l'offre se rouvrirait à chaque visite.
+   *
+   * Cette lecture se faisait dans le corps du composant, donc **à chaque rendu**,
+   * alors que le paramètre, lui, restait dans la barre d'adresse. L'intention était
+   * donc réécrite juste après avoir été honorée, et l'écran de tarifs se rouvrait à
+   * chaque retour sur le dashboard, indéfiniment. On la relève une fois au montage
+   * et on retire le paramètre de l'adresse, comme on le fait déjà pour « success ».
    */
-  const PLANS = ['monthly', 'lifetime'];
-  const planUrl = urlParams.get('plan');
-  if (planUrl && PLANS.includes(planUrl)) localStorage.setItem('mindset_plan_voulu', planUrl);
+  useEffect(() => {
+    const voulu = new URLSearchParams(window.location.search).get('plan');
+    if (!voulu || !['monthly', 'lifetime'].includes(voulu)) return;
+    localStorage.setItem('mindset_plan_voulu', voulu);
+    const url = new URL(window.location.href);
+    url.searchParams.delete('plan');
+    window.history.replaceState({}, document.title, url.pathname + url.search + url.hash);
+  }, []);
 
   /**
    * Écran demandé par le lien d'arrivée, s'il en désigne un qui existe.
