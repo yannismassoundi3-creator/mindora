@@ -1,6 +1,14 @@
 import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
 import { definirXp, lireXp } from '../utils/progression';
 import { nettoyerSemis } from '../utils/semis';
+import {
+  CLES_COMPTEUR,
+  aDesModificationsNonSynchronisees,
+  confirmerModifications,
+  keepaliveAcceptable,
+  marquerModificationLocale,
+  releverModifications,
+} from '../utils/synchro';
 
 /**
  * L'API est jointe sous notre propre domaine, et non à son adresse Render.
@@ -316,8 +324,22 @@ export const api = {
           localHistory: localStorage.getItem('mindset_sec_local') !== 'false'
         }
       };
-      await api.post('/sync/state', state, true);
+      /*
+        Le relevé est pris avant l'envoi, jamais après.
+
+        Une case cochée pendant que la requête voyage n'est pas dans le corps qu'on
+        vient de sérialiser : la confirmer aussi reviendrait à déclarer en sécurité
+        quelque chose que le serveur n'a jamais vu, et c'est exactement ce que la
+        prochaine descente écraserait.
+      */
+      const releve = releverModifications();
+
+      await api.post('/sync/state', state, keepaliveAcceptable(state));
+
+      confirmerModifications(releve);
     } catch (e) {
+      // Le compteur n'est pas confirmé : la descente refusera d'écraser tant que
+      // cette remontée n'aura pas abouti. Rien n'est perdu, seulement retardé.
       console.error('Failed to sync state', e);
     }
   },
@@ -531,11 +553,19 @@ try {
   const originalSetItem = localStorage.setItem;
   localStorage.setItem = function(key, value) {
     originalSetItem.apply(this, [key, value]);
-    
+
+    // Le compteur de synchro s'écrit par ce même chemin : sans cette sortie, il
+    // s'incrémenterait lui-même en boucle dès la première case cochée.
+    if (CLES_COMPTEUR.has(key)) return;
+
     // Ignore updates that are just downloading from cloud to prevent feedback loops
     if (isSyncing) return;
 
     if (key.startsWith('mindset_') || key.includes('mental_score')) {
+      // Compté avant même d'essayer d'envoyer : c'est ce décompte qui interdira à la
+      // prochaine descente d'écraser ce changement s'il n'est jamais remonté.
+      marquerModificationLocale();
+
       clearTimeout(syncTimeout);
       syncTimeout = setTimeout(() => {
         try {
@@ -550,6 +580,31 @@ try {
   // Wrap downloadCloudState to prevent feedback loops
   const originalDownload = api.downloadCloudState;
   api.downloadCloudState = async () => {
+    /*
+      La descente n'écrase jamais du travail que le serveur n'a pas accusé.
+
+      Elle réécrit trente clés sans rien comparer, et s'exécute à chaque retour sur
+      l'onglet. Tant que la remontée passe, c'est sans conséquence — mais elle
+      échoue en silence, et la séquence devenait : la synchro rate, la personne
+      continue de cocher, elle change d'application, elle revient, et le serveur
+      plus ancien efface sa matinée.
+
+      On tente donc de remonter d'abord. Si ça ne passe toujours pas, on renonce à
+      descendre : l'appareil reste en retard sur les autres, ce qui se rattrape à la
+      requête suivante, là où l'écrasement ne se rattrape jamais.
+    */
+    if (aDesModificationsNonSynchronisees()) {
+      await api.syncStateToCloud();
+
+      if (aDesModificationsNonSynchronisees()) {
+        console.warn(
+          '[synchro] Descente annulée : des changements locaux ne sont pas encore remontés. ' +
+            'Ils seraient écrasés par une version plus ancienne du serveur.',
+        );
+        return;
+      }
+    }
+
     isSyncing = true;
     await originalDownload();
     isSyncing = false;

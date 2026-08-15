@@ -116,9 +116,21 @@ export class AiCoachingController {
    * qui n'ont rien prélevé non plus — d'où `gratuit` et non `abonne`.
    */
   private async rembourser(userId: string, gratuit: boolean) {
+    /*
+      Avaler l'échec est nécessaire, le taire ne l'est pas.
+
+      Le `catch` protège l'erreur d'origine, qui doit remonter telle quelle — ça,
+      c'est juste. Mais il ne journalisait rien : si la base hoquetait ici, la
+      personne restait débitée d'un message qu'elle n'a jamais reçu, et il n'existait
+      aucune trace nulle part. Ni pour elle, ni pour nous, ni après coup. C'est le
+      seul endroit du produit où de la monnaie disparaît sans laisser de reçu.
+    */
+    const tracer = (quoi: string) => (e: any) =>
+      console.error(`[Remboursement] ${quoi} NON rendu à ${userId} : ${e?.message}`);
+
     await Promise.all([
-      gratuit ? Promise.resolve() : this.coins.refund(userId).catch(() => {}),
-      this.aiQuota.refundAiCredit(userId, 'chat').catch(() => {}),
+      gratuit ? Promise.resolve() : this.coins.refund(userId).catch(tracer('coins')),
+      this.aiQuota.refundAiCredit(userId, 'chat').catch(tracer('crédit mensuel')),
     ]);
   }
 

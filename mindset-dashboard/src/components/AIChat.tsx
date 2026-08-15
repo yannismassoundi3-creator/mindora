@@ -7,6 +7,7 @@ import { getSecurePoints } from '../utils/secureStorage';
 import { sauvegarderPlanPrecedent, planPrecedentDisponible, restaurerPlanPrecedent } from '../utils/planPrecedent';
 import { normaliserJours } from '../utils/recurrence';
 import { extrairePlan, reparerJson } from '../utils/extractionPlan';
+import { listesIllisibles } from '../utils/etatLocal';
 import { composerOuverture } from '../utils/ouverture';
 import './AIChat.css';
 import { api } from '../services/api';
@@ -258,12 +259,27 @@ export const AIChat: React.FC = () => {
   };
 
   /**
-   * Applique le plan. Rend l'identifiant de la copie de sauvegarde quand le plan a
-   * remplacé l'existant, `null` sinon — un simple ajout n'a rien détruit.
+   * Applique le plan.
+   *
+   * Rend l'identifiant de la copie de sauvegarde quand le plan a remplacé
+   * l'existant (`null` sinon — un simple ajout n'a rien détruit), et la liste de ce
+   * qu'on n'a pas pu relire.
    */
-  const applyPlanData = (rawPlanData: any): string | null => {
-    if (!rawPlanData) return null;
-    
+  const applyPlanData = (rawPlanData: any): { sauvegarde: string | null; illisibles: string[] } => {
+    if (!rawPlanData) return { sauvegarde: null, illisibles: [] };
+
+    /*
+      Rien n'est écrit tant qu'on n'a pas la certitude de pouvoir tout relire.
+
+      Le contrôle porte sur toutes les listes, pas seulement sur celles que ce plan
+      touche, et il refuse le plan entier plutôt que le bloc fautif : un plan à
+      moitié appliqué est plus difficile à démêler qu'un plan pas appliqué, alors
+      qu'on peut toujours le redemander. Placé ici, avant la première écriture —
+      même les explications en attente ne partent pas.
+    */
+    const illisibles = listesIllisibles();
+    if (illisibles.length > 0) return { sauvegarde: null, illisibles };
+
     // Si l'IA a imbriqué les données dans un objet "plan" ou "actionPlan"
     const dataObj = rawPlanData.plan || rawPlanData.actionPlan || rawPlanData;
     let planData = { ...dataObj };
@@ -458,7 +474,7 @@ export const AIChat: React.FC = () => {
       // Force API sync if needed
     window.dispatchEvent(new Event('storage'));
 
-    return sauvegarde;
+    return { sauvegarde, illisibles: [] };
   };
 
   const handleSend = async (e?: React.FormEvent, directMessage?: string) => {
@@ -582,8 +598,19 @@ export const AIChat: React.FC = () => {
             planData.replaceMacroObjectives || planData.replaceMicroObjectives;
 
           if (isCreation || isDeletion) {
-            sauvegardePlan = applyPlanData(planData);
-            if (isCreation) {
+            const application = applyPlanData(planData);
+            sauvegardePlan = application.sauvegarde;
+
+            if (application.illisibles.length > 0) {
+              // Rien n'a été écrit, et surtout : ne rien annoncer qui laisse croire
+              // le contraire. C'est le cas où l'ancienne version répondait « plan
+              // appliqué » après avoir remplacé le travail de quelqu'un.
+              console.error('Plan non appliqué, listes illisibles :', application.illisibles);
+              replyText +=
+                `\n\n⚠️ **Je n'ai rien changé.** Je n'arrive pas à relire ${application.illisibles.join(' ni ')} ` +
+                `sur cet appareil, et appliquer le plan par-dessus l'aurait remplacé au lieu de le compléter. ` +
+                `Ouvre l'écran concerné pour vérifier ce qu'il contient, puis redemande-moi ce plan.`;
+            } else if (isCreation) {
               replyText += "\n\n✅ **Plan appliqué avec succès ! L'interface a été mise à jour.**";
             } else if (isDeletion) {
               replyText += "\n\n🗑️ **Plan supprimé avec succès ! L'interface a été réinitialisée.**";
