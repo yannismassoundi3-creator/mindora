@@ -144,3 +144,24 @@
   line-height: 1.4;
   color: var(--secondary, rgba(255, 255, 255, 0.65));
 }
+
+/*
+  Dire ce qui va se passer avant que ça se passe.
+
+  La boîte de dialogue du navigateur arrive par-dessus l'app, sans prévenir et
+  sans qu'on puisse l'habiller. Annoncer sa venue en une ligne change ce qu'elle
+  est : une confirmation attendue plutôt qu'une interruption — et « Bloquer » est
+  la réponse réflexe à une interruption.
+*/
+.push-optin-note {
+  margin: 10px 0 0;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--secondary, rgba(255, 255, 255, 0.5));
+}
+
+/* L'accord se voit quelques secondes, puis la ligne s'efface d'elle-même : sans
+   elle, la seule preuve que le bouton a marché était la disparition de la carte. */
+.push-optin-ligne-ok .push-optin-ligne-tete p {
+  color: var(--primary, #fff);
+}

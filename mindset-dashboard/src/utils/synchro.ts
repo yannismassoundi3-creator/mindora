@@ -1,4 +1,4 @@
-import { CLES_SYNCHRONISEES } from './etatLocal';
+import { CLES_ACCOMPAGNANTES, CLES_SYNCHRONISEES } from './etatLocal';
 
 /**
  * Savoir si ce navigateur porte du travail que le serveur n'a jamais reçu.
@@ -26,6 +26,18 @@ import { CLES_SYNCHRONISEES } from './etatLocal';
 const CLE_EMPREINTE = 'mindset_empreinte_confirmee';
 const CLE_VERSION = 'mindset_version_serveur';
 const CLE_CONFLIT = 'mindset_copie_conflit';
+const CLE_IMPOSITION = 'mindset_imposer_version';
+
+/**
+ * Au-delà, le drapeau d'imposition est oublié.
+ *
+ * Il désarme la détection de conflit : tant qu'il est posé, ce navigateur écrase
+ * le serveur sans lui demander son avis. C'est ce qu'on veut le temps qu'une
+ * décision explicite parte, jamais au-delà — un appareil resté hors ligne une
+ * semaine ne doit pas se réveiller avec le droit d'effacer une semaine de travail
+ * fait ailleurs.
+ */
+const DUREE_IMPOSITION_MS = 24 * 3600 * 1000;
 
 /**
  * Empreinte courte et stable d'une valeur sérialisable.
@@ -160,6 +172,11 @@ export function mettreDeCoteAvantConflit(): boolean {
       if (valeur && valeur !== '[]' && valeur !== '{}' && valeur !== '0') quelqueChose = true;
     }
 
+    // Emportées, jamais comptées : voir `CLES_ACCOMPAGNANTES`.
+    for (const cle of CLES_ACCOMPAGNANTES) {
+      donnees[cle] = localStorage.getItem(cle);
+    }
+
     // Rien à sauver : proposer de revenir à un état vide n'aurait aucun sens, et
     // ferait apparaître un bouton qui ne rend service à personne.
     if (!quelqueChose) return false;
@@ -183,18 +200,85 @@ export function copieDeConflit(): CopieDeConflit | null {
   }
 }
 
+/**
+ * Ce navigateur a reçu l'ordre d'imposer sa version au serveur.
+ *
+ * Le seul appelant est la récupération d'une copie de conflit, et c'est une
+ * décision que la personne a prise elle-même, en lisant la question. Sans ce
+ * drapeau, la remontée qui suit repart avec la `base_version` d'avant : le serveur
+ * la refuse pour cause de conflit, la version tout juste récupérée est remise de
+ * côté, et celle du serveur revient à l'écran. Le bouton « Récupérer ma version »
+ * rendait alors exactement ce qu'il venait de reprendre — sans un mot, et
+ * indéfiniment si l'autre appareil continuait d'écrire.
+ *
+ * On renonce donc sciemment à la détection de conflit pour cet envoi-là : il n'y a
+ * plus rien à départager, quelqu'un a tranché.
+ */
+export function exigerImposition(): void {
+  localStorage.setItem(CLE_IMPOSITION, String(Date.now()));
+}
+
+export function impositionExigee(): boolean {
+  const pose = Number(localStorage.getItem(CLE_IMPOSITION) || 0);
+  if (!pose) return false;
+  if (Date.now() - pose > DUREE_IMPOSITION_MS) {
+    impositionTerminee();
+    return false;
+  }
+  return true;
+}
+
+export function impositionTerminee(): void {
+  localStorage.removeItem(CLE_IMPOSITION);
+}
+
+/**
+ * Déclare qu'il reste ici du travail que le serveur n'a jamais reçu.
+ *
+ * L'empreinte posée ne peut correspondre à aucun état réel : c'est exactement ce
+ * qu'on veut. Tant qu'une remontée n'a pas abouti, `downloadCloudState` refusera
+ * de descendre et la reprise automatique continuera d'essayer.
+ *
+ * Sans elle, une copie récupérée pendant une coupure réseau était perdue au
+ * premier retour d'onglet : le garde-fou répond « rien en attente » quand aucune
+ * confirmation n'est enregistrée — c'est la bonne réponse sur un appareil neuf,
+ * c'est la pire ici.
+ */
+export function marquerNonSynchronise(): void {
+  localStorage.setItem(CLE_EMPREINTE, 'jamais-' + Date.now());
+}
+
 /** Remet la version mise de côté en place. Rend `false` s'il n'y avait rien. */
 export function restaurerCopieDeConflit(): boolean {
   const copie = copieDeConflit();
   if (!copie) return false;
 
-  for (const cle of CLES_SYNCHRONISEES) {
+  for (const cle of [...CLES_SYNCHRONISEES, ...CLES_ACCOMPAGNANTES]) {
     const valeur = copie.donnees[cle];
-    // Une clé absente au moment de la photo doit le redevenir, sinon on mélangerait
-    // les deux versions — le seul résultat que personne n'a demandé.
+    /*
+      Une clé absente au moment de la photo doit le redevenir, sinon on mélangerait
+      les deux versions — le seul résultat que personne n'a demandé.
+
+      Exception : une copie prise avant que les compteurs signés n'entrent dans la
+      liste ne les contient pas du tout. Effacer sur la foi de son silence
+      remettrait les coins et le niveau à zéro, alors qu'elle n'a jamais prétendu
+      les décrire. Une clé que la photo ignore est laissée telle quelle.
+    */
+    if (!(cle in copie.donnees)) continue;
     if (valeur == null) localStorage.removeItem(cle);
     else localStorage.setItem(cle, valeur);
   }
+
+  /*
+    Les deux garde-fous sont posés ici, et pas chez l'appelant.
+
+    Restaurer une copie de conflit sans eux est une opération qui a l'air d'avoir
+    réussi et qui ne survit pas au prochain retour d'onglet. Les rendre
+    indissociables de la restauration est le seul moyen d'être sûr qu'un futur
+    appelant ne les oubliera pas.
+  */
+  marquerNonSynchronise();
+  exigerImposition();
 
   oublierCopieDeConflit();
   window.dispatchEvent(new Event('storage'));

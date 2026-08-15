@@ -1,113 +1,283 @@
-.ai-notification-banner {
+/*
+  La bannière du coach — celle qui descend du haut de l'écran.
+
+  Elle occupe le créneau de l'en-tête flottant : même hauteur, même largeur, même
+  rayon. Avant, elle vivait seize pixels plus haut et un peu moins large, ce qui
+  donnait deux barres arrondies décalées l'une sur l'autre — et, sur un iPhone, une
+  bannière qui passait sous la barre d'état faute de tenir compte de la zone sûre.
+  Alignée, elle remplace l'en-tête le temps de se montrer : ça se lit comme un choix
+  et non comme un défaut de calage.
+
+  Aucun `backdrop-filter` : il se recompose à chaque image de défilement et décroche
+  sur iPhone. C'est le même piège que sur les barres collantes de l'application, et
+  la même parade — l'opaque plutôt que le flou.
+*/
+
+/*
+  Le cadre : il place la bannière et porte son arrivée.
+
+  Séparer le cadre de la carte n'est pas un raffinement. Entrée, sortie et suivi du
+  doigt écrivent tous `transform`, et une animation CSS l'emporte sur un style en
+  ligne : la carte serait restée sourde au doigt, et le relâchement aurait rejoué
+  son arrivée. Le mouvement d'un côté, le geste de l'autre.
+*/
+.ai-notification-slot {
   position: fixed;
   top: 16px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 99999;
+
   width: 90%;
   max-width: 400px;
+  animation: banniere-descend 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.ai-notification-slot.hiding {
+  animation: banniere-remonte 0.28s cubic-bezier(0.55, 0, 0.85, 0.35) both;
+}
+
+@keyframes banniere-descend {
+  0% {
+    transform: translate(-50%, calc(-100% - 28px)) scale(0.94);
+    opacity: 0;
+  }
+  100% {
+    transform: translate(-50%, 0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes banniere-remonte {
+  0% {
+    transform: translate(-50%, 0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, calc(-100% - 28px)) scale(0.96);
+    opacity: 0;
+  }
+}
+
+.ai-notification-banner {
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  border-radius: 24px;
-  background: rgba(20, 20, 20, 0.85);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), 0 0 20px rgba(139, 92, 246, 0.2);
-  animation: slideDownIos 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  gap: 11px;
+  padding: 11px 12px 11px 14px;
+
+  border-radius: 26px;
+  /* Deux fonds superposés : un dégradé très léger sur un noir plein. Le noir seul
+     paraissait creux à côté de l'en-tête, qui laisse passer un peu de la page. */
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02)),
+    rgb(22, 22, 26);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow:
+    0 12px 34px rgba(0, 0, 0, 0.62),
+    0 2px 10px rgba(0, 0, 0, 0.45);
+
   cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  /* Le geste vertical appartient à la bannière : sans cette ligne, le navigateur
+     s'approprie le mouvement pour faire défiler la page et le balayage n'existe pas. */
+  touch-action: none;
+  overflow: hidden;
+}
+
+/* Pendant que le doigt la tient, plus aucune transition : le suivi doit être
+   immédiat, sinon la carte traîne derrière le pouce. */
+.ai-notification-banner.banniere-tiree {
+  transition: none;
+  cursor: grabbing;
+}
+
+/* Au relâchement, elle revient à sa place au lieu de sauter. */
+.ai-notification-banner:not(.banniere-tiree) {
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .ai-notification-banner:active {
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5), 0 0 10px rgba(139, 92, 246, 0.15);
-  filter: brightness(0.9);
+  filter: brightness(0.93);
 }
 
-.ai-notification-banner.hiding {
-  animation: slideUpIos 0.3s cubic-bezier(0.6, -0.28, 0.735, 0.045) forwards;
-}
-
-@keyframes slideDownIos {
-  0% { transform: translate(-50%, -100px); opacity: 0; }
-  100% { transform: translate(-50%, 0); opacity: 1; }
-}
-
-@keyframes slideUpIos {
-  0% { transform: translate(-50%, 0); opacity: 1; }
-  100% { transform: translate(-50%, -100px); opacity: 0; }
+/* La pastille du coach : ronde, à la taille d'une icône d'application. */
+.ai-notification-icon-container {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .ai-notification-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
-  background: rgba(139, 92, 246, 0.2);
+  background: rgba(139, 92, 246, 0.22);
   color: var(--primary);
-  flex-shrink: 0;
+  font-size: 16px;
+  line-height: 1;
 }
 
 .ai-notification-content {
   flex: 1;
+  /* Sans lui, un mot long élargit la boîte au lieu de passer à la ligne, et pousse
+     la croix hors de la bannière. */
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 
-.ai-notification-content p {
+.ai-notification-titre {
   margin: 0;
-  font-size: 0.9rem;
-  font-weight: 500;
-  line-height: 1.3;
-  color: rgba(255, 255, 255, 0.95);
-}
-
-.ai-notification-action-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  color: var(--primary);
-  font-size: 0.75rem;
-  font-weight: 600;
-  opacity: 0.8;
-}
-
-.ai-notification-close {
-  display: none; /* Hide the close button for cleaner iOS look, clicking the banner dismisses it */
+  font-family: var(--font-display, inherit);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.25;
+  color: #fff;
 }
 
 /*
-  La croix d'écartement. La bannière étant elle-même cliquable, cette cible doit
-  être assez large pour le pouce sans mordre sur le texte : 32 px, la taille en
-  dessous de laquelle un appui devient un pari sur téléphone.
+  Deux lignes, jamais trois.
 
-  `flex-shrink: 0` parce que le contenu à sa gauche est en `flex: 1` et l'écraserait
-  sur un message long — la croix disparaîtrait au moment où elle sert le plus.
+  Une bannière qui grandit avec son texte finit par couvrir le quart de l'écran, et
+  ce qu'elle recouvre est précisément ce dont elle parle. Le texte est composé pour
+  tenir ; la coupure n'est qu'un filet.
 */
-.ai-notification-close {
+.ai-notification-texte {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 500;
+  line-height: 1.32;
+  color: rgba(255, 255, 255, 0.82);
+
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Sans titre, le message est le titre : il reprend son contraste. */
+.ai-notification-content > .ai-notification-texte:only-child {
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 600;
+}
+
+/*
+  La croix. Elle doit rester visible sur un message long — d'où `flex-shrink: 0`,
+  le contenu à sa gauche étant en `flex: 1`.
+
+  `box-shadow` est forcé : le thème monochrome pose un halo blanc en `!important`
+  sur tous les boutons de l'application, ce qui entoure cette petite cible ronde
+  d'un nuage qu'on lit comme un défaut d'affichage.
+*/
+.ai-notification-banner .ai-notification-close {
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   border: none;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.09);
+  color: rgba(255, 255, 255, 0.65);
   cursor: pointer;
+  box-shadow: none !important;
 }
 
-.ai-notification-close:hover,
-.ai-notification-close:focus-visible {
-  background: rgba(255, 255, 255, 0.16);
+.ai-notification-banner .ai-notification-close:hover,
+.ai-notification-banner .ai-notification-close:focus-visible {
+  background: rgba(255, 255, 255, 0.18);
   color: #fff;
+  box-shadow: none !important;
+}
+
+/*
+  La cible tactile atteint 44 px sans que la croix grossisse.
+
+  Le rond dessiné fait 28 px, ce qu'il faut pour rester discret dans une bannière ;
+  c'est aussi les deux tiers de ce qu'un pouce sait viser. On étend donc la zone
+  sensible au-delà du trait — même parade que sur la pastille de sauvegarde. Rater
+  la croix ici ne coûte pas rien : le clic tombe sur la bannière, et emmène ailleurs.
+*/
+.ai-notification-banner .ai-notification-close::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+}
+
+.ai-notification-banner .ai-notification-close {
+  position: relative;
+}
+
+/*
+  Le temps qui reste.
+
+  Un trait d'un pixel qui se vide sur toute la largeur. Il coûte une animation CSS,
+  ne demande aucun rendu React, et transforme une disparition subie en disparition
+  annoncée.
+*/
+.ai-notification-jauge {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: 100%;
+  transform-origin: left center;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.5), rgba(139, 92, 246, 0.8));
+  animation: banniere-jauge linear both;
+}
+
+@keyframes banniere-jauge {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+/*
+  Sur téléphone, la bannière se cale exactement sur l'en-tête flottant.
+
+  Les valeurs sont recopiées de `.mobile-header` (Layout.css) : même `top`, même
+  largeur, même plafond. C'est ce qui fait qu'elle le remplace au lieu de le
+  chevaucher — et `env(safe-area-inset-top)` est ce qui l'empêche de passer sous la
+  barre d'état de l'iPhone.
+*/
+@media (max-width: 900px) {
+  .ai-notification-slot {
+    top: max(12px, env(safe-area-inset-top));
+    width: 95%;
+    max-width: 400px;
+  }
+
+  .ai-notification-banner {
+    border-radius: 30px;
+    padding: 9px 10px 9px 12px;
+  }
+}
+
+/*
+  Certains ne supportent pas le mouvement, et le système le dit.
+
+  La bannière reste — c'est de l'information, pas de la décoration — mais elle
+  apparaît sans glisser. Le trait de progression, lui, garde son animation : ce
+  n'est pas un déplacement, et c'est la seule chose qui annonce la disparition.
+*/
+@media (prefers-reduced-motion: reduce) {
+  .ai-notification-slot,
+  .ai-notification-slot.hiding {
+    animation-duration: 0.01ms;
+  }
+  .ai-notification-banner:not(.banniere-tiree) {
+    transition: none;
+  }
 }

@@ -156,6 +156,14 @@
   transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
+/* La récupération part sur le réseau puis recharge la page : sans cet état, le
+   bouton paraît inerte pendant l'aller-retour, et il se reclique. */
+.sauvegarde-btn-principal:disabled,
+.sauvegarde-btn-discret:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
 .sauvegarde-btn-principal {
   border: 1px solid var(--primary);
   background: var(--primary);

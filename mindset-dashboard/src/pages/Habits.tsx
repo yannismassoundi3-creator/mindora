@@ -4,6 +4,8 @@ import { playLevelUpSound, playClickSound, playErrorSound, playBloopSound } from
 import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
 import { ajouterXp } from '../utils/progression';
 import { annoncerGain } from '../utils/journee';
+import { ajouterNotification } from '../utils/notifications';
+import { noterTacheFaite } from '../utils/rythme';
 import { api } from '../services/api';
 import './Habits.css';
 
@@ -145,7 +147,6 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
   const heatmapDays = generateHeatmapDays(14);
 
   // AI Commentary State
-  const [aiMessage, setAiMessage] = useState<{text: string, visible: boolean}>({text: '', visible: false});
 
   // Edit Modal State
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
@@ -173,11 +174,29 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
     return () => window.removeEventListener('storage', handleStorage);
   }, []);
 
-  const showAiMessage = (msg: string) => {
-    setAiMessage({ text: msg, visible: true });
-    setTimeout(() => {
-      setAiMessage(prev => ({ ...prev, visible: false }));
-    }, 4000);
+  /*
+    Le mot du coach quand une habitude franchit un cap.
+
+    Il vivait dans une bulle à part, `.ai-commentary-toast`, et cette bulle avait
+    quatre défauts qu'on ne voit qu'en la regardant sur un téléphone :
+
+    1. **Elle se posait à 20 px du haut, sans tenir compte de la zone sûre** : sur un
+       iPhone, elle passait à moitié sous la barre d'état, et à moitié par-dessus
+       l'en-tête de l'application.
+    2. **Sa minuterie n'était jamais annulée.** Valider deux habitudes coup sur coup,
+       et le minuteur de la première effaçait le message de la seconde au bout d'une
+       seconde. C'est le « ça bugue » qu'on nous a signalé.
+    3. **Elle restait dans le DOM en permanence**, en `position: fixed` avec un
+       `backdrop-filter` : le navigateur recomposait ce flou à chaque image de
+       défilement de la page, visible ou non.
+    4. **Elle vouvoyait** — « Évolution confirmée, Monsieur » — alors que tout le
+       reste de l'application tutoie.
+
+    Elle passe donc par la bannière commune, qui règle les trois premiers points par
+    construction. Le quatrième est réglé en réécrivant les phrases.
+  */
+  const showAiMessage = (msg: string, titre?: string) => {
+    ajouterNotification('info', msg, titre);
   };
 
   const triggerHabitCompleteEffect = (e: React.MouseEvent, color: string, isLevelUp: boolean) => {
@@ -244,6 +263,9 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
     const pointsGained = isSubscribed ? 30 : 15; // Bonus x2 pour les abonnés
 
     if (habitCompletedNow) {
+      // L'heure seule, pour que le coach sache quand cette personne travaille
+      // vraiment. Voir `utils/rythme.ts`.
+      noterTacheFaite();
       triggerHabitCompleteEffect(e, habitColor, leveledUp);
       const newPoints = points + pointsGained;
       setPoints(newPoints);
@@ -272,23 +294,24 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
       // pour qu'une habitude ne rapporte qu'une fois par jour.
       api.claimCoins(`habit-${habitId}-${today}`);
 
-      // AI Commentary logic
+      /*
+        Le coach ne parle que quand il se passe quelque chose.
+
+        Une branche `Math.random() > 0.7` fabriquait une phrase générique une fois
+        sur trois, au hasard : « Excellente régularité. » — dite ou tue sans raison,
+        ce qui se lit comme un défaut plutôt que comme une attention. Elle est
+        retirée. Une habitude simplement validée a déjà son retour immédiat, le
+        « +15 » qui s'envole du doigt ; ajouter une bannière par-dessus ne dit rien
+        de plus et use la seule chose qui devait rester rare.
+      */
       if (leveledUp) {
-        showAiMessage(`Niveau Supérieur atteint sur ${currentHabitName}. Évolution confirmée, Monsieur.`);
+        showAiMessage(`${currentHabitName} passe au niveau ${nouveauNiveau}.`, 'Niveau supérieur');
       } else if (currentStreak === 3) {
-        showAiMessage(`Série de 3 jours sur ${currentHabitName}. Le momentum est de votre côté.`);
+        showAiMessage(`Trois jours de suite sur ${currentHabitName}. C'est là que ça commence à tenir.`, 'Série de 3 jours');
       } else if (currentStreak === 7) {
-        showAiMessage(`Une semaine parfaite sur ${currentHabitName}. Mode Focus de Fer activé.`);
+        showAiMessage(`Une semaine pleine sur ${currentHabitName}, sans en rater un seul.`, 'Semaine parfaite');
       } else if (currentStreak > 10 && currentStreak % 5 === 0) {
-        showAiMessage(`Série de ${currentStreak} jours. Impressionnant.`);
-      } else if (Math.random() > 0.7) {
-        const msgs = [
-          "Excellente régularité.",
-          "C'est noté. Continuez ainsi.",
-          "Habitude validée avec succès.",
-          `+${pointsGained} Coins ajoutés à vos réserves.`
-        ];
-        showAiMessage(msgs[Math.floor(Math.random() * msgs.length)]);
+        showAiMessage(`${currentStreak} jours d'affilée sur ${currentHabitName}. Ne casse pas ça.`, `Série de ${currentStreak} jours`);
       }
 
     } else {
@@ -373,13 +396,9 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
 
   return (
     <div className="habits-container fade-in">
-      
-      {/* AI Commentary Notification */}
-      <div className={`ai-commentary-toast glass-panel ${aiMessage.visible ? 'visible' : ''}`}>
-        <div className="ai-jarvis-orb tiny pulsing-orb"></div>
-        <p><strong>{aiName} :</strong> {aiMessage.text}</p>
-      </div>
-
+      {/* La bulle de commentaire vivait ici. Elle est passée dans la bannière
+          commune (`AiNotification`), montée une seule fois dans le Layout : voir
+          `showAiMessage` plus haut pour ce qu'elle réparait. */}
       <header className="dashboard-header habits-header">
         <div>
           <p className="current-date">Forger la discipline</p>

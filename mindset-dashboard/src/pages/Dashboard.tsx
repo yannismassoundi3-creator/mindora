@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, Area, AreaChart } from 'recharts';
 import { Play, CheckCircle2, TrendingUp, Sparkles, Pencil, Coins, Circle, ChevronLeft, ChevronRight, Plus, Trophy, Calendar, Trash2, Target, X } from 'lucide-react';
-import { AiNotification } from '../components/AiNotification';
 import { RankIcon } from '../components/RankIcon';
 import { ProgressionRang } from '../components/ProgressionRang';
 import { PartageSemaine } from '../components/PartageSemaine';
@@ -11,6 +10,7 @@ import { NotificationsOptIn } from '../components/NotificationsOptIn';
 import { RelanceOffre } from '../components/RelanceOffre';
 import type { JarvisPopupData } from '../components/JarvisPopup';
 import { signalerJournee, annoncerGain, lireEtatDuJour } from '../utils/journee';
+import { noterTacheFaite } from '../utils/rythme';
 import { PremiersPas } from '../components/PremiersPas';
 import { CadrageManquant } from '../components/CadrageManquant';
 import { lireObjectif, rafraichirObjectif, EVENEMENT_OBJECTIF } from '../utils/objectif';
@@ -172,13 +172,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
     
     // On ne demande plus rien au chargement : la boîte du navigateur surgissait deux
     // secondes après l'arrivée, sans explication, et la réponse réflexe à ça est
-    // « Bloquer » — définitif. La demande part désormais d'un clic dans la carte
-    // NotificationsOptIn ci-dessous.
+    // « Bloquer » — définitif.
     //
-    // Il reste utile de repasser ici pour ceux qui ont déjà accepté : l'abonnement
-    // meurt avec le service worker (mise à jour, données effacées) et doit être
-    // recréé. `false` garantit qu'aucune boîte de dialogue ne peut s'ouvrir.
-    api.subscribeToPushNotifications(false).catch(console.error);
+    // La remise en place de l'abonnement déjà accordé — il meurt avec le service
+    // worker, à chaque mise à jour ou vidage de données — a rejoint
+    // `NotificationsOptIn`, monté juste en dessous : elle y est déclenchée par
+    // l'état réel de la permission plutôt que par le montage de cet écran, ce qui
+    // la fait aussi partir quand la permission arrive des réglages du téléphone.
   }, []);
 
   const [points, setPoints] = useState(() => getSecurePoints());
@@ -715,6 +715,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
     });
 
     if (!itemWasDone) {
+      // L'heure, et rien d'autre : c'est elle qui permettra au coach d'observer
+      // quand cette personne travaille réellement. Voir `utils/rythme.ts`.
+      noterTacheFaite();
       playBloopSound();
       triggerDopamine(e);
       const newPoints = points + 5;

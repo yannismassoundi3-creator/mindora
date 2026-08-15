@@ -40,6 +40,7 @@ export const EtatSauvegarde: React.FC = () => {
   const [assezLongtemps, setAssezLongtemps] = useState(false);
   const [reprise, setReprise] = useState(false);
   const [conflitOuvert, setConflitOuvert] = useState(false);
+  const [recuperation, setRecuperation] = useState(false);
 
   useEffect(() => {
     const surEtat = (e: Event) => setEtat((e as CustomEvent).detail ?? lireEtatSynchro());
@@ -83,10 +84,41 @@ export const EtatSauvegarde: React.FC = () => {
     setReprise(false);
   };
 
-  const recuperer = () => {
-    restaurerCopieDeConflit();
-    setConflitOuvert(false);
-    signalerEtatSynchro();
+  /*
+    Récupérer sa version : trois gestes, et aucun des trois n'est facultatif.
+
+    Le bouton ne faisait que réécrire `localStorage` et fermer la carte. Vu de
+    l'écran, il ne se passait rien — et vu du serveur, encore moins :
+
+    1. **Les écrans ne relisaient pas tout.** Une trentaine de clés sont lues un peu
+       partout, dont beaucoup dans des initialisations de `useState` qui ne
+       repassent jamais. L'événement `storage` en rafraîchit une partie ; le reste
+       continuait d'afficher la version du serveur. Un rechargement complet est le
+       seul moyen d'être sûr, et c'est déjà ce que fait le changement de prénom.
+    2. **La remontée repartait en conflit.** Elle envoyait la `base_version` d'avant,
+       le serveur rendait 409, la version tout juste reprise était remise de côté et
+       celle du serveur revenait. Le bouton défaisait donc son propre travail.
+       `exigerImposition()`, posé par la restauration, retire ce garde-fou pour cet
+       envoi-là seulement.
+    3. **On attend la réponse avant de recharger.** Recharger d'abord relancerait
+       `downloadCloudState()` pendant que l'envoi voyage.
+  */
+  const recuperer = async () => {
+    if (recuperation) return;
+    setRecuperation(true);
+
+    if (!restaurerCopieDeConflit()) {
+      setRecuperation(false);
+      setConflitOuvert(false);
+      signalerEtatSynchro();
+      return;
+    }
+
+    // L'échec est déjà couvert : la restauration a marqué l'état comme non
+    // synchronisé, donc la descente refusera d'écraser et la reprise automatique
+    // réessaiera toute seule. Rien ne justifie de retenir la personne ici.
+    await api.syncStateToCloud().catch(() => false);
+    window.location.reload();
   };
 
   const ignorerConflit = () => {
@@ -121,10 +153,12 @@ export const EtatSauvegarde: React.FC = () => {
           sa version. Celle qui était ici, du {quand}, a été mise de côté — rien n'est perdu.
         </p>
         <div className="sauvegarde-conflit-actions">
-          <button className="sauvegarde-btn-principal" onClick={recuperer}>
-            Récupérer ma version
+          {/* L'attente est dite : la remontée puis le rechargement prennent un
+              aller-retour réseau, et un bouton qui ne répond pas se reclique. */}
+          <button className="sauvegarde-btn-principal" onClick={recuperer} disabled={recuperation}>
+            {recuperation ? 'Récupération…' : 'Récupérer ma version'}
           </button>
-          <button className="sauvegarde-btn-discret" onClick={ignorerConflit}>
+          <button className="sauvegarde-btn-discret" onClick={ignorerConflit} disabled={recuperation}>
             Garder celle-ci
           </button>
         </div>

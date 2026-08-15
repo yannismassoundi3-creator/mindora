@@ -7,6 +7,8 @@ import {
   baseDeComparaisonConnue,
   confirmerEtat,
   copieDeConflit,
+  impositionExigee,
+  impositionTerminee,
   keepaliveAcceptable,
   memoriserVersionServeur,
   mettreDeCoteAvantConflit,
@@ -431,6 +433,18 @@ export const api = {
 
     const state = construireEtatLocal();
 
+    /*
+      Une décision explicite ne se fait pas refuser pour cause de conflit.
+
+      Quand quelqu'un vient d'appuyer sur « Récupérer ma version », il n'y a plus
+      rien à départager : il a lu la question et répondu. Renvoyer sa `base_version`
+      d'avant ferait rendre 409 au serveur, remettrait de côté ce qu'on vient de
+      reprendre, et rendrait à l'écran la version qu'il a précisément refusée.
+      L'absence de `base_version` est acceptée par le serveur — c'est la porte de
+      sortie prévue, et c'est ici qu'elle sert.
+    */
+    const impose = impositionExigee();
+
     try {
       /*
         `base_version` dit sur quelle version du serveur ce travail a été construit.
@@ -441,9 +455,14 @@ export const api = {
       */
       const reponse: any = await api.post(
         '/sync/state',
-        { ...state, base_version: versionServeurConnue() },
+        impose ? state : { ...state, base_version: versionServeurConnue() },
         keepaliveAcceptable(state),
       );
+
+      // Le droit d'écraser ne vaut que pour l'envoi qui portait la décision. Il est
+      // rendu dès qu'elle est arrivée, et pas avant : une coupure réseau doit laisser
+      // les tentatives suivantes bénéficier du même passe-droit.
+      if (impose) impositionTerminee();
 
       // On confirme l'empreinte de ce qui a été **envoyé**, pas de ce qui est là
       // maintenant : une case cochée pendant que la requête voyageait n'était pas
@@ -529,26 +548,63 @@ export const api = {
    * Appeler `Notification.requestPermission()` sans geste de l'utilisateur n'était pas
    * seulement brutal : Firefox l'ignore depuis sa version 72, si bien qu'aucun
    * utilisateur Firefox ne voyait jamais la question.
+   *
+   * **Rend ce qui s'est réellement passé, et non un booléen.** `false` désignait
+   * aussi bien un refus qu'une panne, et surtout : une exception levée après
+   * l'accord — la clé VAPID, l'abonnement, l'enregistrement côté serveur — était
+   * rattrapée par l'appelant, qui relisait alors `Notification.permission`, y
+   * trouvait « accordée » et faisait disparaître la carte. La personne repartait
+   * convaincue d'être abonnée sans qu'aucun abonnement n'existe, et ne
+   * l'apprendrait qu'en ne recevant jamais rien. Exactement la panne qui ne se
+   * signale pas.
    */
-  subscribeToPushNotifications: async (demanderPermission = true) => {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+  subscribeToPushNotifications: async (demanderPermission = true): Promise<ResultatAbonnement> => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
       console.warn('Notifications_Not_Supported');
-      await api.signalerPermissionPush(estIOS() && !estInstallee() ? 'ios_a_installer' : 'non_supporte');
-      return false;
+      const etat = estIOS() && !estInstallee() ? 'ios_a_installer' : 'non_supporte';
+      await api.signalerPermissionPush(etat);
+      return etat;
     }
 
+    /*
+      On repose la question même quand la réponse enregistrée est « refusé ».
+
+      Elle ne coûte rien : un navigateur qui a bloqué l'origine résout la promesse
+      sur-le-champ, sans rien afficher. En revanche, la refuser de notre côté
+      condamnait des situations parfaitement rattrapables — quelqu'un qui vient de
+      réautoriser le site dans ses réglages, un état lu au chargement puis devenu
+      faux, une boîte de dialogue simplement écartée. Le bouton « Activer » doit
+      toujours mener à une vraie demande : c'est la seule chose qu'il promet.
+    */
     let permission = Notification.permission;
-    if (permission === 'default') {
-      if (!demanderPermission) return false;
+    if (permission !== 'granted') {
+      if (!demanderPermission) return permission === 'denied' ? 'refuse' : 'a_demander';
       permission = await Notification.requestPermission();
     }
 
     if (permission !== 'granted') {
       console.warn('Permission_Denied');
       await api.signalerPermissionPush('refuse');
-      return false;
+      return 'refuse';
     }
 
+    /*
+      À partir d'ici, la permission est acquise et tout ce qui échoue est de notre
+      côté : clé VAPID injoignable, service de push qui refuse, serveur muet. C'est
+      un échec technique, pas un refus, et il ne doit surtout pas se lire comme une
+      réussite — d'où le `try` qui couvre le reste plutôt qu'une exception laissée à
+      l'appelant.
+    */
+    try {
+      return await api.enregistrerAbonnementPush();
+    } catch (e) {
+      console.error("Abonnement push impossible alors que la permission est accordée", e);
+      return 'echec';
+    }
+  },
+
+  /** La partie technique de l'abonnement, une fois la permission acquise. */
+  enregistrerAbonnementPush: async (): Promise<ResultatAbonnement> => {
     const registration = await navigator.serviceWorker.ready;
     let subscription = await registration.pushManager.getSubscription();
 
@@ -583,7 +639,7 @@ export const api = {
 
     await api.post('/push/subscribe', { subscription, deviceId: identifiantAppareil() });
     await api.signalerPermissionPush('accorde');
-    return true;
+    return 'accorde';
   },
 
   /**
@@ -629,6 +685,14 @@ export interface DecisionRelance {
 export type EtatPush = 'accorde' | 'refuse' | 'non_supporte' | 'ios_a_installer' | 'reporte';
 
 /**
+ * Ce qu'a donné une tentative d'abonnement.
+ *
+ * `echec` est la valeur qui manquait : la permission est accordée mais
+ * l'abonnement n'existe pas. Sans elle, ce cas se confondait avec la réussite.
+ */
+export type ResultatAbonnement = Exclude<EtatPush, 'reporte'> | 'echec' | 'a_demander';
+
+/**
  * Identifiant stable de ce navigateur. L'endpoint push, lui, change à chaque
  * recréation de l'abonnement : sans ce repère, le serveur garde l'ancienne
  * inscription en plus de la nouvelle et l'appareil reçoit tout en double.
@@ -646,9 +710,45 @@ export function estIOS(): boolean {
   return /iphone|ipad|ipod/i.test(navigator.userAgent);
 }
 
+export function estAndroid(): boolean {
+  return /android/i.test(navigator.userAgent);
+}
+
 /** Installée sur l'écran d'accueil — la seule façon d'avoir le push sur iOS. */
 export function estInstallee(): boolean {
   return window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+}
+
+/**
+ * Où se réautorisent les notifications, sur cet appareil précisément.
+ *
+ * On envoyait tout le monde vers « le cadenas à gauche de l'adresse du site ».
+ * Dans une application installée sur l'écran d'accueil, **il n'y a pas de barre
+ * d'adresse** : le conseil décrivait un écran que la personne n'avait pas sous les
+ * yeux, et la seule conclusion possible était que l'app se moquait d'elle. C'est ce
+ * qu'on nous a rapporté, mot pour mot : « ça me dit d'appuyer sur un truc sur mon
+ * navigateur ».
+ *
+ * Chaque système range ce réglage à un endroit différent, et l'installation change
+ * la réponse : une PWA installée devient une application aux yeux du système, avec
+ * sa propre entrée dans les réglages.
+ */
+export function cheminDeReautorisation(): string {
+  const installee = estInstallee();
+
+  if (estIOS()) {
+    return installee
+      ? 'Ouvre Réglages ▸ Notifications ▸ Disciplix, et autorise-les.'
+      : "Touche « aA » à gauche de l'adresse ▸ Réglages du site, puis autorise les notifications.";
+  }
+
+  if (estAndroid()) {
+    return installee
+      ? "Appui long sur l'icône Disciplix ▸ Infos sur l'appli ▸ Notifications, et active-les."
+      : 'Touche le cadenas à gauche de l’adresse ▸ Autorisations, puis autorise les notifications.';
+  }
+
+  return 'Clique sur le cadenas à gauche de l’adresse du site, puis autorise les notifications.';
 }
 
 /**
@@ -666,6 +766,58 @@ export function diagnostiquerPush(): EtatPush | 'a_demander' {
   if (Notification.permission === 'granted') return 'accorde';
   if (Notification.permission === 'denied') return 'refuse';
   return 'a_demander';
+}
+
+/**
+ * Prévient quand la réponse de l'appareil change, pendant qu'on la regarde.
+ *
+ * Réautoriser les notifications se fait **hors de l'application** : dans les
+ * réglages du système ou du navigateur. Sans cette surveillance, quelqu'un qui
+ * suivait notre marche à suivre revenait sur une carte qui lui répétait que les
+ * notifications étaient bloquées — il devait recharger la page pour que l'app
+ * s'aperçoive de ce qu'il venait de faire. C'est le moment exact où l'on perd
+ * quelqu'un qui vient de faire l'effort demandé.
+ *
+ * Deux sources, parce qu'aucune ne suffit seule : `permissions.onchange` prévient
+ * immédiatement là où il existe (pas sur Safari, donc pas sur iPhone), et le retour
+ * sur l'onglet couvre tout le reste — c'est précisément le geste que fait quelqu'un
+ * qui revient des réglages.
+ *
+ * @returns de quoi arrêter la surveillance.
+ */
+export function surveillerPermissionPush(rappel: () => void): () => void {
+  let vivant = true;
+  let statut: any = null;
+  const signaler = () => {
+    if (vivant) rappel();
+  };
+  const surVisibilite = () => {
+    if (document.visibilityState === 'visible') signaler();
+  };
+
+  document.addEventListener('visibilitychange', surVisibilite);
+  // `focus` rattrape le navigateur de bureau, où changer une autorisation ne masque
+  // jamais l'onglet — la boîte de réglages est une surcouche de la même page.
+  window.addEventListener('focus', signaler);
+
+  (navigator as any).permissions
+    ?.query({ name: 'notifications' })
+    .then((s: any) => {
+      if (!vivant) return;
+      statut = s;
+      s.onchange = signaler;
+    })
+    .catch(() => {
+      // Safari refuse cette requête pour les notifications : le retour d'onglet
+      // reste alors la seule source, et il couvre le cas qui compte.
+    });
+
+  return () => {
+    vivant = false;
+    document.removeEventListener('visibilitychange', surVisibilite);
+    window.removeEventListener('focus', signaler);
+    if (statut) statut.onchange = null;
+  };
 }
 
 // Utility function for VAPID key conversion

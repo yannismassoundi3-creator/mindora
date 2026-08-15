@@ -2,6 +2,7 @@ import { estPourAujourdhui } from './recurrence';
 import { getSecurePoints, setSecurePoints } from './secureStorage';
 import { ajouterXp } from './progression';
 import { playBloopSound } from './sounds';
+import { noterTacheFaite } from './rythme';
 import { api } from '../services/api';
 
 /*
@@ -222,6 +223,9 @@ export function basculerTache(id: number, position: { x: number; y: number }): v
 
   const points = getSecurePoints();
   if (!etaitFaite) {
+    // L'heure, et rien d'autre : c'est elle qui permettra au coach de dire quelque
+    // chose que personne d'autre ne saurait dire. Voir `utils/rythme.ts`.
+    noterTacheFaite();
     playBloopSound();
     window.dispatchEvent(
       new CustomEvent('triggerShockwave', { detail: { x: position.x, y: position.y, color: '#ec4899' } }),

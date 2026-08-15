@@ -1,12 +1,30 @@
+/*
+  L'annonce d'un passage de niveau. Trois corrections, toutes visibles au téléphone.
+
+  1. **Elle ne se pose plus à 20 px du haut**, mais sous le créneau de l'en-tête et
+     de la bannière du coach. Les deux se déclenchent au même instant plus souvent
+     qu'on ne croit — valider une habitude peut à la fois franchir un palier de
+     série et faire passer un niveau — et elles se recouvraient exactement. En
+     dessous, elles se lisent l'une après l'autre. `env(safe-area-inset-top)` règle
+     au passage le fait qu'elle passait sous la barre d'état de l'iPhone.
+  2. **Elle anime `transform` et non `top`.** Animer `top` fait recalculer la mise en
+     page à chaque image : c'est le genre de détail qui rend saccadée, sur le
+     téléphone, la célébration censée le récompenser.
+  3. **Elle est opaque.** Un `backdrop-filter` sur un élément fixe se recompose à
+     chaque image de défilement et décroche sur iPhone — le piège déjà payé sur les
+     barres collantes de l'application.
+*/
 .level-up-overlay {
   position: fixed;
-  top: 20px;
+  top: 90px;
   left: 50%;
+  /* Le centrage vit aussi hors de l'animation : sans lui, tout ce qui la suspend —
+     un `prefers-reduced-motion`, un onglet en arrière-plan — laisse la barre décalée
+     d'une demi-largeur vers la droite, à moitié hors de l'écran. */
   transform: translateX(-50%);
   z-index: 9999;
-  background: rgba(15, 23, 42, 0.95);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgb(15, 23, 42);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 100px;
   padding: 10px 30px;
   display: flex;
@@ -20,11 +38,18 @@
   overflow: hidden;
 }
 
+/* Juste sous la bannière du coach, elle-même calée sur l'en-tête flottant. */
+@media (max-width: 900px) {
+  .level-up-overlay {
+    top: calc(max(12px, env(safe-area-inset-top)) + 74px);
+  }
+}
+
 @keyframes levelUpSlideDown {
-  0% { opacity: 0; top: -50px; }
-  10% { opacity: 1; top: 20px; }
-  85% { opacity: 1; top: 20px; }
-  100% { opacity: 0; top: -50px; }
+  0% { opacity: 0; transform: translate(-50%, -90px); }
+  10% { opacity: 1; transform: translate(-50%, 0); }
+  85% { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, -90px); }
 }
 
 .level-up-content {

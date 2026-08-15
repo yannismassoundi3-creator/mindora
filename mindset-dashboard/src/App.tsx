@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { api, renvoyerProfilEnAttente } from './services/api';
 import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
@@ -19,6 +19,8 @@ import { AiNotification } from './components/AiNotification';
 import { AiExplanationModal } from './components/AiExplanationModal';
 import { EtatSauvegarde } from './components/EtatSauvegarde';
 import { purgerScoresAnciens } from './utils/etatLocal';
+import { ajouterNotification, notificationEnAttente } from './utils/notifications';
+import { motDuCoachDuMoment } from './utils/motDuCoach';
 import { getSecurePoints, setSecurePoints } from './utils/secureStorage';
 import { reconcilierPaiement, controlerAbonnement, activerPro, retenirFormule, type Formule } from './utils/paiement';
 import { useRegisterSW } from 'virtual:pwa-register/react';
@@ -345,6 +347,42 @@ function App() {
       window.removeEventListener('openPricing', ouvrirOffre);
     };
   }, []);
+
+  /*
+    Le mot du coach à l'arrivée.
+
+    L'application s'ouvrait sur des chiffres justes et personne pour les lire. Le
+    coach, lui, ne parlait que si on allait le chercher — alors que le moment où
+    quelqu'un ouvre l'app est précisément celui où une phrase peut changer la suite
+    de sa journée.
+
+    Quatre conditions, et chacune évite un travers précis :
+
+    - **Une fois par chargement** (`motDejaDit`). Le tableau de bord est démonté et
+      remonté à chaque aller-retour dans le menu ; sans ce verrou, revenir d'un
+      écran ferait réapparaître l'accueil.
+    - **Pas par-dessus une notification de plan.** Quelqu'un qui vient de faire
+      appliquer un plan doit voir ce plan annoncé, pas un bonjour posé devant.
+    - **Rien à dire, rien à l'écran.** `motDuCoachDuMoment` rend `null` quand la
+      journée ne se prête à aucune observation, ou quand on a déjà parlé récemment.
+    - **Un délai avant d'apparaître.** L'arrivée dans l'app est chargée — descente
+      de l'état, montée de niveau éventuelle, transition d'écran. Une bannière au
+      milieu de tout ça se lit comme du bruit.
+  */
+  const motDejaDit = useRef(false);
+  useEffect(() => {
+    if (isInitializing || motDejaDit.current) return;
+    if (currentView !== 'dashboard') return;
+    motDejaDit.current = true;
+
+    const minuteur = setTimeout(() => {
+      if (notificationEnAttente()) return;
+      const mot = motDuCoachDuMoment(localStorage.getItem('mindset_user_name') || '');
+      if (mot) ajouterNotification('coach', mot.message, mot.titre);
+    }, 1800);
+
+    return () => clearTimeout(minuteur);
+  }, [isInitializing, currentView]);
 
   if (currentView === 'welcome') {
     if (!hasToken) {

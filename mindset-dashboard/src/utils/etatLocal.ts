@@ -40,7 +40,26 @@ export const CLES_SYNCHRONISEES = [
   'mindset_join_date',
   'mental_score',
   'bonus_mental_score',
+  // La descente écrit aussi les deux compteurs signés (`setSecurePoints`,
+  // `definirXp`). Les laisser hors de cette liste rendait la copie de conflit
+  // infidèle : on récupérait ses routines et ses objectifs, mais on gardait les
+  // coins et le niveau de l'autre appareil.
+  'mindset_points',
+  'mindset_xp',
 ] as const;
+
+/**
+ * Les signatures des compteurs, copiées avec eux mais jamais comptées.
+ *
+ * Elles voyagent avec leur valeur, sinon un solde restauré arriverait sans preuve.
+ * Le contrôle anti-triche tolère une signature absente — il resigne la valeur — et
+ * c'est bien pourquoi il faut les emporter : restaurer une valeur en laissant en
+ * place la signature de l'autre version, elle, déclencherait la remise à zéro.
+ *
+ * Elles ne disent en revanche rien de ce que la personne a fait : les compter parmi
+ * ce qui « vaut la peine d'être sauvé » proposerait de récupérer une version vide.
+ */
+export const CLES_ACCOMPAGNANTES = ['mindset_points_signature', 'mindset_xp_signature'] as const;
 
 /**
  * Les listes qu'on n'arrive pas à relire, sous leur nom lisible.

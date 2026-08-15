@@ -9,6 +9,7 @@ import { normaliserJours } from '../utils/recurrence';
 import { extrairePlan, reparerJson } from '../utils/extractionPlan';
 import { listesIllisibles, reparerListe, type ListeIllisible } from '../utils/etatLocal';
 import { composerOuverture } from '../utils/ouverture';
+import { ajouterNotification } from '../utils/notifications';
 import './AIChat.css';
 import { api } from '../services/api';
 
@@ -280,22 +281,6 @@ export const AIChat: React.FC = () => {
     ]);
   };
 
-  const addAiNotification = (type: string, message: string) => {
-    try {
-      const notifs = JSON.parse(localStorage.getItem('mindset_ai_notifications') || '[]');
-      notifs.push({
-        id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
-        type,
-        message,
-        timestamp: new Date().toISOString()
-      });
-      // Keep only last 50 notifications to prevent bloat
-      if (notifs.length > 50) notifs.shift();
-      localStorage.setItem('mindset_ai_notifications', JSON.stringify(notifs));
-    } catch (e) {
-      console.error(e);
-    }
-  };
 
   /**
    * Applique le plan.
@@ -330,9 +315,9 @@ export const AIChat: React.FC = () => {
     if (planData.planExplanation) localStorage.setItem('mindset_pending_ai_explanation', planData.planExplanation); // Fallback
 
     const pushedTypes = new Set<string>();
-    const safeAddNotif = (type: string, msg: string) => {
+    const safeAddNotif = (type: string, msg: string, titre?: string) => {
       if (!pushedTypes.has(type)) {
-        addAiNotification(type, msg);
+        ajouterNotification(type, msg, titre);
         pushedTypes.add(type);
       }
     };
@@ -387,7 +372,7 @@ export const AIChat: React.FC = () => {
         };
       });
       localStorage.setItem('mindset_habits', JSON.stringify([...existingHabits, ...newEntries]));
-      safeAddNotif('habit', `✨ ${aiName} a ajouté de nouvelles habitudes stratégiques pour toi.`);
+      safeAddNotif('habit', 'Ouvre tes habitudes pour les découvrir.', `${aiName} a ajouté de nouvelles habitudes`);
     }
     
     const routinesList = planData.newRoutines || planData.routines;
@@ -435,7 +420,7 @@ export const AIChat: React.FC = () => {
         }
       });
       localStorage.setItem('mindset_routines', JSON.stringify(existingRoutines));
-      safeAddNotif('routine', `✨ ${aiName} a mis à jour tes routines pour t'aider à atteindre tes objectifs.`);
+      safeAddNotif('routine', 'Ta journée a été réécrite pour coller à ton objectif.', `${aiName} a mis à jour tes routines`);
     }
 
     const nutritionList = planData.newNutrition || planData.nutrition;
@@ -457,7 +442,7 @@ export const AIChat: React.FC = () => {
         };
       });
       localStorage.setItem('mindset_nutrition', JSON.stringify([...existingNutrition, ...newEntries]));
-      safeAddNotif('nutrition', `🍏 ${aiName} a planifié ton alimentation.`);
+      safeAddNotif('nutrition', 'Tes repas sont dans l\'onglet Alimentation.', `${aiName} a planifié ton alimentation`);
     }
       
     const objectivesList = planData.newMicroObjectives || planData.newObjectives || planData.objectives || planData.microObjectives || planData.goals;
@@ -480,7 +465,7 @@ export const AIChat: React.FC = () => {
         };
       });
       localStorage.setItem('mindset_micro_obj', JSON.stringify([...existingMicro, ...newEntries]));
-      safeAddNotif('objective', `✨ ${aiName} a défini de nouveaux objectifs d'évolution pour toi.`);
+      safeAddNotif('objective', 'Ils sont dans ton écran Objectifs.', `${aiName} a défini de nouveaux objectifs`);
     }
 
     const macroList = planData.newMacroObjectives || planData.macroObjectives || planData.vision;
@@ -507,7 +492,7 @@ export const AIChat: React.FC = () => {
         };
       });
       localStorage.setItem('mindset_macro_obj', JSON.stringify([...existingMacro, ...newMacros]));
-      safeAddNotif('objective', `✨ ${aiName} a défini de nouveaux objectifs d'évolution pour toi.`);
+      safeAddNotif('objective', 'Ils sont dans ton écran Objectifs.', `${aiName} a défini de nouveaux objectifs`);
     }
 
       // Force API sync if needed

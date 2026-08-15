@@ -383,37 +383,17 @@
   font-size: 0.9rem;
 }
 
-/* AI Commentary Toast */
-.ai-commentary-toast {
-  position: fixed;
-  top: 20px;
-  left: 50%;
-  transform: translateX(-50%) translateY(-100px);
-  z-index: 1000;
-  padding: 12px 24px;
-  border-radius: 30px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  border: 1px solid rgba(139, 92, 246, 0.4);
-  background: rgba(15, 15, 20, 0.9);
-  backdrop-filter: blur(15px);
-  box-shadow: 0 10px 40px rgba(139, 92, 246, 0.3);
-  opacity: 0;
-  transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), background-color 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), border-color 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), color 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  pointer-events: none;
-}
+/*
+  La bulle de commentaire du coach vivait ici. Elle est retirée.
 
-.ai-commentary-toast.visible {
-  transform: translateX(-50%) translateY(0);
-  opacity: 1;
-}
+  Elle était en `position: fixed` avec un `backdrop-filter`, et présente dans le DOM
+  en permanence : le navigateur recomposait ce flou à chaque image de défilement de
+  la page, qu'elle soit visible ou non. Elle se posait par ailleurs à 20 px du haut
+  sans tenir compte de la zone sûre, donc à moitié sous la barre d'état sur iPhone.
 
-.ai-commentary-toast p {
-  font-size: 0.95rem;
-  font-weight: 500;
-  margin: 0;
-}
+  Son contenu est passé dans la bannière commune (`components/AiNotification`), qui
+  n'existe que quand elle a quelque chose à dire.
+*/
 
 /* Edit Habit Btn */
 .edit-habit-btn {

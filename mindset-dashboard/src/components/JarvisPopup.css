@@ -251,12 +251,23 @@
   color: #ec4899;
 }
 
-/* Mobile optimizations */
-@media (max-width: 768px) {
+/*
+  Le seuil est celui du reste de l'application, 900 px, et non 768.
+
+  C'est à 900 px que le Layout bascule : la barre de navigation basse apparaît, à
+  `bottom: 24px` et 84 px de haut. Entre 769 et 900 px, la bulle restait donc en bas
+  à droite, à `bottom: 24px` — exactement par-dessus les onglets, et avec un
+  `z-index` cent fois supérieur. Ses deux boutons se posaient sur « Suivi » et
+  « Profil » pendant cinq secondes après chaque tâche cochée.
+
+  Même famille d'oubli qu'entre 901 et 1200 px sur le tableau de bord : un point de
+  bascule recopié à la main au lieu d'être repris de celui qui décide.
+*/
+@media (max-width: 900px) {
   .jarvis-popup-container {
     left: 50% !important;
     top: auto !important;
-    bottom: 100px !important; /* Above the bottom navigation bar */
+    bottom: 100px !important; /* Au-dessus de la barre de navigation basse */
     transform: translate(-50%, 0);
     animation: jarvisPopInMobile 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
     width: 90%;
