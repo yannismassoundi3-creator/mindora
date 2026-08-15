@@ -857,8 +857,21 @@ try {
         par un autre chemin, le compteur aurait sous-compté et la protection aurait
         cessé d'agir sans rien dire. La question est désormais tranchée par
         l'empreinte de l'état lui-même, qui ne dépend d'aucun passage obligé.
+
+        **Le signal part après l'écriture en cours, jamais pendant.** Calculer cette
+        empreinte relit tout l'état local, soldes signés compris — et une donnée qui
+        tient en deux entrées de stockage est incohérente entre ses deux écritures.
+        Appelé ici en direct, ce calcul tombait dans cet intervalle et lisait une
+        valeur neuve accompagnée de la signature de l'ancienne : l'anti-triche se
+        déclenchait contre l'application, et **valider une habitude remettait les
+        coins et l'XP à zéro** (mesuré : 500 → 0, puis remonté au serveur).
+
+        Les deux compteurs se défendent maintenant aussi de leur côté, mais la
+        correction vit d'abord ici : lire l'état d'autrui au beau milieu de son
+        écriture est un piège tendu à tout ce qui s'écrira un jour en deux temps, et
+        le prochain à tomber dedans n'aurait aucune raison de s'en méfier.
       */
-      signalerEtatSynchro();
+      queueMicrotask(signalerEtatSynchro);
 
       clearTimeout(syncTimeout);
       syncTimeout = setTimeout(() => {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { api, renvoyerProfilEnAttente } from './services/api';
+import { api, renvoyerProfilEnAttente, estInstallee } from './services/api';
 import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { Onboarding } from './components/Onboarding';
@@ -38,7 +38,30 @@ const AdminDashboard = React.lazy(() => import('./pages/AdminDashboard').then(mo
 
 const APP_VERSION = '1.1.0'; // Change this string to force a global cache clear
 const currentVersion = localStorage.getItem('mindset_app_version');
-if (currentVersion !== APP_VERSION) {
+
+/*
+  Une première ouverture n'est pas un changement de version.
+
+  Ce bloc purge les caches puis recharge la page. La condition `!== APP_VERSION`
+  était vraie pour une version périmée — ce qu'on visait — **mais aussi pour une
+  version absente**, c'est-à-dire pour un stockage vierge. Or une application
+  installée sur l'écran d'accueil d'un iPhone reçoit son propre stockage, vide même
+  si l'on vient de s'inscrire dans Safari : le premier lancement depuis l'icône
+  tombait donc systématiquement ici.
+
+  Et ce qu'il y trouvait est le pire enchaînement possible pour une application qui
+  démarre : elle **efface le cache du service worker par lequel elle vient d'être
+  servie**, puis se recharge cent millisecondes plus tard — sur un réseau de
+  téléphone, sans plus rien en réserve. Écran noir au lancement, pour tout le monde,
+  à chaque installation. C'est ce que Yannis nous a rapporté de son ami.
+
+  Un stockage vide n'a par définition rien de périmé à jeter. On enregistre la
+  version et on laisse démarrer. La purge reste entière pour ce à quoi elle sert :
+  passer d'une version connue à une autre.
+*/
+if (currentVersion === null) {
+  localStorage.setItem('mindset_app_version', APP_VERSION);
+} else if (currentVersion !== APP_VERSION) {
   if ('caches' in window) {
     caches.keys().then((names) => {
       for (const name of names) {
@@ -386,8 +409,37 @@ function App() {
 
   if (currentView === 'welcome') {
     if (!hasToken) {
+      /*
+        Une application installée ne renvoie jamais vers la page de vente.
+
+        Sans session, on partait vers `landing.html`. Dans un onglet c'est la bonne
+        réponse — on ne connaît pas cette personne, on lui présente le produit. Dans
+        une application posée sur l'écran d'accueil, c'est absurde deux fois : elle a
+        déjà choisi le produit puisqu'elle l'a installé, et sa session ne s'y trouve
+        pas parce qu'iOS y range un stockage séparé de celui de Safari — s'inscrire
+        puis installer donne donc une application « déconnectée » dès le premier
+        lancement.
+
+        Techniquement, c'était aussi une navigation hors de la coquille précachée,
+        vers le seul document que le service worker ait ordre de ne pas servir
+        (`globIgnores` et `navigateFallbackDenylist`, tous deux volontaires : une
+        page de vente ne doit pas se figer). Une application installée quittait donc
+        son cache pour aller chercher au réseau une page qu'elle n'a pas — d'où
+        l'attente sur fond noir, plutôt qu'une page de vente qui s'affiche.
+
+        On ouvre sur la connexion, qui est ce que cette personne est venue faire.
+      */
+      if (estInstallee()) {
+        return <AuthScreen onComplete={() => {
+          const isCompleted = localStorage.getItem('hasCompletedOnboarding') === 'true';
+          setCurrentView(isCompleted ? 'dashboard' : 'onboarding');
+        }} />;
+      }
+
       window.location.href = '/landing.html';
-      return null;
+      // Le temps que la navigation parte, on montre qu'il se passe quelque chose :
+      // rendre `null` laissait un écran noir, indiscernable d'une application morte.
+      return <SkeletonGlow rows={3} />;
     } else {
       const isCompleted = localStorage.getItem('hasCompletedOnboarding') === 'true';
       return <WelcomeScreen onComplete={() => setCurrentView(isCompleted ? 'dashboard' : 'onboarding')} />;

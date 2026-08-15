@@ -83,10 +83,25 @@ export interface DetailXp {
   gain: boolean;
 }
 
+/**
+ * L'XP en cours d'écriture, le temps que sa signature la rejoigne.
+ *
+ * Même intervalle, même piège et même parade que pour les coins : voir le
+ * commentaire de `ecritureEnCours` dans `secureStorage.ts`. Les deux compteurs
+ * signés étaient touchés par le même défaut, et pour cause — ils partagent la forme
+ * « une entrée pour la valeur, une entrée pour sa signature ».
+ */
+let ecritureEnCours: number | null = null;
+
 function ecrire(xp: number, gain: boolean): number {
   const valeur = Math.max(0, Math.floor(xp));
-  localStorage.setItem(CLE_XP, valeur.toString());
-  localStorage.setItem(CLE_SIGNATURE, empreinte(valeur));
+  ecritureEnCours = valeur;
+  try {
+    localStorage.setItem(CLE_XP, valeur.toString());
+    localStorage.setItem(CLE_SIGNATURE, empreinte(valeur));
+  } finally {
+    ecritureEnCours = null;
+  }
   window.dispatchEvent(new CustomEvent<DetailXp>(EVENEMENT_XP, { detail: { xp: valeur, gain } }));
   return valeur;
 }
@@ -100,6 +115,8 @@ function ecrire(xp: number, gain: boolean): number {
  * reprend plus rien au parcours.
  */
 export function lireXp(): number {
+  if (ecritureEnCours !== null) return ecritureEnCours;
+
   const brut = localStorage.getItem(CLE_XP);
 
   if (brut === null) return ecrire(getSecurePoints(), false);
@@ -123,9 +140,28 @@ export function lireXp(): number {
  *
  * N'est appelée que pour un gain ou l'annulation d'un gain. Une dépense en
  * Boutique et la pénalité de série perdue ne passent volontairement pas par ici.
+ *
+ * **Un niveau atteint ne se reperd pas.** Décocher une tâche reprend bien ses points
+ * — sans quoi cocher et décocher en boucle serait une machine à niveaux — mais la
+ * reprise s'arrête net au seuil du niveau en cours. Un geste d'entretien, corriger
+ * une case cochée par erreur, ne doit pas coûter un rang : Yannis s'est vu
+ * rétrograder en décochant une routine, et une rétrogradation ne se lit jamais comme
+ * une règle, seulement comme une panne.
+ *
+ * Le plafond de progression que cela offre est borné et ne se rejoue pas : le seul
+ * gain possible est la fraction d'XP qui séparait du seuil, une fois. Reprendre le
+ * même aller-retour ensuite oscille entre le seuil et le seuil plus le gain.
+ *
+ * Le seuil est relu **après** coup pour rester exact quand plusieurs reprises
+ * s'enchaînent, et la borne ne s'applique qu'aux reprises : un gain n'a rien à
+ * plafonner.
  */
 export function ajouterXp(montant: number): number {
-  return ecrire(lireXp() + montant, true);
+  const actuelle = lireXp();
+  if (montant >= 0) return ecrire(actuelle + montant, true);
+
+  const socle = xpDuNiveau(niveauPourXp(actuelle));
+  return ecrire(Math.max(socle, actuelle + montant), true);
 }
 
 /** Pose une XP venue du serveur, sans la confondre avec un gain. */
