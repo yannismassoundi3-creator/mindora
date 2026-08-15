@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { lireReponseGroq } from '../common/groq';
 
 /**
  * Ce que le coach sait de la personne au-delà de l'instant présent.
@@ -242,7 +243,21 @@ export class CoachMemoryService {
         return null;
       }
       const data = await r.json();
-      return data?.choices?.[0]?.message?.content?.trim() || null;
+      const { texte, tronque } = lireReponseGroq(data);
+
+      // Une note coupée en route ne se rattrape jamais.
+      //
+      // Elle est écrite en base, puis renvoyée au modèle le lendemain sous le titre
+      // « Note actuelle » avec la consigne d'en garder les informations : il recopie
+      // donc consciencieusement la phrase interrompue au milieu d'un fait, et
+      // l'amputation devient permanente. Ne rien écrire laisse la note précédente en
+      // place, entière — c'est strictement mieux qu'une version abîmée.
+      if (tronque) {
+        this.logger.warn(`Note de mémoire longue coupée par max_tokens sur ${modele} : non enregistrée`);
+        return null;
+      }
+
+      return texte;
     } catch (e: any) {
       this.logger.warn(
         `Mémoire non rafraîchie sur ${modele} : ${e?.name === 'AbortError' ? 'délai dépassé' : e?.message}`,

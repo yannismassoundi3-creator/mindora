@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { WeeklyReviewService } from './weekly-review.service';
 
 /**
@@ -99,5 +100,71 @@ describe('WeeklyReviewService — texte des comptes gratuits', () => {
 
   it("accorde le singulier sur une seule journée", () => {
     expect(service.texteFactuel('Yannis', { ...semaine, joursActifs: 1 })).toContain('1 jour actif,');
+  });
+});
+
+/**
+ * La partie qui dépend du modèle, elle, se simule.
+ *
+ * Le bilan part une fois par semaine : une phrase coupée au milieu d'un mot y reste
+ * sept jours sur l'écran de quelqu'un, et rien ne permet de la rattraper. C'est ce
+ * qui justifie de préférer le texte factuel, moins bon mais entier.
+ */
+describe('WeeklyReviewService — une réponse coupée par max_tokens', () => {
+  let service: WeeklyReviewService;
+  let fetchMock: jest.Mock;
+  const cleInitiale = process.env.GROQ_API_KEY;
+
+  const semaine = { joursActifs: 4, scoreMoyen: 62, meilleurScore: 90, evolution: 0, habitudes: [] };
+
+  const reponseOk = (contenu: string) => ({
+    ok: true,
+    status: 200,
+    json: async () => ({ choices: [{ message: { content: contenu } }] }),
+  });
+  const reponseCoupee = (contenu: string) => ({
+    ok: true,
+    status: 200,
+    json: async () => ({ choices: [{ message: { content: contenu }, finish_reason: 'length' }] }),
+  });
+
+  beforeEach(() => {
+    process.env.GROQ_API_KEY = 'cle-de-test';
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    fetchMock = jest.fn();
+    global.fetch = fetchMock as any;
+    service = new WeeklyReviewService();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    if (cleInitiale === undefined) delete process.env.GROQ_API_KEY;
+    else process.env.GROQ_API_KEY = cleInitiale;
+  });
+
+  it('refuse la phrase coupée avant le plafond et essaie le modèle suivant', async () => {
+    fetchMock
+      .mockResolvedValueOnce(reponseCoupee('Quatre jours tenus cette semaine, et le point à surveiller'))
+      .mockResolvedValueOnce(reponseOk('Quatre jours tenus. Vise cinq la semaine prochaine.'));
+
+    expect(await service.generate('Yannis', semaine)).toBe('Quatre jours tenus. Vise cinq la semaine prochaine.');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('retombe sur le texte factuel si les deux modèles sont coupés', async () => {
+    fetchMock.mockResolvedValue(reponseCoupee('Quatre jours tenus cette semaine, et'));
+
+    expect(await service.generate('Yannis', semaine)).toBeNull();
+  });
+
+  // Au-delà du plafond, la coupure est absorbée : le résultat est identique, et un
+  // second appel se paierait sur un quota quotidien déjà compté.
+  it('garde la phrase coupée que le plafond tronque de toute façon', async () => {
+    fetchMock.mockResolvedValueOnce(reponseCoupee('Quatre jours tenus cette semaine. '.repeat(10)));
+
+    const texte = await service.generate('Yannis', semaine);
+
+    expect(texte).toHaveLength(198);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

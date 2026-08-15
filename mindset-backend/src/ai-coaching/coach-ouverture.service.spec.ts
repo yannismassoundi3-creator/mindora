@@ -176,6 +176,25 @@ describe('CoachOuvertureService', () => {
       expect(await service.ouverture('u1', {})).toBeNull();
     });
 
+    /*
+      Une phrase arrêtée par `max_tokens` arrive avec un statut 200 : sans lire
+      `finish_reason`, elle passait pour finie. Elle est de surcroît mise en cache six
+      heures, donc on relirait toute la journée une phrase d'accueil interrompue au
+      milieu d'un mot. La phrase composée localement, elle, est entière.
+    */
+    it('rend null sur une phrase coupée, et ne la met pas en cache', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          choices: [{ message: { content: 'Il te reste ta séance, et vu ta série de' }, finish_reason: 'length' }],
+        }),
+      });
+
+      expect(await service.ouverture('u1', {})).toBeNull();
+      expect(prisma.aIProfile.update).not.toHaveBeenCalled();
+    });
+
     it('ne parle pas pour un utilisateur de démonstration', async () => {
       expect(await service.ouverture('demo-user', {})).toBeNull();
       expect(fetchMock).not.toHaveBeenCalled();

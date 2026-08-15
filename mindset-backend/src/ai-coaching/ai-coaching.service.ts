@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CoachMemoryService } from './coach-memory.service';
+import { lireReponseGroq } from '../common/groq';
 
 @Injectable()
 export class AiCoachingService {
@@ -650,7 +651,8 @@ RÈGLES DE COMPORTEMENT :
         });
 
         const data = await response.json();
-        return { texte: data.choices?.[0]?.message?.content as string | undefined, modele };
+        const { texte, tronque } = lireReponseGroq(data);
+        return { texte: texte ?? undefined, modele, tronque };
       };
 
       const planProbable = AiCoachingService.MOTS_PLAN.test(prompt);
@@ -659,14 +661,14 @@ RÈGLES DE COMPORTEMENT :
           `schéma du plan ${planProbable ? 'joint' : 'omis'}`,
       );
 
-      let { texte: reply, modele } = await demander(planProbable);
+      let { texte: reply, modele, tronque } = await demander(planProbable);
 
       // Le modèle réclame le schéma : la détection par mots-clés est passée à côté.
       // Un second appel coûte moins qu'un utilisateur à qui on répond qu'on ne sait
       // pas faire ce que l'application sait faire.
       if (reply?.includes(AiCoachingService.MARQUEUR_PLAN)) {
         console.log('[Groq] ↻ Schéma du plan réclamé par le modèle, second appel');
-        ({ texte: reply, modele } = await demander(true));
+        ({ texte: reply, modele, tronque } = await demander(true));
       }
 
       if (!reply) throw new Error('Empty response from Groq');
@@ -676,6 +678,31 @@ RÈGLES DE COMPORTEMENT :
       // et donc remboursée — qu'un mot de code envoyé à l'utilisateur.
       if (reply.includes(AiCoachingService.MARQUEUR_PLAN)) {
         throw new Error('Le modèle a renvoyé le marqueur de plan deux fois de suite');
+      }
+
+      // Réponse arrêtée par `max_tokens` et non par le modèle.
+      //
+      // Elle arrive avec le même statut 200 et la même forme qu'une réponse finie :
+      // sans cette lecture, la coupure était rigoureusement invisible, ici comme dans
+      // les journaux. Les deux cas ne se soignent pas de la même façon.
+      //
+      // Bloc <PLAN> ouvert : son JSON est forcément incomplet, donc `JSON.parse`
+      // échouera côté navigateur et la personne lira déjà « Je n'ai pas réussi à
+      // appliquer ce plan ». Il n'y a rien à ajouter à l'écran — ce qui manquait,
+      // c'est la trace côté serveur, sans laquelle on chercherait la cause dans la
+      // mise en forme du modèle alors qu'elle est dans le plafond de jetons.
+      //
+      // Prose seule : le texte s'arrête au milieu d'une phrase, et il n'est pas
+      // question de le jeter — mille cinq cents jetons de réponse utile valent mieux
+      // qu'un message d'erreur, et les refacturer serait pire. Les points de
+      // suspension sont le seul aveu honnête disponible.
+      if (tronque) {
+        const planOuvert = /<\s*PLAN\s*>/i.test(reply);
+        console.warn(
+          `[Groq] ✂️ Réponse de ${modele} coupée par max_tokens (${reply.length} chars, ` +
+            `schéma ${planProbable ? 'joint' : 'omis'}${planOuvert ? ', bloc <PLAN> ouvert' : ''})`,
+        );
+        if (!planOuvert) reply = reply.replace(/[\s.…]*$/, '') + '…';
       }
 
       console.log(`[Groq] ✅ Réponse de ${modele} reçue (${reply.length} chars)`);

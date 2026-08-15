@@ -21,6 +21,12 @@ describe('MorningBriefService — écriture du message', () => {
     status: 200,
     json: async () => ({ choices: [{ message: { content: contenu } }] }),
   });
+  /** Le modèle a été arrêté par `max_tokens` : même statut, même forme, phrase en moins. */
+  const reponseCoupee = (contenu: string) => ({
+    ok: true,
+    status: 200,
+    json: async () => ({ choices: [{ message: { content: contenu }, finish_reason: 'length' }] }),
+  });
   const reponseInterdite = (modele: string) => ({
     ok: false,
     status: 403,
@@ -87,6 +93,48 @@ describe('MorningBriefService — écriture du message', () => {
 
     expect(await service.generate('Yannis', sync)).toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  /*
+    Une notification ne se rattrape pas : elle est déjà sur l'écran verrouillé de
+    quelqu'un quand on s'aperçoit qu'elle est coupée. D'où le seul arbitrage un peu
+    fin de ce lot — il dépend de l'endroit où tombe la coupure.
+  */
+  describe('une réponse arrêtée par max_tokens', () => {
+    it('refuse la phrase coupée avant le plafond, et laisse sa chance au modèle suivant', async () => {
+      fetchMock
+        .mockResolvedValueOnce(reponseCoupee('Debout Yannis, ta série de 4 jours tient encore si tu'))
+        .mockResolvedValueOnce(reponseOk('Debout : ta série de 4 jours se joue ce matin.'));
+
+      const texte = await service.generate('Yannis', sync);
+
+      expect(texte).toBe('Debout : ta série de 4 jours se joue ce matin.');
+      expect(modelesAppeles()).toEqual(['llama-3.1-8b-instant', 'llama-3.3-70b-versatile']);
+    });
+
+    it('retombe sur le message générique si les deux modèles sont coupés', async () => {
+      fetchMock.mockResolvedValue(reponseCoupee('Debout Yannis, ta série tient encore si tu'));
+
+      expect(await service.generate('Yannis', sync)).toBeNull();
+    });
+
+    /*
+      Le cas inverse, et c'est pour lui que la condition existe : au-delà du plafond,
+      la phrase est de toute façon ramenée à 160 caractères suivis de points de
+      suspension. Coupée ou non, ce qui part est identique — la rejeter dépenserait un
+      second appel sur un quota quotidien compté, pour rien.
+    */
+    it('garde la phrase coupée au-delà du plafond, que le plafond absorbe déjà', async () => {
+      const bavard = 'Debout Yannis. ' + 'Ta série de quatre jours tient encore ce matin. '.repeat(6);
+      fetchMock.mockResolvedValueOnce(reponseCoupee(bavard));
+
+      const texte = await service.generate('Yannis', sync);
+
+      // 157 caractères conservés, plus le caractère de points de suspension.
+      expect(texte).toHaveLength(158);
+      expect(texte!.endsWith('…')).toBe(true);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
   });
 });
 

@@ -233,6 +233,71 @@ describe('AiCoachingService — chat', () => {
       );
     });
   });
+
+  /*
+    Une réponse arrêtée par `max_tokens` arrive en 200, avec la même forme qu'une
+    réponse terminée. Ici le budget est de 1500 jetons et un plan complet en occupe
+    près de 1100 : c'est le seul endroit du projet où la coupure est vraisemblable.
+
+    Le parti pris est de ne jamais jeter la réponse. Mille cinq cents jetons de texte
+    utile valent mieux qu'un message d'erreur, et les refacturer serait pire encore.
+  */
+  describe('une réponse coupée par max_tokens', () => {
+    const reponseCoupee = (contenu: string) => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ choices: [{ message: { content: contenu }, finish_reason: 'length' }] }),
+    });
+
+    it('marque la prose interrompue au lieu de la faire passer pour finie', async () => {
+      fetchMock.mockResolvedValueOnce(reponseCoupee('Tu as tenu quatre jours, et ce qui compte maintenant'));
+
+      const resultat: any = await service.chatWithAi('u1', 'Comment tu vas ?');
+
+      expect(resultat.reply).toBe('Tu as tenu quatre jours, et ce qui compte maintenant…');
+      // Surtout pas une erreur : le texte reçu est utile et il a déjà été payé.
+      expect(resultat.erreur).toBeUndefined();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('ne double pas la ponctuation quand la coupure tombe sur un point', async () => {
+      fetchMock.mockResolvedValueOnce(reponseCoupee('Tu as tenu quatre jours. '));
+
+      const resultat: any = await service.chatWithAi('u1', 'Comment tu vas ?');
+
+      expect(resultat.reply).toBe('Tu as tenu quatre jours…');
+    });
+
+    /*
+      Bloc <PLAN> ouvert : son JSON est forcément incomplet, `JSON.parse` échouera
+      dans le navigateur et la personne lira déjà « Je n'ai pas réussi à appliquer ce
+      plan ». Ajouter des points de suspension à un message qui annonce fièrement un
+      plan ne dirait rien d'utile — ce qui manquait, c'était la trace côté serveur.
+    */
+    it('laisse le message intact quand un bloc de plan est ouvert', async () => {
+      const coupee = 'Voilà ton programme.\n<PLAN>{"newRoutines":[{"title":"Matin","items":[{"title":"Cour';
+      fetchMock.mockResolvedValueOnce(reponseCoupee(coupee));
+
+      const resultat: any = await service.chatWithAi('u1', 'refais-moi un plan');
+
+      expect(resultat.reply).toBe(coupee);
+      expect(resultat.erreur).toBeUndefined();
+    });
+
+    it('laisse une trace exploitable dans les journaux', async () => {
+      const trace = jest.spyOn(console, 'warn');
+      fetchMock.mockResolvedValueOnce(reponseCoupee('Voilà ton programme.\n<PLAN>{"newRou'));
+
+      await service.chatWithAi('u1', 'refais-moi un plan');
+
+      // Sans cette ligne, on chercherait la cause dans la mise en forme du modèle
+      // alors qu'elle est dans le plafond de jetons.
+      const message = trace.mock.calls.map((a) => String(a[0])).join('\n');
+      expect(message).toContain('max_tokens');
+      expect(message).toContain(PREMIER);
+      expect(message).toContain('<PLAN> ouvert');
+    });
+  });
 });
 
 /**

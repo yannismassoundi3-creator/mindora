@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { lireReponseGroq } from '../common/groq';
 
 /**
  * Rédige le message du matin avec l'IA, à partir de la situation réelle de la personne.
@@ -32,6 +33,15 @@ export class MorningBriefService {
    * personnalisation entière du réveil tenait à un seul identifiant.
    */
   static readonly MODELES = ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile'];
+
+  /**
+   * Longueur au-delà de laquelle la phrase est coupée avant d'être envoyée.
+   *
+   * L'invite en demande 140 ; ce plafond-ci est le filet, pour les jours où le modèle
+   * n'écoute pas. Il vaut aussi comme repère de lecture de `finish_reason` — voir
+   * `tenter()`.
+   */
+  private static readonly PLAFOND_CARACTERES = 160;
 
   isActive(syncUpdatedAt?: Date | null): boolean {
     if (!syncUpdatedAt) return false;
@@ -202,12 +212,29 @@ export class MorningBriefService {
       }
 
       const data = await reponse.json();
-      const texte = data?.choices?.[0]?.message?.content?.trim();
+      const { texte, tronque } = lireReponseGroq(data);
       if (!texte) return null;
 
       // Le modèle ajoute parfois des guillemets ; une notification tronquée est illisible.
       const propre = texte.replace(/^["'«»\s]+|["'«»\s]+$/g, '');
-      return propre.length > 160 ? propre.slice(0, 157) + '…' : propre;
+
+      // Une coupure par `max_tokens` ne fait de mal que si elle tombe en deçà du
+      // plafond de caractères.
+      //
+      // Au-delà, la phrase est de toute façon ramenée à cette longueur et suivie de
+      // points de suspension : le résultat est identique, coupée ou non, et la
+      // refuser coûterait un second appel sur un quota quotidien déjà compté. En
+      // deçà, en revanche, la notification partirait telle quelle sur le téléphone de
+      // quelqu'un, arrêtée au milieu d'un mot — et une notification ne se rattrape
+      // pas. Le message générique est moins bon, mais il est entier.
+      if (tronque && propre.length <= MorningBriefService.PLAFOND_CARACTERES) {
+        this.logger.warn(`Message du matin coupé par max_tokens sur ${modele}`);
+        return null;
+      }
+
+      return propre.length > MorningBriefService.PLAFOND_CARACTERES
+        ? propre.slice(0, MorningBriefService.PLAFOND_CARACTERES - 3) + '…'
+        : propre;
     } catch (e: any) {
       this.logger.warn(
         `Message du matin non généré sur ${modele} : ${e?.name === 'AbortError' ? 'délai dépassé' : e?.message}`,

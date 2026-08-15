@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CoachMemoryService } from './coach-memory.service';
+import { lireReponseGroq } from '../common/groq';
 
 /**
  * La première phrase du coach — celle qu'il dit avant qu'on lui ait rien demandé.
@@ -278,7 +279,18 @@ export class CoachOuvertureService {
         return null;
       }
       const data = await r.json();
-      return data?.choices?.[0]?.message?.content?.trim() || null;
+      const { texte, tronque } = lireReponseGroq(data);
+
+      // Coupée, la phrase d'accueil s'arrête au milieu d'un mot — et elle est mise en
+      // cache six heures, donc on la relirait à chaque ouverture du chat de la journée.
+      // Rendre null suit la règle de ce service : en cas d'échec on se tait, et la
+      // phrase composée localement reste affichée. Elle, au moins, est entière.
+      if (tronque) {
+        this.logger.warn(`Ouverture coupée par max_tokens sur ${modele}`);
+        return null;
+      }
+
+      return texte;
     } catch (e: any) {
       this.logger.warn(
         `Ouverture non générée sur ${modele} : ${e?.name === 'AbortError' ? 'délai dépassé' : e?.message}`,

@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { lireReponseGroq } from '../common/groq';
 
 /** Ce qu'on sait d'une semaine, avant d'en faire une phrase. */
 export interface SemaineEcoulee {
@@ -42,6 +43,9 @@ export class WeeklyReviewService {
    * rien ne le signale.
    */
   static readonly MODELES = ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile'];
+
+  /** Filet de longueur, pour les jours où le modèle ignore les 180 caractères demandés. */
+  private static readonly PLAFOND_CARACTERES = 200;
 
   /** Clé du jour, en heure de Paris : le serveur, lui, tourne en UTC. */
   private static cleJour(decalageJours: number): string {
@@ -198,11 +202,22 @@ export class WeeklyReviewService {
       }
 
       const data = await reponse.json();
-      const texte = data?.choices?.[0]?.message?.content?.trim();
+      const { texte, tronque } = lireReponseGroq(data);
       if (!texte) return null;
 
       const propre = texte.replace(/^["'«»\s]+|["'«»\s]+$/g, '');
-      return propre.length > 200 ? propre.slice(0, 197) + '…' : propre;
+
+      // Même raisonnement que pour le message du matin : une coupure au-delà du
+      // plafond est absorbée par le plafond lui-même, en deçà elle partirait en
+      // notification arrêtée au milieu d'un mot.
+      if (tronque && propre.length <= WeeklyReviewService.PLAFOND_CARACTERES) {
+        this.logger.warn(`Bilan hebdomadaire coupé par max_tokens sur ${modele}`);
+        return null;
+      }
+
+      return propre.length > WeeklyReviewService.PLAFOND_CARACTERES
+        ? propre.slice(0, WeeklyReviewService.PLAFOND_CARACTERES - 3) + '…'
+        : propre;
     } catch (e: any) {
       this.logger.warn(
         `Bilan hebdomadaire non généré sur ${modele} : ${e?.name === 'AbortError' ? 'délai dépassé' : e?.message}`,
