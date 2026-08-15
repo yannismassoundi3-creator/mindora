@@ -85,7 +85,39 @@ export class AiCoachingController {
     const gratuit = abonne || decouverte;
 
     const debit = gratuit ? null : await this.coins.spend(userId);
-    await this.aiQuota.consumeAiCredit(userId, 'chat');
+
+    /*
+      Le mur du quota tombe après le débit des coins — il doit donc les rendre.
+
+      `consumeAiCredit` ne fait pas que compter : il **lève** quand la limite est
+      atteinte, 402 pour un gratuit au bout de ses dix messages du mois, 429 pour un
+      abonné au bout de son plafond quotidien. Cet appel était hors du `try`, si bien
+      qu'un compte gratuit ayant encore des coins mais plus de messages se les faisait
+      prélever pour une réponse qu'il ne recevait jamais — sans remboursement, sans
+      trace, et à chaque tentative.
+
+      Le cas n'a rien d'exotique, c'est même le plus courant : les coins se regagnent
+      en validant des routines, le quota mensuel non. Tout compte gratuit un peu actif
+      finit par se retrouver avec des coins et zéro message, et c'est précisément
+      l'instant où on lui ouvre l'écran d'abonnement — en lui prenant sa monnaie au
+      passage.
+
+      On ne passe pas par `rembourser()` : il rendrait aussi un crédit d'IA qui n'a
+      jamais été pris, et `refundAiCredit` efface la dernière ligne d'usage — celle
+      d'un message précédent, bien réel, qui serait ainsi offert deux fois.
+    */
+    try {
+      await this.aiQuota.consumeAiCredit(userId, 'chat');
+    } catch (e) {
+      if (!gratuit) {
+        await this.coins
+          .refund(userId)
+          .catch((err: any) =>
+            console.error(`[Remboursement] coins NON rendus à ${userId} : ${err?.message}`),
+          );
+      }
+      throw e;
+    }
 
     // Débiter avant l'appel est nécessaire (sinon deux requêtes simultanées passent
     // avec le même solde), mais l'IA peut échouer ensuite — saturation du fournisseur

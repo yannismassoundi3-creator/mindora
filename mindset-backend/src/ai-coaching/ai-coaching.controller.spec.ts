@@ -1,3 +1,4 @@
+import { HttpException, HttpStatus } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AiCoachingController } from './ai-coaching.controller';
 import { AiCoachingService } from './ai-coaching.service';
@@ -115,6 +116,66 @@ describe('AiCoachingController — débit et remboursement du chat', () => {
     // cherchera dans les logs.
     await expect(controller.chat(requete, message)).rejects.toThrow('base injoignable');
     expect(quota.refundAiCredit).toHaveBeenCalledWith('u1', 'chat');
+  });
+
+  /**
+   * Le mur du quota tombe entre le débit des coins et l'appel à l'IA.
+   *
+   * `consumeAiCredit` lève quand la limite est atteinte, et cet appel vivait hors du
+   * `try` qui rembourse : un compte gratuit ayant encore des coins mais plus de
+   * messages se les faisait prélever pour une réponse qu'il ne recevait jamais.
+   * C'est le cas le plus courant du produit, pas un cas limite — les coins se
+   * regagnent en validant des routines, le quota mensuel non.
+   */
+  describe('quota épuisé alors que les coins restent', () => {
+    const mur = new HttpException(
+      { statusCode: 402, code: 'AI_QUOTA_EXCEEDED' },
+      HttpStatus.PAYMENT_REQUIRED,
+    );
+
+    beforeEach(() => quota.consumeAiCredit.mockRejectedValue(mur));
+
+    it('rend les coins prélevés', async () => {
+      await expect(controller.chat(requete, message)).rejects.toThrow(HttpException);
+
+      expect(coins.spend).toHaveBeenCalledWith('u1');
+      expect(coins.refund).toHaveBeenCalledWith('u1');
+    });
+
+    it('ne rend pas un crédit d’IA qui n’a jamais été pris', async () => {
+      await expect(controller.chat(requete, message)).rejects.toThrow(HttpException);
+
+      // `refundAiCredit` efface la dernière ligne d'usage : l'appeler ici rendrait
+      // un message précédent, bien réel, et l'offrirait une seconde fois.
+      expect(quota.refundAiCredit).not.toHaveBeenCalled();
+    });
+
+    it('laisse remonter le 402 tel quel, pour que l’app ouvre l’écran d’abonnement', async () => {
+      await expect(controller.chat(requete, message)).rejects.toBe(mur);
+    });
+
+    it('n’appelle jamais l’IA', async () => {
+      await expect(controller.chat(requete, message)).rejects.toThrow(HttpException);
+
+      expect(ia.chatWithAi).not.toHaveBeenCalled();
+    });
+
+    it('ne rembourse rien à un abonné, qui n’a rien dépensé', async () => {
+      quota.isSubscribed.mockResolvedValue(true);
+
+      // Un abonné arrive ici par le plafond quotidien (429). Lui « rendre » des coins
+      // lui en offrirait dix à chaque fois qu'il touche son plafond.
+      await expect(controller.chat(requete, message)).rejects.toThrow(HttpException);
+
+      expect(coins.spend).not.toHaveBeenCalled();
+      expect(coins.refund).not.toHaveBeenCalled();
+    });
+
+    it('laisse remonter le mur même si le remboursement échoue', async () => {
+      coins.refund.mockRejectedValue(new Error('écriture impossible'));
+
+      await expect(controller.chat(requete, message)).rejects.toBe(mur);
+    });
   });
 
   /**
