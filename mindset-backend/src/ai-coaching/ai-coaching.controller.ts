@@ -71,7 +71,12 @@ export class AiCoachingController {
     // Avant, si : un abonné payait 9,99 €/mois pour un « accès illimité » et se
     // retrouvait quand même arrêté au bout de cinq messages, avec pour seule issue
     // d'aller valider des routines. On vendait une promesse que le serveur refusait
-    // de tenir. La cadence, elle, reste bornée par @Throttle pour tout le monde.
+    // de tenir.
+    //
+    // Un abonné reste borné par deux choses, qui ne sont pas une monnaie : la cadence
+    // (@Throttle, pour tout le monde) et un plafond quotidien de messages
+    // (AiQuotaService.PAID_DAILY_MESSAGES), garde-fou contre un compte emballé qui
+    // épuiserait à lui seul le quota Groq partagé par tous.
     const abonne = await this.aiQuota.isSubscribed(userId);
 
     // Les tout premiers messages ne coûtent rien : voir MESSAGES_DECOUVERTE. On ne

@@ -13,11 +13,38 @@ export class AiQuotaService {
   /** Messages offerts par mois calendaire à un compte non abonné. */
   static readonly FREE_MONTHLY_MESSAGES = 10;
 
+  /**
+   * Plafond quotidien d'un abonné.
+   *
+   * Un abonné n'avait aucune borne en dehors de la cadence `@Throttle` — dix
+   * messages par minute, soit 14 400 par jour s'il la tient. Ce n'est pas la marge
+   * qui est en jeu mais le quota Groq, qui est partagé : un seul compte emballé
+   * l'épuise pour tout le monde, et comme les échecs du modèle sont volontairement
+   * silencieux, cela se manifesterait par « l'IA ne marche plus » sans cause visible.
+   *
+   * Le compteur est quotidien et non mensuel : il faut que le service revienne de
+   * lui-même, sans intervention, et le lendemain est le plus court délai qui borne
+   * réellement les dégâts.
+   */
+  static readonly PAID_DAILY_MESSAGES = 50;
+
   constructor(private readonly prisma: PrismaService) {}
 
   private startOfMonth(): Date {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
+  }
+
+  /**
+   * Minuit passé, dans le fuseau du serveur.
+   *
+   * Volontairement aligné sur `startOfMonth` : les deux compteurs se remettent à
+   * zéro sur la même horloge, faute de quoi un abonné pourrait voir son plafond
+   * quotidien retomber à un autre moment que le changement de mois d'un gratuit.
+   */
+  private startOfDay(): Date {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
   }
 
   /**
@@ -44,20 +71,30 @@ export class AiQuotaService {
     return (AiQuotaService.PAID_STATUSES as readonly string[]).includes(sub?.status ?? '');
   }
 
+  /**
+   * Ce qu'il reste à quelqu'un, et sur quelle période.
+   *
+   * Les deux profils ont désormais une limite, mais elles ne disent pas la même
+   * chose : celle d'un gratuit est une raison de s'abonner, celle d'un abonné est un
+   * garde-fou qu'il ne doit jamais rencontrer en usage normal. D'où `periode`, qui
+   * permet à l'appelant de distinguer les deux sans réinterpréter les nombres.
+   */
   async getQuota(userId: string) {
     const subscribed = await this.isSubscribed(userId);
-    if (subscribed) {
-      return { subscribed, unlimited: true, used: 0, limit: null, remaining: null };
-    }
+
+    const depuis = subscribed ? this.startOfDay() : this.startOfMonth();
+    const limit = subscribed ? AiQuotaService.PAID_DAILY_MESSAGES : AiQuotaService.FREE_MONTHLY_MESSAGES;
 
     const used = await this.prisma.aiUsage.count({
-      where: { user_id: userId, created_at: { gte: this.startOfMonth() } },
+      where: { user_id: userId, created_at: { gte: depuis } },
     });
-    const limit = AiQuotaService.FREE_MONTHLY_MESSAGES;
 
     return {
       subscribed,
-      unlimited: false,
+      // Conservé pour ne pas casser les appelants qui l'interrogeaient : un abonné
+      // n'a toujours pas de compteur mensuel. Sa borne quotidienne est ailleurs.
+      unlimited: subscribed,
+      periode: subscribed ? ('jour' as const) : ('mois' as const),
       used,
       limit,
       remaining: Math.max(0, limit - used),
@@ -74,7 +111,29 @@ export class AiQuotaService {
   async consumeAiCredit(userId: string, kind: 'chat' | 'routines') {
     const quota = await this.getQuota(userId);
 
-    if (!quota.unlimited && quota.remaining! <= 0) {
+    if (quota.remaining <= 0) {
+      /*
+        Deux murs, deux statuts, et la distinction n'est pas cosmétique.
+
+        Un gratuit reçoit 402 : il n'a rien payé, l'écran d'abonnement s'ouvre, et
+        c'est la réponse juste à sa situation. Un abonné a déjà payé — lui renvoyer
+        « Payment Required » l'inviterait à acheter ce qu'il possède, et le front
+        ouvrirait l'écran de tarifs à quelqu'un qui n'a rien à y faire. Il reçoit
+        donc 429 : ce n'est pas une question d'argent, c'est une cadence.
+      */
+      if (quota.subscribed) {
+        throw new HttpException(
+          {
+            statusCode: HttpStatus.TOO_MANY_REQUESTS,
+            code: 'AI_DAILY_CAP',
+            message: `Tu as envoyé ${quota.limit} messages aujourd'hui — c'est le plafond quotidien, il se remet à zéro demain. Prends la nuit pour appliquer ce qu'on a décidé.`,
+            used: quota.used,
+            limit: quota.limit,
+          },
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+
       // 402 Payment Required : le front s'en sert pour ouvrir l'écran d'abonnement.
       throw new HttpException(
         {
@@ -88,10 +147,15 @@ export class AiQuotaService {
       );
     }
 
-    // Les abonnés ne sont pas limités, inutile de faire grossir la table pour eux.
-    if (!quota.unlimited) {
-      await this.prisma.aiUsage.create({ data: { user_id: userId, kind } });
-    }
+    /*
+      La ligne est écrite pour tout le monde, abonnés compris.
+
+      Elle ne l'était que pour les gratuits — « inutile de faire grossir la table ».
+      Conséquence : la consommation des abonnés ne laissait aucune trace, donc un
+      compte emballé était non seulement sans borne mais indétectable après coup.
+      C'est aussi cette ligne qui rend le plafond quotidien calculable.
+    */
+    await this.prisma.aiUsage.create({ data: { user_id: userId, kind } });
 
     return quota;
   }
@@ -101,7 +165,9 @@ export class AiQuotaService {
    *
    * Un compte gratuit n'a que dix messages par mois : les lui faire perdre parce que
    * le fournisseur d'IA était saturé, c'est la meilleure façon de lui donner tort sur
-   * la valeur de l'abonnement. Les abonnés n'ont pas de ligne à supprimer.
+   * la valeur de l'abonnement. Depuis que les abonnés ont eux aussi une ligne par
+   * message, le remboursement les couvre : une panne de Groq ne doit pas entamer un
+   * plafond quotidien que la personne n'a pas consommé.
    */
   async refundAiCredit(userId: string, kind: 'chat' | 'routines') {
     const derniere = await this.prisma.aiUsage.findFirst({

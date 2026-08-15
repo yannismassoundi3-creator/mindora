@@ -669,6 +669,20 @@ export const AIChat: React.FC = () => {
         return;
       }
 
+      // 429 : l'abonné a atteint son plafond du jour. Ce n'est ni une panne ni une
+      // question d'argent — il a déjà payé. Lui servir le message d'erreur générique
+      // (« je n'arrive pas à me connecter à mon cerveau externe ») lui ferait croire
+      // à un incident, et lui proposer l'abonnement serait absurde.
+      if (error.status === 429 && error.code === 'AI_DAILY_CAP') {
+        setMessages(prev => [...prev, {
+          id: Date.now() + 1,
+          text: error.message,
+          sender: 'ai',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        }]);
+        return;
+      }
+
       setIsAiAwake(false);
       const errorResponse: Message = {
         id: Date.now() + 1,

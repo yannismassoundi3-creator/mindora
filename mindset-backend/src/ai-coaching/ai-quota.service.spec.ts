@@ -59,3 +59,84 @@ describe('AiQuotaService — qui a droit au Pro', () => {
     await expect(service.isSubscribed('u1')).resolves.toBe(false);
   });
 });
+
+/**
+ * Les deux murs.
+ *
+ * Un abonné n'avait aucune borne hors de la cadence `@Throttle` : dix messages par
+ * minute, soit 14 400 par jour s'il la tenait. Ce qui est en jeu n'est pas la marge
+ * mais le quota Groq, partagé — un seul compte emballé l'épuise pour tout le monde.
+ */
+describe('AiQuotaService — les deux plafonds', () => {
+  let service: AiQuotaService;
+  const findUnique = jest.fn();
+  const count = jest.fn();
+  const create = jest.fn();
+
+  const abonne = (oui: boolean) => findUnique.mockResolvedValue(oui ? { status: 'ACTIVE' } : null);
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    create.mockResolvedValue({});
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AiQuotaService,
+        {
+          provide: PrismaService,
+          useValue: { subscription: { findUnique }, aiUsage: { count, create } },
+        },
+      ],
+    }).compile();
+    service = module.get<AiQuotaService>(AiQuotaService);
+  });
+
+  it('compte un gratuit au mois, un abonné au jour', async () => {
+    abonne(false);
+    count.mockResolvedValue(3);
+    expect(await service.getQuota('u1')).toMatchObject({ periode: 'mois', limit: 10, remaining: 7 });
+
+    abonne(true);
+    count.mockResolvedValue(3);
+    expect(await service.getQuota('u1')).toMatchObject({ periode: 'jour', limit: 50, remaining: 47 });
+  });
+
+  it('laisse passer un abonné sous son plafond', async () => {
+    abonne(true);
+    count.mockResolvedValue(49);
+    await expect(service.consumeAiCredit('u1', 'chat')).resolves.toMatchObject({ remaining: 1 });
+  });
+
+  /*
+    429 et non 402 : la personne a déjà payé. Un « Payment Required » l'inviterait à
+    acheter ce qu'elle possède, et le front ouvrirait l'écran de tarifs par-dessus.
+  */
+  it('arrête un abonné à cinquante messages, sans lui proposer de payer', async () => {
+    abonne(true);
+    count.mockResolvedValue(50);
+    await expect(service.consumeAiCredit('u1', 'chat')).rejects.toMatchObject({
+      status: 429,
+      response: { code: 'AI_DAILY_CAP' },
+    });
+  });
+
+  it('arrête un gratuit à dix messages en ouvrant l\'abonnement', async () => {
+    abonne(false);
+    count.mockResolvedValue(10);
+    await expect(service.consumeAiCredit('u1', 'chat')).rejects.toMatchObject({
+      status: 402,
+      response: { code: 'AI_QUOTA_EXCEEDED' },
+    });
+  });
+
+  /*
+    Sans cette ligne, la consommation des abonnés ne laissait aucune trace : un compte
+    emballé était non seulement sans borne, mais indétectable après coup. C'est elle
+    aussi qui rend le plafond quotidien calculable.
+  */
+  it("écrit une ligne d'usage pour un abonné aussi", async () => {
+    abonne(true);
+    count.mockResolvedValue(0);
+    await service.consumeAiCredit('u1', 'chat');
+    expect(create).toHaveBeenCalledWith({ data: { user_id: 'u1', kind: 'chat' } });
+  });
+});
