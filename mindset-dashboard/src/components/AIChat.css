@@ -585,26 +585,6 @@
   letter-spacing: 0.05em;
 }
 
-.tts-play-btn {
-  background: rgba(255, 255, 255, 0.1);
-  border: none;
-  color: var(--primary);
-  border-radius: 50%;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: transform 0.2s ease, opacity 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
-  flex-shrink: 0;
-}
-
-.tts-play-btn:hover {
-  background: var(--accent-purple);
-  transform: scale(1.1);
-}
-
 .spin {
   animation: spin 1s linear infinite;
 }

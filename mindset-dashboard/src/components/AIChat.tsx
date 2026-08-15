@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, User, Sparkles, Play, Square, Loader, Undo2, Zap } from 'lucide-react';
+import { Send, User, Sparkles, Loader, Undo2, Zap } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { playBloopSound } from '../utils/sounds';
 import { AI_COSMETICS } from '../utils/cosmetics';
@@ -162,44 +162,6 @@ export const AIChat: React.FC = () => {
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isAiAwake, setIsAiAwake] = useState(true);
-  const [isPlayingAudio, setIsPlayingAudio] = useState<number | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  const handlePlayVoice = async (messageId: number, text: string) => {
-    if (isPlayingAudio === messageId && audioRef.current) {
-      audioRef.current.pause();
-      setIsPlayingAudio(null);
-      return;
-    }
-
-    setIsPlayingAudio(messageId);
-    
-    try {
-      // Nettoyer le markdown pour la voix
-      const cleanText = text.replace(/[*_#`]/g, '').trim();
-      const response = await api.post('/ai-coaching/tts', { text: cleanText });
-      
-      if (response && response.audioBase64) {
-        const audioUrl = `data:audio/mp3;base64,${response.audioBase64}`;
-        
-        if (audioRef.current) {
-          audioRef.current.pause();
-        }
-        
-        const audio = new Audio(audioUrl);
-        audioRef.current = audio;
-        
-        audio.onended = () => setIsPlayingAudio(null);
-        audio.play();
-      } else {
-        setIsPlayingAudio(null);
-      }
-    } catch (error) {
-      console.error("Erreur de génération vocale:", error);
-      setIsPlayingAudio(null);
-    }
-  };
-
   const [equippedSkinId, setEquippedSkinId] = useState<string | null>(() => localStorage.getItem('mindset_ai_skin_id'));
   
   useEffect(() => {
@@ -774,15 +736,8 @@ export const AIChat: React.FC = () => {
               )}
               <div className={`message-bubble ${msg.sender}`}>
                 {msg.sender === 'ai' && (
-                  <div className="message-ai-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div className="message-ai-header">
                     <div className="message-ai-name">{aiName}</div>
-                    <button 
-                      className="tts-play-btn" 
-                      onClick={() => handlePlayVoice(msg.id, msg.text)}
-                      title={isPlayingAudio === msg.id ? "Arrêter la voix" : "Écouter la voix de Jarvis"}
-                    >
-                      {isPlayingAudio === msg.id ? <Square size={12} /> : <Play size={12} />}
-                    </button>
                   </div>
                 )}
                 <div className="message-content">

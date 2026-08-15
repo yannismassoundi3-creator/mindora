@@ -180,13 +180,17 @@ export class AiCoachingController {
     return this.aiCoachingService.getChatHistory(userId);
   }
 
-  // Chaque appel part chez OpenAI et se facture : c'est la route la plus chère.
-  @Throttle({ default: { limit: 10, ttl: 60000 } })
-  @Post('tts')
-  @ApiOperation({ summary: 'Générer de la voix avec OpenAI TTS' })
-  @ApiResponse({ status: 402, description: 'Réservé aux abonnés.' })
-  async generateSpeech(@Req() req: Request, @Body() body: { text: string }) {
-    await this.aiQuota.assertSubscribed((req.user as any).userId);
-    return this.aiCoachingService.generateSpeech(body.text);
-  }
+  /*
+    La lecture à voix haute des messages est retirée (15 août 2026).
+
+    `OPENAI_API_KEY` n'a jamais été posée sur Render : la route levait donc avant
+    même d'appeler OpenAI, et le `catch` du navigateur se contentait de remettre
+    l'icône dans son état initial. Un abonné voyait un bouton qui ne faisait rien,
+    sans message ni erreur — la pire forme de panne, celle dont personne ne se
+    plaint parce qu'elle n'a l'air de rien.
+
+    Retirer la route en même temps que le bouton, et non seulement le bouton : elle
+    restait appelable au jeton près, sur une API facturée à l'usage, sans que rien
+    dans l'application ne l'appelle.
+  */
 }
