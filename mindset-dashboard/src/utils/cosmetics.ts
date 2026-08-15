@@ -5,8 +5,26 @@ export interface Cosmetic {
   cost: number;
   type: 'color' | 'icon' | 'app_theme';
   value: string; // CSS color, Icon name, or CSS class name
-  rarity: 'commun' | 'rare' | 'epique' | 'legendaire';
+  rarity: Rarete;
 }
+
+export type Rarete = 'commun' | 'rare' | 'epique' | 'legendaire';
+
+/**
+ * Le nom de la rareté tel qu'on l'écrit à l'écran.
+ *
+ * La valeur de `rarity` faisait les deux métiers à la fois : classe CSS de la carte
+ * (`.cosmetic-card.epique`) **et** texte du badge. Elle ne pouvait donc pas porter
+ * d'accent, et la Boutique affichait « EPIQUE » et « LEGENDAIRE » à côté de titres
+ * soignés comme « Émeraude » ou « Énergie Sith ». Le slug reste le slug, le libellé
+ * devient une donnée à part.
+ */
+export const RARETE_LISIBLE: Record<Rarete, string> = {
+  commun: 'Commun',
+  rare: 'Rare',
+  epique: 'Épique',
+  legendaire: 'Légendaire',
+};
 
 export const AI_COSMETICS: Cosmetic[] = [
   // Couleurs

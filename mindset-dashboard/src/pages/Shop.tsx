@@ -3,7 +3,7 @@ import { Gift, Coins, Plus, Trash2, CheckCircle2, Clock, Sparkles } from 'lucide
 import { playClickSound, playLevelUpSound, playHoverSound, playBloopSound } from '../utils/sounds';
 import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
 import { api } from '../services/api';
-import { getDailyShopItems } from '../utils/cosmetics';
+import { getDailyShopItems, RARETE_LISIBLE } from '../utils/cosmetics';
 import type { Cosmetic } from '../utils/cosmetics';
 import './Shop.css';
 
@@ -242,7 +242,7 @@ export const Shop: React.FC = () => {
               
               return (
                 <div key={item.id} id={`cosmetic-${item.id}`} className={`reward-card glass-panel cosmetic-card ${item.rarity}`}>
-                  <div className="rarity-badge">{item.rarity}</div>
+                  <div className="rarity-badge">{RARETE_LISIBLE[item.rarity]}</div>
                   {item.type === 'color' ? (
                     <div className="reward-icon-large" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                       <div className="liquid-glass-orb" style={{ background: item.value, width: '60px', height: '60px' }}></div>

@@ -590,9 +590,14 @@
   color: var(--secondary);
 }
 
+/*
+  Pas de `text-transform: capitalize` ici : la majuscule des mois est posée en
+  JavaScript (`Dashboard.tsx`). La règle était bien calculée sur les treize
+  libellés, mais n'en transformait réellement que neuf — voir la note à l'endroit
+  du calcul.
+*/
 .heatmap-months-row span {
   position: absolute;
-  text-transform: capitalize;
 }
 
 /*

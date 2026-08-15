@@ -1178,8 +1178,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
                 const d = new Date(j);
                 if (d.getMonth() !== moisCourant) {
                   moisCourant = d.getMonth();
+                  const court = d.toLocaleDateString('fr-FR', { month: 'short' });
                   moisAffiches.push({
-                    mois: d.toLocaleDateString('fr-FR', { month: 'short' }),
+                    /*
+                      La majuscule est posée ici, et non par le `text-transform:
+                      capitalize` de la feuille de style.
+
+                      Mesuré dans l'app : la règle CSS était bien calculée sur les
+                      treize libellés, mais n'était réellement appliquée que sur neuf.
+                      « sept. », « avr. », « juin » et « juil. » restaient en
+                      minuscule au milieu de « Oct. », « Nov. » et « Déc. » — une
+                      bande de mois dont un tiers ne s'écrit pas comme les autres.
+                      Vérifié par la largeur rendue, pas à l'œil : celle des quatre
+                      était identique à `text-transform: none`.
+
+                      Une majuscule décidée en JavaScript ne dépend d'aucune cascade
+                      et donne le même résultat partout.
+                    */
+                    mois: court.charAt(0).toUpperCase() + court.slice(1),
                     colonne: Math.floor(rang / 7),
                   });
                 }
@@ -1337,8 +1353,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
               <div className={`routine-transition-wrapper ${slideDirection}`} style={{ display: 'flex', flexDirection: 'column' }}>
                 <p className="section-desc mb-3" style={{ textAlign: 'center', width: '100%', flexShrink: 0 }}>{currentGroup.desc}</p>
                 <div className="routine-list" style={{ paddingRight: '4px', paddingBottom: '10px' }}>
+                  {/*
+                    Le décompte se lit en français, y compris quand il n'y a plus
+                    rien : « 0 tâche(s) restante(s) » était la seule phrase de
+                    l'écran écrite en formulaire administratif — et le cas zéro,
+                    qui est le bon moment de la journée, méritait mieux qu'un
+                    zéro suivi d'une parenthèse.
+                  */}
                   <span className="time-est glass-badge mb-3" style={{ alignSelf: 'center', display: 'flex', margin: '0 auto', width: 'fit-content' }}>
-                    {tachesDuJour(currentGroup).filter((r: any) => !r.done).length} tâche(s) restante(s)
+                    {(() => {
+                      const restantes = tachesDuJour(currentGroup).filter((r: any) => !r.done).length;
+                      if (restantes === 0) return 'Tout est fait';
+                      return `${restantes} tâche${restantes > 1 ? 's' : ''} restante${restantes > 1 ? 's' : ''}`;
+                    })()}
                   </span>
 
                   {tachesDuJour(currentGroup).map((routine: any) => (

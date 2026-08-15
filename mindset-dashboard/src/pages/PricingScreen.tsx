@@ -152,14 +152,21 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
           <div className="pricing-card-header">
             <h3>Disciplix Pro</h3>
             <div className="pricing-price">
+              {/*
+                Les prix s'écrivent à la française — virgule décimale, espace
+                insécable avant l'euro. Les conditions générales, la page légale et
+                la relance d'abonnement disaient déjà « 9,99 € » ; seuls les écrans
+                qui demandent réellement de payer affichaient « 9.99€ », c'est-à-dire
+                l'endroit précis où un prix mal écrit se remarque.
+              */}
               {selectedPlan === 'monthly' ? (
                 <>
-                  <span className="amount">9.99€</span>
+                  <span className="amount">9,99&nbsp;€</span>
                   <span className="period">/ mois</span>
                 </>
               ) : (
                 <>
-                  <span className="amount">99.99€</span>
+                  <span className="amount">99,99&nbsp;€</span>
                   <span className="period">/ à vie</span>
                 </>
               )}
@@ -221,8 +228,8 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
             {loading
               ? 'Connexion sécurisée (Stripe)...'
               : selectedPlan === 'lifetime'
-                ? 'Acheter à vie (99.99€)'
-                : 'Essai gratuit 7 jours (puis 9.99€/mois)'}
+                ? 'Acheter à vie (99,99 €)'
+                : 'Essai gratuit 7 jours (puis 9,99 €/mois)'}
           </button>
           {/* Dit ce qui arrive au prélèvement en cours. Sans cette phrase, la question
               « et mon mensuel, il continue ? » n'a aucune réponse à l'écran, et c'est

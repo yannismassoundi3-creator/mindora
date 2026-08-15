@@ -263,6 +263,31 @@ function App() {
             lui refuse toute donnée.
           */
           localStorage.setItem('mindset_role', user.role === 'ADMIN' ? 'ADMIN' : 'USER');
+
+          /*
+            La date d'inscription vient du serveur, qui est le seul à la connaître.
+
+            Le Profil affichait « Membre depuis le … » d'après `mindset_join_date`,
+            une clé que **seul le Profil écrivait**, avec la date du jour, la
+            première fois qu'on ouvrait cet écran. Quelqu'un inscrit en juin qui
+            ouvrait son profil en août lisait donc « Membre depuis le 15/08/2026 » —
+            et cette date fausse repartait au serveur par la synchro, puis
+            redescendait sur ses autres appareils. Sur un écran dont le sujet est
+            l'ancienneté et la régularité, c'est la seule ligne qui pouvait mentir.
+
+            Écrit seulement s'il change : la clé est synchronisée, et une écriture
+            identique à chaque démarrage programmerait une remontée pour rien.
+          */
+          if (user.created_at) {
+            const inscription = new Date(user.created_at);
+            if (!Number.isNaN(inscription.getTime())) {
+              const lisible = inscription.toLocaleDateString('fr-FR');
+              if (localStorage.getItem('mindset_join_date') !== lisible) {
+                localStorage.setItem('mindset_join_date', lisible);
+              }
+            }
+          }
+
           // TRIALING compte comme abonné : c'est l'essai de 7 jours du forfait mensuel.
           // Le serveur ouvre le coach dans les deux cas (AiQuotaService.PAID_STATUSES) ;
           // ne garder qu'ACTIVE ici afficherait « Passer Pro » à quelqu'un qui vient de

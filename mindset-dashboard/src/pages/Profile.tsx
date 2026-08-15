@@ -116,13 +116,22 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
   const points = getSecurePoints();
   // Le niveau se lit sur l'expérience, pas sur les Coins : ceux-ci se dépensent.
   const { niveau: level, rang: rank } = lireProgression();
-  const joinDate = localStorage.getItem('mindset_join_date') || new Date().toLocaleDateString('fr-FR');
+  /*
+    La date d'inscription est lue, jamais fabriquée.
 
-  useEffect(() => {
-    if (!localStorage.getItem('mindset_join_date')) {
-      localStorage.setItem('mindset_join_date', joinDate);
-    }
-  }, []);
+    Cet écran l'inventait : faute de `mindset_join_date`, il prenait la date du jour
+    et l'enregistrait. « Membre depuis le … » désignait donc le jour où l'on avait
+    ouvert le Profil pour la première fois, pas celui de l'inscription — et comme la
+    clé est synchronisée, cette date fausse repartait au serveur puis redescendait
+    sur les autres appareils. Sur l'écran où l'on vient regarder son parcours,
+    c'était la seule ligne capable de mentir.
+
+    Elle est désormais posée au démarrage depuis le `created_at` du compte
+    (`App.tsx`), seule source qui la connaisse. Tant qu'elle est inconnue — avant la
+    réponse de `/auth/me`, ou hors ligne — la ligne ne s'affiche pas : une ancienneté
+    absente se remarque à peine, une fausse se lit comme une vérité.
+  */
+  const joinDate = localStorage.getItem('mindset_join_date');
 
   const handleBiometricToggle = async () => {
     const newValue = !biometric;
@@ -286,7 +295,9 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
 
             <div className="profile-stats-row">
               <div className="stat-box">
-                <span className="stat-value">Lvl {level}</span>
+                {/* « Niv. » partout : le Dashboard, les Habitudes et la progression
+                    de rang l'écrivent déjà ainsi. « Lvl » ne survivait qu'ici. */}
+                <span className="stat-value">Niv. {level}</span>
                 <span className="stat-label">Niveau Global</span>
                 <div style={{ marginTop: '8px', fontSize: '0.9rem', color: rank.color, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
                   <RankIcon iconName={rank.iconName} size={16} /> {rank.name}
@@ -304,7 +315,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
               trompeur tant que les deux compteurs n'en faisaient qu'un.
             */}
             <ProgressionRang variante="complet" />
-            <p className="join-date">Membre depuis le {joinDate}</p>
+            {joinDate && <p className="join-date">Membre depuis le {joinDate}</p>}
           </div>
 
           {/*
@@ -484,7 +495,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
                       onMouseEnter={() => playHoverSound()}
                       style={{ display: 'block', marginBottom: '12px', background: 'rgba(251, 191, 36, 0.12)', color: '#fbbf24', border: '1px solid rgba(251, 191, 36, 0.35)', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600 }}
                     >
-                      Passer à vie (99.99€, une seule fois)
+                      Passer à vie (99,99 €, une seule fois)
                     </button>
                   )}
 
@@ -524,7 +535,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
                     onMouseEnter={() => playHoverSound()}
                     style={{ background: 'linear-gradient(135deg, var(--primary), var(--accent-purple))', color: 'var(--bg-dark)', border: 'none', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600 }}
                   >
-                    Voir les offres Pro (Dès 9.99€)
+                    Voir les offres Pro (dès 9,99 €)
                   </button>
                 </div>
               )}
