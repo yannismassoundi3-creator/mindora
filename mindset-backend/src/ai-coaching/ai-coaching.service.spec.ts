@@ -297,6 +297,27 @@ describe('AiCoachingService — chat', () => {
       expect(message).toContain(PREMIER);
       expect(message).toContain('<PLAN> ouvert');
     });
+
+    /*
+      Le journal dit si le schéma était joint, parce que c'est lui qui explique la
+      coupure : il pèse à lui seul un bon millier de jetons. Le déduire du message de
+      départ le ferait mentir dans le seul cas où l'information compte — celui où la
+      détection par mots-clés est passée à côté et où le modèle a réclamé le schéma
+      lui-même. On chercherait alors la cause dans la mauvaise moitié du prompt.
+    */
+    it('dit le schéma réellement joint, et non celui qu’on avait prévu', async () => {
+      const trace = jest.spyOn(console, 'warn');
+      fetchMock
+        .mockResolvedValueOnce(reponseOk('BESOIN_SCHEMA_PLAN'))
+        .mockResolvedValueOnce(reponseCoupee('Voilà ton programme.'));
+
+      // Message qui ne déclenche pas la détection : le schéma était donc « omis » au
+      // premier appel, et bien joint au second, celui qui a été coupé.
+      await service.chatWithAi('u1', 'Je veux arrêter de procrastiner le matin');
+
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(trace.mock.calls.map((a) => String(a[0])).join('\n')).toContain('schéma joint');
+    });
   });
 });
 

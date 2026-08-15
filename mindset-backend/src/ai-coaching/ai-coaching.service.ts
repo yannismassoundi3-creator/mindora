@@ -625,6 +625,10 @@ RÈGLES DE COMPORTEMENT :
       // les deux ferait réclamer au modèle des instructions qu'il a déjà sous les yeux,
       // et chaque demande de plan coûterait deux appels au lieu d'un.
       const demander = async (avecPlan: boolean) => {
+        // Rendu avec la réponse, et non déduit du message : quand le second appel a
+        // lieu, le schéma est joint alors que la détection par mots-clés disait le
+        // contraire. Un journal de diagnostic qui se trompe sur ce point-là ferait
+        // chercher la coupure dans la mauvaise moitié du prompt.
         const consigne = avecPlan
           ? promptBase + promptPlan + '\n' + contextString
           : promptBase + AiCoachingService.MARQUEUR_PLAN_REGLE + '\n' + contextString;
@@ -652,7 +656,7 @@ RÈGLES DE COMPORTEMENT :
 
         const data = await response.json();
         const { texte, tronque } = lireReponseGroq(data);
-        return { texte: texte ?? undefined, modele, tronque };
+        return { texte: texte ?? undefined, modele, tronque, schemaJoint: avecPlan };
       };
 
       const planProbable = AiCoachingService.MOTS_PLAN.test(prompt);
@@ -661,14 +665,14 @@ RÈGLES DE COMPORTEMENT :
           `schéma du plan ${planProbable ? 'joint' : 'omis'}`,
       );
 
-      let { texte: reply, modele, tronque } = await demander(planProbable);
+      let { texte: reply, modele, tronque, schemaJoint } = await demander(planProbable);
 
       // Le modèle réclame le schéma : la détection par mots-clés est passée à côté.
       // Un second appel coûte moins qu'un utilisateur à qui on répond qu'on ne sait
       // pas faire ce que l'application sait faire.
       if (reply?.includes(AiCoachingService.MARQUEUR_PLAN)) {
         console.log('[Groq] ↻ Schéma du plan réclamé par le modèle, second appel');
-        ({ texte: reply, modele, tronque } = await demander(true));
+        ({ texte: reply, modele, tronque, schemaJoint } = await demander(true));
       }
 
       if (!reply) throw new Error('Empty response from Groq');
@@ -700,7 +704,7 @@ RÈGLES DE COMPORTEMENT :
         const planOuvert = /<\s*PLAN\s*>/i.test(reply);
         console.warn(
           `[Groq] ✂️ Réponse de ${modele} coupée par max_tokens (${reply.length} chars, ` +
-            `schéma ${planProbable ? 'joint' : 'omis'}${planOuvert ? ', bloc <PLAN> ouvert' : ''})`,
+            `schéma ${schemaJoint ? 'joint' : 'omis'}${planOuvert ? ', bloc <PLAN> ouvert' : ''})`,
         );
         if (!planOuvert) reply = reply.replace(/[\s.…]*$/, '') + '…';
       }
