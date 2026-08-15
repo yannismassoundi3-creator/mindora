@@ -29,6 +29,35 @@ const CLE_CONFLIT = 'mindset_copie_conflit';
 const CLE_IMPOSITION = 'mindset_imposer_version';
 
 /**
+ * La comptabilité de la synchro : ce que ce module écrit **sur** la synchro, et non
+ * ce que la personne a fait.
+ *
+ * **L'instrumentation de `localStorage.setItem` doit les ignorer**, sans quoi c'est
+ * une boucle sans fin : une remontée réussie appelle `confirmerEtat`, qui écrit deux
+ * clés en `mindset_`, dont chacune reprogramme une remontée cinq cents millisecondes
+ * plus tard, qui réussit, qui réécrit… Un envoi toutes les demi-secondes, pour
+ * toujours, sur chaque appareil connecté — et le moindre chevauchement dans ce flot
+ * fait rendre 409 au serveur, donc affiche « Tes données ont changé ailleurs » à
+ * quelqu'un qui n'a qu'un seul appareil.
+ *
+ * Cette garde existait sous le nom `CLES_COMPTEUR`, du temps où la synchro comptait
+ * les écritures. Elle a disparu avec le compteur quand l'empreinte l'a remplacé
+ * (`d8a8218`) — alors que les nouvelles clés en avaient exactement le même besoin.
+ * Une protection qui ne vit que dans la mécanique qu'elle protège s'en va avec elle :
+ * elle est donc déclarée ici, à côté des clés, et non chez celui qui la consulte.
+ *
+ * `mindset_copie_conflit` en fait partie pour une deuxième raison : c'est une copie
+ * de tout le reste, et déclencher une remontée en la rangeant reviendrait à envoyer
+ * l'état au moment précis où l'on vient de constater qu'il est en litige.
+ */
+export const CLES_TENUE_SYNCHRO: ReadonlySet<string> = new Set([
+  CLE_EMPREINTE,
+  CLE_VERSION,
+  CLE_CONFLIT,
+  CLE_IMPOSITION,
+]);
+
+/**
  * Au-delà, le drapeau d'imposition est oublié.
  *
  * Il désarme la détection de conflit : tant qu'il est posé, ce navigateur écrase

@@ -3,6 +3,7 @@ import { definirXp, lireXp } from '../utils/progression';
 import { nettoyerSemis } from '../utils/semis';
 import { construireEtatLocal } from '../utils/etatLocal';
 import {
+  CLES_TENUE_SYNCHRO,
   aDesModificationsNonSynchronisees,
   baseDeComparaisonConnue,
   confirmerEtat,
@@ -410,13 +411,68 @@ export const api = {
   },
 
   /**
-   * Remonte l'état local. Rend `true` si le serveur l'a accusé.
+   * Remonte l'état local, **une remontée à la fois**. Rend `true` si le serveur l'a
+   * accusé.
+   *
+   * Neuf endroits déclenchent une remontée : le débounce de 500 ms qui suit chaque
+   * écriture, le passage en arrière-plan, la reprise à la minute, le retour du
+   * réseau, et cinq appels directs (Boutique, Inventaire, Profil, pastille de
+   * sauvegarde). Rien ne les empêchait de se chevaucher — et deux remontées
+   * simultanées lisent forcément la **même** `base_version`, puisque ni l'une ni
+   * l'autre n'a encore rapporté la nouvelle.
+   *
+   * La première passe et fait avancer la ligne du serveur ; la seconde arrive avec
+   * une version devenue périmée, le serveur rend 409, et l'appareil **déclare un
+   * conflit contre lui-même** : « Tes données ont changé ailleurs », copie mise de
+   * côté, alors qu'aucun autre appareil n'existe. Signalé par Yannis, deux fois en
+   * dix minutes. C'est d'autant plus fréquent sur téléphone que le backend est sur
+   * une instance qui s'endort : une requête peut durer plusieurs secondes, et la
+   * fenêtre de chevauchement dure autant.
+   *
+   * Reproduit avant correction : deux appels concurrents produisaient six envois,
+   * tous portant la même `base_version`, et une copie de conflit.
+   *
+   * On sérialise donc, sans jamais rien perdre : une demande arrivée pendant un
+   * envoi n'est pas jetée, elle est **regroupée** — un seul envoi de plus partira à
+   * la fin, avec la version que celui en cours aura rapportée et l'état tel qu'il
+   * sera à ce moment-là. Les conflits entre deux vrais appareils, eux, remontent
+   * toujours.
+   */
+  syncStateToCloud: (): Promise<boolean> => {
+    if (envoiEnCours) {
+      envoiRedemande = true;
+      return envoiEnCours;
+    }
+
+    envoiEnCours = (async () => {
+      try {
+        let abouti = await api.remonterEtatUneFois();
+        // `while` et non `if` : le regroupement doit tenir même si des écritures
+        // continuent d'arriver pendant l'envoi de rattrapage. Chaque tour coûte un
+        // aller-retour réseau, la boucle ne peut donc pas s'emballer.
+        while (envoiRedemande) {
+          envoiRedemande = false;
+          abouti = await api.remonterEtatUneFois();
+        }
+        return abouti;
+      } finally {
+        envoiEnCours = null;
+        envoiRedemande = false;
+      }
+    })();
+
+    return envoiEnCours;
+  },
+
+  /**
+   * Un envoi, et un seul. **Ne pas appeler directement** : passer par
+   * `syncStateToCloud`, qui garantit qu'il n'y en a jamais deux en vol.
    *
    * L'état est construit par `construireEtatLocal`, la même fonction que celle dont
    * on calcule l'empreinte : les faire diverger reviendrait un jour à déclarer en
    * sécurité un état que le serveur n'a jamais reçu.
    */
-  syncStateToCloud: async (): Promise<boolean> => {
+  remonterEtatUneFois: async (): Promise<boolean> => {
     /*
       On ne remonte rien tant qu'on ignore ce que le serveur détient.
 
@@ -840,10 +896,35 @@ function urlBase64ToUint8Array(base64String: string) {
 let syncTimeout: any;
 let isSyncing = false;
 
+/*
+  La remontée en vol, et la demande arrivée pendant qu'elle voyageait.
+
+  `isSyncing` ne couvre que la **descente** — il empêche les écritures d'une adoption
+  de relancer une remontée. Rien ne couvrait la remontée elle-même, alors que neuf
+  chemins peuvent la déclencher : deux qui se chevauchent envoient la même
+  `base_version` et la seconde se fait refuser pour conflit. Voir `syncStateToCloud`.
+
+  Déclarées ici, avec l'autre verrou, plutôt que près de leur usage : les trois
+  décrivent le même sujet — qui a le droit d'écrire, et quand.
+*/
+let envoiEnCours: Promise<boolean> | null = null;
+let envoiRedemande = false;
+
 try {
   const originalSetItem = localStorage.setItem;
   localStorage.setItem = function(key, value) {
     originalSetItem.apply(this, [key, value]);
+
+    /*
+      La comptabilité de la synchro n'est pas du travail à sauvegarder.
+
+      Sans cette sortie, une remontée réussie se reprogramme elle-même : elle appelle
+      `confirmerEtat`, qui écrit `mindset_empreinte_confirmee` et
+      `mindset_version_serveur`, deux clés en `mindset_` — donc deux remontées de
+      plus, une demi-seconde après. Un envoi toutes les 500 ms, indéfiniment, sur
+      chaque appareil connecté. Voir `CLES_TENUE_SYNCHRO`.
+    */
+    if (CLES_TENUE_SYNCHRO.has(key)) return;
 
     // Ignore updates that are just downloading from cloud to prevent feedback loops
     if (isSyncing) return;
