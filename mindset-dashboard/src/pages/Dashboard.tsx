@@ -810,6 +810,53 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   // un seul endroit de calcul, sinon les deux affichent des chiffres différents.
   const { faites: routineDone, total: routineTotal } = lireEtatDuJour();
 
+  /*
+    La boucle est bouclée : cap posé, plan reçu, première case cochée.
+
+    Sans cette trace, la carte des premiers pas restait à l'écran jusqu'au troisième
+    jour vécu — la seule condition qui la retirait était celle qui ramène le graphe
+    et le damier. Quelqu'un qui finissait les trois étapes en dix minutes gardait
+    donc pendant trois jours un tutoriel entièrement barré, sans bouton, sans rien
+    à faire dessus.
+
+    La trace est nécessaire parce que les tâches se décochent chaque nuit :
+    `routineDone` retombe à zéro le lendemain, et une carte conditionnée aux seules
+    étapes du jour reviendrait le matin après avoir été terminée la veille. Un
+    tutoriel qui réapparaît est pire que celui qui s'attarde.
+  */
+  const CLE_PREMIERS_PAS = 'mindset_premiers_pas_faits';
+
+  /*
+    « Coche la première » est un jalon, pas une exigence quotidienne.
+
+    Le mesurer sur `routineDone` seul le rendait faux dès le lendemain : les tâches
+    se décochent la nuit, si bien que quelqu'un qui avait coché sa première case
+    hier repassait pour « pas encore commencé » ce matin — et la trace de fin
+    n'aurait jamais été écrite pour lui. On regarde donc aussi l'historique : une
+    seule journée à score non nul prouve que le geste a déjà eu lieu.
+  */
+  const aDejaCocheUneFois = useMemo(() => {
+    if (routineDone > 0) return true;
+    const scores = loadDailyScores();
+    return Object.values(scores || {}).some((s: any) => Number(s) > 0);
+  }, [routineDone, mentalScore]);
+
+  const tousLesPremiersPasFaits = !!objectifDeclare && routineTotal > 0 && aDejaCocheUneFois;
+
+  useEffect(() => {
+    if (tousLesPremiersPasFaits) localStorage.setItem(CLE_PREMIERS_PAS, 'true');
+  }, [tousLesPremiersPasFaits]);
+
+  /*
+    Lu au montage seulement, et volontairement.
+
+    La carte reste donc visible jusqu'à la fin de la visite où l'on coche sa dernière
+    étape : on voit les trois lignes se barrer, ce qui est toute la récompense de
+    l'exercice, puis elle a disparu au retour suivant. La faire s'évanouir sous le
+    doigt à l'instant du clic retirerait la seule chose qu'elle avait à donner.
+  */
+  const [premiersPasDejaTermines] = useState(() => localStorage.getItem(CLE_PREMIERS_PAS) === 'true');
+
   return (
     <div className="dashboard-container">
       {jarvisPopup && (
@@ -928,11 +975,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
         la requête média des 900 px), et ces trois lignes se retrouveraient donc
         sous les routines — après ce qu'elles sont censées expliquer.
       */}
-      {!aAssezDHistorique && (
+      {!aAssezDHistorique && !premiersPasDejaTermines && (
         <PremiersPas
           objectifPose={!!objectifDeclare}
           planPose={routineTotal > 0}
-          premiereTacheFaite={routineDone > 0}
+          premiereTacheFaite={aDejaCocheUneFois}
           nomCoach={aiName}
           onOuvrirChat={onOpenChat}
         />
