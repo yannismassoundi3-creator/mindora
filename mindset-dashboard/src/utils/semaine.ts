@@ -54,6 +54,28 @@ function lundiDeLaSemaine(date: Date): Date {
   return d;
 }
 
+/**
+ * La semaine, sous la forme de la date de son lundi (« 2026-08-10 »).
+ *
+ * C'est ce qui identifie une semaine pour la remise à zéro des micro-objectifs
+ * (`Layout.tsx`). Le repère précédent était un numéro de semaine ISO préfixé de
+ * l'année **civile** — `2026-W53` le 31 décembre, `2027-W53` le lendemain pour la
+ * même semaine ISO. Le repère changeait donc au passage du 1er janvier et la
+ * remise à zéro tombait en plein milieu de la semaine, une fois par an, pour tout
+ * le monde. Le lundi n'a pas d'année à lui : le décalage ne peut pas exister.
+ *
+ * En UTC, comme les clés de jour ci-dessus et comme `getTodayKey` — la remise à
+ * zéro et les scores qu'elle regarde doivent changer de semaine au même instant.
+ */
+export function cleSemaine(date = new Date()): string {
+  return cleUTC(lundiDeLaSemaine(date));
+}
+
+/** Reconnaît un repère écrit par `cleSemaine`, et lui seul. */
+export function estCleSemaine(valeur: string | null): valeur is string {
+  return !!valeur && /^\d{4}-\d{2}-\d{2}$/.test(valeur);
+}
+
 function lireScores(): Record<string, number> {
   try {
     const brut = localStorage.getItem('mindset_daily_scores');

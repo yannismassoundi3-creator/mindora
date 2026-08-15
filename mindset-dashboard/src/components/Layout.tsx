@@ -9,6 +9,7 @@ import { ProActif } from './ProActif';
 import './Layout.css';
 
 import { getSecurePoints } from '../utils/secureStorage';
+import { cleSemaine, estCleSemaine } from '../utils/semaine';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -54,18 +55,33 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, setView })
     window.addEventListener('storage', handleStorage);
     window.addEventListener('mindset_points_updated', handleStorage);
 
-    // Weekly Reset Logic (Micro Objectives)
-    const getWeekNumber = (d: Date) => {
-      const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-      date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
-      const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
-      return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-    };
-    
-    const currentWeekStr = `${new Date().getFullYear()}-W${getWeekNumber(new Date())}`;
-    const lastResetWeek = localStorage.getItem('mindset_last_reset_week');
+    /*
+      La remise à zéro hebdomadaire des micro-objectifs.
 
-    if (lastResetWeek !== currentWeekStr) {
+      Elle ne part que sur un franchissement **constaté** : il faut un repère
+      lisible, écrit par cette application, et qui désigne une autre semaine que
+      celle d'aujourd'hui. Tout le reste — repère absent, illisible, ou écrit dans
+      l'ancien format — ne prouve rien, et n'efface donc rien : on se contente
+      d'enregistrer la semaine en cours.
+
+      Ce n'est pas de la prudence gratuite. La comparaison était un simple `!==`, or
+      une clé **absente** diffère de tout : c'était le cas de n'importe quel stockage
+      neuf. Et `mindset_last_reset_week` ne figure pas dans `CLES_SYNCHRONISEES`,
+      donc il est absent sur *chaque* nouvel appareil, sans exception. L'enchaînement
+      à la connexion : `downloadCloudState()` descend les objectifs avec leur
+      progression réelle, puis ce composant se monte et remet tout à zéro — et cette
+      écriture repart au serveur par la remontée automatique. Se connecter sur un
+      second téléphone, ou réinstaller l'application (une PWA iOS reçoit un stockage
+      vierge), suffisait donc à perdre la semaine en cours **sur tous ses appareils**.
+
+      Même famille que la purge de cache de `6ab9b8d` : absent n'est pas différent.
+    */
+    const semaineCourante = cleSemaine();
+    const dernierRepere = localStorage.getItem('mindset_last_reset_week');
+
+    if (!estCleSemaine(dernierRepere)) {
+      localStorage.setItem('mindset_last_reset_week', semaineCourante);
+    } else if (dernierRepere !== semaineCourante) {
       const savedMicro = localStorage.getItem('mindset_micro_obj');
       if (savedMicro) {
         try {
@@ -77,7 +93,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, setView })
           }
         } catch (e) {}
       }
-      localStorage.setItem('mindset_last_reset_week', currentWeekStr);
+      localStorage.setItem('mindset_last_reset_week', semaineCourante);
     }
 
     return () => {
