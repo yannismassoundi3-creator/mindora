@@ -204,6 +204,19 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
             </div>
           </div>
 
+          {/*
+            Le plafond est dit ici, avant le bouton, et pas seulement dans les
+            conditions. Cinquante messages par jour, c'est un toutes les six minutes
+            pendant quinze heures : personne ne l'atteint de bonne foi, et c'est
+            précisément pourquoi le taire ne rapporterait rien — alors que le
+            découvrir après avoir payé coûterait la confiance de quelqu'un qui vient
+            de sortir sa carte.
+          */}
+          <p className="pricing-plafond">
+            « Sans compteur » veut dire sans quota mensuel et sans énergie à dépenser. Un
+            plafond de 50 messages par jour protège le service ; il se remet à zéro chaque nuit.
+          </p>
+
           <button className={`btn-subscribe ${loading ? 'loading' : ''}`} onClick={handlePurchase} disabled={loading}>
             {loading
               ? 'Connexion sécurisée (Stripe)...'
