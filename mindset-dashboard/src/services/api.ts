@@ -1,14 +1,55 @@
 import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
 import { definirXp, lireXp } from '../utils/progression';
 import { nettoyerSemis } from '../utils/semis';
+import { construireEtatLocal } from '../utils/etatLocal';
 import {
-  CLES_COMPTEUR,
   aDesModificationsNonSynchronisees,
-  confirmerModifications,
+  baseDeComparaisonConnue,
+  confirmerEtat,
+  copieDeConflit,
   keepaliveAcceptable,
-  marquerModificationLocale,
-  releverModifications,
+  memoriserVersionServeur,
+  mettreDeCoteAvantConflit,
+  oublierEmpreinte,
+  versionServeurConnue,
 } from '../utils/synchro';
+
+/**
+ * Ce que vaut l'état de la sauvegarde, à l'instant où on regarde.
+ *
+ * Publié sous forme d'événement plutôt que lu par sondage : l'interface n'a rien à
+ * calculer, elle affiche ce qu'on lui dit. Le seul consommateur est la pastille
+ * d'état, mais la faire dépendre d'un minuteur l'aurait rendue tantôt en avance,
+ * tantôt en retard sur la réalité.
+ */
+export interface EtatSynchro {
+  /** Du travail est présent ici sans avoir été accusé par le serveur. */
+  enAttente: boolean;
+  /** Une version locale a été mise de côté après un conflit entre appareils. */
+  conflit: boolean;
+  /** Le navigateur se déclare hors ligne : inutile d'accuser la synchro. */
+  horsLigne: boolean;
+}
+
+export function lireEtatSynchro(): EtatSynchro {
+  return {
+    enAttente:
+      !!localStorage.getItem('mindset_token') &&
+      aDesModificationsNonSynchronisees(construireEtatLocal()),
+    conflit: copieDeConflit() !== null,
+    horsLigne: typeof navigator !== 'undefined' && navigator.onLine === false,
+  };
+}
+
+/** Prévient l'interface que l'état de la sauvegarde a peut-être changé. */
+export function signalerEtatSynchro(): void {
+  try {
+    window.dispatchEvent(new CustomEvent('synchroEtat', { detail: lireEtatSynchro() }));
+  } catch {
+    // Un environnement sans `window` (test, rendu serveur) n'a pas d'interface à
+    // prévenir : l'absence de signal n'a alors aucune conséquence.
+  }
+}
 
 /**
  * L'API est jointe sous notre propre domaine, et non à son adresse Render.
@@ -250,10 +291,26 @@ export const api = {
     return res.json();
   },
 
-  downloadCloudState: async () => {
+  /**
+   * Écrit l'état du serveur par-dessus le local, sans rien demander.
+   *
+   * C'est le geste destructeur : il n'a le droit de s'exécuter que lorsqu'on sait
+   * qu'il n'écrase rien — soit parce que tout est remonté (`downloadCloudState`),
+   * soit parce qu'on vient de mettre la version locale de côté (conflit).
+   */
+  adopterEtatDistant: async () => {
+    // Le verrou vit ici, au plus près des écritures qu'il doit couvrir. Posé dans
+    // un enrobage extérieur, il laissait passer toute écriture faite par un chemin
+    // qui n'y était pas passé — et chacune relançait une remontée de l'état qu'on
+    // était précisément en train de descendre.
+    isSyncing = true;
     try {
       const data = await api.get('/sync/state');
       if (data) {
+        // La version adoptée devient la base des prochaines remontées : sans elle,
+        // le premier envoi qui suit se ferait refuser pour conflit à perpétuité.
+        memoriserVersionServeur(data.updated_at);
+
         if (data.routines) localStorage.setItem('mindset_routines', JSON.stringify(data.routines));
         if (data.micro_objectives) localStorage.setItem('mindset_micro_obj', JSON.stringify(data.micro_objectives));
         if (data.macro_objectives) localStorage.setItem('mindset_macro_obj', JSON.stringify(data.macro_objectives));
@@ -290,57 +347,139 @@ export const api = {
           if (data.settings.localHistory !== undefined) localStorage.setItem('mindset_sec_local', data.settings.localHistory.toString());
         }
         
+        /*
+          L'état adopté est celui du serveur : il est donc, par définition, en
+          sécurité. Le confirmer ici évite qu'un état fraîchement descendu paraisse
+          « non sauvegardé » et déclenche une remontée inutile — voire, sur un
+          compte qui n'a jamais confirmé, une remontée en boucle.
+
+          On recompose l'état plutôt que de réutiliser `data` : ce qui compte est
+          l'empreinte de ce que `construireEtatLocal` lira, et le serveur peut avoir
+          borné une liste ou refusé une XP en chemin.
+        */
+        confirmerEtat(construireEtatLocal(), data.updated_at);
+
         // Force React components to re-render with new data
         window.dispatchEvent(new Event('storage'));
       }
     } catch (e) {
       console.error('Failed to download state', e);
+    } finally {
+      isSyncing = false;
+
+      /*
+        Le ménage se fait **après** la levée du verrou, et volontairement.
+
+        Le serveur renvoie encore aux anciens comptes les objectifs et routines que
+        l'application distribuait d'office. Nettoyer pendant la descente les
+        retirerait de l'écran mais pas du serveur, qui les réexpédierait à la
+        connexion suivante, indéfiniment. Écrire hors de cette fenêtre déclenche la
+        remontée automatique et referme le sujet pour de bon.
+      */
+      if (nettoyerSemis()) window.dispatchEvent(new Event('storage'));
+
+      signalerEtatSynchro();
     }
   },
 
-  syncStateToCloud: async () => {
+  /**
+   * Descend l'état du serveur, sans jamais écraser du travail qu'il n'a pas reçu.
+   *
+   * C'est l'entrée publique : tout ce qui n'est pas la résolution d'un conflit doit
+   * passer par ici. On tente de remonter d'abord ; si ça ne passe toujours pas, on
+   * renonce à descendre. L'appareil reste alors en retard sur les autres, ce qui se
+   * rattrape à la requête suivante — là où l'écrasement, lui, ne se rattrape jamais.
+   */
+  downloadCloudState: async () => {
+    if (aDesModificationsNonSynchronisees(construireEtatLocal())) {
+      await api.syncStateToCloud();
+
+      if (aDesModificationsNonSynchronisees(construireEtatLocal())) {
+        console.warn(
+          '[synchro] Descente annulée : des changements locaux ne sont pas encore remontés. ' +
+            'Ils seraient écrasés par une version plus ancienne du serveur.',
+        );
+        signalerEtatSynchro();
+        return;
+      }
+    }
+
+    await api.adopterEtatDistant();
+  },
+
+  /**
+   * Remonte l'état local. Rend `true` si le serveur l'a accusé.
+   *
+   * L'état est construit par `construireEtatLocal`, la même fonction que celle dont
+   * on calcule l'empreinte : les faire diverger reviendrait un jour à déclarer en
+   * sécurité un état que le serveur n'a jamais reçu.
+   */
+  syncStateToCloud: async (): Promise<boolean> => {
+    /*
+      On ne remonte rien tant qu'on ignore ce que le serveur détient.
+
+      Écrire le jeton de session déclenche l'instrumentation, donc une remontée
+      temporisée : sur un appareil qui vient de se connecter, elle partait en course
+      avec la première descente, avec un état local encore vide. Réseau lent, la
+      course est perdue, et le compte est effacé par son propre propriétaire.
+
+      La descente confirme l'état qu'elle installe : cette porte se rouvre d'
+      elle-même dès le premier échange réussi, et un compte neuf n'est pas bloqué
+      puisque le serveur crée sa ligne à la première lecture.
+    */
+    if (!baseDeComparaisonConnue()) return false;
+
+    const state = construireEtatLocal();
+
     try {
-      const state = {
-        routines: JSON.parse(localStorage.getItem('mindset_routines') || '[]'),
-        micro_objectives: JSON.parse(localStorage.getItem('mindset_micro_obj') || '[]'),
-        macro_objectives: JSON.parse(localStorage.getItem('mindset_macro_obj') || '[]'),
-        habits: JSON.parse(localStorage.getItem('mindset_habits') || '[]'),
-        nutrition: JSON.parse(localStorage.getItem('mindset_nutrition') || '[]'),
-        points: getSecurePoints(),
-        xp: lireXp(),
-        mental_score: parseInt(localStorage.getItem('mental_score') || '0', 10),
-        bonus_score: parseInt(localStorage.getItem('bonus_mental_score') || '0', 10),
-        daily_scores: JSON.parse(localStorage.getItem('mindset_daily_scores') || '{}'),
-        rewards: JSON.parse(localStorage.getItem('mindset_rewards') || '[]'),
-        inventory: JSON.parse(localStorage.getItem('mindset_inventory_rewards') || '[]'),
-        owned_cosmetics: JSON.parse(localStorage.getItem('mindset_owned_cosmetics') || '[]'),
-        ai_skin_id: localStorage.getItem('mindset_ai_skin_id') || '',
-        last_routine_date: localStorage.getItem('mindset_last_routine_date') || '',
-        last_habit_date: localStorage.getItem('mindset_last_habit_date') || '',
-        join_date: localStorage.getItem('mindset_join_date') || '',
-        settings: {
-          encryption: localStorage.getItem('mindset_sec_encryption') !== 'false',
-          biometric: localStorage.getItem('mindset_sec_biometric') === 'true',
-          localHistory: localStorage.getItem('mindset_sec_local') !== 'false'
-        }
-      };
       /*
-        Le relevé est pris avant l'envoi, jamais après.
+        `base_version` dit sur quelle version du serveur ce travail a été construit.
 
-        Une case cochée pendant que la requête voyage n'est pas dans le corps qu'on
-        vient de sérialiser : la confirmer aussi reviendrait à déclarer en sécurité
-        quelque chose que le serveur n'a jamais vu, et c'est exactement ce que la
-        prochaine descente écraserait.
+        Le serveur remplace toute la ligne d'un coup : sans cette information, deux
+        appareils qui écrivent l'un après l'autre s'effacent mutuellement, et le
+        perdant ne l'apprend jamais. Le serveur rend 409 plutôt que d'écraser.
       */
-      const releve = releverModifications();
+      const reponse: any = await api.post(
+        '/sync/state',
+        { ...state, base_version: versionServeurConnue() },
+        keepaliveAcceptable(state),
+      );
 
-      await api.post('/sync/state', state, keepaliveAcceptable(state));
+      // On confirme l'empreinte de ce qui a été **envoyé**, pas de ce qui est là
+      // maintenant : une case cochée pendant que la requête voyageait n'était pas
+      // dans le corps sérialisé, et c'est précisément elle qu'une descente
+      // écraserait si on la déclarait en sécurité.
+      confirmerEtat(state, reponse?.updated_at);
+      signalerEtatSynchro();
+      return true;
+    } catch (e: any) {
+      if (e?.status === 409) {
+        /*
+          Un autre appareil a écrit entre-temps.
 
-      confirmerModifications(releve);
-    } catch (e) {
-      // Le compteur n'est pas confirmé : la descente refusera d'écraser tant que
+          On ne peut pas départager deux versions sans inventer une intention que
+          personne n'a exprimée. Le seul geste honnête est de ne rien détruire : on
+          met la copie locale de côté, on adopte celle du serveur — la plus
+          récente — et on laisse la personne trancher, avec un bouton pour revenir.
+        */
+        console.warn('[synchro] Conflit entre appareils : la version locale est mise de côté.');
+        const copieFaite = mettreDeCoteAvantConflit();
+
+        // L'empreinte est oubliée avant d'adopter : sans ça, l'état distant qu'on
+        // s'apprête à écrire serait comparé à une confirmation qui décrit l'état
+        // local, et tout paraîtrait « non sauvegardé » pour toujours.
+        oublierEmpreinte();
+        await api.adopterEtatDistant();
+        if (copieFaite) window.dispatchEvent(new Event('synchroConflit'));
+        signalerEtatSynchro();
+        return true;
+      }
+
+      // L'empreinte n'est pas confirmée : la descente refusera d'écraser tant que
       // cette remontée n'aura pas abouti. Rien n'est perdu, seulement retardé.
       console.error('Failed to sync state', e);
+      signalerEtatSynchro();
+      return false;
     }
   },
 
@@ -554,17 +693,20 @@ try {
   localStorage.setItem = function(key, value) {
     originalSetItem.apply(this, [key, value]);
 
-    // Le compteur de synchro s'écrit par ce même chemin : sans cette sortie, il
-    // s'incrémenterait lui-même en boucle dès la première case cochée.
-    if (CLES_COMPTEUR.has(key)) return;
-
     // Ignore updates that are just downloading from cloud to prevent feedback loops
     if (isSyncing) return;
 
     if (key.startsWith('mindset_') || key.includes('mental_score')) {
-      // Compté avant même d'essayer d'envoyer : c'est ce décompte qui interdira à la
-      // prochaine descente d'écraser ce changement s'il n'est jamais remonté.
-      marquerModificationLocale();
+      /*
+        Cette instrumentation déclenche la remontée, elle ne décide plus de rien.
+
+        Une première version comptait ici les écritures pour savoir s'il restait du
+        travail non sauvegardé. C'était fragile : le jour où du code aurait écrit
+        par un autre chemin, le compteur aurait sous-compté et la protection aurait
+        cessé d'agir sans rien dire. La question est désormais tranchée par
+        l'empreinte de l'état lui-même, qui ne dépend d'aucun passage obligé.
+      */
+      signalerEtatSynchro();
 
       clearTimeout(syncTimeout);
       syncTimeout = setTimeout(() => {
@@ -575,48 +717,6 @@ try {
         } catch (e) {}
       }, 500); // 500ms debounce
     }
-  };
-
-  // Wrap downloadCloudState to prevent feedback loops
-  const originalDownload = api.downloadCloudState;
-  api.downloadCloudState = async () => {
-    /*
-      La descente n'écrase jamais du travail que le serveur n'a pas accusé.
-
-      Elle réécrit trente clés sans rien comparer, et s'exécute à chaque retour sur
-      l'onglet. Tant que la remontée passe, c'est sans conséquence — mais elle
-      échoue en silence, et la séquence devenait : la synchro rate, la personne
-      continue de cocher, elle change d'application, elle revient, et le serveur
-      plus ancien efface sa matinée.
-
-      On tente donc de remonter d'abord. Si ça ne passe toujours pas, on renonce à
-      descendre : l'appareil reste en retard sur les autres, ce qui se rattrape à la
-      requête suivante, là où l'écrasement ne se rattrape jamais.
-    */
-    if (aDesModificationsNonSynchronisees()) {
-      await api.syncStateToCloud();
-
-      if (aDesModificationsNonSynchronisees()) {
-        console.warn(
-          '[synchro] Descente annulée : des changements locaux ne sont pas encore remontés. ' +
-            'Ils seraient écrasés par une version plus ancienne du serveur.',
-        );
-        return;
-      }
-    }
-
-    isSyncing = true;
-    await originalDownload();
-    isSyncing = false;
-
-    // Le ménage se fait ici, et surtout **après** `isSyncing = false`.
-    //
-    // Le serveur renvoie encore aux anciens comptes les objectifs et routines que
-    // l'application distribuait d'office. Nettoyer pendant la redescente les
-    // retirerait de l'écran mais pas du serveur, qui les réexpédierait à la
-    // connexion suivante, indéfiniment. Écrire hors de cette fenêtre déclenche la
-    // remontée automatique et referme le sujet pour de bon.
-    if (nettoyerSemis()) window.dispatchEvent(new Event('storage'));
   };
 
   // Force sync when page is hidden/closed to prevent data loss
@@ -630,6 +730,34 @@ try {
       }
     }
   });
+
+  /*
+    Reprise automatique tant qu'il reste du travail non sauvegardé.
+
+    Sans elle, le garde-fou tenait à un geste : il fallait quitter l'application et
+    y revenir pour qu'une nouvelle tentative parte. Quelqu'un qui traverse un tunnel
+    en cochant ses tâches restait donc bloqué sur « non sauvegardé » jusqu'à ce
+    qu'il pense à changer d'onglet — c'est-à-dire, en pratique, jamais.
+
+    Une minute entre deux tentatives : assez court pour que la pastille disparaisse
+    d'elle-même dès que le réseau revient, assez long pour ne pas marteler un
+    serveur qui refuse. Et la première chose que fait le navigateur en retrouvant le
+    réseau, c'est nous prévenir — d'où l'écoute d'`online`, qui rend la reprise
+    immédiate dans le cas le plus fréquent.
+  */
+  const reprendre = () => {
+    if (!localStorage.getItem('mindset_token')) return;
+    if (navigator.onLine === false) return;
+    if (!aDesModificationsNonSynchronisees(construireEtatLocal())) return;
+    api.syncStateToCloud();
+  };
+
+  setInterval(reprendre, 60000);
+  window.addEventListener('online', () => {
+    signalerEtatSynchro();
+    reprendre();
+  });
+  window.addEventListener('offline', signalerEtatSynchro);
 } catch (e) {
   console.warn('localStorage override failed');
 }

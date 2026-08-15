@@ -140,3 +140,85 @@ describe('SyncService', () => {
     });
   });
 });
+
+/**
+ * Deux appareils, une seule ligne remplacée en bloc à chaque envoi.
+ *
+ * Le second effaçait tout le travail du premier sans que personne ne l'apprenne :
+ * la perte n'était visible que pour celui qui, des jours plus tard, cherchait des
+ * routines disparues. `base_version` dit sur quelle version le client a construit
+ * son état, et le serveur refuse plutôt que d'écraser.
+ */
+describe('SyncService — conflit entre appareils', () => {
+  let service: SyncService;
+  let prisma: any;
+
+  const LUNDI = new Date('2026-08-15T10:00:00.000Z');
+  const MARDI = new Date('2026-08-16T10:00:00.000Z');
+
+  beforeEach(() => {
+    prisma = {
+      syncData: {
+        findUnique: jest.fn().mockResolvedValue({ updated_at: LUNDI }),
+        create: jest.fn(),
+        upsert: jest.fn().mockImplementation((args) => Promise.resolve(args)),
+      },
+    };
+    service = new SyncService(prisma as PrismaService);
+  });
+
+  it('accepte une écriture fondée sur la version courante', async () => {
+    await expect(
+      service.updateSyncData('u1', { base_version: LUNDI.toISOString(), points: 5 }),
+    ).resolves.toBeDefined();
+
+    expect(prisma.syncData.upsert).toHaveBeenCalled();
+  });
+
+  it('refuse une écriture fondée sur une version dépassée, sans rien écrire', async () => {
+    prisma.syncData.findUnique.mockResolvedValue({ updated_at: MARDI });
+
+    await expect(
+      service.updateSyncData('u1', { base_version: LUNDI.toISOString(), points: 5 }),
+    ).rejects.toMatchObject({ status: 409 });
+
+    // Le point entier : la ligne n'est pas touchée.
+    expect(prisma.syncData.upsert).not.toHaveBeenCalled();
+  });
+
+  /*
+    Un onglet resté ouvert sur la version précédente du code n'envoie pas de
+    `base_version`. Refuser son travail serait exactement le dégât qu'on cherche à
+    éviter — et il n'a, lui, aucun moyen de se mettre à jour tout seul.
+  */
+  it('accepte un client qui ne connaît pas encore les versions', async () => {
+    prisma.syncData.findUnique.mockResolvedValue({ updated_at: MARDI });
+
+    await expect(service.updateSyncData('u1', { points: 5 })).resolves.toBeDefined();
+    expect(prisma.syncData.upsert).toHaveBeenCalled();
+  });
+
+  it('accepte le tout premier envoi, quand aucune ligne n’existe', async () => {
+    prisma.syncData.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.updateSyncData('u1', { base_version: LUNDI.toISOString(), points: 5 }),
+    ).resolves.toBeDefined();
+  });
+
+  it('dit au client quelle version le serveur détient', async () => {
+    prisma.syncData.findUnique.mockResolvedValue({ updated_at: MARDI });
+
+    await service
+      .updateSyncData('u1', { base_version: LUNDI.toISOString() })
+      .then(() => {
+        throw new Error('aurait dû lever');
+      })
+      .catch((e: any) => {
+        expect(e.getResponse()).toMatchObject({
+          code: 'SYNC_CONFLIT',
+          version_serveur: MARDI.toISOString(),
+        });
+      });
+  });
+});

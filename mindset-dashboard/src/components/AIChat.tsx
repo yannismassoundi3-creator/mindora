@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, User, Sparkles, Loader, Undo2, Zap } from 'lucide-react';
+import { Send, User, Sparkles, Loader, Undo2, Wrench, Zap } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { playBloopSound } from '../utils/sounds';
 import { AI_COSMETICS } from '../utils/cosmetics';
@@ -7,7 +7,7 @@ import { getSecurePoints } from '../utils/secureStorage';
 import { sauvegarderPlanPrecedent, planPrecedentDisponible, restaurerPlanPrecedent } from '../utils/planPrecedent';
 import { normaliserJours } from '../utils/recurrence';
 import { extrairePlan, reparerJson } from '../utils/extractionPlan';
-import { listesIllisibles } from '../utils/etatLocal';
+import { listesIllisibles, reparerListe, type ListeIllisible } from '../utils/etatLocal';
 import { composerOuverture } from '../utils/ouverture';
 import './AIChat.css';
 import { api } from '../services/api';
@@ -42,6 +42,14 @@ interface Message {
    * remontant la conversation, ne puisse pas ressusciter un plan sans rapport.
    */
   sauvegardePlan?: string;
+  /**
+   * Listes qu'on n'a pas su relire, et qui ont fait refuser le plan.
+   *
+   * Refuser protège le travail existant, mais laissait la personne enfermée : plus
+   * aucun plan ne s'appliquait, sans le moindre geste pour en sortir. Ces clés
+   * portent le bouton qui débloque.
+   */
+  listesAReparer?: ListeIllisible[];
 }
 
 export const AIChat: React.FC = () => {
@@ -241,6 +249,37 @@ export const AIChat: React.FC = () => {
     }]);
   };
 
+  /**
+   * Repart d'une liste vide sur ce qu'on n'a pas su relire.
+   *
+   * La valeur illisible n'est pas détruite, seulement mise de côté : elle ne sert
+   * plus à l'application, mais elle contient peut-être des mois de travail encore
+   * lisibles à l'œil nu, et rien ne justifie de l'effacer.
+   *
+   * On ne réapplique pas le plan automatiquement dans la foulée. Il faudrait le
+   * redemander au modèle — donc dépenser un message — pour un plan que la personne
+   * n'a peut-être plus envie d'appliquer maintenant qu'elle sait que quelque chose
+   * a cassé. On débloque, on le dit, et on la laisse décider.
+   */
+  const reparerEtReessayer = (listes: ListeIllisible[]) => {
+    for (const { cle } of listes) reparerListe(cle);
+    window.dispatchEvent(new Event('storage'));
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: Date.now(),
+        text:
+          `🔧 **C'est réparé.** ${listes.map((l) => l.nom).join(' et ')} ${
+            listes.length > 1 ? 'repartent' : 'repart'
+          } d'une liste vide — l'ancien contenu est conservé de côté, il n'a pas été supprimé. ` +
+          `Redemande-moi ton plan quand tu veux.`,
+        sender: 'ai',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      },
+    ]);
+  };
+
   const addAiNotification = (type: string, message: string) => {
     try {
       const notifs = JSON.parse(localStorage.getItem('mindset_ai_notifications') || '[]');
@@ -265,7 +304,7 @@ export const AIChat: React.FC = () => {
    * l'existant (`null` sinon — un simple ajout n'a rien détruit), et la liste de ce
    * qu'on n'a pas pu relire.
    */
-  const applyPlanData = (rawPlanData: any): { sauvegarde: string | null; illisibles: string[] } => {
+  const applyPlanData = (rawPlanData: any): { sauvegarde: string | null; illisibles: ListeIllisible[] } => {
     if (!rawPlanData) return { sauvegarde: null, illisibles: [] };
 
     /*
@@ -563,6 +602,9 @@ export const AIChat: React.FC = () => {
       // Identifiant de la copie prise avant un remplacement, s'il y en a eu un.
       let sauvegardePlan: string | null = null;
 
+      // Listes qu'on n'a pas su relire, et qui portent le bouton de réparation.
+      let listesAReparer: ListeIllisible[] = [];
+
       // Le bloc technique est retiré du message quoi qu'il arrive.
       //
       // L'extraction exigeait auparavant les deux balises intactes. Une fermeture
@@ -606,10 +648,12 @@ export const AIChat: React.FC = () => {
               // le contraire. C'est le cas où l'ancienne version répondait « plan
               // appliqué » après avoir remplacé le travail de quelqu'un.
               console.error('Plan non appliqué, listes illisibles :', application.illisibles);
+              listesAReparer = application.illisibles;
               replyText +=
-                `\n\n⚠️ **Je n'ai rien changé.** Je n'arrive pas à relire ${application.illisibles.join(' ni ')} ` +
-                `sur cet appareil, et appliquer le plan par-dessus l'aurait remplacé au lieu de le compléter. ` +
-                `Ouvre l'écran concerné pour vérifier ce qu'il contient, puis redemande-moi ce plan.`;
+                `\n\n⚠️ **Je n'ai rien changé.** Je n'arrive pas à relire ${application.illisibles
+                  .map((l) => l.nom)
+                  .join(' ni ')} sur cet appareil, et appliquer le plan par-dessus l'aurait remplacé ` +
+                `au lieu de le compléter.`;
             } else if (isCreation) {
               replyText += "\n\n✅ **Plan appliqué avec succès ! L'interface a été mise à jour.**";
             } else if (isDeletion) {
@@ -633,6 +677,7 @@ export const AIChat: React.FC = () => {
         sender: 'ai',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         sauvegardePlan: sauvegardePlan ?? undefined,
+        listesAReparer: listesAReparer.length > 0 ? listesAReparer : undefined,
       };
       setMessages(prev => [...prev, aiResponse]);
     } catch (error: any) {
@@ -818,6 +863,28 @@ export const AIChat: React.FC = () => {
                   >
                     <Undo2 size={14} />
                     Revenir au plan précédent
+                  </button>
+                )}
+                {msg.listesAReparer && msg.listesAReparer.length > 0 && (
+                  <button
+                    onClick={() => reparerEtReessayer(msg.listesAReparer!)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      marginTop: '10px',
+                      padding: '8px 14px',
+                      borderRadius: '100px',
+                      border: '1px solid rgba(255, 255, 255, 0.22)',
+                      background: 'rgba(255, 255, 255, 0.06)',
+                      color: 'rgba(255, 255, 255, 0.85)',
+                      fontWeight: 600,
+                      fontSize: '0.85rem',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <Wrench size={14} />
+                    Repartir à zéro sur {msg.listesAReparer.map((l) => l.nom).join(' et ')}
                   </button>
                 )}
                 <span className="message-time">{msg.timestamp}</span>

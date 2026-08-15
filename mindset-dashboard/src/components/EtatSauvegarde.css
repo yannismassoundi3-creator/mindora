@@ -1,0 +1,218 @@
+/*
+  Noir et blanc néon, comme le reste de l'application.
+
+  Aucune couleur d'alerte : ni rouge ni orange. Ce que dit cette pastille n'est pas
+  une erreur mais un état d'attente, et le travail de la personne est intact dans
+  les deux cas. Un rouge ferait craindre une perte là où il n'y en a pas — c'est
+  exactement le contresens qu'on veut éviter après avoir passé la journée à rendre
+  les pannes lisibles plutôt qu'alarmantes.
+*/
+
+.sauvegarde-pastille {
+  position: fixed;
+  /* Au-dessus de la barre de navigation du bas, et hors de l'encoche sur iPhone. */
+  bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 900;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(92vw, 420px);
+  padding: 9px 14px;
+
+  background: rgba(12, 12, 14, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.06), 0 8px 24px rgba(0, 0, 0, 0.5);
+
+  color: var(--primary);
+  font-family: var(--font-main);
+  font-size: 0.8rem;
+  line-height: 1.2;
+  white-space: nowrap;
+
+  animation: sauvegarde-apparait 0.28s ease-out;
+}
+
+.sauvegarde-pastille span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Le rappel discret d'une version mise de côté : plus effacé que l'alerte. */
+.sauvegarde-pastille-memoire {
+  cursor: pointer;
+  color: var(--secondary);
+  border-color: rgba(255, 255, 255, 0.1);
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.sauvegarde-pastille-memoire:hover {
+  color: var(--primary);
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+.sauvegarde-reessayer {
+  position: relative;
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--primary);
+  font-family: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+/*
+  La cible tactile atteint 44 px sans que la pastille grossisse.
+
+  Le bouton dessiné fait 23 px de haut : c'est ce qu'il faut pour rester discret
+  dans une pastille flottante, et c'est la moitié de ce qu'un doigt sait viser. On
+  étend donc la zone sensible au-delà du trait, plutôt que d'épaissir la pastille —
+  qui masquerait davantage l'écran pour un message qui n'est qu'un avertissement.
+*/
+.sauvegarde-reessayer::after {
+  content: '';
+  position: absolute;
+  inset: -11px -8px;
+}
+
+.sauvegarde-reessayer:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.sauvegarde-reessayer:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.sauvegarde-tourne {
+  animation: sauvegarde-rotation 1s linear infinite;
+}
+
+/* Le conflit demande une décision : il occupe donc une carte, pas une pastille. */
+.sauvegarde-conflit {
+  position: fixed;
+  bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 901;
+
+  width: min(92vw, 420px);
+  padding: 16px 18px;
+
+  background: rgba(12, 12, 14, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 0 28px rgba(255, 255, 255, 0.07), 0 12px 32px rgba(0, 0, 0, 0.6);
+
+  color: var(--primary);
+  font-family: var(--font-main);
+  animation: sauvegarde-apparait 0.28s ease-out;
+}
+
+.sauvegarde-conflit-titre {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.sauvegarde-conflit-texte {
+  margin-bottom: 14px;
+  color: var(--secondary);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.sauvegarde-conflit-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.sauvegarde-btn-principal,
+.sauvegarde-btn-discret {
+  flex: 1;
+  /* 44 px : la plus petite cible tactile qu'on puisse viser sans se tromper. */
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.sauvegarde-btn-principal {
+  border: 1px solid var(--primary);
+  background: var(--primary);
+  color: #000;
+  font-weight: 600;
+}
+
+.sauvegarde-btn-principal:hover {
+  box-shadow: 0 0 16px rgba(255, 255, 255, 0.25);
+}
+
+.sauvegarde-btn-discret {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  color: var(--secondary);
+}
+
+.sauvegarde-btn-discret:hover {
+  border-color: rgba(255, 255, 255, 0.4);
+  color: var(--primary);
+}
+
+@keyframes sauvegarde-apparait {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@keyframes sauvegarde-rotation {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/*
+  Certains écrans n'ont pas de barre de navigation en bas : la pastille s'y trouvait
+  flottant trop haut. On la rapproche du bord dès qu'on est sur grand écran, où la
+  navigation est latérale.
+*/
+@media (min-width: 900px) {
+  .sauvegarde-pastille,
+  .sauvegarde-conflit {
+    bottom: 24px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sauvegarde-pastille,
+  .sauvegarde-conflit {
+    animation: none;
+  }
+  .sauvegarde-tourne {
+    animation: none;
+  }
+}

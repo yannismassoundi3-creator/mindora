@@ -17,6 +17,8 @@ import { ShockwaveOverlay } from './components/ShockwaveOverlay';
 import { GainFlottant } from './components/GainFlottant';
 import { AiNotification } from './components/AiNotification';
 import { AiExplanationModal } from './components/AiExplanationModal';
+import { EtatSauvegarde } from './components/EtatSauvegarde';
+import { purgerScoresAnciens } from './utils/etatLocal';
 import { getSecurePoints, setSecurePoints } from './utils/secureStorage';
 import { reconcilierPaiement, controlerAbonnement, activerPro, retenirFormule, type Formule } from './utils/paiement';
 import { useRegisterSW } from 'virtual:pwa-register/react';
@@ -206,6 +208,18 @@ function App() {
     const initializeApp = async () => {
       try {
         if (hasToken) {
+          /*
+            Les scores trop anciens partent avant la première synchro de la session.
+
+            `mindset_daily_scores` gagnait une entrée par jour sans jamais rien
+            perdre : c'est cette croissance qui finissait par franchir le plafond de
+            64 Ko au-delà duquel la sauvegarde de fermeture d'onglet échoue. Purger
+            ici, avant la descente, évite de renvoyer au serveur des années de
+            scores que plus aucun écran n'affiche.
+          */
+          const purges = purgerScoresAnciens();
+          if (purges > 0) console.log(`[synchro] ${purges} score(s) trop ancien(s) oublié(s)`);
+
           // Download the latest data from the Cloud DB to localStorage
           await api.downloadCloudState();
 
@@ -424,6 +438,7 @@ function App() {
         <ShockwaveOverlay />
         <GainFlottant />
         <PwaInstallPrompt />
+        <EtatSauvegarde />
       </Layout>
     </ErrorBoundary>
   );

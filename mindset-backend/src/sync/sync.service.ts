@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -44,7 +44,44 @@ export class SyncService {
     return syncData;
   }
 
+  /**
+   * Refuse une écriture fondée sur un état que le serveur a déjà dépassé.
+   *
+   * La ligne de synchro est remplacée en bloc à chaque envoi : deux appareils qui
+   * écrivent l'un après l'autre, et le second efface tout le travail du premier
+   * sans que personne ne l'apprenne. C'était vrai avant même qu'on borne la
+   * descente côté navigateur — la remontée automatique part à chaque écriture.
+   *
+   * `base_version` est l'horodatage que le client avait en main quand il a composé
+   * son état. S'il ne correspond plus à celui de la ligne, quelqu'un d'autre est
+   * passé entre-temps : on rend 409 plutôt que d'écraser, et c'est au client de
+   * mettre sa copie de côté avant d'adopter la version du serveur.
+   *
+   * **Une absence de `base_version` reste acceptée.** C'est ce qu'envoient les
+   * onglets encore ouverts sur l'ancienne version du code, et refuser leur travail
+   * serait exactement le dégât qu'on cherche à éviter.
+   */
+  private async verifierVersion(userId: string, base: unknown) {
+    if (typeof base !== 'string' || !base) return;
+
+    const actuel = await this.prisma.syncData.findUnique({
+      where: { user_id: userId },
+      select: { updated_at: true },
+    });
+    if (!actuel) return;
+
+    if (actuel.updated_at.toISOString() !== base) {
+      throw new ConflictException({
+        code: 'SYNC_CONFLIT',
+        message: 'Cet appareil travaillait sur une version qui n’est plus la plus récente.',
+        version_serveur: actuel.updated_at.toISOString(),
+      });
+    }
+  }
+
   async updateSyncData(userId: string, data: any) {
+    await this.verifierVersion(userId, data?.base_version);
+
     return this.prisma.syncData.upsert({
       where: { user_id: userId },
       update: {
