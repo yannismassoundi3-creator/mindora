@@ -104,11 +104,29 @@ function assembler(base: string, complements: string[]): string {
  * travailles en soirée » à 21 h à quelqu'un qui coche sa dernière tâche est une
  * évidence servie comme une révélation.
  */
-function observationRythme(heureActuelle: number): string {
+function observationRythme(heureActuelle: number, retrospective = false): string {
   const rythme = creneauDominant();
   if (!rythme) return '';
+
+  const frequence = rythme.part >= 0.8 ? 'presque toujours' : 'souvent';
+
+  /*
+    Deux formulations, parce que ce n'est pas la même observation.
+
+    Journée finie, on constate : « et comme presque toujours, ça s'est joué en
+    soirée » parle de la personne, au passé. C'est vrai même à 21 h — c'est même là
+    que ça tombe le plus juste, elle vient de le faire. La règle du « ne pas énoncer
+    l'évidence » ne s'applique donc pas ici.
+
+    Journée en cours, on annonce : « comme souvent, ça se joue en soirée chez toi »
+    prédit la suite. Dite à 21 h à quelqu'un qui a encore trois choses à faire, elle
+    devient une évidence servie comme une révélation — d'où le silence quand le
+    créneau observé est celui de l'instant.
+  */
+  if (retrospective) return `Et comme ${frequence}, ça s'est joué ${NOM_CRENEAU[rythme.creneau]}.`;
+
   if (rythme.creneau === creneauDe(heureActuelle)) return '';
-  return `Comme souvent, ça se joue ${NOM_CRENEAU[rythme.creneau]} chez toi.`;
+  return `Comme ${frequence}, ça se joue ${NOM_CRENEAU[rythme.creneau]} chez toi.`;
 }
 
 /**
@@ -146,9 +164,21 @@ export function composerMotDuCoach(prenom?: string): MotDuCoach | null {
   if (!prochaine) {
     return {
       titre: `Journée bouclée — ${faites}/${faites}`,
+      /*
+        Le rythme passe **avant** le cap déclaré, et c'est un renversement voulu.
+
+        Les deux se disputaient l'unique complément, et le cap gagnait toujours : il
+        est présent tous les jours, il tient dans le budget, et il sortait donc à
+        chaque journée bouclée. L'observation sur le rythme, elle, n'existe qu'une
+        fois le relevé établi — autrement dit rarement, et seulement quand elle a
+        quelque chose à dire. La laisser derrière revenait à ne l'afficher jamais.
+
+        C'est aussi l'ordre qui a du sens à lire : une phrase que le coach ne peut
+        dire qu'à cette personne-là vaut mieux qu'une phrase qu'il redit chaque soir.
+      */
       message: assembler('Tu as fait tout ce qui était prévu.', [
+        observationRythme(heure, true),
         objectif ? `C'est comme ça qu'on finit par ${enMinuscule(objectif)}.` : '',
-        observationRythme(heure),
         serie >= 2 ? `${serie} jours d'affilée.` : '',
       ]),
     };
