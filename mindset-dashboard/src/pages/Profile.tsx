@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Shield, Lock, HardDrive, AlertTriangle, Save, CheckCircle, Database, Palette, FileText, X, Crown, LogOut, Sparkles, Target } from 'lucide-react';
+import { User, Shield, HardDrive, AlertTriangle, Save, CheckCircle, Database, Palette, FileText, X, Crown, LogOut, Sparkles, Target } from 'lucide-react';
 import { PricingScreen } from './PricingScreen';
 import { playHoverSound, playClickSound, playToggleSound, playLevelUpSound } from '../utils/sounds';
 import { api } from '../services/api';
@@ -103,7 +103,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
   const [textColor, setTextColor] = useState(() => localStorage.getItem('mindset_text_color') || 'default');
 
   // Security (Persistent)
-  const [encryption, setEncryption] = useState(() => localStorage.getItem('mindset_sec_encryption') !== 'false');
+  const [encryption] = useState(() => localStorage.getItem('mindset_sec_encryption') !== 'false');
   const [biometric, setBiometric] = useState(() => localStorage.getItem('mindset_sec_biometric') === 'true');
   const [localHistory, setLocalHistory] = useState(() => localStorage.getItem('mindset_sec_local') !== 'false');
   

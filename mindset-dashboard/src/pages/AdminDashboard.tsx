@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Users, CreditCard, Activity, Key } from 'lucide-react';
+import { Shield, Users, CreditCard, Activity } from 'lucide-react';
 import { api } from '../services/api';
 import { TableauRetention } from '../components/TableauRetention';
 import './AdminDashboard.css';

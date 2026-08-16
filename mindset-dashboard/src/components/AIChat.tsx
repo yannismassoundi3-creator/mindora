@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, User, Sparkles, Loader, Undo2, Wrench, Zap } from 'lucide-react';
+import { Send, User, Sparkles, Undo2, Wrench, Zap } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { playBloopSound } from '../utils/sounds';
 import { AI_COSMETICS } from '../utils/cosmetics';

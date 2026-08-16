@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CheckCircle, Zap, Shield, Crown, Sparkles, X } from 'lucide-react';
+import { CheckCircle, Shield, Sparkles, X } from 'lucide-react';
 import { playLevelUpSound } from '../utils/sounds';
 import { api } from '../services/api';
 import { marquerPaiementLance, verifierAbonnement, type Formule } from '../utils/paiement';

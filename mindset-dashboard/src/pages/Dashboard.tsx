@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, Area, AreaChart } from 'recharts';
-import { Play, CheckCircle2, TrendingUp, Sparkles, Pencil, Coins, Circle, ChevronLeft, ChevronRight, Plus, Trophy, Calendar, Trash2, Target, X } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { CheckCircle2, TrendingUp, Sparkles, Pencil, Coins, Circle, ChevronLeft, ChevronRight, Plus, Trophy, Calendar, Trash2, Target } from 'lucide-react';
 import { RankIcon } from '../components/RankIcon';
 import { ProgressionRang } from '../components/ProgressionRang';
 import { PartageSemaine } from '../components/PartageSemaine';
@@ -19,7 +18,7 @@ import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
 import { estPourAujourdhui, libelleJours } from '../utils/recurrence';
 import { RANKS } from '../utils/ranks';
 import { EVENEMENT_XP, ajouterXp, definirXp, lireProgression, xpDuNiveau } from '../utils/progression';
-import { playClickSound, playBloopSound, playLevelUpSound } from '../utils/sounds';
+import { playClickSound, playBloopSound } from '../utils/sounds';
 import './Dashboard.css';
 
 // --- HELPERS ---
@@ -109,38 +108,13 @@ function calculateStreak(): number {
   return streak;
 }
 
-// --- CUSTOM CHART COMPONENTS ---
-
-const CustomTick = ({ x, y, payload }: any) => {
-  return (
-    <g transform={`translate(${x},${y})`}>
-      <rect x={-18} y={8} width={36} height={26} rx={8} fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.08)" />
-      <text x={0} y={25} textAnchor="middle" fill="var(--secondary)" fontSize={12} fontWeight={600} fontFamily="var(--font-main)">
-        {payload.value}
-      </text>
-    </g>
-  );
-};
-
-const CustomTooltipContent = ({ active, payload, label }: any) => {
-  if (active && payload && payload.length) {
-    return (
-      <div style={{
-        background: 'rgba(20,20,20,0.9)',
-        border: '1px solid rgba(255,255,255,0.15)',
-        borderRadius: '12px',
-        padding: '10px 14px',
-        backdropFilter: 'blur(10px)',
-      }}>
-        <p style={{ color: '#ec4899', fontWeight: 700, fontSize: '0.85rem', margin: 0 }}>{label}</p>
-        <p style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '1.1rem', margin: '4px 0 0' }}>
-          {payload[0].value}%
-        </p>
-      </div>
-    );
-  }
-  return null;
-};
+/*
+  Ici vivaient `CustomTick` et `CustomTooltipContent`, deux composants écrits pour
+  recharts. La bibliothèque n'est plus utilisée nulle part — les trois graphiques
+  de cette page sont dessinés à la main, en SVG et en div —, et ces deux-là
+  n'avaient plus d'appelant depuis. `recharts` reste dans `package.json` : c'est
+  une dépendance à retirer à part, pas au détour d'un nettoyage de types.
+*/
 
 // --- COMPONENT ---
 
@@ -154,8 +128,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   const routinesRef = useRef<HTMLElement>(null);
   // Le jour du damier que l'on vient de toucher, écrit en clair sous la grille.
   const [jourLu, setJourLu] = useState<string | null>(null);
-  const [isSubscribed, setIsSubscribed] = useState(() => localStorage.getItem('mindset_is_subscribed') === 'true');
-  const [showRankGlitch, setShowRankGlitch] = useState(false);
   const [jarvisPopup, setJarvisPopup] = useState<JarvisPopupData | null>(null);
 
   // --- STREAK & HARDCORE MODE ---
@@ -195,7 +167,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
     window.addEventListener(EVENEMENT_XP, relire);
     return () => window.removeEventListener(EVENEMENT_XP, relire);
   }, []);
-  const { niveau: level, rang: rank } = progression;
+  const { rang: rank } = progression;
 
   const handleRankClick = () => {
     // SECURITY: The only way to trigger this cheat is to manually type
@@ -478,7 +450,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
       localStorage.setItem('mindset_lost_streak', savedPreviousStreak.toString());
       
       setTimeout(() => {
-        const aiName = localStorage.getItem('mindset_ai_name') || 'Coach IA';
         const savedHistory = localStorage.getItem('mindset_ai_chat_history');
         let parsed = [];
         try { parsed = savedHistory ? JSON.parse(savedHistory) : []; } catch {}
@@ -799,14 +770,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
     setEditTitle('Nouvelle tâche');
   };
 
-  const radius = 60;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (mentalScore / 100) * circumference;
 
   // `getFlameStyle` a suivi la flamme dans BandeauCommande.tsx, seul endroit qui
   // l'affiche depuis que la carte de série a été retirée.
 
-  const userName = localStorage.getItem('mindset_user_name') || 'Utilisateur';
   const aiName = localStorage.getItem('mindset_ai_name') || 'DISCIPLIX OS';
 
   // Les tâches d'aujourd'hui, telles que le bandeau les compte — mêmes formules,
@@ -1103,11 +1070,48 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
                   })}
                 </div>
               )}
+              {/*
+                Cet onglet répondait « Données insuffisantes » à tout le monde, pour
+                toujours : le message était écrit en dur, et `trendData` — six mois de
+                moyennes calculées juste au-dessus à partir des scores réels — n'était
+                affiché nulle part. Quelqu'un avec six mois d'historique lisait donc
+                qu'il n'avait pas assez de données.
+
+                Le message reste, mais pour ce qu'il dit : quand aucun mois n'a de
+                score, il n'y a effectivement rien à tracer. Mêmes barres que l'onglet
+                Semaine, faute de quoi ce serait un second graphique à entretenir.
+              */}
               {activeChartTab === 'trend' && (
-                <div className="trend-view" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--secondary)' }}>
-                  <TrendingUp size={48} opacity={0.2} />
-                  <span style={{ marginLeft: '15px' }}>Données insuffisantes pour la tendance mensuelle.</span>
-                </div>
+                trendData.some((m) => m.score > 0) ? (
+                  <div className="chart-bars">
+                    {trendData.map((data, i) => {
+                      const estMoisCourant = i === trendData.length - 1;
+                      return (
+                        <div key={data.name + i} className={`bar-col ${estMoisCourant ? 'active' : ''}`}>
+                          <div className="bar-track glass-panel">
+                            <div className="bar-tooltip">{data.score}%</div>
+                            {/* Un mois sans aucune donnée reste vide : lui donner la
+                                hauteur plancher de l'onglet Semaine inventerait une
+                                activité là où il n'y en a pas eu. */}
+                            <div
+                              className="bar-fill"
+                              style={{
+                                height: `${data.score > 0 ? Math.max(data.score, 5) : 0}%`,
+                                background: estMoisCourant ? 'linear-gradient(to top, #3b82f6, #60a5fa)' : 'var(--accent-purple)',
+                              }}
+                            ></div>
+                          </div>
+                          <span className="bar-label">{data.name}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="trend-view" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--secondary)' }}>
+                    <TrendingUp size={48} opacity={0.2} />
+                    <span style={{ marginLeft: '15px' }}>Pas encore de quoi tracer une tendance mensuelle.</span>
+                  </div>
+                )
               )}
             </div>
           </section>

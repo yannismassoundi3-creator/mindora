@@ -87,16 +87,15 @@ function App() {
   // En mode autoUpdate, le service worker s'installe et prend la main tout seul :
   // il n'y a plus de mise à jour en attente à proposer à l'utilisateur.
   useRegisterSW({
-    onRegistered(r) {
+    onRegistered(r: ServiceWorkerRegistration | undefined) {
       console.log('SW Registered: ' + r);
     },
-    onRegisterError(error) {
+    onRegisterError(error: unknown) {
       console.log('SW registration error', error);
     },
   });
 
   const hasToken = !!localStorage.getItem('mindset_token');
-  const [isAuthenticated, setIsAuthenticated] = useState(hasToken);
   const [particlesEnabled, setParticlesEnabled] = useState(() => localStorage.getItem('mindset_particles') !== 'false');
 
   // App Theme Management
@@ -529,7 +528,11 @@ function App() {
         <AiExplanationModal />
         
         <div key={currentView} className={`view-transition-wrapper slide-${slideDirection}`}>
-          {isInitializing && currentView !== 'welcome' && currentView !== 'auth' && currentView !== 'onboarding' ? (
+          {/* Les trois vues d'entrée — accueil, connexion, questionnaire — sortent
+              plus haut par un `return` : à ce point du rendu, `currentView` ne peut
+              plus valoir aucune des trois. Les comparaisons étaient donc toujours
+              vraies, et TypeScript le disait dès qu'on l'écoutait. */}
+          {isInitializing ? (
             <div style={{ padding: '20px' }}>
               <SkeletonGlow rows={4} />
             </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Target, Flag, Trophy, Plus, CheckCircle2, Circle, Sparkles, Pencil, Trash2, X } from 'lucide-react';
+import { Target, Flag, Trophy, Plus, CheckCircle2, Circle, Pencil, Trash2, X } from 'lucide-react';
 import { playClickSound, playLevelUpSound } from '../utils/sounds';
 import { AI_COSMETICS } from '../utils/cosmetics';
 import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
@@ -19,6 +19,17 @@ interface MicroObjective {
   step?: number;
   done: boolean;
   category: string;
+  /**
+   * Le jour où cet objectif a rapporté ses points, en `YYYY-MM-DD`.
+   *
+   * Le champ était écrit et relu sans jamais être déclaré : le type mentait sur
+   * la forme réelle des données, et une faute de frappe n'y aurait produit qu'un
+   * `undefined` silencieux. Ce n'est pas un détail de typage — le Dashboard filtre
+   * sur `awardedDate === aujourd'hui` pour calculer le score mental, et **la série
+   * se lit sur ce score**. Optionnel : absent des objectifs créés avant ce champ,
+   * et de ceux qui n'ont jamais été terminés.
+   */
+  awardedDate?: string;
 }
 
 interface MacroObjective {
@@ -41,7 +52,7 @@ const GRADIENTS = [
 ];
 
 export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
-  const [mentalScore, setMentalScore] = useState(parseInt(localStorage.getItem('mental_score') || '0', 10));
+  const [mentalScore] = useState(parseInt(localStorage.getItem('mental_score') || '0', 10));
   const aiName = localStorage.getItem('mindset_ai_name') || 'Coach IA';
   
   const [equippedSkin] = useState<string | null>(() => localStorage.getItem('mindset_ai_skin_id'));

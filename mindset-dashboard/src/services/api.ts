@@ -1,5 +1,5 @@
-import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
-import { definirXp, lireXp } from '../utils/progression';
+import { setSecurePoints } from '../utils/secureStorage';
+import { definirXp } from '../utils/progression';
 import { estIOS, estAndroid, estInstallee } from '../utils/plateforme';
 import { nettoyerSemis } from '../utils/semis';
 import { construireEtatLocal } from '../utils/etatLocal';

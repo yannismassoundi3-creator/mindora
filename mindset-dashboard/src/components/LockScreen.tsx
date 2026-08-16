@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Lock, Fingerprint, ScanFace } from 'lucide-react';
+import { Lock, Fingerprint } from 'lucide-react';
 import { base64urlToBuffer } from '../utils/webauthn';
 import './LockScreen.css';
 

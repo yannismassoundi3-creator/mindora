@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Trophy, TrendingUp, Calendar, Zap, AlertTriangle, Play, Edit2, Pencil, Trash2, Plus, Target, BookOpen, Dumbbell, Brain, Coffee, Sparkles, X } from 'lucide-react';
-import { playLevelUpSound, playClickSound, playErrorSound, playBloopSound } from '../utils/sounds';
+import React, { useState, useEffect } from 'react';
+import { TrendingUp, Zap, Pencil, Trash2, Plus, Target, BookOpen, Dumbbell, Brain, Coffee, Sparkles, X } from 'lucide-react';
+import { playLevelUpSound, playClickSound, playBloopSound } from '../utils/sounds';
 import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
 import { ajouterXp } from '../utils/progression';
 import { annoncerGain } from '../utils/journee';

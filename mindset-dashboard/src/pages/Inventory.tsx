@@ -5,7 +5,6 @@ import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
 import { ajouterXp } from '../utils/progression';
 import { api } from '../services/api';
 import { AI_COSMETICS } from '../utils/cosmetics';
-import type { Cosmetic } from '../utils/cosmetics';
 import './Inventory.css';
 
 interface InventoryItem {

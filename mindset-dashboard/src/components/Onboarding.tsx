@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowRight, CheckCircle2, Loader2, Sparkles } from 'lucide-react';
+import { ArrowRight, Loader2, Sparkles } from 'lucide-react';
 import './Onboarding.css';
 import { api, CLE_PROFIL_EN_ATTENTE } from '../services/api';
 
@@ -136,10 +136,10 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
     };
   }, [step, answers, onComplete]);
 
-  const handleComplete = () => {
-    localStorage.setItem('mindset_ai_name', answers.aiName || 'Coach IA');
-    onComplete();
-  };
+  // `handleComplete` vivait ici sans appelant : il écrivait le nom du coach puis
+  // sortait directement, c'est-à-dire sans passer par l'étape qui envoie le profil
+  // et dépose le premier message du chat. Le rebrancher un jour par commodité
+  // aurait fait entrer quelqu'un sans profil enregistré ni premier échange.
 
   return (
     <div className="onboarding-container">

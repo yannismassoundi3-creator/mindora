@@ -79,6 +79,30 @@ export function estNavigateurIntegre(): boolean {
  */
 export type NavigateurIOS = 'safari' | 'chrome' | 'firefox' | 'edge' | 'autre';
 
+/**
+ * Lien qui rouvre la page dans Chrome, depuis un navigateur intégré Android.
+ *
+ * Android sait faire ce qu'iOS ne sait pas : le schéma `intent://` est compris par
+ * le système, y compris depuis le webview d'Instagram ou de TikTok, et `package=`
+ * désigne l'application qui doit prendre le relais. Un simple clic suffit donc à
+ * sortir — là où sur iPhone il n'existe aucune sortie programmable, seulement une
+ * consigne à lire.
+ *
+ * `S.browser_fallback_url` est ce qui se produit si Chrome n'est pas installé :
+ * sans lui, le clic ne fait **rien du tout**, ce qui est la pire des réponses —
+ * indiscernable d'un bouton cassé.
+ *
+ * Rend `null` hors Android : on ne propose pas un bouton dont on sait qu'il ne
+ * mènera nulle part.
+ */
+export function lienSortieAndroid(): string | null {
+  if (!estAndroid()) return null;
+  const url = window.location.href;
+  const sansSchema = url.replace(/^https?:\/\//, '');
+  const repli = encodeURIComponent(url);
+  return `intent://${sansSchema}#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${repli};end`;
+}
+
 export function navigateurIOS(): NavigateurIOS {
   const ua = navigator.userAgent;
   if (/CriOS/i.test(ua)) return 'chrome';

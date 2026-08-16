@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './PwaInstallPrompt.css';
-import { estIOS, estIPad, estInstallee, estNavigateurIntegre, navigateurIOS } from '../utils/plateforme';
+import { estIOS, estIPad, estInstallee, estNavigateurIntegre, lienSortieAndroid, navigateurIOS } from '../utils/plateforme';
 
 /*
   Faire installer l'application.
@@ -25,6 +25,7 @@ export const PwaInstallPrompt: React.FC = () => {
   const [isStandalone, setIsStandalone] = useState(false);
   const [dansAppli, setDansAppli] = useState(false);
   const [navigateur, setNavigateur] = useState<ReturnType<typeof navigateurIOS>>('safari');
+  const [sortieAndroid, setSortieAndroid] = useState<string | null>(null);
 
   useEffect(() => {
     const installee = estInstallee();
@@ -35,6 +36,7 @@ export const PwaInstallPrompt: React.FC = () => {
     setIsIOS(surIOS);
     setDansAppli(estNavigateurIntegre());
     setNavigateur(navigateurIOS());
+    setSortieAndroid(lienSortieAndroid());
 
     // Sur iOS aucun événement n'annonce la possibilité d'installer : c'est à nous
     // de proposer. Le délai laisse la personne voir l'app avant qu'on lui demande
@@ -111,13 +113,24 @@ export const PwaInstallPrompt: React.FC = () => {
               Tu es dans le navigateur de l'application où tu as cliqué. Il ne sait pas installer
               Disciplix — il faut d'abord ouvrir le site dans ton vrai navigateur.
             </p>
-            <ol className="ios-instructions">
-              <li>Touche le menu <strong>···</strong> en haut à droite.</li>
-              <li>
-                Choisis <strong>Ouvrir dans {isIOS ? 'Safari' : 'Chrome'}</strong>.
-              </li>
-              <li>Reviens ici : la marche à suivre s'affichera.</li>
-            </ol>
+            {sortieAndroid ? (
+              /*
+                Sur Android, un seul geste suffit : le système comprend `intent://`
+                même depuis ce webview. C'est la différence avec iOS, où aucune
+                sortie n'est programmable et où il ne reste qu'à décrire le menu.
+              */
+              <a className="install-btn" href={sortieAndroid}>
+                Ouvrir dans Chrome
+              </a>
+            ) : (
+              <ol className="ios-instructions">
+                <li>Touche le menu <strong>···</strong> en haut à droite.</li>
+                <li>
+                  Choisis <strong>Ouvrir dans {isIOS ? 'Safari' : 'Chrome'}</strong>.
+                </li>
+                <li>Reviens ici : la marche à suivre s'affichera.</li>
+              </ol>
+            )}
             <button className="install-btn outline" onClick={() => setShowPrompt(false)}>J'ai compris</button>
           </>
         ) : !isIOS ? (
