@@ -70,7 +70,21 @@ export class RetentionService {
         created_at: true,
         sync_data: { select: { daily_scores: true, updated_at: true } },
         subscription: { select: { status: true, plan_type: true } },
-        _count: { select: { chat_messages: true } },
+        /*
+          Les deux marches manquantes de l'entonnoir. Entre « s'est inscrit » et
+          « a fait quelque chose » il y a deux murs, et le tableau les confondait
+          en une seule chute : le code reçu par e-mail, puis les six questions du
+          questionnaire. Neuf comptes sur trente-quatre se perdaient là sans qu'on
+          puisse dire lequel des deux les avait arrêtés — donc sans savoir lequel
+          réparer.
+
+          `refresh_tokens` répond au premier : un jeton n'existe que si une session
+          a été ouverte, et ils ne sont jamais supprimés, seulement révoqués.
+          `ai_profile` répond au second : la table n'est écrite qu'à la dernière
+          étape du questionnaire.
+        */
+        _count: { select: { chat_messages: true, refresh_tokens: true } },
+        ai_profile: { select: { id: true } },
       },
     });
 
@@ -80,6 +94,8 @@ export class RetentionService {
 
     let jamaisActifs = 0;
     let ontParleAuCoach = 0;
+    let ontOuvertUneSession = 0;
+    let ontFiniLeQuestionnaire = 0;
     let actifsAujourdhui = 0;
     let actifs7j = 0;
     let actifs30j = 0;
@@ -97,6 +113,8 @@ export class RetentionService {
 
       if (jours.length === 0) jamaisActifs++;
       if (compte._count.chat_messages > 0) ontParleAuCoach++;
+      if (compte._count.refresh_tokens > 0) ontOuvertUneSession++;
+      if (compte.ai_profile) ontFiniLeQuestionnaire++;
 
       if (derniereSynchro && derniereSynchro.getTime() >= debutDuJour.getTime()) actifsAujourdhui++;
       if (dansLaFenetre(derniereSynchro, 7)) actifs7j++;
@@ -156,12 +174,17 @@ export class RetentionService {
       })),
       /*
         L'entonnoir, dans l'ordre où on le perd. Chaque marche répond à une
-        question différente : est-ce qu'on s'inscrit, est-ce qu'on essaie, est-ce
-        qu'on parle au coach — le seul geste que l'abonnement fait payer —, et
-        est-ce qu'on paie.
+        question différente : est-ce qu'on s'inscrit, est-ce qu'on entre, est-ce
+        qu'on répond aux questions, est-ce qu'on essaie, est-ce qu'on parle au
+        coach — le seul geste que l'abonnement fait payer —, et est-ce qu'on paie.
+
+        Les marches se lisent chacune contre la précédente : c'est l'écart entre
+        deux qui nomme le mur, jamais le chiffre seul.
       */
       entonnoir: {
         inscrits: comptes.length,
+        ontOuvertUneSession,
+        ontFiniLeQuestionnaire,
         ontAgi: comptes.length - jamaisActifs,
         ontParleAuCoach,
         abonnes,

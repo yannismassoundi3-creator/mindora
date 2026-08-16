@@ -29,6 +29,23 @@ export const ORIGINES_AUTORISEES = ['https://disciplix-ai.vercel.app'];
 export const ORIGINE_PAR_DEFAUT = ORIGINES_AUTORISEES[0];
 
 /**
+ * L'adresse publique de cette API, pour les liens qui doivent atteindre le serveur
+ * et non l'application — le retrait des relances, qui se règle sans session.
+ *
+ * Écrite en clair pour la même raison que ci-dessus : une variable d'environnement
+ * absente ne lève rien, elle fabrique un lien relatif dans un e-mail, c'est-à-dire
+ * un lien mort que personne ne signalera jamais. `API_PUBLIC_URL` reste prioritaire
+ * si elle est posée un jour, pour le cas d'un domaine propre.
+ */
+export const ORIGINE_API_PAR_DEFAUT = 'https://mindora-backend-haku.onrender.com';
+
+/** Lien absolu vers un chemin de cette API (`chemin` commence par « / »). */
+export function lienApi(chemin = ''): string {
+  const base = (process.env.API_PUBLIC_URL || ORIGINE_API_PAR_DEFAUT).replace(/\/+$/, '');
+  return base + chemin;
+}
+
+/**
  * Rend l'origine si elle est l'une des nôtres, sinon `null`.
  *
  * Sert aussi bien à valider ce qu'annonce un navigateur (où accepter n'importe

@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, UnauthorizedException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, ConflictException, UnauthorizedException, InternalServerErrorException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -10,6 +10,8 @@ import { lienApp } from '../common/origines';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
@@ -86,6 +88,40 @@ export class AuthService {
       return {
         ...tokens,
         has_ai_profile: !!user.ai_profile
+      };
+    }
+
+    /*
+      La toute première connexion se passe du code.
+
+      Mesuré le 16 août 2026 : 9 comptes sur 34 — un quart des inscrits — n'ont
+      jamais atteint le tableau de bord. L'inscription enchaîne sur une connexion
+      automatique, donc sur un code : quelqu'un qui arrive d'une publicité doit
+      quitter le navigateur intégré du réseau social, ouvrir sa boîte, et revenir
+      sur une page que ce navigateur a souvent déjà perdue. Le mur se dresse
+      exactement entre le clic payé et la première vue du produit.
+
+      Ce que le second facteur protège à cet instant précis : rien. La personne
+      vient de choisir ce mot de passe il y a trente secondes, et le compte est
+      vide. Le code n'y sert qu'à prouver que l'adresse existe — valeur réelle,
+      mais qui n'a pas à être encaissée maintenant : elle l'est à la connexion
+      suivante, où le code redevient obligatoire.
+
+      Le repère est « ce compte n'a jamais ouvert de session », et non un
+      horodatage : les jetons de rafraîchissement ne sont jamais supprimés,
+      seulement révoqués. Dès qu'une session a existé — donc pour tout compte
+      réellement utilisé — le second facteur est intact, y compris face à
+      quelqu'un qui aurait deviné le mot de passe.
+    */
+    const sessionsOuvertes = await this.prisma.refreshToken.count({
+      where: { user_id: user.id },
+    });
+    if (sessionsOuvertes === 0) {
+      this.logger.log(`[AUTH] Première connexion de ${user.email} : code non demandé.`);
+      const tokens = await this.generateTokens(user.id, user.role, user.first_name);
+      return {
+        ...tokens,
+        has_ai_profile: !!user.ai_profile,
       };
     }
 
@@ -202,6 +238,17 @@ export class AuthService {
       where: { id: verification.id },
       data: { is_used: true }
     });
+
+    // Un code lu dans cette boîte et retapé ici prouve qu'elle existe et qu'elle est
+    // à elle. C'est le seul endroit du produit où cette preuve se fait, et rien ne
+    // l'enregistrait : l'entonnoir ne pouvait donc pas distinguer « bloqué par le
+    // code » de « a abandonné le questionnaire ».
+    if (!user.email_verifie_le) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { email_verifie_le: new Date() },
+      });
+    }
 
     const tokens = await this.generateTokens(user.id, user.role, user.first_name);
     

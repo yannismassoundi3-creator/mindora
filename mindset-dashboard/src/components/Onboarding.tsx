@@ -103,6 +103,30 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
 
       if (annule) return;
       localStorage.setItem('mindset_ai_name', answers.aiName || 'Coach IA');
+
+      /*
+        Le questionnaire se termine dans la conversation, pas sur le tableau de bord.
+
+        Mesuré le 16 août 2026 : sur 25 comptes ayant fait quelque chose dans l'app,
+        5 seulement avaient jamais écrit au coach. Or le coach est la seule chose que
+        l'abonnement fait payer — personne n'achète ce qu'il n'a pas essayé, et le
+        taux d'abonnés ne peut pas dépasser celui des gens qui l'ont vu fonctionner.
+
+        La cause était dans l'enchaînement : on posait six questions, puis on déposait
+        la personne devant un tableau de bord vide, avec un bouton parmi d'autres pour
+        aller parler. Elle venait de raconter sa vie à quelqu'un qui ne lui a jamais
+        répondu. Le premier message part donc tout seul, et c'est le coach qui rend le
+        plan — ce que le parcours promettait depuis le début.
+
+        Il est écrit à la première personne parce qu'il est envoyé en son nom, et il
+        nomme routines, habitudes et objectifs parce que c'est ce vocabulaire qui fait
+        joindre le schéma du plan côté serveur (`MOTS_PLAN`).
+      */
+      localStorage.setItem(
+        'mindset_pending_chat_msg',
+        "Je viens de terminer mon inscription. Donne-moi mon plan pour aujourd'hui : mes routines, mes habitudes et mes objectifs.",
+      );
+
       onComplete();
     };
 

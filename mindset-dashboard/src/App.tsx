@@ -369,7 +369,12 @@ function App() {
 
   const handleOnboardingComplete = () => {
     localStorage.setItem('hasCompletedOnboarding', 'true');
-    setCurrentView('dashboard');
+    // On atterrit dans la conversation et non sur le tableau de bord : le
+    // questionnaire vient de poser six questions, la première chose qui doit
+    // arriver ensuite est une réponse. Le message d'ouverture a été déposé par
+    // `Onboarding` dans `mindset_pending_chat_msg` ; le chat le trouve en se
+    // montant et l'envoie. Voir le commentaire qui l'accompagne là-bas.
+    setCurrentView('chat');
     // Plus de mur de paiement dès la fin de l'inscription : on laisse la personne
     // se servir de l'app. L'offre arrive quand elle a épuisé ses messages IA,
     // c'est-à-dire quand elle sait ce qu'elle achèterait.

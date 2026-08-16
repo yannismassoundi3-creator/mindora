@@ -18,6 +18,16 @@ model User {
   created_at         DateTime          @default(now())
   updated_at         DateTime          @updatedAt
   deleted_at         DateTime?
+  /// Date à laquelle un code envoyé à cette adresse a été validé, donc preuve que
+  /// la boîte existe et appartient à la personne. Distincte de « a ouvert une
+  /// session » depuis que la toute première connexion se passe du code : sans cette
+  /// colonne, les deux se confondraient et l'entonnoir ne saurait plus dire lequel
+  /// des deux murs coûte des comptes.
+  email_verifie_le   DateTime?
+  /// Faux quand la personne a demandé à ne plus recevoir de relances. Ne concerne
+  /// que celles-ci : un code de connexion et un lien de réinitialisation partent
+  /// toujours, ils répondent à un geste qu'elle vient de faire.
+  relances_email     Boolean           @default(true)
   ai_profile         AIProfile?
   audit_logs         AuditLog[]
   calendar_events    CalendarEvent[]
@@ -38,6 +48,25 @@ model User {
   coin_claims        CoinClaim[]
   push_permissions   PushPermission[]
   offer_prompt       OfferPrompt?
+  relances           RelanceEmail[]
+}
+
+/// Ce qui a déjà été envoyé à quelqu'un, pour ne pas le lui renvoyer.
+///
+/// Une relance décidée d'après l'état du compte se redéclencherait tous les jours
+/// tant que l'état ne change pas : quelqu'un qui ne revient pas recevrait le même
+/// e-mail chaque matin, ce qui est la meilleure façon de se faire marquer comme
+/// indésirable — pour tout le domaine, y compris les codes de connexion.
+model RelanceEmail {
+  id      String   @id @default(uuid())
+  user_id String
+  /// jamais_ouvert | decroche
+  motif   String
+  envoye_le DateTime @default(now())
+  user    User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, motif])
+  @@index([envoye_le])
 }
 
 /// Ce que le navigateur a répondu à la demande de notifications, par appareil.

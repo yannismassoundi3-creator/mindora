@@ -31,8 +31,12 @@ describe('AuthService — prolongation de session', () => {
         findUnique: jest.fn(),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         create: jest.fn().mockResolvedValue({}),
+        // Par défaut, un compte qui a déjà ouvert une session : c'est le cas où le
+        // second facteur s'applique. Les tests de la première connexion le
+        // ramènent à zéro explicitement.
+        count: jest.fn().mockResolvedValue(1),
       },
-      user: { findUnique: jest.fn() },
+      user: { findUnique: jest.fn(), update: jest.fn().mockResolvedValue({}) },
       twoFactorCode: {
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
         create: jest.fn().mockResolvedValue({}),
@@ -176,6 +180,54 @@ describe('AuthService — prolongation de session', () => {
       expect(prisma.twoFactorCode.updateMany.mock.invocationCallOrder[0]).toBeLessThan(
         prisma.twoFactorCode.create.mock.invocationCallOrder[0],
       );
+    });
+
+    it('ne demande pas de code à la toute première connexion', async () => {
+      // Le mur se dressait entre le clic sur la publicité et la première vue du
+      // produit : neuf comptes sur trente-quatre n'ont jamais atteint le tableau de
+      // bord. À cet instant, la personne vient de choisir son mot de passe et son
+      // compte est vide — le second facteur n'y protège rien.
+      prisma.refreshToken.count.mockResolvedValue(0);
+
+      const resultat: any = await service.login({ email: 'yannis@example.com', password: 'x' } as any);
+
+      expect(resultat.requires2FA).toBeUndefined();
+      expect(resultat.accessToken).toBe('jeton-neuf');
+      expect(prisma.twoFactorCode.create).not.toHaveBeenCalled();
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('redemande le code dès qu’une session a déjà existé', async () => {
+      // La contrepartie du test précédent, et la raison pour laquelle il est sans
+      // danger : sur un compte réellement utilisé, deviner le mot de passe ne suffit
+      // toujours pas.
+      prisma.refreshToken.count.mockResolvedValue(1);
+
+      const resultat: any = await service.login({ email: 'yannis@example.com', password: 'x' } as any);
+
+      expect(resultat.requires2FA).toBe(true);
+      expect(prisma.twoFactorCode.create).toHaveBeenCalled();
+    });
+
+    it('retient que l’adresse est vérifiée quand un code est validé', async () => {
+      // C'est la seule preuve que la boîte existe. Sans cette trace, l'entonnoir ne
+      // distingue plus « bloqué par le code » de « a quitté le questionnaire », et
+      // les relances partent vers des adresses jamais confirmées.
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'u1',
+        email: 'yannis@example.com',
+        role: 'USER',
+        first_name: 'Yannis',
+        email_verifie_le: null,
+      });
+      prisma.twoFactorCode.findFirst.mockResolvedValue({ id: 'c1' });
+
+      await service.verify2FA('yannis@example.com', '123456');
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'u1' },
+        data: { email_verifie_le: expect.any(Date) },
+      });
     });
 
     it('répond la même chose pour une adresse inconnue et un mauvais code', async () => {

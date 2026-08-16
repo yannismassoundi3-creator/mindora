@@ -14,6 +14,7 @@ import { CalendarModule } from './calendar/calendar.module';
 import { SyncModule } from './sync/sync.module';
 import { PushModule } from './push/push.module';
 import { AdminModule } from './admin/admin.module';
+import { RelanceModule } from './relances/relance.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { AdminModule } from './admin/admin.module';
     SyncModule,
     PushModule,
     AdminModule,
+    RelanceModule,
   ],
   controllers: [AppController],
   providers: [

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { TrendingUp, UserX, Users, MessageSquare, CreditCard, CalendarClock } from 'lucide-react';
+import { TrendingUp, UserX, Users, MessageSquare, CreditCard, CalendarClock, KeyRound, ClipboardList } from 'lucide-react';
 import { api } from '../services/api';
 import './TableauRetention.css';
 
@@ -41,7 +41,14 @@ interface Retention {
     jamaisActifs: number;
   };
   retention: Fenetre[];
-  entonnoir: { inscrits: number; ontAgi: number; ontParleAuCoach: number; abonnes: number };
+  entonnoir: {
+    inscrits: number;
+    ontOuvertUneSession: number;
+    ontFiniLeQuestionnaire: number;
+    ontAgi: number;
+    ontParleAuCoach: number;
+    abonnes: number;
+  };
   cohortes: Cohorte[];
 }
 
@@ -74,8 +81,17 @@ export const TableauRetention: React.FC = () => {
   if (!donnees) return <p className="retention-attente">Calcul en cours…</p>;
 
   const { comptes, retention, entonnoir, cohortes } = donnees;
+  /*
+    Les deux marches du milieu sont les murs qu'on ne voyait pas. « Inscrits » puis
+    « Ont fait au moins une action » ne laissait qu'une chute de vingt-six points
+    sans nom : impossible de savoir si les gens se perdaient sur le code envoyé par
+    e-mail ou sur les six questions qui suivent. Ce sont deux problèmes distincts,
+    et deux corrections distinctes.
+  */
   const marches = [
     { cle: 'inscrits', libelle: 'Inscrits', valeur: entonnoir.inscrits, icone: Users },
+    { cle: 'session', libelle: 'Sont entrés dans l\'app', valeur: entonnoir.ontOuvertUneSession, icone: KeyRound },
+    { cle: 'questionnaire', libelle: 'Ont fini le questionnaire', valeur: entonnoir.ontFiniLeQuestionnaire, icone: ClipboardList },
     { cle: 'agi', libelle: 'Ont fait au moins une action', valeur: entonnoir.ontAgi, icone: TrendingUp },
     { cle: 'coach', libelle: 'Ont parlé au coach', valeur: entonnoir.ontParleAuCoach, icone: MessageSquare },
     { cle: 'abonnes', libelle: 'Abonnés', valeur: entonnoir.abonnes, icone: CreditCard },
@@ -136,9 +152,14 @@ export const TableauRetention: React.FC = () => {
 
       <h3 className="retention-sous-titre">Où on les perd</h3>
       <div className="retention-entonnoir">
-        {marches.map((m) => {
+        {marches.map((m, i) => {
           const Icone = m.icone;
           const part = entonnoir.inscrits === 0 ? 0 : (m.valeur / entonnoir.inscrits) * 100;
+          // Ce qui se perd sur cette marche-là, et pas depuis le départ. Le total
+          // rapporté aux inscrits dit qu'on perd du monde ; l'écart avec la marche
+          // précédente dit où. C'est le second qui désigne quoi réparer.
+          const precedente = i === 0 ? null : marches[i - 1].valeur;
+          const perdus = precedente === null ? 0 : precedente - m.valeur;
           return (
             <div key={m.cle} className="retention-marche">
               <span className="retention-marche__libelle">
@@ -152,6 +173,11 @@ export const TableauRetention: React.FC = () => {
                 <span className="retention-marche__part">
                   {entonnoir.inscrits === 0 ? '' : ` · ${Math.round(part)} %`}
                 </span>
+                {perdus > 0 && (
+                  <span className="retention-marche__perte" title={`${perdus} perdus depuis « ${marches[i - 1].libelle} »`}>
+                    −{perdus}
+                  </span>
+                )}
               </span>
             </div>
           );

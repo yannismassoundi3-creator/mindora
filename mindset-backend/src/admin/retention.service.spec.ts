@@ -24,9 +24,15 @@ describe('RetentionService', () => {
     messages?: number;
     statut?: string;
     derniereSynchro?: number;
+    /** Nombre de jetons de session : zéro = n'est jamais entré dans l'app. */
+    sessions?: number;
+    /** Le questionnaire d'inscription a été mené jusqu'au bout. */
+    questionnaire?: boolean;
   }) => {
     const daily_scores: Record<string, number> = {};
     for (const j of opts.joursActifs ?? []) daily_scores[cle(ilYA(j))] = 50;
+    // Par défaut, un compte qui a franchi les deux premières marches : les tests
+    // écrits avant qu'elles existent décrivent tous des gens entrés dans l'app.
     return {
       id: `u-${Math.random()}`,
       created_at: ilYA(opts.inscritIlYA),
@@ -35,7 +41,8 @@ describe('RetentionService', () => {
         updated_at: ilYA(opts.derniereSynchro ?? opts.inscritIlYA),
       },
       subscription: opts.statut ? { status: opts.statut, plan_type: 'MONTHLY' } : null,
-      _count: { chat_messages: opts.messages ?? 0 },
+      _count: { chat_messages: opts.messages ?? 0, refresh_tokens: opts.sessions ?? 1 },
+      ai_profile: (opts.questionnaire ?? true) ? { id: 'p1' } : null,
     };
   };
 
@@ -111,7 +118,35 @@ describe('RetentionService', () => {
       compte({ inscritIlYA: 20, joursActifs: [20], messages: 2, statut: 'CANCELED' }),
     ]);
 
-    expect(stats.entonnoir).toEqual({ inscrits: 5, ontAgi: 4, ontParleAuCoach: 3, abonnes: 1 });
+    expect(stats.entonnoir).toEqual({
+      inscrits: 5,
+      ontOuvertUneSession: 5,
+      ontFiniLeQuestionnaire: 5,
+      ontAgi: 4,
+      ontParleAuCoach: 3,
+      abonnes: 1,
+    });
+  });
+
+  it('distingue le mur du code de celui du questionnaire', async () => {
+    /*
+      Les deux produisent le même symptôme — un compte inscrit qui n'a jamais rien
+      fait —, et c'est précisément le point : sans ces deux marches, neuf comptes
+      perdus ne désignaient rien à réparer. Le premier n'a jamais pu entrer, le
+      second est entré et a lâché devant les questions.
+    */
+    const stats = await avec([
+      compte({ inscritIlYA: 20, sessions: 0, questionnaire: false }),
+      compte({ inscritIlYA: 20, sessions: 1, questionnaire: false }),
+      compte({ inscritIlYA: 20, joursActifs: [20, 19] }),
+    ]);
+
+    expect(stats.entonnoir.inscrits).toBe(3);
+    expect(stats.entonnoir.ontOuvertUneSession).toBe(2);
+    expect(stats.entonnoir.ontFiniLeQuestionnaire).toBe(1);
+    // Les deux premiers sont indistinguables sur cette ligne-là, et c'était toute
+    // l'information dont on disposait jusqu'ici.
+    expect(stats.entonnoir.ontAgi).toBe(1);
   });
 
   it('groupe les cohortes par semaine et laisse la plus jeune sans taux', async () => {

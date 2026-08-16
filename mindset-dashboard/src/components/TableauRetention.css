@@ -136,6 +136,16 @@
   color: var(--text-secondary, #94a3b8);
 }
 
+/* Ce qui tombe sur cette marche précise. Discret : c'est une annotation de la
+   valeur, pas une seconde valeur — la mettre au même poids ferait lire deux
+   colonnes là où il n'y en a qu'une. */
+.retention-marche__perte {
+  margin-left: 6px;
+  font-weight: 600;
+  font-size: 0.72rem;
+  color: #f87171;
+}
+
 /* --- Les cohortes --- */
 
 /* Un tableau ne se comprime pas : il doit défiler dans sa propre boîte, sinon
