@@ -48,12 +48,54 @@ export class RetentionService {
    * qu'il y a eu une action ce jour-là. Ce qu'on mesure ici est la venue, pas la
    * performance.
    */
-  private static joursActifs(dailyScores: unknown): string[] {
+  private static joursActifs(dailyScores: unknown, cleMax: string): string[] {
     if (!dailyScores || typeof dailyScores !== 'object' || Array.isArray(dailyScores)) return [];
-    return Object.keys(dailyScores as Record<string, unknown>).filter((cle) =>
-      /^\d{4}-\d{2}-\d{2}$/.test(cle),
+    return Object.keys(dailyScores as Record<string, unknown>).filter(
+      // Les clés sont écrites par le navigateur, donc par son horloge. Un appareil
+      // réglé en avance produit des jours qui n'ont pas encore eu lieu : comptés,
+      // ils inventent des venues. Les dates comparables en `YYYY-MM-DD`, la borne
+      // est une comparaison de chaînes.
+      (cle) => /^\d{4}-\d{2}-\d{2}$/.test(cle) && cle <= cleMax,
     );
   }
+
+  /**
+   * La médiane, pas la moyenne.
+   *
+   * Un compte qui ouvre l'application tous les jours depuis un mois suffit à tirer
+   * la moyenne vers le haut sur quelques dizaines d'inscrits, et à faire croire
+   * que le cas ordinaire lui ressemble. La médiane décrit la personne du milieu,
+   * qui est celle dont on parle quand on demande « combien de fois elle revient ».
+   */
+  private static mediane(valeurs: number[]): number | null {
+    if (valeurs.length === 0) return null;
+    const tries = [...valeurs].sort((a, b) => a - b);
+    const milieu = Math.floor(tries.length / 2);
+    const brute =
+      tries.length % 2 === 0 ? (tries[milieu - 1] + tries[milieu]) / 2 : tries[milieu];
+    return Math.round(brute * 10) / 10;
+  }
+
+  /**
+   * Les paliers de fréquence, dans l'ordre où ils se lisent.
+   *
+   * Le premier est le seul qui compte vraiment : une personne venue un seul jour
+   * n'est jamais revenue. Les suivants s'élargissent parce qu'à quelques dizaines
+   * de comptes, une case par jour ne montrerait que du bruit.
+   */
+  private static readonly PALIERS: ReadonlyArray<{
+    cle: string;
+    libelle: string;
+    min: number;
+    max: number;
+  }> = [
+    { cle: '1', libelle: 'Un seul jour', min: 1, max: 1 },
+    { cle: '2', libelle: '2 jours', min: 2, max: 2 },
+    { cle: '3-4', libelle: '3 à 4 jours', min: 3, max: 4 },
+    { cle: '5-7', libelle: '5 à 7 jours', min: 5, max: 7 },
+    { cle: '8-14', libelle: '8 à 14 jours', min: 8, max: 14 },
+    { cle: '15+', libelle: '15 jours ou plus', min: 15, max: Number.POSITIVE_INFINITY },
+  ];
 
   async getRetentionStats() {
     const maintenant = new Date();
@@ -122,10 +164,39 @@ export class RetentionService {
       d'ici oubliant tous les jours quiconque avait agi entre minuit et 2 h.
     */
     const debutDuJour = debutDuJourParis(maintenant);
+    const cleAujourdhui = RetentionService.cleJour(maintenant);
+
+    /*
+      Le nombre de jours où chacun est venu agir, et le nombre de jours qu'il a eu
+      pour le faire. La rétention dit si on revient ; ces deux listes disent
+      combien de fois — ce n'est pas la même question, et la seconde est celle qui
+      décrit un usage. Quelqu'un qui revient une fois puis disparaît et quelqu'un
+      qui vient trois jours sur quatre comptent tous les deux pour « revenu ».
+    */
+    const joursActifsParCompte: number[] = [];
+    const regularites: number[] = [];
 
     for (const compte of comptes) {
-      const jours = RetentionService.joursActifs(compte.sync_data?.daily_scores);
+      const jours = RetentionService.joursActifs(compte.sync_data?.daily_scores, cleAujourdhui);
       const derniereSynchro = compte.sync_data?.updated_at ?? null;
+
+      if (jours.length > 0) {
+        joursActifsParCompte.push(jours.length);
+
+        // Le jour de l'inscription compte : il a été une occasion de venir, et la
+        // plupart des gens l'utilisent. L'exclure gonflerait la régularité de
+        // tous les comptes récents.
+        const joursEcoules =
+          Math.floor((maintenant.getTime() - compte.created_at.getTime()) / RetentionService.JOUR_MS) + 1;
+        /*
+          Sept jours d'ancienneté au minimum. En dessous, le rapport est mécanique :
+          un compte créé aujourd'hui et venu aujourd'hui affiche 100 % de
+          régularité, ce qui ne décrit aucune habitude.
+        */
+        if (joursEcoules >= 7) {
+          regularites.push(Math.min(1, jours.length / joursEcoules));
+        }
+      }
 
       if (jours.length === 0) jamaisActifs++;
       if (compte._count.chat_messages > 0) ontParleAuCoach++;
@@ -180,6 +251,58 @@ export class RetentionService {
           produit : le coût d'acquisition est déjà payé, et il n'a rien produit.
         */
         jamaisActifs,
+      },
+      /*
+        Combien de fois une personne revient.
+
+        La rétention range chacun en « revenu » ou « pas revenu » ; à l'intérieur
+        du premier groupe, quelqu'un venu deux jours et quelqu'un venu vingt-cinq
+        sont indiscernables. Or c'est précisément l'écart entre les deux qui dit
+        si l'application est devenue une habitude ou seulement une curiosité.
+
+        Compté en jours distincts d'activité réelle, jamais en ouvertures : une
+        clé n'apparaît dans `daily_scores` que parce qu'il s'est passé quelque
+        chose ce jour-là.
+      */
+      frequence: {
+        // Les comptes jamais actifs sont exclus : ils sont déjà comptés à part, et
+        // les mêler ici ferait dire « la moitié vient un jour ou moins », ce qui
+        // confond deux problèmes — ne pas commencer, et ne pas continuer.
+        base: joursActifsParCompte.length,
+        medianeJours: RetentionService.mediane(joursActifsParCompte),
+        // Montrée à côté de la médiane, jamais seule : l'écart entre les deux est
+        // ce qui révèle qu'une poignée de comptes porte tout l'usage.
+        moyenneJours:
+          joursActifsParCompte.length === 0
+            ? null
+            : Math.round(
+                (joursActifsParCompte.reduce((s, n) => s + n, 0) / joursActifsParCompte.length) * 10,
+              ) / 10,
+        // Le seul seuil qui compte vraiment : y a-t-il eu une deuxième fois.
+        revenusAuMoinsUneFois: joursActifsParCompte.filter((n) => n >= 2).length,
+        distribution: RetentionService.PALIERS.map((palier) => {
+          const nombre = joursActifsParCompte.filter(
+            (n) => n >= palier.min && n <= palier.max,
+          ).length;
+          return {
+            cle: palier.cle,
+            libelle: palier.libelle,
+            comptes: nombre,
+            part: part(nombre, joursActifsParCompte.length),
+          };
+        }),
+        /*
+          À quel rythme. « Cinq jours d'activité » ne veut pas dire la même chose
+          sur une semaine d'ancienneté et sur deux mois : sans ce rapport, un
+          ancien compte tiède passe pour un compte fidèle.
+
+          Exprimé en jours pour dix — « elle vient 3 jours sur 10 » se lit, « 0,3 »
+          se calcule.
+        */
+        regularite: {
+          base: regularites.length,
+          joursPourDix: RetentionService.mediane(regularites.map((r) => r * 10)),
+        },
       },
       retention: RetentionService.FENETRES.map((fenetre) => ({
         fenetre,
@@ -245,7 +368,10 @@ export class RetentionService {
       // Même précaution que plus haut : une semaine trop jeune n'a pas de taux.
       if (age >= 7 * RetentionService.JOUR_MS) {
         groupe.base++;
-        const jours = RetentionService.joursActifs(compte.sync_data?.daily_scores);
+        const jours = RetentionService.joursActifs(
+          compte.sync_data?.daily_scores,
+          RetentionService.cleJour(maintenant),
+        );
         const jourInscription = RetentionService.cleJour(inscription);
         const limite = RetentionService.cleJour(
           new Date(inscription.getTime() + 7 * RetentionService.JOUR_MS),

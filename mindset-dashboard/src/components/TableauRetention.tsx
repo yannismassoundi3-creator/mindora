@@ -32,6 +32,23 @@ interface Cohorte {
   tauxJ7: number | null;
 }
 
+/**
+ * Combien de fois une personne revient, et non plus seulement si elle revient.
+ *
+ * La rétention met tout le monde dans deux cases. Dedans, quelqu'un venu deux
+ * jours et quelqu'un venu vingt-cinq sont confondus — c'est pourtant l'écart
+ * entre ces deux-là qui dit si l'application est devenue une habitude.
+ */
+interface Frequence {
+  /** Comptes ayant agi au moins un jour. Les autres sont comptés à part. */
+  base: number;
+  medianeJours: number | null;
+  moyenneJours: number | null;
+  revenusAuMoinsUneFois: number;
+  distribution: Array<{ cle: string; libelle: string; comptes: number; part: number | null }>;
+  regularite: { base: number; joursPourDix: number | null };
+}
+
 interface Retention {
   comptes: {
     total: number;
@@ -40,6 +57,7 @@ interface Retention {
     actifs30j: number;
     jamaisActifs: number;
   };
+  frequence: Frequence;
   retention: Fenetre[];
   entonnoir: {
     inscrits: number;
@@ -80,7 +98,11 @@ export const TableauRetention: React.FC = () => {
   if (erreur) return <p className="retention-erreur">{erreur}</p>;
   if (!donnees) return <p className="retention-attente">Calcul en cours…</p>;
 
-  const { comptes, retention, entonnoir, cohortes } = donnees;
+  const { comptes, retention, entonnoir, cohortes, frequence } = donnees;
+  // La barre la plus haute donne l'échelle, pas le total : sur six paliers dont un
+  // concentre la moitié des comptes, une échelle sur 100 % écrase tous les autres
+  // et on ne lit plus la forme de la distribution.
+  const sommetPalier = Math.max(1, ...frequence.distribution.map((d) => d.comptes));
   /*
     Les deux marches du milieu sont les murs qu'on ne voyait pas. « Inscrits » puis
     « Ont fait au moins une action » ne laissait qu'une chute de vingt-six points
@@ -149,6 +171,98 @@ export const TableauRetention: React.FC = () => {
           Sur 30 jours : <strong>{comptes.actifs30j}</strong>
         </span>
       </div>
+
+      <h3 className="retention-sous-titre">Combien de fois ils reviennent</h3>
+      {frequence.base === 0 ? (
+        <p className="retention-attente">Aucun compte n'a encore agi une seule journée.</p>
+      ) : (
+        <>
+          <div className="retention-frequence-resume">
+            <div className="retention-carte glass-panel">
+              <span className="retention-carte__libelle">Jours d'activité, en médiane</span>
+              <span className="retention-carte__valeur">{frequence.medianeJours}</span>
+              <span className="retention-carte__base">
+                sur {frequence.base} compte{frequence.base > 1 ? 's' : ''} ayant agi au moins
+                une fois · moyenne {frequence.moyenneJours}
+              </span>
+            </div>
+
+            <div
+              className={`retention-carte glass-panel${
+                frequence.revenusAuMoinsUneFois * 2 < frequence.base
+                  ? ' retention-carte--alerte'
+                  : ''
+              }`}
+            >
+              <span className="retention-carte__libelle">Sont revenus une 2ᵉ fois</span>
+              <span className="retention-carte__valeur">{frequence.revenusAuMoinsUneFois}</span>
+              <span className="retention-carte__base">
+                sur {frequence.base} · les autres n'ont agi qu'une seule journée
+              </span>
+            </div>
+
+            <div className="retention-carte glass-panel">
+              <span className="retention-carte__libelle">Rythme</span>
+              {frequence.regularite.joursPourDix === null ||
+              frequence.regularite.base < BASE_MINIMALE ? (
+                <>
+                  <span className="retention-carte__valeur retention-carte__valeur--vide">—</span>
+                  <span className="retention-carte__base">
+                    {frequence.regularite.base === 0
+                      ? "aucun compte n'a encore une semaine"
+                      : `seulement ${frequence.regularite.base} compte${frequence.regularite.base > 1 ? 's' : ''} d'au moins 7 jours`}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="retention-carte__valeur">
+                    {frequence.regularite.joursPourDix}
+                    <span className="retention-carte__unite"> j / 10</span>
+                  </span>
+                  <span className="retention-carte__base">
+                    la personne du milieu agit {frequence.regularite.joursPourDix} jour
+                    {frequence.regularite.joursPourDix > 1 ? 's' : ''} sur 10 depuis son
+                    inscription · {frequence.regularite.base} comptes d'au moins 7 jours
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="retention-paliers">
+            {frequence.distribution.map((d) => (
+              <div key={d.cle} className="retention-palier">
+                <span className="retention-palier__libelle">{d.libelle}</span>
+                <div className="retention-palier__piste">
+                  <div
+                    className={`retention-palier__jauge${d.cle === '1' ? ' retention-palier__jauge--seul' : ''}`}
+                    style={{
+                      width: `${(d.comptes / sommetPalier) * 100}%`,
+                      // Un palier vide ne dessine rien : deux pixels se liraient
+                      // comme « il y en a un ».
+                      minWidth: d.comptes > 0 ? 3 : 0,
+                    }}
+                  />
+                </div>
+                <span className="retention-palier__valeur">
+                  {d.comptes}
+                  {d.part !== null && (
+                    <span className="retention-marche__part"> · {Math.round(d.part)} %</span>
+                  )}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <p className="retention-note">
+            Un jour compte parce qu'il s'y est passé quelque chose, pas parce que
+            l'application a été ouverte : la clé n'est écrite qu'après une action.
+            Les comptes jamais utilisés sont exclus d'ici — ils sont comptés plus
+            haut. Ne pas commencer et ne pas continuer sont deux problèmes
+            différents, et ils ne se réparent pas au même endroit.
+          </p>
+        </>
+      )}
 
       <h3 className="retention-sous-titre">Où on les perd</h3>
       <div className="retention-entonnoir">

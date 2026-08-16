@@ -66,6 +66,101 @@ describe('RetentionService', () => {
     );
   });
 
+  /**
+   * « Combien de fois elle revient » — la question que la rétention n'atteint pas.
+   *
+   * Elle range chacun dans « revenu » ou « pas revenu » ; à l'intérieur du premier
+   * groupe, deux jours et vingt-cinq jours sont indiscernables. Les pièges de ce
+   * calcul-là sont ailleurs : la moyenne tirée par un compte assidu, les comptes
+   * jamais actifs qui écrasent la distribution, et un rythme calculé sur des
+   * comptes d'un jour, mécaniquement parfait.
+   */
+  describe('fréquence de retour', () => {
+    it('compte les jours distincts, pas les venues supposées', async () => {
+      const stats = await avec([
+        compte({ inscritIlYA: 20, joursActifs: [20, 18, 3] }),
+        compte({ inscritIlYA: 20, joursActifs: [20] }),
+        compte({ inscritIlYA: 20, joursActifs: [20, 19] }),
+      ]);
+
+      expect(stats.frequence.base).toBe(3);
+      expect(stats.frequence.medianeJours).toBe(2);
+      // Un seul des trois n'a jamais eu de deuxième jour.
+      expect(stats.frequence.revenusAuMoinsUneFois).toBe(2);
+
+      const palier = (cle: string) =>
+        stats.frequence.distribution.find((d) => d.cle === cle)!.comptes;
+      expect(palier('1')).toBe(1);
+      expect(palier('2')).toBe(1);
+      expect(palier('3-4')).toBe(1);
+    });
+
+    it("exclut les comptes jamais actifs plutôt que de les compter comme zéro", async () => {
+      // Les mêler ici ferait dire « la moitié vient un jour ou moins », ce qui
+      // confond ne pas commencer et ne pas continuer — deux problèmes qui ne se
+      // réparent pas au même endroit. Ils sont comptés dans `jamaisActifs`.
+      const stats = await avec([
+        compte({ inscritIlYA: 20, joursActifs: [20, 19] }),
+        compte({ inscritIlYA: 20, joursActifs: [] }),
+        compte({ inscritIlYA: 20, joursActifs: [] }),
+      ]);
+
+      expect(stats.comptes.jamaisActifs).toBe(2);
+      expect(stats.frequence.base).toBe(1);
+      expect(stats.frequence.medianeJours).toBe(2);
+    });
+
+    it("montre la médiane à côté de la moyenne, qu'un seul assidu suffit à fausser", async () => {
+      const stats = await avec([
+        compte({ inscritIlYA: 40, joursActifs: Array.from({ length: 30 }, (_, i) => i + 1) }),
+        compte({ inscritIlYA: 40, joursActifs: [40] }),
+        compte({ inscritIlYA: 40, joursActifs: [40] }),
+      ]);
+
+      // La personne du milieu vient un jour. La moyenne en annonce plus de dix :
+      // lue seule, elle décrirait un produit que personne n'utilise ainsi.
+      expect(stats.frequence.medianeJours).toBe(1);
+      expect(stats.frequence.moyenneJours).toBeGreaterThan(10);
+    });
+
+    it("ne calcule pas de rythme sur des comptes qui n'ont pas eu le temps", async () => {
+      // Un compte créé aujourd'hui et venu aujourd'hui, c'est 10 jours sur 10 :
+      // mécanique, et faux dès demain. Sous sept jours d'ancienneté, il sort.
+      const stats = await avec([
+        compte({ inscritIlYA: 0, joursActifs: [0] }),
+        compte({ inscritIlYA: 1, joursActifs: [1, 0] }),
+      ]);
+
+      expect(stats.frequence.regularite.base).toBe(0);
+      expect(stats.frequence.regularite.joursPourDix).toBeNull();
+    });
+
+    it('rapporte les jours actifs au temps écoulé depuis l’inscription', async () => {
+      // Cinq jours d'activité sur dix d'ancienneté : la moitié du temps.
+      const stats = await avec([
+        compte({ inscritIlYA: 9, joursActifs: [9, 8, 7, 6, 5] }),
+        compte({ inscritIlYA: 9, joursActifs: [9, 8, 7, 6, 5] }),
+      ]);
+
+      expect(stats.frequence.regularite.base).toBe(2);
+      expect(stats.frequence.regularite.joursPourDix).toBe(5);
+    });
+
+    it("ignore les jours qui n'ont pas encore eu lieu", async () => {
+      // Les clés viennent de l'horloge du navigateur. Un appareil réglé en avance
+      // écrit des jours futurs : comptés, ils inventent des venues chez quelqu'un
+      // qui n'est venu qu'une fois.
+      const demain = new Date(Date.now() + JOUR);
+      const compteAvecFutur = compte({ inscritIlYA: 10, joursActifs: [10] });
+      (compteAvecFutur.sync_data.daily_scores as Record<string, number>)[cle(demain)] = 80;
+
+      const stats = await avec([compteAvecFutur]);
+
+      expect(stats.frequence.medianeJours).toBe(1);
+      expect(stats.frequence.revenusAuMoinsUneFois).toBe(0);
+    });
+  });
+
   beforeEach(async () => {
     prisma = { user: { findMany: jest.fn() } };
     const module: TestingModule = await Test.createTestingModule({

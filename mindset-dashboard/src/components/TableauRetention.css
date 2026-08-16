@@ -189,19 +189,78 @@
   opacity: 0.8;
 }
 
+/* --- Combien de fois ils reviennent --- */
+
+.retention-frequence-resume {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.retention-carte__unite {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-secondary, #94a3b8);
+}
+
+.retention-palier {
+  display: grid;
+  grid-template-columns: minmax(110px, 1fr) 2fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+}
+
+.retention-palier__libelle {
+  font-size: 0.82rem;
+  min-width: 0;
+}
+
+.retention-palier__piste {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.retention-palier__jauge {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #3b82f6, #00f2fe);
+  transition: width 0.5s ease;
+}
+
+/* Le palier « un seul jour » n'est pas un palier comme les autres : c'est la part
+   qui n'est jamais revenue. Peint dans la même couleur que les cinq autres, il se
+   lisait comme un début de progression. */
+.retention-palier__jauge--seul {
+  background: linear-gradient(90deg, #b45309, #f59e0b);
+}
+
+.retention-palier__valeur {
+  font-weight: 700;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
 @media (max-width: 640px) {
-  .retention-marche {
+  .retention-marche,
+  .retention-palier {
     grid-template-columns: 1fr auto;
   }
   /* Sous cette largeur, la barre n'a plus assez de place pour dire quoi que ce
      soit : le chiffre et son pourcentage suffisent. */
-  .retention-marche__piste {
+  .retention-marche__piste,
+  .retention-palier__piste {
     display: none;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .retention-marche__jauge {
+  .retention-marche__jauge,
+  .retention-palier__jauge {
     transition: none;
   }
 }
