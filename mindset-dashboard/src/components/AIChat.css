@@ -656,3 +656,57 @@
   font-size: 0.75rem;
   vertical-align: middle;
 }
+
+/*
+  Les messages inclus dans le mois.
+
+  D'une autre couleur que l'Énergie, volontairement : ce sont deux limites
+  distinctes, et les afficher à l'identique laisserait croire à un seul compteur
+  dédoublé. L'Énergie se regagne en validant des routines ; ces messages-là non —
+  c'est précisément pour ça que c'est ce compteur-ci qui finit par arrêter les
+  gens, et qu'il ne s'affichait nulle part.
+*/
+.chat-quota {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  padding: 1px 8px 1px 6px;
+  border-radius: 100px;
+  background: rgba(148, 163, 184, 0.16);
+  color: #cbd5e1;
+  font-weight: 600;
+  font-size: 0.75rem;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+/* Trois messages ou moins : le chiffre cesse d'être une information et devient
+   une décision. Assez tôt pour qu'on l'ait vu venir, assez tard pour ne pas
+   harceler quelqu'un qui vient d'arriver.
+
+   Rouge et non orange : l'orange (251,146,60) est voisin de l'ambre de l'Énergie
+   (251,191,36), et les deux pastilles se touchent. Deux pastilles chaudes côte à
+   côte se lisent comme un seul compteur dédoublé — or ce sont justement les deux
+   limites qu'il faut arrêter de confondre. Ce rouge est celui que le projet
+   emploie déjà pour ce qui recule (bilan en baisse, pertes de l'entonnoir). */
+.chat-quota--bas {
+  background: rgba(248, 113, 113, 0.16);
+  color: #f87171;
+}
+
+/*
+  Le `:not()` n'est pas de la coquetterie : sans lui, ce sélecteur (0,2,1) écrase
+  `.chat-quota--bas` (0,1,0) et l'alerte perd sa couleur en thème clair —
+  c'est-à-dire précisément au moment où elle sert. Vérifié : elle repassait au gris.
+*/
+body.theme-monochrome-light .chat-quota:not(.chat-quota--bas) {
+  background: rgba(0, 0, 0, 0.08);
+  color: #475569;
+}
+
+/* Le rouge est assombri pour rester lisible sur un fond clair. */
+body.theme-monochrome-light .chat-quota--bas {
+  background: rgba(220, 38, 38, 0.12);
+  color: #b91c1c;
+}

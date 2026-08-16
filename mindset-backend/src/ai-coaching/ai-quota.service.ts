@@ -134,12 +134,24 @@ export class AiQuotaService {
         );
       }
 
-      // 402 Payment Required : le front s'en sert pour ouvrir l'écran d'abonnement.
+      /*
+        402 Payment Required : le front s'en sert pour ouvrir l'écran d'abonnement.
+
+        Le message nomme ce que l'abonnement fait, et non ce qu'il enlève. « Passe
+        à Pro pour continuer » est un argument de quantité : il ne dit rien à
+        quelqu'un qui hésite, sinon qu'on lui a coupé le robinet. Ce qui décide,
+        c'est de savoir ce qu'on obtient — et la lecture de sa semaine est la seule
+        chose concrète qu'on puisse citer ici, puisqu'elle est déjà visible sous
+        cadenas sur son tableau de bord, à côté de ses vrais chiffres.
+      */
       throw new HttpException(
         {
           statusCode: HttpStatus.PAYMENT_REQUIRED,
           code: 'AI_QUOTA_EXCEEDED',
-          message: `Tu as utilisé tes ${quota.limit} messages offerts ce mois-ci. Passe à Disciplix Pro pour continuer.`,
+          message:
+            `Tu as utilisé tes ${quota.limit} messages offerts ce mois-ci. ` +
+            `Disciplix Pro les enlève, et ton coach te rend chaque semaine sa lecture : ` +
+            `ce qui a tenu, ce qui a lâché, et la seule chose à changer.`,
           used: quota.used,
           limit: quota.limit,
         },

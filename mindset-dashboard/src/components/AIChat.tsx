@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, User, Sparkles, Undo2, Wrench, Zap } from 'lucide-react';
+import { Send, User, Sparkles, Undo2, Wrench, Zap, MessageSquare } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { playBloopSound } from '../utils/sounds';
 import { AI_COSMETICS } from '../utils/cosmetics';
@@ -231,6 +231,40 @@ export const AIChat: React.FC = () => {
   });
 
   const estAbonne = localStorage.getItem('mindset_is_subscribed') === 'true';
+
+  /*
+    Les messages qu'il reste ce mois-ci.
+
+    L'Énergie était affichée, le quota mensuel non — alors que ce sont deux murs
+    distincts et que c'est le second qui arrête réellement les gens. Les coins se
+    regagnent en validant des routines, le quota mensuel non : tout compte gratuit
+    un peu actif finit donc avec beaucoup d'Énergie et zéro message. Il lisait
+    « 570 ⚡ », se croyait large, et se faisait refuser son message sans avoir rien
+    vu venir.
+
+    Un mur qu'on n'a pas vu venir se lit comme une panne. Un compteur qu'on regarde
+    descendre est une décision qu'on prend — c'est exactement le raisonnement écrit
+    plus haut pour l'Énergie, jamais appliqué à la limite qui compte.
+
+    `null` tant que le serveur n'a pas répondu : on n'invente aucun chiffre.
+  */
+  const [messagesRestants, setMessagesRestants] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (estAbonne) return;
+    let annule = false;
+    api
+      .get('/ai-coaching/quota')
+      .then((q) => {
+        // Le serveur reste seul juge : s'il se dit abonné, on ne montre aucun
+        // compteur, même si le navigateur pensait le contraire.
+        if (!annule && q && !q.subscribed) setMessagesRestants(q.remaining ?? null);
+      })
+      .catch(() => undefined);
+    return () => {
+      annule = true;
+    };
+  }, [estAbonne]);
 
   /**
    * Remet le plan d'avant en place, et le dit dans la conversation.
@@ -756,6 +790,22 @@ export const AIChat: React.FC = () => {
                 <span className="chat-energie" title="Énergie restante pour parler au coach">
                   <Zap size={12} />
                   {energie}
+                </span>
+              )}
+              {/*
+                Le compteur qui arrête vraiment. Il passe en alerte à trois messages
+                — assez tôt pour qu'on décide, assez tard pour ne pas harceler
+                quelqu'un qui vient d'arriver.
+              */}
+              {!estAbonne && messagesRestants !== null && (
+                <span
+                  className={`chat-quota${messagesRestants <= 3 ? ' chat-quota--bas' : ''}`}
+                  title="Messages inclus ce mois-ci. L'abonnement les enlève."
+                >
+                  <MessageSquare size={12} />
+                  {messagesRestants === 0
+                    ? 'plus de message ce mois-ci'
+                    : `${messagesRestants} message${messagesRestants > 1 ? 's' : ''} ce mois-ci`}
                 </span>
               )}
             </p>

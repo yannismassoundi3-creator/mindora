@@ -188,7 +188,25 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
             Sur un écran de paiement, une promesse invérifiable coûte plus qu'elle
             ne rapporte.
           */}
+          {/*
+            L'ordre compte, et il a été inversé.
+
+            La liste ouvrait sur « sans limite » et « sans compteur » : des
+            arguments de quantité, qui ne parlent qu'à quelqu'un ayant déjà tapé
+            dans la limite — c'est-à-dire à une minorité, et seulement une fois le
+            mur atteint. Ce qui se vend avant le mur, c'est ce que l'abonnement
+            *fait*, pas ce qu'il *enlève*.
+
+            La lecture hebdomadaire vient donc en tête : c'est le seul avantage
+            qu'on puisse montrer sans le donner, et il ne figurait nulle part sur
+            cet écran alors qu'il est visible sur le tableau de bord, sous cadenas,
+            à côté des vrais chiffres de la personne.
+          */}
           <div className="pricing-features">
+            <div className="feature-item">
+              <CheckCircle size={20} className="feature-icon" />
+              <span>La lecture de ta semaine par {aiName} : ce qui a tenu, ce qui a lâché, quoi changer</span>
+            </div>
             <div className="feature-item">
               <CheckCircle size={20} className="feature-icon" />
               <span>{aiName} sans limite, 24/7</span>
@@ -203,7 +221,7 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
             </div>
             <div className="feature-item">
               <CheckCircle size={20} className="feature-icon" />
-              <span>Objectifs, habitudes et niveaux toujours inclus</span>
+              <span>Tes chiffres, tes objectifs et tes habitudes restent gratuits</span>
             </div>
             <div className="feature-item">
               <CheckCircle size={20} className="feature-icon" />
