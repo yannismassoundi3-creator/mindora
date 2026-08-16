@@ -15,6 +15,7 @@ import { SyncModule } from './sync/sync.module';
 import { PushModule } from './push/push.module';
 import { AdminModule } from './admin/admin.module';
 import { RelanceModule } from './relances/relance.module';
+import { ActiviteModule } from './activite/activite.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { RelanceModule } from './relances/relance.module';
     PushModule,
     AdminModule,
     RelanceModule,
+    ActiviteModule,
   ],
   controllers: [AppController],
   providers: [

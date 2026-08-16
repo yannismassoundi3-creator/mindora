@@ -50,6 +50,37 @@ model User {
   offer_prompt       OfferPrompt?
   coup_de_pouce      CoupDePouce?
   relances           RelanceEmail[]
+  ouvertures         AppOuverture[]
+}
+
+/// Combien de fois l'application est ouverte, et quels jours.
+///
+/// Rien ne le mesurait : `daily_scores` ne porte une clé que les jours où il s'est
+/// passé quelque chose, et `SyncData.updated_at` ne retient que la dernière
+/// écriture. On savait donc qui agissait, jamais qui venait regarder sans rien
+/// faire — or l'écart entre les deux est précisément ce qui distingue une
+/// application consultée d'une application utilisée.
+///
+/// **Agrégé par jour, pas une ligne par ouverture.** Une table d'événements
+/// répondrait à plus de questions, mais elle grandit sans borne pour un chiffre
+/// qu'on lit par journée de toute façon. Ici le nombre de lignes est borné par
+/// comptes × jours, et l'incrément tient dans un seul upsert.
+///
+/// Le jour est une clé `YYYY-MM-DD` **heure de Paris**, comme partout ailleurs
+/// dans l'administration — voir `common/jour-paris.ts`.
+model AppOuverture {
+  id       String   @id @default(uuid())
+  user_id  String
+  jour     String
+  nombre   Int      @default(1)
+  /// Première et dernière ouverture de la journée. Deux instants plutôt qu'un
+  /// seul : leur écart dit si la journée a été une visite ou une présence.
+  premiere DateTime @default(now())
+  derniere DateTime @updatedAt
+  user     User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, jour])
+  @@index([jour])
 }
 
 /// Ce qui a déjà été envoyé à quelqu'un, pour ne pas le lui renvoyer.

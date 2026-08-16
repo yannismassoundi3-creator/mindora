@@ -11,7 +11,10 @@ import { PrismaService } from '../prisma/prisma.service';
  */
 describe('RetentionService', () => {
   let service: RetentionService;
-  let prisma: { user: { findMany: jest.Mock } };
+  let prisma: {
+    user: { findMany: jest.Mock };
+    appOuverture: { groupBy: jest.Mock; aggregate: jest.Mock };
+  };
 
   const JOUR = 24 * 60 * 60 * 1000;
   const ilYA = (jours: number) => new Date(Date.now() - jours * JOUR);
@@ -161,8 +164,72 @@ describe('RetentionService', () => {
     });
   });
 
+  /**
+   * Les ouvertures : la seule mesure d'usage qui ne dépende pas d'une action.
+   *
+   * Son piège n'est pas le calcul, c'est la lecture — mise en service bien après
+   * les comptes qu'elle décrit, elle paraît catastrophique si rien ne dit à partir
+   * de quand elle mesure. D'où `depuis`, vérifié ici comme le reste.
+   */
+  describe("ouvertures de l'application", () => {
+    it('sépare le nombre d’ouvertures du nombre de jours ouverts', async () => {
+      const a = compte({ inscritIlYA: 10, joursActifs: [10] });
+      const b = compte({ inscritIlYA: 10, joursActifs: [10] });
+      prisma.appOuverture.groupBy.mockResolvedValue([
+        // Six ouvertures réparties sur deux jours : trois par jour de venue.
+        { user_id: a.id, _sum: { nombre: 6 }, _count: { jour: 2 } },
+        { user_id: b.id, _sum: { nombre: 2 }, _count: { jour: 2 } },
+      ]);
+      prisma.appOuverture.aggregate.mockResolvedValue({ _min: { jour: '2026-08-16' } });
+
+      const stats = await avec([a, b]);
+
+      expect(stats.ouvertures.base).toBe(2);
+      expect(stats.ouvertures.total).toBe(8);
+      expect(stats.ouvertures.medianeParPersonne).toBe(4);
+      expect(stats.ouvertures.medianeJours).toBe(2);
+      // (6/2 + 2/2) / 2 = 2 : la personne du milieu ouvre deux fois par jour de venue.
+      expect(stats.ouvertures.medianeParJourOuvert).toBe(2);
+      expect(stats.ouvertures.depuis).toBe('2026-08-16');
+    });
+
+    it("ne compte pas les ouvertures d'un compte supprimé", async () => {
+      // `groupBy` ne sait pas filtrer sur la relation : sans le tri par identifiant,
+      // un compte supprimé disparaîtrait du dénominateur en gardant ses ouvertures
+      // au numérateur, et la médiane monterait toute seule.
+      const vivant = compte({ inscritIlYA: 10, joursActifs: [10] });
+      prisma.appOuverture.groupBy.mockResolvedValue([
+        { user_id: vivant.id, _sum: { nombre: 4 }, _count: { jour: 2 } },
+        { user_id: 'compte-supprime', _sum: { nombre: 99 }, _count: { jour: 30 } },
+      ]);
+
+      const stats = await avec([vivant]);
+
+      expect(stats.ouvertures.base).toBe(1);
+      expect(stats.ouvertures.total).toBe(4);
+    });
+
+    it("ne prétend rien quand la mesure vient d'être branchée", async () => {
+      const stats = await avec([compte({ inscritIlYA: 30, joursActifs: [30, 20] })]);
+
+      expect(stats.ouvertures.depuis).toBeNull();
+      expect(stats.ouvertures.base).toBe(0);
+      // Aucune médiane inventée à zéro : zéro ouverture par personne se lirait
+      // comme « personne n'ouvre l'app », alors que rien n'a encore été mesuré.
+      expect(stats.ouvertures.medianeParPersonne).toBeNull();
+    });
+  });
+
   beforeEach(async () => {
-    prisma = { user: { findMany: jest.fn() } };
+    prisma = {
+      user: { findMany: jest.fn() },
+      // Par défaut, aucune ouverture : la mesure est postérieure à la plupart des
+      // comptes, et les tests écrits avant elle décrivent tous ce cas-là.
+      appOuverture: {
+        groupBy: jest.fn().mockResolvedValue([]),
+        aggregate: jest.fn().mockResolvedValue({ _min: { jour: null } }),
+      },
+    };
     const module: TestingModule = await Test.createTestingModule({
       providers: [RetentionService, { provide: PrismaService, useValue: prisma }],
     }).compile();

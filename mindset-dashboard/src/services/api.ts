@@ -69,7 +69,10 @@ export function signalerEtatSynchro(): void {
  * En développement, front et API sont déjà deux serveurs locaux : `VITE_API_URL`
  * pointe alors directement sur le backend.
  */
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+// Exportée plutôt que recopiée : `utils/venue.ts` appelle l'API sans passer par
+// `api.post`, et deux définitions de l'adresse de base finissent toujours par
+// diverger — celle qu'on oublie étant celle qui casse en production seulement.
+export const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 /**
  * Un seul rafraîchissement à la fois.

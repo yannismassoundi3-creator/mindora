@@ -58,6 +58,20 @@ interface Retention {
     jamaisActifs: number;
   };
   frequence: Frequence;
+  /**
+   * Les ouvertures, mesurées depuis leur mise en service seulement.
+   *
+   * `depuis` n'est pas décoratif : sans lui ces chiffres se liraient comme
+   * l'histoire du produit alors qu'ils commencent le jour où on les a branchés.
+   */
+  ouvertures: {
+    depuis: string | null;
+    base: number;
+    total: number;
+    medianeParPersonne: number | null;
+    medianeJours: number | null;
+    medianeParJourOuvert: number | null;
+  };
   retention: Fenetre[];
   entonnoir: {
     inscrits: number;
@@ -98,7 +112,7 @@ export const TableauRetention: React.FC = () => {
   if (erreur) return <p className="retention-erreur">{erreur}</p>;
   if (!donnees) return <p className="retention-attente">Calcul en cours…</p>;
 
-  const { comptes, retention, entonnoir, cohortes, frequence } = donnees;
+  const { comptes, retention, entonnoir, cohortes, frequence, ouvertures } = donnees;
   // La barre la plus haute donne l'échelle, pas le total : sur six paliers dont un
   // concentre la moitié des comptes, une échelle sur 100 % écrase tous les autres
   // et on ne lit plus la forme de la distribution.
@@ -260,6 +274,61 @@ export const TableauRetention: React.FC = () => {
             Les comptes jamais utilisés sont exclus d'ici — ils sont comptés plus
             haut. Ne pas commencer et ne pas continuer sont deux problèmes
             différents, et ils ne se réparent pas au même endroit.
+          </p>
+        </>
+      )}
+
+      <h3 className="retention-sous-titre">Combien de fois ils ouvrent l'app</h3>
+      {ouvertures.base === 0 ? (
+        <p className="retention-attente">
+          {ouvertures.depuis === null
+            ? "La mesure vient d'être mise en service : elle se remplira à la prochaine ouverture."
+            : "Aucune ouverture enregistrée pour l'instant."}
+        </p>
+      ) : (
+        <>
+          <div className="retention-frequence-resume">
+            <div className="retention-carte glass-panel">
+              <span className="retention-carte__libelle">Ouvertures, en médiane</span>
+              <span className="retention-carte__valeur">{ouvertures.medianeParPersonne}</span>
+              <span className="retention-carte__base">
+                par personne · {ouvertures.total} au total sur {ouvertures.base} compte
+                {ouvertures.base > 1 ? 's' : ''}
+              </span>
+            </div>
+
+            <div className="retention-carte glass-panel">
+              <span className="retention-carte__libelle">Jours où l'app a été ouverte</span>
+              <span className="retention-carte__valeur">{ouvertures.medianeJours}</span>
+              <span className="retention-carte__base">
+                en médiane · à comparer aux {frequence.medianeJours} jours où il s'est
+                vraiment passé quelque chose
+              </span>
+            </div>
+
+            <div className="retention-carte glass-panel">
+              <span className="retention-carte__libelle">Ouvertures par jour de venue</span>
+              <span className="retention-carte__valeur">{ouvertures.medianeParJourOuvert}</span>
+              <span className="retention-carte__base">
+                au-dessus de 1, la personne y revient dans la journée
+              </span>
+            </div>
+          </div>
+
+          <p className="retention-note">
+            {ouvertures.depuis && (
+              <>
+                <strong>Mesuré depuis le {formaterSemaine(ouvertures.depuis)} seulement</strong> —
+                ce compteur n'existait pas avant, et ces chiffres ne disent rien du
+                passé du produit.{' '}
+              </>
+            )}
+            Une ouverture est une reprise après trente minutes d'absence, pas un
+            changement d'onglet : dans une application d'une seule page, revenir sur
+            l'onglet en compterait quarante par jour chez quelqu'un qui la laisse
+            ouverte. Le chiffre qui compte ici est l'écart avec le bloc précédent —
+            ouvrir souvent sans rien y faire décrit un produit qu'on consulte, pas
+            un produit qu'on utilise.
           </p>
         </>
       )}

@@ -23,6 +23,7 @@ import { ajouterNotification, notificationEnAttente } from './utils/notification
 import { motDuCoachDuMoment } from './utils/motDuCoach';
 import { observationPourBanniere } from './utils/observation';
 import { getSecurePoints, setSecurePoints } from './utils/secureStorage';
+import { suivreLesVenues } from './utils/venue';
 import { reconcilierPaiement, controlerAbonnement, activerPro, retenirFormule, type Formule } from './utils/paiement';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import './styles/global.css';
@@ -146,6 +147,24 @@ function App() {
       window.removeEventListener('themeChanged', applyTheme);
     };
   }, []);
+
+  /*
+    Combien de fois l'application est ouverte.
+
+    C'est la seule mesure d'usage qui ne dépende pas d'une action : jusqu'ici,
+    quelqu'un qui ouvrait l'app, regardait sa journée et refermait ne laissait
+    aucune trace — il était compté exactement comme quelqu'un qui n'était jamais
+    venu. L'écart entre « ouvre » et « fait quelque chose » est précisément ce
+    qu'on ne pouvait pas voir.
+
+    Monté ici et pas dans le Layout : la page d'administration se substitue à
+    toute l'application et ne monte aucun Layout, et une session ouverte reste
+    une session ouverte.
+  */
+  useEffect(() => {
+    if (!hasToken) return;
+    return suivreLesVenues();
+  }, [hasToken]);
 
   useEffect(() => {
     const handleParticles = () => {

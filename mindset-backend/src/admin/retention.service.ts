@@ -140,6 +140,30 @@ export class RetentionService {
       },
     });
 
+    /*
+      Les ouvertures, agrégées par personne.
+
+      Une ligne par compte et par jour : la somme donne le nombre d'ouvertures, le
+      nombre de lignes donne le nombre de jours où l'app a été ouverte. Les deux
+      en une requête, et rien à charger en mémoire.
+
+      Ce compteur n'existe que depuis sa mise en service : il ne dit rien du passé,
+      et `depuis` est là pour que personne ne lise ces chiffres comme s'il couvrait
+      toute la vie du produit.
+    */
+    const idsVivants = new Set(comptes.map((c) => c.id));
+    const ouverturesParCompte = (
+      await this.prisma.appOuverture.groupBy({
+        by: ['user_id'],
+        _sum: { nombre: true },
+        _count: { jour: true },
+      })
+    ).filter((o) => idsVivants.has(o.user_id));
+
+    const premiereJournee = await this.prisma.appOuverture.aggregate({
+      _min: { jour: true },
+    });
+
     const depuis = (jours: number) => new Date(maintenant.getTime() - jours * RetentionService.JOUR_MS);
     const dansLaFenetre = (date: Date | null | undefined, jours: number) =>
       !!date && date.getTime() >= depuis(jours).getTime();
@@ -303,6 +327,42 @@ export class RetentionService {
           base: regularites.length,
           joursPourDix: RetentionService.mediane(regularites.map((r) => r * 10)),
         },
+      },
+      /*
+        Combien de fois l'application est ouverte — et non plus seulement combien
+        de fois il s'y passe quelque chose.
+
+        Tout le reste de ce tableau se lit sur des traces laissées par une action.
+        Quelqu'un qui ouvre, regarde sa journée et referme ne laissait donc rien :
+        il était compté comme quelqu'un qui n'est jamais venu. C'est l'écart entre
+        les deux qui manque le plus, parce qu'il désigne deux produits différents —
+        celui qu'on n'ouvre pas, et celui qu'on ouvre sans rien y faire.
+
+        Une ouverture est une reprise après trente minutes d'absence, décidée par
+        le navigateur : dans une application d'une seule page, revenir sur l'onglet
+        n'est pas une ouverture. Voir `utils/venue.ts`.
+      */
+      ouvertures: {
+        /*
+          Le jour où la mesure a commencé. Sans lui, ces chiffres se liraient comme
+          l'histoire complète du produit alors qu'ils commencent à leur mise en
+          service — et ils paraîtraient catastrophiques le premier jour.
+        */
+        depuis: premiereJournee._min.jour ?? null,
+        base: ouverturesParCompte.length,
+        total: ouverturesParCompte.reduce((s, o) => s + (o._sum.nombre ?? 0), 0),
+        medianeParPersonne: RetentionService.mediane(
+          ouverturesParCompte.map((o) => o._sum.nombre ?? 0),
+        ),
+        medianeJours: RetentionService.mediane(ouverturesParCompte.map((o) => o._count.jour)),
+        // « Quand elle vient, elle ouvre l'app N fois. » Au-dessus de 1, il y a un
+        // retour dans la journée — c'est le signe d'habitude le plus net qu'on
+        // puisse lire sans rien demander à personne.
+        medianeParJourOuvert: RetentionService.mediane(
+          ouverturesParCompte
+            .filter((o) => o._count.jour > 0)
+            .map((o) => (o._sum.nombre ?? 0) / o._count.jour),
+        ),
       },
       retention: RetentionService.FENETRES.map((fenetre) => ({
         fenetre,
