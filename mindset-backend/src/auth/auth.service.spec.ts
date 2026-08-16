@@ -150,6 +150,9 @@ describe('AuthService — prolongation de session', () => {
         password_hash: 'peu-importe',
         role: 'USER',
         first_name: 'Yannis',
+        // Un compte qui vient d'être créé : c'est l'état où la dispense de code
+        // peut s'appliquer. Les tests qui la refusent vieillissent ce compte.
+        created_at: new Date(),
         ai_profile: null,
       });
     });
@@ -207,6 +210,47 @@ describe('AuthService — prolongation de session', () => {
 
       expect(resultat.requires2FA).toBe(true);
       expect(prisma.twoFactorCode.create).toHaveBeenCalled();
+    });
+
+    it('redemande le code à un compte inscrit puis jamais ouvert', async () => {
+      /*
+        Le trou de la première version, signalé par Yannis : « jamais ouvert de
+        session » sans borne de temps, c'est une dispense qui ne périme jamais. Une
+        liste de mots de passe fuités ailleurs, réessayée ici des mois plus tard,
+        entrait sans code sur tous les comptes restés inertes.
+      */
+      prisma.refreshToken.count.mockResolvedValue(0);
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'u1',
+        email: 'yannis@example.com',
+        role: 'USER',
+        first_name: 'Yannis',
+        created_at: new Date(Date.now() - 3 * 86400000),
+        ai_profile: null,
+      });
+
+      const resultat: any = await service.login({ email: 'yannis@example.com', password: 'x' } as any);
+
+      expect(resultat.requires2FA).toBe(true);
+      expect(prisma.twoFactorCode.create).toHaveBeenCalled();
+    });
+
+    it('n’accorde jamais la dispense à un administrateur', async () => {
+      // Un compte qui lit les chiffres de tout le monde et déclenche des envois de
+      // masse n'a pas à profiter d'un raccourci pensé pour un inscrit de la veille.
+      prisma.refreshToken.count.mockResolvedValue(0);
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'u1',
+        email: 'yannis@example.com',
+        role: 'ADMIN',
+        first_name: 'Yannis',
+        created_at: new Date(),
+        ai_profile: null,
+      });
+
+      const resultat: any = await service.login({ email: 'yannis@example.com', password: 'x' } as any);
+
+      expect(resultat.requires2FA).toBe(true);
     });
 
     it('retient que l’adresse est vérifiée quand un code est validé', async () => {

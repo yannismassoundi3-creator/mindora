@@ -161,13 +161,29 @@ export class RelanceEmailService {
     );
   }
 
-  private contenu(motif: MotifRelance, prenom: string, userId: string): { sujet: string; html: string } {
+  /*
+    Ce qui est écrit compte autant que le fait d'écrire.
+
+    Les mots qui font basculer un message en indésirable sont ceux des campagnes :
+    promotion, offre, gratuit, urgence, majuscules, points d'exclamation en rafale,
+    images de fond. Ces deux messages n'en contiennent aucun — ils ne vendent rien,
+    ils constatent quelque chose de vrai sur le compte de la personne. C'est aussi
+    la raison pour laquelle ils tiennent en quatre phrases et un seul lien : plus un
+    e-mail contient de liens et de balises, plus il ressemble à ce que les filtres
+    cherchent.
+  */
+  private contenu(
+    motif: MotifRelance,
+    prenom: string,
+    userId: string,
+  ): { sujet: string; html: string; texte: string; lienRetrait: string } {
     const retrait = this.lienRetrait(userId);
     const app = lienApp('');
 
     if (motif === 'jamais_ouvert') {
       return {
-        sujet: 'Ton compte Disciplix t’attend',
+        // Sujet sans majuscules criées ni promesse : il décrit l'état du compte.
+        sujet: 'Tu n’as pas encore commencé',
         html: gabarit({
           titre: `${prenom}, tu n’as pas encore commencé.`,
           corps:
@@ -178,6 +194,14 @@ export class RelanceEmailService {
           bouton: { texte: 'Reprendre où j’en étais', lien: app },
           lienRetrait: retrait,
         }),
+        texte:
+          `${prenom}, tu n'as pas encore commencé.\n\n` +
+          "Tu as créé ton compte, puis plus rien. C'est le moment le plus fragile : tant que " +
+          "la première journée n'a pas été cochée, il n'y a rien à quoi revenir.\n\n" +
+          "Ça prend deux minutes : tu dis à ton coach qui tu veux devenir, il te donne quoi " +
+          "faire aujourd'hui, tu le fais. Demain, on recommence.\n\n" +
+          `${app}\n\nNe plus recevoir ces messages : ${retrait}\n`,
+        lienRetrait: retrait,
       };
     }
 
@@ -193,6 +217,14 @@ export class RelanceEmailService {
         bouton: { texte: 'Reprendre aujourd’hui', lien: app },
         lienRetrait: retrait,
       }),
+      texte:
+        `${prenom}, ça fait quelques jours.\n\n` +
+        "Tu avais commencé, puis la série s'est interrompue. Ça arrive à tout le monde, et ce " +
+        "n'est pas ce qui décide de la suite — ce qui décide, c'est de rouvrir.\n\n" +
+        "Ton plan est toujours là, et ton coach sait où tu en étais. Une seule case cochée " +
+        "aujourd'hui suffit à repartir.\n\n" +
+        `${app}\n\nNe plus recevoir ces messages : ${retrait}\n`,
+      lienRetrait: retrait,
     };
   }
 
@@ -235,8 +267,8 @@ export class RelanceEmailService {
       );
       if (!motif) continue;
 
-      const { sujet, html } = this.contenu(motif, compte.first_name || 'toi', compte.id);
-      const parti = await envoyerEmail({ destinataire: compte.email, sujet, html });
+      const { sujet, html, texte, lienRetrait } = this.contenu(motif, compte.first_name || 'toi', compte.id);
+      const parti = await envoyerEmail({ destinataire: compte.email, sujet, html, texte, lienRetrait });
 
       if (!parti) {
         // Rien n'est écrit : la trace dit « envoyé », pas « tenté ». L'inscrire ici

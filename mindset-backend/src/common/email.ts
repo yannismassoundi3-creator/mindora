@@ -18,6 +18,24 @@ export interface EnvoiEmail {
   destinataire: string;
   sujet: string;
   html: string;
+  /**
+   * Version texte du même message.
+   *
+   * Un e-mail qui n'a qu'une partie HTML est un signal de courrier indésirable à
+   * lui seul : les filtres attendent le multipart que produit n'importe quel
+   * client de messagerie normal. C'est aussi ce que lisent les montres et les
+   * lecteurs d'écran.
+   */
+  texte?: string;
+  /**
+   * Adresse de retrait, posée en en-tête `List-Unsubscribe`.
+   *
+   * Depuis février 2024, Gmail et Yahoo l'exigent de tout expéditeur de masse, avec
+   * `List-Unsubscribe-Post` pour le retrait en un clic. Sans eux, le message part
+   * en indésirable **avant même d'être lu** — aucun soin apporté au contenu ne
+   * rattrape leur absence.
+   */
+  lienRetrait?: string;
 }
 
 /**
@@ -27,13 +45,33 @@ export interface EnvoiEmail {
  * comme faite, et la personne ne recevrait jamais rien — sans que rien ne le dise.
  * C'est le défaut le plus fréquent de ce projet, on ne le rejoue pas ici.
  */
-export async function envoyerEmail({ destinataire, sujet, html }: EnvoiEmail): Promise<boolean> {
+export async function envoyerEmail({
+  destinataire,
+  sujet,
+  html,
+  texte,
+  lienRetrait,
+}: EnvoiEmail): Promise<boolean> {
   const apiKey = process.env.BREVO_API_KEY;
   if (!apiKey) {
     logger.warn(`BREVO_API_KEY absente : « ${sujet} » non envoyé à ${destinataire}.`);
     return false;
   }
   const expediteur = process.env.BREVO_SENDER_EMAIL || 'mindoraappli@gmail.com';
+
+  /*
+    Le retrait est annoncé deux fois : dans le pied de page, pour la personne, et
+    en en-tête, pour sa messagerie. Le second compte davantage — c'est lui qui fait
+    apparaître le bouton « Se désabonner » à côté de l'expéditeur, celui que les
+    gens utilisent au lieu de cliquer sur « Signaler comme indésirable ». Une seule
+    plainte pèse autant que des centaines de désabonnements.
+  */
+  const entetes = lienRetrait
+    ? {
+        'List-Unsubscribe': `<${lienRetrait}>`,
+        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+      }
+    : undefined;
 
   try {
     const reponse = await fetch('https://api.brevo.com/v3/smtp/email', {
@@ -48,6 +86,8 @@ export async function envoyerEmail({ destinataire, sujet, html }: EnvoiEmail): P
         to: [{ email: destinataire }],
         subject: sujet,
         htmlContent: html,
+        ...(texte ? { textContent: texte } : {}),
+        ...(entetes ? { headers: entetes } : {}),
       }),
     });
 

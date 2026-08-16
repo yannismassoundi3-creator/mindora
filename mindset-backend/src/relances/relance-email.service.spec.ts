@@ -163,6 +163,48 @@ describe('RelanceEmailService', () => {
     });
   });
 
+  describe('ce qui décide du dossier indésirables', () => {
+    const corpsEnvoye = () => JSON.parse((global.fetch as any).mock.calls[0][1].body);
+
+    it('annonce le retrait en en-tête, pas seulement en pied de page', async () => {
+      /*
+        Depuis février 2024, Gmail et Yahoo exigent `List-Unsubscribe` de tout
+        expéditeur de masse. Sans lui, le message part en indésirable avant d'être
+        lu, et aucun soin apporté au texte ne rattrape ça. C'est aussi cet en-tête
+        qui fait apparaître « Se désabonner » à côté de l'expéditeur — le bouton
+        que les gens utilisent au lieu de « Signaler comme indésirable », lequel
+        pèse à lui seul autant que des centaines de désabonnements.
+      */
+      await avec([compte({ inscritIlYA: 3 })]);
+
+      const corps = corpsEnvoye();
+      expect(corps.headers['List-Unsubscribe']).toMatch(/^<https?:\/\/.+\/emails\/retrait\?u=.+&s=.+>$/);
+      expect(corps.headers['List-Unsubscribe-Post']).toBe('List-Unsubscribe=One-Click');
+    });
+
+    it('part en texte et en HTML', async () => {
+      // Un message qui n'a qu'une partie HTML est un signal d'indésirable à lui
+      // seul : les filtres attendent le multipart de n'importe quel client normal.
+      await avec([compte({ inscritIlYA: 3 })]);
+
+      const corps = corpsEnvoye();
+      expect(corps.textContent).toContain('tu n');
+      expect(corps.textContent).toContain('/emails/retrait');
+      expect(corps.htmlContent).toContain('<p>');
+    });
+
+    it('ne crie pas et ne promet rien dans le sujet', async () => {
+      // Majuscules, points d'exclamation et vocabulaire de campagne sont ce que
+      // les filtres cherchent en premier.
+      await avec([compte({ inscritIlYA: 3 })]);
+
+      const sujet = corpsEnvoye().subject;
+      expect(sujet).not.toMatch(/!/);
+      expect(sujet).not.toBe(sujet.toUpperCase());
+      expect(sujet).not.toMatch(/gratuit|promo|offre|urgent|derni[èe]re chance/i);
+    });
+  });
+
   describe('le lien de retrait', () => {
     it('refuse une signature fabriquée', async () => {
       expect(RelanceEmailService.verifierSignature('u1', 'n-importe-quoi')).toBe(false);

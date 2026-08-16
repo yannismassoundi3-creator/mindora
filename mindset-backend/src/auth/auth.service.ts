@@ -12,6 +12,16 @@ import { lienApp } from '../common/origines';
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
+  /**
+   * Durée pendant laquelle la connexion qui suit une inscription se passe du code.
+   *
+   * Le formulaire enchaîne les deux appels à la seconde près ; la demi-heure n'est
+   * là que pour le cas où le second échoue et se rejoue — réseau coupé, onglet
+   * rechargé. Au-delà, ce n'est plus « la connexion qui suit l'inscription », c'est
+   * une connexion comme une autre, et elle demande son code.
+   */
+  static readonly FENETRE_PREMIERE_CONNEXION_MS = 30 * 60 * 1000;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
@@ -107,16 +117,33 @@ export class AuthService {
       mais qui n'a pas à être encaissée maintenant : elle l'est à la connexion
       suivante, où le code redevient obligatoire.
 
-      Le repère est « ce compte n'a jamais ouvert de session », et non un
-      horodatage : les jetons de rafraîchissement ne sont jamais supprimés,
-      seulement révoqués. Dès qu'une session a existé — donc pour tout compte
-      réellement utilisé — le second facteur est intact, y compris face à
-      quelqu'un qui aurait deviné le mot de passe.
+      Trois conditions, et il faut les trois. « N'a jamais ouvert de session »
+      seul ne suffisait pas :
+
+      1. **Aucune session n'a jamais existé.** Les jetons de rafraîchissement ne
+         sont jamais supprimés, seulement révoqués : dès qu'un compte a servi, le
+         second facteur est intact, y compris face à quelqu'un qui a deviné le
+         mot de passe.
+      2. **Le compte vient d'être créé.** Sans cette borne, un compte inscrit puis
+         jamais ouvert gardait sa dispense indéfiniment : une liste de mots de
+         passe fuités ailleurs et réessayés ici serait entrée sans code, des mois
+         plus tard. La dispense couvre la connexion qui suit l'inscription — celle
+         que le formulaire déclenche lui-même, à la seconde près — et rien d'autre.
+         La demi-heure laisse la place à un réseau qui saute entre les deux appels.
+      3. **Le compte n'est pas administrateur.** Un compte qui peut lire les
+         chiffres de tout le monde et déclencher des envois de masse n'a aucune
+         raison de bénéficier d'un raccourci pensé pour un inscrit de la veille.
     */
     const sessionsOuvertes = await this.prisma.refreshToken.count({
       where: { user_id: user.id },
     });
-    if (sessionsOuvertes === 0) {
+    const ageMs = Date.now() - user.created_at.getTime();
+    const dispense =
+      sessionsOuvertes === 0 &&
+      ageMs <= AuthService.FENETRE_PREMIERE_CONNEXION_MS &&
+      user.role !== 'ADMIN';
+
+    if (dispense) {
       this.logger.log(`[AUTH] Première connexion de ${user.email} : code non demandé.`);
       const tokens = await this.generateTokens(user.id, user.role, user.first_name);
       return {
