@@ -5,6 +5,7 @@ import { PushService } from './push.service';
 import { MorningBriefService } from './morning-brief.service';
 import { WeeklyReviewService } from './weekly-review.service';
 import { CoupDePouceService } from './coup-de-pouce.service';
+import { BilanHebdoService } from './bilan-hebdo.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 jest.mock('web-push', () => ({
@@ -28,6 +29,7 @@ describe('PushService — tournée des briefs du matin', () => {
   let service: PushService;
   let prisma: any;
   let morningBrief: { isActive: jest.Mock; generate: jest.Mock; computeStreak: jest.Mock };
+  let bilanHebdo: { lecture: jest.Mock };
   const frontendUrlInitiale = process.env.FRONTEND_URL;
 
   const compteActif = (id: string) => ({
@@ -58,6 +60,7 @@ describe('PushService — tournée des briefs du matin', () => {
         findMany: jest.fn().mockResolvedValue([]),
       },
     };
+    bilanHebdo = { lecture: jest.fn().mockResolvedValue(null) };
     morningBrief = {
       isActive: jest.fn().mockReturnValue(true),
       generate: jest.fn().mockResolvedValue(null),
@@ -77,6 +80,9 @@ describe('PushService — tournée des briefs du matin', () => {
         // fichier. Le vrai service convient ici — sans clé Groq il retombe sur la
         // phrase factuelle, et sans données il ne trouve rien à dire.
         { provide: CoupDePouceService, useValue: new CoupDePouceService() },
+        // Le cache de la lecture hebdomadaire a ses propres tests ; ici on vérifie
+        // seulement que la tournée l'appelle au bon moment et pour les bons comptes.
+        { provide: BilanHebdoService, useValue: bilanHebdo },
       ],
     }).compile();
 
@@ -314,6 +320,72 @@ describe('PushService — tournée des briefs du matin', () => {
       // Le corps promet le Chat IA ; l'adresse doit y mener, sinon la notification
       // ouvre l'accueil et la promesse tombe à plat.
       expect(charge.url).toBe('https://disciplix-ai.vercel.app/?auth=true&vue=chat');
+    });
+  });
+
+  /**
+   * Le bilan du dimanche soir prépare la lecture longue des abonnés.
+   *
+   * La notification qu'il envoie est précisément ce qui ramène les gens dans
+   * l'application : calculer la lecture à leur arrivée leur ferait attendre un
+   * aller-retour vers le modèle au moment le plus mal choisi.
+   */
+  describe('bilan hebdomadaire', () => {
+    const compteAvecSemaine = (id: string, abonne: boolean) => {
+      const scores: Record<string, number> = {};
+      for (let i = 1; i <= 7; i++) {
+        const d = new Date(Date.now() - i * 86400000);
+        scores[d.toLocaleDateString('sv-SE', { timeZone: 'Europe/Paris' })] = 70;
+      }
+      return {
+        id,
+        first_name: 'Yannis',
+        push_subscriptions: [{ id: `s-${id}` }],
+        sync_data: { daily_scores: scores, habits: [] },
+        subscription: abonne ? { status: 'ACTIVE' } : null,
+      };
+    };
+
+    beforeEach(() => {
+      prisma.pushSubscription.findMany.mockResolvedValue([
+        { id: 's1', endpoint: 'https://push.example/abc', p256dh: 'p', auth: 'a' },
+      ]);
+    });
+
+    it("prépare la lecture d'un abonné après avoir envoyé sa notification", async () => {
+      prisma.user.findMany.mockResolvedValue([compteAvecSemaine('u1', true)]);
+      bilanHebdo.lecture.mockResolvedValue('Ta semaine tient.');
+
+      const r: any = await service.sendWeeklyReports();
+
+      expect(r.lecturesPreparees).toBe(1);
+      // Après l'envoi, jamais avant : un échec de génération ne doit pas empêcher
+      // la notification de partir, c'est elle qui compte le plus.
+      expect(bilanHebdo.lecture.mock.invocationCallOrder[0]).toBeGreaterThan(
+        (webpush.sendNotification as jest.Mock).mock.invocationCallOrder[0],
+      );
+    });
+
+    it("ne prépare rien pour un compte gratuit", async () => {
+      prisma.user.findMany.mockResolvedValue([compteAvecSemaine('u1', false)]);
+
+      const r: any = await service.sendWeeklyReports();
+
+      // La lecture est l'avantage de l'abonnement : la calculer pour tout le monde
+      // coûterait un appel au modèle par compte pour un texte jamais montré.
+      expect(bilanHebdo.lecture).not.toHaveBeenCalled();
+      expect(r.envoyes).toBe(1);
+    });
+
+    it("envoie quand même la notification si la lecture échoue", async () => {
+      prisma.user.findMany.mockResolvedValue([compteAvecSemaine('u1', true)]);
+      bilanHebdo.lecture.mockRejectedValue(new Error('modèle injoignable'));
+
+      const r: any = await service.sendWeeklyReports();
+
+      expect(r.envoyes).toBe(1);
+      expect(r.lecturesPreparees).toBe(0);
+      expect(webpush.sendNotification).toHaveBeenCalled();
     });
   });
 

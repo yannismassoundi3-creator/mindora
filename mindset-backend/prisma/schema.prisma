@@ -144,10 +144,13 @@ model AIProfile {
   /// texte long, il coute davantage, et il ne change qu'une fois par jour au plus.
   /// Sans cache, chaque passage sur le tableau de bord rappellerait le modele.
   ///
-  /// `bilan_semaine` retient la semaine sur laquelle il porte (le lundi en UTC) :
-  /// une date de generation seule ne dirait pas si le texte parle encore de la
-  /// bonne periode, et un bilan de la semaine derniere presente comme celui de
-  /// cette semaine est exactement le genre d'erreur qui ne se voit pas.
+  /// `bilan_semaine` retient le JOUR ou s'arrete la fenetre commentee (heure de
+  /// Paris) — le nom de la colonne est historique, la valeur est bien un jour.
+  ///
+  /// Le repere est journalier parce que la fenetre est glissante : le bilan porte
+  /// sur les sept derniers jours, pas sur la semaine du lundi au dimanche. Date par
+  /// semaine calendaire, une lecture resterait affichee jusqu'a six jours pendant
+  /// que les chiffres qu'elle commente auraient entierement change.
   bilan_texte    String?
   bilan_genere_le DateTime?
   bilan_semaine  String?

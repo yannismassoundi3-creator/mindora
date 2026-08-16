@@ -7,6 +7,7 @@ import { CoinLedgerService } from './coin-ledger.service';
 import { CoachOuvertureService } from './coach-ouverture.service';
 import { ObservationService } from './observation.service';
 import { WeeklyReviewService } from '../push/weekly-review.service';
+import { BilanHebdoService } from '../push/bilan-hebdo.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MESSAGES_AUTOMATIQUES_INSCRIPTION } from '../common/message-inscription';
 
@@ -67,6 +68,9 @@ describe('AiCoachingController — débit et remboursement du chat', () => {
         // Idem : le bilan de semaine a ses propres tests. Le vrai service convient,
         // et sans historique il ne trouve aucune semaine à résumer.
         { provide: WeeklyReviewService, useValue: new WeeklyReviewService() },
+        // Le cache de la lecture a ses propres tests ; ici on veut seulement que
+        // le contrôleur puisse être construit et qu'aucune lecture ne soit rendue.
+        { provide: BilanHebdoService, useValue: { lecture: jest.fn().mockResolvedValue(null) } },
         {
           provide: PrismaService,
           useValue: { syncData: { findUnique: jest.fn().mockResolvedValue(null) } },
@@ -247,12 +251,14 @@ describe('AiCoachingController — messages de découverte', () => {
   };
   let ouverture: { ouverture: jest.Mock };
   let prisma: any;
+  let bilanHebdo: { lecture: jest.Mock };
 
   const requete = { user: { userId: 'u1' } } as any;
   const message = { prompt: 'Fais-moi un plan' } as any;
 
   beforeEach(async () => {
     ia = { chatWithAi: jest.fn().mockResolvedValue({ reply: 'Voilà.' }) };
+    bilanHebdo = { lecture: jest.fn().mockResolvedValue(null) };
     prisma = {
       syncData: { findUnique: jest.fn().mockResolvedValue(null) },
       aIProfile: { findUnique: jest.fn().mockResolvedValue(null), update: jest.fn().mockResolvedValue({}) },
@@ -286,6 +292,7 @@ describe('AiCoachingController — messages de découverte', () => {
         // Idem : le bilan de semaine a ses propres tests. Le vrai service convient,
         // et sans historique il ne trouve aucune semaine à résumer.
         { provide: WeeklyReviewService, useValue: new WeeklyReviewService() },
+        { provide: BilanHebdoService, useValue: bilanHebdo },
         { provide: PrismaService, useValue: prisma },
       ],
     }).compile();
@@ -384,42 +391,37 @@ describe('AiCoachingController — messages de découverte', () => {
       expect(r.semaine).toBeNull();
     });
 
-    it('sert la lecture en cache quand elle porte sur la semaine en cours', async () => {
+    it("demande la lecture au service partagé, avec le prénom de la personne", async () => {
+      /*
+        Le cache et la génération vivent dans `BilanHebdoService`, testés dans leur
+        propre fichier. Ce qui se joue ici est qu'un abonné passe bien par ce
+        service-là : c'est le même que celui du cron du dimanche soir, et deux
+        chemins distincts finiraient par rendre deux textes différents pour la même
+        semaine selon qu'on arrive par la notification ou par l'écran.
+      */
       quota.isSubscribed.mockResolvedValue(true);
       prisma.syncData.findUnique.mockResolvedValue({ daily_scores: semainePleine(), habits: [] });
-
-      const lundi = new Date();
-      lundi.setUTCDate(lundi.getUTCDate() - ((lundi.getUTCDay() + 6) % 7));
-      prisma.aIProfile.findUnique.mockResolvedValue({
-        bilan_texte: 'Ta semaine tient.',
-        bilan_semaine: lundi.toISOString().slice(0, 10),
-      });
+      bilanHebdo.lecture.mockResolvedValue('Ta semaine tient.');
 
       const r: any = await controller.getBilanSemaine(requeteBilan);
 
       expect(r.lecture).toBe('Ta semaine tient.');
-      // Rien n'est réécrit : c'est ce cache qui empêche un appel au modèle à
-      // chaque passage sur le tableau de bord.
-      expect(prisma.aIProfile.update).not.toHaveBeenCalled();
+      expect(bilanHebdo.lecture).toHaveBeenCalledWith(
+        'u1',
+        'Yannis',
+        expect.objectContaining({ joursActifs: 7 }),
+      );
     });
 
-    it("ne resert pas la lecture de la semaine précédente", async () => {
-      quota.isSubscribed.mockResolvedValue(true);
+    it("ne demande aucune lecture pour un compte gratuit", async () => {
+      // Le contraire coûterait un appel au modèle pour un texte qu'on ne montre
+      // pas — et c'est le seul avantage visible de l'abonnement.
+      quota.isSubscribed.mockResolvedValue(false);
       prisma.syncData.findUnique.mockResolvedValue({ daily_scores: semainePleine(), habits: [] });
-      prisma.aIProfile.findUnique.mockResolvedValue({
-        bilan_texte: "Le bilan d'il y a huit jours.",
-        bilan_semaine: '2020-01-06',
-      });
 
-      const r: any = await controller.getBilanSemaine(requeteBilan);
+      await controller.getBilanSemaine(requeteBilan);
 
-      /*
-        Sans clé de semaine, une simple durée de fraîcheur se tromperait tous les
-        lundis — le jour où l'on vient justement lire son bilan. Ici aucune clé Groq
-        n'est posée, donc la génération rend null : ce qui compte est qu'on ne
-        resserve pas l'ancien texte.
-      */
-      expect(r.lecture).not.toBe("Le bilan d'il y a huit jours.");
+      expect(bilanHebdo.lecture).not.toHaveBeenCalled();
     });
   });
 
@@ -528,6 +530,9 @@ describe('AiCoachingController — la phrase d\'ouverture', () => {
         // Idem : le bilan de semaine a ses propres tests. Le vrai service convient,
         // et sans historique il ne trouve aucune semaine à résumer.
         { provide: WeeklyReviewService, useValue: new WeeklyReviewService() },
+        // Le cache de la lecture a ses propres tests ; ici on veut seulement que
+        // le contrôleur puisse être construit et qu'aucune lecture ne soit rendue.
+        { provide: BilanHebdoService, useValue: { lecture: jest.fn().mockResolvedValue(null) } },
         {
           provide: PrismaService,
           useValue: { syncData: { findUnique: jest.fn().mockResolvedValue(null) } },

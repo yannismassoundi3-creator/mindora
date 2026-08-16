@@ -6,7 +6,8 @@ import { AiQuotaService } from './ai-quota.service';
 import { CoinLedgerService } from './coin-ledger.service';
 import { CoachOuvertureService } from './coach-ouverture.service';
 import { ObservationService } from './observation.service';
-import { WeeklyReviewService, SemaineEcoulee } from '../push/weekly-review.service';
+import { WeeklyReviewService } from '../push/weekly-review.service';
+import { BilanHebdoService } from '../push/bilan-hebdo.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { estMessageAutomatique } from '../common/message-inscription';
 import { ChatDto } from './dto/chat.dto';
@@ -30,6 +31,7 @@ export class AiCoachingController {
     // semaine ne doivent avoir qu'une seule définition, sinon l'écran et la
     // notification finiront par annoncer deux semaines différentes.
     private readonly bilan: WeeklyReviewService,
+    private readonly bilanHebdo: BilanHebdoService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -310,51 +312,17 @@ export class AiCoachingController {
 
     if (!abonne) return { disponible: true, abonne: false, semaine, lecture: null };
 
-    const lecture = await this.lectureDeLaSemaine(userId, semaine).catch(() => null);
-    return { disponible: true, abonne: true, semaine, lecture };
-  }
-
-  /**
-   * La lecture du coach, mise en cache pour la semaine en cours.
-   *
-   * Le repère est le lundi de la semaine, pas une simple date de génération : un
-   * texte vieux de trois jours peut parler de la bonne semaine, et un texte vieux
-   * de deux jours de la précédente si le lundi est passé entre-temps. Une durée
-   * de fraîcheur seule se tromperait donc systématiquement le lundi — le jour où
-   * l'on vient justement lire son bilan.
-   */
-  private async lectureDeLaSemaine(userId: string, semaine: SemaineEcoulee): Promise<string | null> {
-    const lundi = new Date();
-    lundi.setUTCDate(lundi.getUTCDate() - ((lundi.getUTCDay() + 6) % 7));
-    const cleSemaine = lundi.toISOString().slice(0, 10);
-
-    const profil = await this.prisma.aIProfile
-      .findUnique({
-        where: { user_id: userId },
-        select: { bilan_texte: true, bilan_semaine: true },
-      })
-      .catch(() => null);
-
-    if (profil?.bilan_texte && profil?.bilan_semaine === cleSemaine) return profil.bilan_texte;
-
     const prenom = await this.prisma.user
       .findUnique({ where: { id: userId }, select: { first_name: true } })
       .then((u) => u?.first_name ?? '')
       .catch(() => '');
 
-    const texte = await this.bilan.genererLecture(prenom, semaine);
-    if (!texte) return null;
-
-    // Sans ligne de profil, on rend le texte sans le retenir : mieux vaut un appel
-    // de plus qu'une exception sur un compte qui n'a pas fini son inscription.
-    await this.prisma.aIProfile
-      .update({
-        where: { user_id: userId },
-        data: { bilan_texte: texte, bilan_genere_le: new Date(), bilan_semaine: cleSemaine },
-      })
-      .catch(() => undefined);
-
-    return texte;
+    // Le cache et la génération vivent dans `BilanHebdoService`, partagé avec le
+    // cron du dimanche soir qui prépare la même lecture d'avance. Deux copies de
+    // cette règle finiraient par rendre deux textes différents pour la même
+    // semaine, selon qu'on arrive par la notification ou par l'écran.
+    const lecture = await this.bilanHebdo.lecture(userId, prenom, semaine).catch(() => null);
+    return { disponible: true, abonne: true, semaine, lecture };
   }
 
   @Get('history')

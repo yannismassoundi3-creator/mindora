@@ -6,6 +6,7 @@ import { CoachMemoryService } from './coach-memory.service';
 import { CoachOuvertureService } from './coach-ouverture.service';
 import { ObservationService } from './observation.service';
 import { WeeklyReviewService } from '../push/weekly-review.service';
+import { BilanHebdoService } from '../push/bilan-hebdo.service';
 import { AiCoachingController } from './ai-coaching.controller';
 
 @Module({
@@ -23,6 +24,8 @@ import { AiCoachingController } from './ai-coaching.controller';
       crons compris — au module de coaching, pour un seul calcul de moyenne.
     */
     WeeklyReviewService,
+    // Le cache de la lecture hebdomadaire, partagé avec le cron du dimanche soir.
+    BilanHebdoService,
   ],
   exports: [
     AiCoachingService,

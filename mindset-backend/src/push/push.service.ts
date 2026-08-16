@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { MorningBriefService } from './morning-brief.service';
 import { WeeklyReviewService } from './weekly-review.service';
 import { CoupDePouceService } from './coup-de-pouce.service';
+import { BilanHebdoService } from './bilan-hebdo.service';
 import * as cron from 'node-cron';
 import * as webpush from 'web-push';
 import { lienApp } from '../common/origines';
@@ -110,6 +111,7 @@ export class PushService implements OnModuleInit {
     private morningBrief: MorningBriefService,
     private weeklyReview: WeeklyReviewService,
     private coupDePouce: CoupDePouceService,
+    private bilanHebdo: BilanHebdoService,
   ) {
     const vapidSubject = process.env.VAPID_SUBJECT || 'mailto:mindoraappli@gmail.com';
     const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
@@ -585,6 +587,8 @@ export class PushService implements OnModuleInit {
 
     let envoyes = 0;
     let ignores = 0;
+    let lecturesPreparees = 0;
+    let appelsIA = 0;
 
     for (const user of users) {
       if (!user.push_subscriptions || user.push_subscriptions.length === 0) continue;
@@ -609,9 +613,20 @@ export class PushService implements OnModuleInit {
           user.subscription?.status ?? '',
         );
 
+        /*
+          Deux appels au modèle pour un abonné, espacés comme dans la tournée du
+          matin : le fournisseur limite à une trentaine de requêtes par minute, et
+          se faire couper à mi-parcours priverait la seconde moitié des abonnés de
+          leur lecture sans que rien ne le signale.
+        */
+        if (abonne && appelsIA > 0) {
+          await new Promise((r) => setTimeout(r, PushService.INTERVALLE_ENTRE_BRIEFS_MS));
+        }
+
         const texte =
           (abonne ? await this.weeklyReview.generate(prenom, semaine) : null) ??
           this.weeklyReview.texteFactuel(prenom, semaine);
+        if (abonne) appelsIA++;
 
         await this.sendNotification(user.id, {
           title: '📊 Bilan de ta semaine',
@@ -619,13 +634,40 @@ export class PushService implements OnModuleInit {
           url: this.lienVers(abonne ? 'chat' : 'dashboard'),
         });
         envoyes++;
+
+        /*
+          La lecture longue est préparée maintenant, pas à l'ouverture de l'écran.
+
+          La notification qu'on vient d'envoyer est précisément ce qui ramène les
+          gens dans l'application : la calculer à leur arrivée leur ferait attendre
+          un aller-retour vers le modèle au moment le plus mal choisi. Elle est
+          mise en cache par `BilanHebdoService`, le même que celui de l'écran —
+          l'abonné qui ouvre son tableau de bord la trouve déjà écrite.
+
+          Après l'envoi, et non avant : un échec de génération ne doit jamais
+          empêcher la notification de partir. C'est elle qui compte le plus.
+        */
+        if (abonne) {
+          await new Promise((r) => setTimeout(r, PushService.INTERVALLE_ENTRE_BRIEFS_MS));
+          appelsIA++;
+          const lecture = await this.bilanHebdo
+            .lecture(user.id, prenom, semaine)
+            .catch((e) => {
+              this.logger.warn(`Lecture hebdo non préparée pour ${user.id} : ${e?.message}`);
+              return null;
+            });
+          if (lecture) lecturesPreparees++;
+        }
       } catch (e) {
         this.logger.error(`Bilan hebdomadaire échoué pour ${user.id} : ${(e as any)?.message}`);
       }
     }
 
-    this.logger.log(`[Bilan hebdo] ${envoyes} envoyé(s), ${ignores} sans activité cette semaine`);
-    return { envoyes, ignores };
+    this.logger.log(
+      `[Bilan hebdo] ${envoyes} envoyé(s), ${ignores} sans activité cette semaine, ` +
+        `${lecturesPreparees} lecture(s) d'abonné préparée(s) d'avance`,
+    );
+    return { envoyes, ignores, lecturesPreparees };
   }
 
   /**
