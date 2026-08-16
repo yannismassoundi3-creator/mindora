@@ -7,6 +7,7 @@ import {
   heureParis,
   minuitParis,
 } from '../common/jour-paris';
+import { MESSAGE_AUTOMATIQUE_INSCRIPTION } from '../common/message-inscription';
 
 /**
  * Ce qui s'est passé aujourd'hui, et les treize jours d'avant.
@@ -25,18 +26,8 @@ export class QuotidienService {
   /** Deux semaines : assez pour voir une tendance, assez court pour tenir à l'écran. */
   private static readonly JOURS_AFFICHES = 14;
 
-  /**
-   * Le message que la fin du questionnaire envoie au coach à la place de la
-   * personne, pour qu'elle reçoive son plan sans avoir à le réclamer.
-   *
-   * Recopié depuis `Onboarding.tsx` plutôt que partagé : le client est déployé
-   * séparément, et une constante importée d'ici ne l'atteindrait pas. Si la phrase
-   * change là-bas, les anciennes lignes en base gardent l'ancienne — c'est
-   * pourquoi elle est comparée mot pour mot et jamais devinée par mots-clés, ce
-   * qui exclurait au passage de vrais messages.
-   */
-  private static readonly MESSAGE_AUTOMATIQUE =
-    "Je viens de terminer mon inscription. Donne-moi mon plan pour aujourd'hui : mes routines, mes habitudes et mes objectifs.";
+  /** Voir `common/message-inscription.ts` : partagé avec l'entonnoir de rétention. */
+  private static readonly MESSAGE_AUTOMATIQUE = MESSAGE_AUTOMATIQUE_INSCRIPTION;
 
   constructor(private readonly prisma: PrismaService) {}
 

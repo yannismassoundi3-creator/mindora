@@ -51,6 +51,21 @@ describe('RetentionService', () => {
     return service.getRetentionStats();
   };
 
+  it("ne compte comme messages que ceux que la personne a écrits elle-même", async () => {
+    // La fin du questionnaire réclame un plan au coach au nom de la personne, et
+    // le coach répond : trois lignes en base pour zéro conversation. Sans ce
+    // filtre, la marche « ont parlé au coach » était franchie par tout compte
+    // ayant fini l'inscription — une marche qui ne mesurait plus rien.
+    await avec([]);
+
+    const requete = prisma.user.findMany.mock.calls[0][0];
+    expect(requete.select._count.select.chat_messages).toEqual(
+      expect.objectContaining({
+        where: expect.objectContaining({ sender: 'user' }),
+      }),
+    );
+  });
+
   beforeEach(async () => {
     prisma = { user: { findMany: jest.fn() } };
     const module: TestingModule = await Test.createTestingModule({

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { FILTRE_MESSAGES_ECRITS } from '../common/message-inscription';
 
 /**
  * Ce que deviennent les gens après leur inscription.
@@ -82,8 +83,16 @@ export class RetentionService {
           a été ouverte, et ils ne sont jamais supprimés, seulement révoqués.
           `ai_profile` répond au second : la table n'est écrite qu'à la dernière
           étape du questionnaire.
+
+          Le décompte des messages est filtré : il comptait toutes les lignes, y
+          compris les réponses du coach et le plan que le questionnaire réclame
+          automatiquement au nom de la personne. La marche « ont parlé au coach »
+          était donc franchie par quiconque avait fini l'inscription — c'est-à-dire
+          que l'entonnoir montrait une marche qui n'existait pas.
         */
-        _count: { select: { chat_messages: true, refresh_tokens: true } },
+        _count: {
+          select: { chat_messages: { where: FILTRE_MESSAGES_ECRITS }, refresh_tokens: true },
+        },
         ai_profile: { select: { id: true } },
       },
     });
