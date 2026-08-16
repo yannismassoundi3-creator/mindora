@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { debutDuJourParis } from '../common/jour-paris';
 
 @Injectable()
 export class AdminService {
@@ -24,11 +25,12 @@ export class AdminService {
     //
     // La trace réelle d'activité est la ligne de synchronisation, mise à jour à chaque
     // action dans l'app. C'est déjà elle qui décide qui reçoit le brief du matin.
-    const debutDuJour = new Date();
-    debutDuJour.setHours(0, 0, 0, 0);
-
+    // La journée commence à minuit heure de Paris, pas à minuit serveur. `setHours`
+    // suivait l'horloge de la machine, c'est-à-dire UTC sur Render : cette carte
+    // et le bloc « Aujourd'hui » juste en dessous répondaient à la même question
+    // avec deux journées décalées de deux heures.
     const activeUsersToday = await this.prisma.syncData.count({
-      where: { updated_at: { gte: debutDuJour } },
+      where: { updated_at: { gte: debutDuJourParis() } },
     });
 
     return {

@@ -123,6 +123,32 @@ export class PushController {
   }
 
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post('coup-de-pouce/test')
+  @ApiOperation({
+    summary: 'Voir son propre coup de pouce, sans attendre 15h ni le délai de trois jours',
+    description:
+      "Seule la cadence est court-circuitée. Si la situation ne justifie aucun message, " +
+      "la réponse le dit plutôt que d'en inventer un : se taire est le comportement " +
+      "normal du dispositif, et c'est ce qu'il faut pouvoir vérifier.",
+  })
+  async testerCoupDePouce(@Request() req) {
+    return this.pushService.testerCoupDePouce(req.user.userId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiResponse({ status: 403, description: 'Réservé aux comptes ADMIN.' })
+  @Post('coup-de-pouce/run')
+  @ApiOperation({
+    summary: 'Rejouer la tournée des coups de pouce sur toute la base',
+  })
+  async lancerCoupsDePouce() {
+    return this.pushService.envoyerCoupsDePouce();
+  }
+
   @Get('vapid-public-key')
   @ApiOperation({ summary: 'Get VAPID public key for frontend subscription' })
   getVapidPublicKey() {

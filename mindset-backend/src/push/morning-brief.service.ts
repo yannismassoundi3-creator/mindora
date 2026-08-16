@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { lireReponseGroq } from '../common/groq';
+import { separerTaches } from './taches';
 
 /**
  * Rédige le message du matin avec l'IA, à partir de la situation réelle de la personne.
@@ -62,26 +63,9 @@ export class MorningBriefService {
     return streak;
   }
 
-  /**
-   * Sépare ce qui reste à faire de ce qui est déjà fait.
-   *
-   * Sans ce tri, le brief réclamait des tâches que la personne venait de cocher —
-   * le réflexe le plus sûr pour faire désinstaller une app de coaching.
-   */
+  /** Voir `taches.ts` : le tri est partagé avec le coup de pouce. */
   private splitTasks(value: any): { restantes: string[]; faites: string[] } {
-    const restantes: string[] = [];
-    const faites: string[] = [];
-    if (!Array.isArray(value)) return { restantes, faites };
-
-    for (const entree of value) {
-      const elements = Array.isArray(entree?.items) ? entree.items : [entree];
-      for (const el of elements) {
-        const titre = el?.title || el?.name;
-        if (typeof titre !== 'string' || !titre.trim()) continue;
-        (el?.done ? faites : restantes).push(titre);
-      }
-    }
-    return { restantes, faites };
+    return separerTaches(value);
   }
 
   /**

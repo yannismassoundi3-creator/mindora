@@ -48,6 +48,7 @@ model User {
   coin_claims        CoinClaim[]
   push_permissions   PushPermission[]
   offer_prompt       OfferPrompt?
+  coup_de_pouce      CoupDePouce?
   relances           RelanceEmail[]
 }
 
@@ -428,6 +429,31 @@ model ChatMessage {
 /// séparent « a vu » de « a repoussé » et de « a ouvert l'offre » — sans quoi une
 /// relance qui ne convertit jamais est indiscernable d'une relance jamais affichée,
 /// et les deux appellent des corrections opposées.
+/// Mémoire des coups de pouce, c'est-à-dire des notifications hors programme que
+/// le coach envoie en journée.
+///
+/// Sans elle, la règle « au plus un tous les trois jours » ne vivrait qu'en
+/// mémoire du serveur : un redéploiement Render — il y en a plusieurs par jour —
+/// remettrait le compteur à zéro et la même personne recevrait un coup de pouce
+/// quotidien. C'est précisément ce qui fait couper les notifications, et un refus
+/// navigateur ne se redemande jamais.
+///
+/// Une seule ligne par personne : seul le dernier envoi décide du prochain. La
+/// raison est conservée pour ne pas resservir deux fois de suite le même angle, et
+/// le compteur pour savoir, plus tard, si ces messages servent à quelque chose.
+model CoupDePouce {
+  id              String   @id @default(uuid())
+  user_id         String   @unique
+  /// Dernier envoi effectif, base du délai minimum entre deux coups de pouce.
+  dernier_envoi   DateTime @default(now())
+  /// Situation qui l'a déclenché : reprise | aFinir | serie
+  derniere_raison String
+  envoyes         Int      @default(0)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+  user            User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
 model OfferPrompt {
   id             String   @id @default(uuid())
   user_id        String   @unique

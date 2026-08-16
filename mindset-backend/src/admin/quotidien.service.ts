@@ -1,5 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  FUSEAU_AFFICHAGE,
+  cleJourParis,
+  derniersJoursParis,
+  heureParis,
+  minuitParis,
+} from '../common/jour-paris';
 
 /**
  * Ce qui s'est passé aujourd'hui, et les treize jours d'avant.
@@ -15,100 +22,16 @@ import { PrismaService } from '../prisma/prisma.service';
  */
 @Injectable()
 export class QuotidienService {
-  /**
-   * Le fuseau dans lequel « aujourd'hui » veut dire quelque chose.
-   *
-   * Le serveur tourne en UTC : entre minuit et 2 h du matin à Paris, un compte
-   * créé ici est compté par le serveur comme appartenant à la veille. Le tableau
-   * affiche alors un chiffre juste pour une journée qui n'est pas celle qu'on
-   * regarde — et personne ne le voit, puisqu'il ressemble à un chiffre normal.
-   */
-  private static readonly FUSEAU = 'Europe/Paris';
-
   /** Deux semaines : assez pour voir une tendance, assez court pour tenir à l'écran. */
   private static readonly JOURS_AFFICHES = 14;
 
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Les champs de date-heure d'un instant, lus dans le fuseau d'affichage. */
-  private static parties(date: Date) {
-    const parts = new Intl.DateTimeFormat('en-US', {
-      timeZone: QuotidienService.FUSEAU,
-      hourCycle: 'h23',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    }).formatToParts(date);
-    const champ = (type: string) => parts.find((p) => p.type === type)?.value ?? '00';
-    return {
-      annee: champ('year'),
-      mois: champ('month'),
-      jour: champ('day'),
-      heure: champ('hour'),
-      minute: champ('minute'),
-      seconde: champ('second'),
-    };
-  }
-
-  /** `YYYY-MM-DD` du jour local — la clé qui regroupe une journée. */
-  private static cleJour(date: Date): string {
-    const p = QuotidienService.parties(date);
-    return `${p.annee}-${p.mois}-${p.jour}`;
-  }
-
-  /** `HH:MM` local, pour dire à quelle heure quelqu'un est arrivé. */
-  private static heureLocale(date: Date): string {
-    const p = QuotidienService.parties(date);
-    return `${p.heure}:${p.minute}`;
-  }
-
-  /** Décalage du fuseau à cet instant précis, en minutes (60 l'hiver, 120 l'été). */
-  private static decalageMinutes(date: Date): number {
-    const p = QuotidienService.parties(date);
-    const commeUTC = Date.UTC(
-      Number(p.annee),
-      Number(p.mois) - 1,
-      Number(p.jour),
-      Number(p.heure),
-      Number(p.minute),
-      Number(p.seconde),
-    );
-    return (commeUTC - date.getTime()) / 60000;
-  }
-
-  /** L'instant UTC où commence la journée locale `cle`. */
-  private static minuitLocal(cle: string): Date {
-    const [annee, mois, jour] = cle.split('-').map(Number);
-    // Le décalage est mesuré à midi : un 2 h 30 du matin peut ne pas exister le
-    // jour du passage à l'heure d'été, midi existe toujours.
-    const decalage = QuotidienService.decalageMinutes(new Date(Date.UTC(annee, mois - 1, jour, 12)));
-    return new Date(Date.UTC(annee, mois - 1, jour, 0, 0, 0) - decalage * 60000);
-  }
-
-  /**
-   * Les clés des N derniers jours, du plus ancien au plus récent.
-   *
-   * Construites par arithmétique de calendrier plutôt qu'en retirant 24 h à
-   * répétition : les deux nuits de changement d'heure durent 23 et 25 heures, et
-   * une soustraction d'horloge y saute ou y répète un jour.
-   */
-  private static derniersJours(cleAujourdhui: string, combien: number): string[] {
-    const [annee, mois, jour] = cleAujourdhui.split('-').map(Number);
-    const cles: string[] = [];
-    for (let recul = combien - 1; recul >= 0; recul--) {
-      cles.push(new Date(Date.UTC(annee, mois - 1, jour - recul)).toISOString().slice(0, 10));
-    }
-    return cles;
-  }
-
   async getStatsQuotidiennes() {
     const maintenant = new Date();
-    const cleAujourdhui = QuotidienService.cleJour(maintenant);
-    const cles = QuotidienService.derniersJours(cleAujourdhui, QuotidienService.JOURS_AFFICHES);
-    const debutFenetre = QuotidienService.minuitLocal(cles[0]);
+    const cleAujourdhui = cleJourParis(maintenant);
+    const cles = derniersJoursParis(cleAujourdhui, QuotidienService.JOURS_AFFICHES);
+    const debutFenetre = minuitParis(cles[0]);
 
     const inscrits = await this.prisma.user.findMany({
       where: { deleted_at: null, created_at: { gte: debutFenetre } },
@@ -150,7 +73,7 @@ export class QuotidienService {
     const joursParPersonne = new Map<string, Map<string, number>>();
 
     for (const message of messages) {
-      const cle = QuotidienService.cleJour(message.created_at);
+      const cle = cleJourParis(message.created_at);
 
       const parleurs = parleursDuJour.get(cle) ?? new Set<string>();
       parleurs.add(message.user_id);
@@ -165,7 +88,7 @@ export class QuotidienService {
 
     const inscritsParJour = new Map<string, typeof inscrits>();
     for (const inscrit of inscrits) {
-      const cle = QuotidienService.cleJour(inscrit.created_at);
+      const cle = cleJourParis(inscrit.created_at);
       const liste = inscritsParJour.get(cle) ?? [];
       liste.push(inscrit);
       inscritsParJour.set(cle, liste);
@@ -196,7 +119,7 @@ export class QuotidienService {
     const nouveauxDuJour = inscritsParJour.get(cleAujourdhui) ?? [];
 
     return {
-      fuseau: QuotidienService.FUSEAU,
+      fuseau: FUSEAU_AFFICHAGE,
       aujourdhui: {
         ...jours[jours.length - 1],
         ontOuvertUneSession: nouveauxDuJour.filter((n) => n._count.refresh_tokens > 0).length,
@@ -216,7 +139,7 @@ export class QuotidienService {
         id: n.id,
         prenom: n.first_name,
         email: n.email,
-        heure: QuotidienService.heureLocale(n.created_at),
+        heure: heureParis(n.created_at),
         emailVerifie: !!n.email_verifie_le,
         entre: n._count.refresh_tokens > 0,
         questionnaireFini: !!n.ai_profile,

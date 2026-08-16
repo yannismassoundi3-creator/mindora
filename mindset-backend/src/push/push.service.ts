@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger, OnModuleInit } from '@nestjs/c
 import { PrismaService } from '../prisma/prisma.service';
 import { MorningBriefService } from './morning-brief.service';
 import { WeeklyReviewService } from './weekly-review.service';
+import { CoupDePouceService } from './coup-de-pouce.service';
 import * as cron from 'node-cron';
 import * as webpush from 'web-push';
 import { lienApp } from '../common/origines';
@@ -12,6 +13,21 @@ export interface ResumeTournee {
   personnalises: number;
   generiques: number;
   dormantsIgnores: number;
+  echecs: number;
+  comptesExamines: number;
+}
+
+/**
+ * Décompte d'une tournée de coups de pouce.
+ *
+ * `riensADire` est le chiffre important, et il n'a pas d'équivalent dans les
+ * briefs : c'est lui qui dit que le dispositif se retient. S'il tombe à zéro un
+ * jour, c'est que la règle de cadence ne s'applique plus.
+ */
+export interface ResumeCoupsDePouce {
+  envoyes: number;
+  personnalises: number;
+  riensADire: number;
   echecs: number;
   comptesExamines: number;
 }
@@ -93,6 +109,7 @@ export class PushService implements OnModuleInit {
     private prisma: PrismaService,
     private morningBrief: MorningBriefService,
     private weeklyReview: WeeklyReviewService,
+    private coupDePouce: CoupDePouceService,
   ) {
     const vapidSubject = process.env.VAPID_SUBJECT || 'mailto:mindoraappli@gmail.com';
     const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
@@ -293,9 +310,172 @@ export class PushService implements OnModuleInit {
         'Voilà où tu en es. Il te reste la soirée pour finir.',
         true,
       ));
+    /*
+      Le coup de pouce tourne à 15 h, entre le brief du matin et le check-in du
+      soir : c'est le moment où une journée peut encore être rattrapée, et le seul
+      créneau de la journée qui ne soit pas déjà occupé. La plupart des comptes
+      examinés ne recevront rien — voir `CoupDePouceService`, où le silence est la
+      réponse par défaut.
+    */
+    planifier('0 15 * * *', 'Coups de pouce 15h', () => this.envoyerCoupsDePouce());
     planifier('0 20 * * *', 'Alerte série 20h', () => this.checkStreaksAndWarn(20));
     planifier('0 22 * * *', 'Dernière chance 22h', () => this.checkStreaksAndWarn(22));
     planifier('0 20 * * 0', 'Bilan hebdomadaire', () => this.sendWeeklyReports());
+  }
+
+  /**
+   * La tournée des coups de pouce.
+   *
+   * Elle ressemble à celle du matin, à une différence près qui est tout l'intérêt
+   * du dispositif : ici, ne rien envoyer est le cas normal. Le décompte distingue
+   * donc « personne à qui écrire » de « échec », sans quoi une tournée muette et
+   * une tournée cassée se ressembleraient dans les logs — et c'est précisément le
+   * genre de panne qu'on ne voit jamais.
+   */
+  async envoyerCoupsDePouce(): Promise<ResumeCoupsDePouce> {
+    const users = await this.prisma.user.findMany({
+      where: { deleted_at: null },
+      include: {
+        push_subscriptions: true,
+        sync_data: true,
+        coup_de_pouce: true,
+      },
+    });
+
+    let envoyes = 0;
+    let personnalises = 0;
+    let riensADire = 0;
+    let echecs = 0;
+
+    for (const user of users) {
+      // Injoignable : inutile de calculer quoi que ce soit, et surtout inutile de
+      // payer un appel IA pour un message que personne ne recevra.
+      if (!user.push_subscriptions?.length) continue;
+
+      const situation = this.coupDePouce.situation({
+        dailyScores: user.sync_data?.daily_scores as Record<string, number> | null,
+        routines: user.sync_data?.routines,
+        objectifs: user.sync_data?.micro_objectives,
+        dernierCoupDePouce: user.coup_de_pouce?.dernier_envoi ?? null,
+        derniereSynchro: user.sync_data?.updated_at ?? null,
+      });
+
+      if (!situation) {
+        riensADire++;
+        continue;
+      }
+
+      // Même cadence que les briefs : le fournisseur limite à une trentaine
+      // d'appels par minute, et se faire couper à mi-tournée priverait la seconde
+      // moitié de la personnalisation sans que rien ne le signale.
+      if (envoyes > 0) {
+        await new Promise((r) => setTimeout(r, PushService.INTERVALLE_ENTRE_BRIEFS_MS));
+      }
+
+      try {
+        const texte = await this.coupDePouce.generer(user.first_name, situation);
+        const body = texte ?? this.coupDePouce.texteFactuel(user.first_name, situation);
+
+        const envoi = await this.sendNotification(user.id, {
+          title: this.coupDePouce.titre(situation),
+          body,
+          // Une reprise se joue dans la conversation, pas sur un tableau de bord :
+          // quelqu'un qui a décroché a besoin de redécider quoi faire, ce qui est
+          // exactement ce que le chat sait faire.
+          url: this.lienVers(situation.raison === 'reprise' ? 'chat' : 'dashboard'),
+        });
+
+        // La trace n'est écrite que si l'envoi a atteint un appareil. Un échec
+        // réseau qui consommerait quand même le quota de trois jours ferait taire
+        // le coach sans que personne n'ait rien reçu.
+        if (envoi.envoyees > 0) {
+          await this.prisma.coupDePouce.upsert({
+            where: { user_id: user.id },
+            create: {
+              user_id: user.id,
+              dernier_envoi: new Date(),
+              derniere_raison: situation.raison,
+              envoyes: 1,
+            },
+            update: {
+              dernier_envoi: new Date(),
+              derniere_raison: situation.raison,
+              envoyes: { increment: 1 },
+            },
+          });
+          envoyes++;
+          if (texte) personnalises++;
+        }
+      } catch (e) {
+        echecs++;
+        this.logger.error(
+          `Coup de pouce échoué pour ${user.id} : ${(e as any)?.message}`,
+          (e as any)?.stack,
+        );
+      }
+    }
+
+    this.logger.log(
+      `Coups de pouce : ${envoyes} envoyé(s) dont ${personnalises} écrit(s) par l'IA, ` +
+        `${riensADire} compte(s) sans rien à dire, ${echecs} échec(s)`,
+    );
+
+    return { envoyes, personnalises, riensADire, echecs, comptesExamines: users.length };
+  }
+
+  /**
+   * Le coup de pouce d'une seule personne, en ignorant la cadence.
+   *
+   * Sert à voir ce que le dispositif produit sans attendre trois jours. La cadence
+   * est court-circuitée mais rien d'autre : si la situation ne justifie aucun
+   * message, la réponse le dit au lieu d'en inventer un — c'est justement ce qu'on
+   * veut pouvoir vérifier.
+   */
+  async testerCoupDePouce(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { sync_data: true },
+    });
+    if (!user) return { envoye: false, message: 'Utilisateur introuvable.' };
+
+    const situation = this.coupDePouce.situation({
+      dailyScores: user.sync_data?.daily_scores as Record<string, number> | null,
+      routines: user.sync_data?.routines,
+      objectifs: user.sync_data?.micro_objectives,
+      dernierCoupDePouce: null,
+      derniereSynchro: user.sync_data?.updated_at ?? null,
+    });
+
+    if (!situation) {
+      return {
+        envoye: false,
+        raison: null,
+        message:
+          "Rien à dire à ce compte aujourd'hui : pas d'absence récente, pas de tâche en attente, " +
+          "pas de série à défendre. C'est le comportement attendu — le coup de pouce se tait par défaut.",
+      };
+    }
+
+    const texte = await this.coupDePouce.generer(user.first_name, situation);
+    const body = texte ?? this.coupDePouce.texteFactuel(user.first_name, situation);
+    const envoi = await this.sendNotification(user.id, {
+      title: this.coupDePouce.titre(situation),
+      body,
+      url: this.lienVers(situation.raison === 'reprise' ? 'chat' : 'dashboard'),
+    });
+
+    return {
+      envoye: envoi.envoyees > 0,
+      raison: situation.raison,
+      personnalise: !!texte,
+      message: body,
+      abonnements: envoi.abonnements,
+      appareilsAtteints: envoi.envoyees,
+      ...(envoi.abonnements === 0 && {
+        diagnostic:
+          "Aucun appareil abonné aux notifications. Ouvre l'app et autorise les notifications, puis relance ce test.",
+      }),
+    };
   }
 
   async checkStreaksAndWarn(hour: number) {

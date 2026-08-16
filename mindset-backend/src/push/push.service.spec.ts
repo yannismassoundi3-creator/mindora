@@ -4,6 +4,7 @@ import * as webpush from 'web-push';
 import { PushService } from './push.service';
 import { MorningBriefService } from './morning-brief.service';
 import { WeeklyReviewService } from './weekly-review.service';
+import { CoupDePouceService } from './coup-de-pouce.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 jest.mock('web-push', () => ({
@@ -72,6 +73,10 @@ describe('PushService — tournée des briefs du matin', () => {
         // Le bilan hebdomadaire ne concerne aucun de ces tests, mais le service en
         // dépend depuis qu'il ne raconte plus la même chose à tout le monde.
         { provide: WeeklyReviewService, useValue: new WeeklyReviewService() },
+        // Idem pour le coup de pouce : sa logique est vérifiée dans son propre
+        // fichier. Le vrai service convient ici — sans clé Groq il retombe sur la
+        // phrase factuelle, et sans données il ne trouve rien à dire.
+        { provide: CoupDePouceService, useValue: new CoupDePouceService() },
       ],
     }).compile();
 
@@ -308,6 +313,88 @@ describe('PushService — tournée des briefs du matin', () => {
       expect(charge.title).toContain('Stratégie');
       // Le corps promet le Chat IA ; l'adresse doit y mener, sinon la notification
       // ouvre l'accueil et la promesse tombe à plat.
+      expect(charge.url).toBe('https://disciplix-ai.vercel.app/?auth=true&vue=chat');
+    });
+  });
+
+  /**
+   * La tournée de 15 h. Ce qui compte ici n'est pas le texte envoyé — il a son
+   * propre fichier — mais la trace laissée derrière : c'est elle qui empêche la
+   * même personne de recevoir un coup de pouce tous les jours.
+   */
+  describe('tournée des coups de pouce', () => {
+    /** Un compte parti depuis trois jours : le cas « reprise ». */
+    const compteDecroche = (id: string) => {
+      const scores: Record<string, number> = {};
+      for (const recul of [3, 4, 5]) {
+        const d = new Date();
+        d.setUTCDate(d.getUTCDate() - recul);
+        scores[d.toISOString().slice(0, 10)] = 50;
+      }
+      return {
+        id,
+        first_name: 'Yannis',
+        push_subscriptions: [{ id: `s-${id}` }],
+        sync_data: { daily_scores: scores, updated_at: new Date(), routines: null, micro_objectives: null },
+        coup_de_pouce: null,
+      };
+    };
+
+    beforeEach(() => {
+      prisma.coupDePouce = { upsert: jest.fn().mockResolvedValue({}) };
+      prisma.pushSubscription.findMany.mockResolvedValue([
+        { id: 's1', endpoint: 'https://push.example/abc', p256dh: 'p', auth: 'a' },
+      ]);
+    });
+
+    it('note la date du dernier envoi pour tenir le délai de trois jours', async () => {
+      prisma.user.findMany.mockResolvedValue([compteDecroche('u1')]);
+
+      const resume = await service.envoyerCoupsDePouce();
+
+      expect(resume.envoyes).toBe(1);
+      expect(prisma.coupDePouce.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { user_id: 'u1' } }),
+      );
+    });
+
+    it("n'écrit aucune trace quand la notification n'a atteint aucun appareil", async () => {
+      // Sinon un échec réseau consommerait le quota de trois jours : le coach se
+      // tairait jusqu'à jeudi pour un message que personne n'a reçu.
+      prisma.user.findMany.mockResolvedValue([compteDecroche('u1')]);
+      prisma.pushSubscription.findMany.mockResolvedValue([]);
+
+      const resume = await service.envoyerCoupsDePouce();
+
+      expect(resume.envoyes).toBe(0);
+      expect(prisma.coupDePouce.upsert).not.toHaveBeenCalled();
+    });
+
+    it("compte comme « rien à dire » un compte que rien ne justifie de relancer", async () => {
+      prisma.user.findMany.mockResolvedValue([
+        {
+          id: 'u1',
+          first_name: 'Yannis',
+          push_subscriptions: [{ id: 's1' }],
+          sync_data: { daily_scores: {}, updated_at: new Date() },
+          coup_de_pouce: null,
+        },
+      ]);
+
+      const resume = await service.envoyerCoupsDePouce();
+
+      expect(resume.envoyes).toBe(0);
+      expect(resume.riensADire).toBe(1);
+      expect(webpush.sendNotification).not.toHaveBeenCalled();
+    });
+
+    it('ouvre le chat pour une reprise', async () => {
+      process.env.FRONTEND_URL = 'https://disciplix-ai.vercel.app';
+      prisma.user.findMany.mockResolvedValue([compteDecroche('u1')]);
+
+      await service.envoyerCoupsDePouce();
+
+      const charge = JSON.parse((webpush.sendNotification as jest.Mock).mock.calls[0][1]);
       expect(charge.url).toBe('https://disciplix-ai.vercel.app/?auth=true&vue=chat');
     });
   });
