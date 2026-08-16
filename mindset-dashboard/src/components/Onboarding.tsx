@@ -121,10 +121,22 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
         Il est écrit à la première personne parce qu'il est envoyé en son nom, et il
         nomme routines, habitudes et objectifs parce que c'est ce vocabulaire qui fait
         joindre le schéma du plan côté serveur (`MOTS_PLAN`).
+
+        **Il réclame une première action avant le plan**, et c'est le point le plus
+        important de la phrase. Un plan complet rendu à quelqu'un qui vient de
+        s'inscrire est une liste de choses à faire demain : rien n'est fait le jour
+        même, aucun premier succès n'a lieu, et sans premier succès il n'y a pas de
+        jour 2. Une action de moins de cinq minutes se fait dans la foulée — c'est la
+        seule marche que la personne puisse franchir tant qu'elle est encore là.
+
+        Toute modification de ce texte doit être **ajoutée** à
+        `MESSAGES_AUTOMATIQUES_INSCRIPTION` côté serveur, et jamais y remplacer
+        l'ancienne : c'est cette liste qui empêche de recompter ces envois comme des
+        conversations, et les lignes déjà en base gardent la formulation d'alors.
       */
       localStorage.setItem(
         'mindset_pending_chat_msg',
-        "Je viens de terminer mon inscription. Donne-moi mon plan pour aujourd'hui : mes routines, mes habitudes et mes objectifs.",
+        "Je viens de terminer mon inscription. Donne-moi d'abord UNE première action que je peux faire maintenant, en moins de 5 minutes. Ensuite seulement, mon plan complet : mes routines, mes habitudes et mes objectifs.",
       );
 
       onComplete();

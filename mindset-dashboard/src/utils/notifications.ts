@@ -49,6 +49,18 @@ export interface NotificationApp {
   message: string;
   /** Première ligne, en gras. Facultatif : les anciennes entrées n'en ont pas. */
   titre?: string;
+  /**
+   * Le message envoyé au coach si l'on appuie sur la bannière.
+   *
+   * Sans lui, appuyer ouvre une conversation vide : la personne vient de lire une
+   * remarque précise sur elle et se retrouve devant un champ de saisie, à devoir
+   * reformuler ce qu'elle vient de lire. Avec lui, elle appuie et le coach est
+   * déjà en train de répondre — c'est la différence entre une bannière qui informe
+   * et une bannière qui engage la conversation.
+   *
+   * Écrit à la première personne : il part au nom de la personne.
+   */
+  invite?: string;
   timestamp: string;
 }
 
@@ -92,7 +104,12 @@ export function lireNotifications(): NotificationApp[] {
 }
 
 /** Ajoute une bannière. Sans effet si le message est vide. */
-export function ajouterNotification(type: string, message: string, titre?: string): void {
+export function ajouterNotification(
+  type: string,
+  message: string,
+  titre?: string,
+  invite?: string,
+): void {
   if (!message.trim()) return;
   const liste = brut();
   liste.push({
@@ -100,6 +117,7 @@ export function ajouterNotification(type: string, message: string, titre?: strin
     type,
     message,
     titre,
+    invite,
     timestamp: new Date().toISOString(),
   });
   ecrire(liste);

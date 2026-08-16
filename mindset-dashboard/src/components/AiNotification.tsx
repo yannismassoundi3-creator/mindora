@@ -98,7 +98,25 @@ export function AiNotification({ onNavigate }: AiNotificationProps) {
         if (notif.type === 'habit') destination = 'habits';
         if (notif.type === 'objective') destination = 'objectives';
         // Le mot d'accueil mène à la conversation : c'est là qu'on peut lui répondre.
-        if (notif.type === 'coach') destination = 'chat';
+        if (notif.type === 'coach') {
+          destination = 'chat';
+
+          /*
+            La conversation démarre toute seule quand la bannière porte une invite.
+
+            Sans elle, appuyer sur « tu lâches le samedi, trois fois de suite »
+            ouvrait un chat vide : on venait de lire une remarque précise, et il
+            fallait la reformuler soi-même pour en parler. Peu de gens le font —
+            et l'observation la plus juste ne sert alors à rien.
+
+            La clé est celle que l'inscription utilise déjà pour le premier plan ;
+            `AIChat` la consomme à son montage et envoie le message. Rien de neuf
+            n'est introduit ici, on se raccroche au chemin existant.
+          */
+          if (notif.invite) {
+            localStorage.setItem('mindset_pending_chat_msg', notif.invite);
+          }
+        }
 
         /*
           Le tableau de bord garde en mémoire l'onglet ouvert la dernière fois.

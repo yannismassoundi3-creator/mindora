@@ -1,5 +1,6 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { FILTRE_MESSAGES_ECRITS } from '../common/message-inscription';
 
 /**
  * Solde de coins faisant foi pour l'usage de l'IA.
@@ -60,10 +61,35 @@ export class CoinLedgerService {
    * serait une occasion de plus de diverger.
    */
   async estEnDecouverte(userId: string): Promise<boolean> {
+    /*
+      Le plan réclamé automatiquement à la fin du questionnaire ne compte pas.
+
+      Il part au nom de la personne sans qu'elle l'écrive : le compter revenait à
+      lui prendre un de ses cinq messages de découverte avant qu'elle ait tapé
+      quoi que ce soit. Elle en avait donc quatre, et l'écran lui en annonçait
+      cinq. Ces messages-là sont précisément ceux qui décident si elle s'abonne —
+      c'est le plus mauvais endroit du produit où en perdre un en silence.
+    */
+    const envoyes = await this.prisma.chatMessage.count({
+      where: { user_id: userId, ...FILTRE_MESSAGES_ECRITS },
+    });
+    return envoyes < CoinLedgerService.MESSAGES_DECOUVERTE;
+  }
+
+  /**
+   * Vrai si cette personne n'a encore jamais rien envoyé au coach, message
+   * automatique compris.
+   *
+   * Sert à n'exempter de facturation que le tout premier plan, celui du
+   * questionnaire. Sans cette borne, n'importe qui pourrait renvoyer la phrase
+   * exacte de l'inscription autant de fois qu'il veut et s'offrir une IA gratuite
+   * illimitée — le texte est fixe et visible dans le code du navigateur.
+   */
+  async estPremierMessage(userId: string): Promise<boolean> {
     const envoyes = await this.prisma.chatMessage.count({
       where: { user_id: userId, sender: 'user' },
     });
-    return envoyes < CoinLedgerService.MESSAGES_DECOUVERTE;
+    return envoyes === 0;
   }
 
   private debutDuJour(): Date {

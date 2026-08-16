@@ -21,6 +21,7 @@ import { EtatSauvegarde } from './components/EtatSauvegarde';
 import { purgerScoresAnciens } from './utils/etatLocal';
 import { ajouterNotification, notificationEnAttente } from './utils/notifications';
 import { motDuCoachDuMoment } from './utils/motDuCoach';
+import { observationPourBanniere } from './utils/observation';
 import { getSecurePoints, setSecurePoints } from './utils/secureStorage';
 import { reconcilierPaiement, controlerAbonnement, activerPro, retenirFormule, type Formule } from './utils/paiement';
 import { useRegisterSW } from 'virtual:pwa-register/react';
@@ -427,8 +428,32 @@ function App() {
     if (currentView !== 'dashboard') return;
     motDejaDit.current = true;
 
-    const minuteur = setTimeout(() => {
+    const minuteur = setTimeout(async () => {
       if (notificationEnAttente()) return;
+
+      /*
+        L'observation passe avant le mot ordinaire, quand il y en a une.
+
+        Le mot du coach parle de la journée : ce qu'il reste à faire, où en est la
+        série. C'est utile, et c'est ce que n'importe quelle application peut
+        dire. L'observation, elle, parle de la personne — « sur 4 samedis, 3 sont
+        à zéro » — et c'est la seule chose ici qu'un carnet ne sait pas faire.
+        Elle est rare (une tous les trois jours au plus, et seulement si le motif
+        tient), donc la faire passer devant ne coûte presque jamais le mot
+        ordinaire.
+
+        Elle porte une invite : appuyer sur la bannière envoie le message au coach
+        et la conversation démarre sur ce constat, au lieu d'ouvrir un chat vide.
+      */
+      const observation = await observationPourBanniere().catch(() => null);
+      if (observation) {
+        // Une notification a pu arriver pendant l'appel réseau ; on ne se pose
+        // pas par-dessus un plan qui vient d'être appliqué.
+        if (notificationEnAttente()) return;
+        ajouterNotification('coach', observation.fait, observation.titre, observation.invite);
+        return;
+      }
+
       const mot = motDuCoachDuMoment(localStorage.getItem('mindset_user_name') || '');
       if (mot) ajouterNotification('coach', mot.message, mot.titre);
     }, 1800);

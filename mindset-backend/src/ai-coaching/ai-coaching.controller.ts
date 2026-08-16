@@ -5,6 +5,9 @@ import { AiCoachingService } from './ai-coaching.service';
 import { AiQuotaService } from './ai-quota.service';
 import { CoinLedgerService } from './coin-ledger.service';
 import { CoachOuvertureService } from './coach-ouverture.service';
+import { ObservationService } from './observation.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { estMessageAutomatique } from '../common/message-inscription';
 import { ChatDto } from './dto/chat.dto';
 import { ObjectifDto } from './dto/objectif.dto';
 import { CadrageDto } from './dto/cadrage.dto';
@@ -21,6 +24,8 @@ export class AiCoachingController {
     private readonly aiQuota: AiQuotaService,
     private readonly coins: CoinLedgerService,
     private readonly ouverture: CoachOuvertureService,
+    private readonly observations: ObservationService,
+    private readonly prisma: PrismaService,
   ) {}
 
   @Get('quota')
@@ -82,7 +87,25 @@ export class AiCoachingController {
     // Les tout premiers messages ne coûtent rien : voir MESSAGES_DECOUVERTE. On ne
     // pose même pas la question pour un abonné, qui ne paie de toute façon pas.
     const decouverte = abonne ? false : await this.coins.estEnDecouverte(userId);
-    const gratuit = abonne || decouverte;
+
+    /*
+      Le plan réclamé automatiquement à la fin du questionnaire ne se facture pas.
+
+      Il part au nom de la personne sans qu'elle l'écrive, pour qu'elle reçoive son
+      plan sans avoir à le demander. Le décompter de son quota mensuel revenait à
+      lui prendre un de ses dix messages gratuits avant qu'elle ait tapé la moindre
+      lettre — et ces messages-là sont exactement ceux qui décident si elle
+      s'abonne.
+
+      La condition de premier message n'est pas décorative : le texte est fixe et
+      lisible dans le code du navigateur. Sans elle, le renvoyer en boucle donnerait
+      une IA gratuite et illimitée à qui l'aurait remarqué. `estMessageAutomatique`
+      est testé d'abord, donc le comptage en base ne part que pour cette phrase-là.
+    */
+    const planDInscription =
+      estMessageAutomatique(body.prompt) && (await this.coins.estPremierMessage(userId));
+
+    const gratuit = abonne || decouverte || planDInscription;
 
     const debit = gratuit ? null : await this.coins.spend(userId);
 
@@ -107,7 +130,9 @@ export class AiCoachingController {
       d'un message précédent, bien réel, qui serait ainsi offert deux fois.
     */
     try {
-      await this.aiQuota.consumeAiCredit(userId, 'chat');
+      // Le plan d'inscription ne touche pas non plus au quota mensuel : ce serait
+      // reprendre d'une main ce que la ligne ci-dessus vient d'accorder.
+      if (!planDInscription) await this.aiQuota.consumeAiCredit(userId, 'chat');
     } catch (e) {
       if (!gratuit) {
         await this.coins
@@ -215,6 +240,33 @@ export class AiCoachingController {
       // une conversation.
       .catch(() => null);
     return { texte };
+  }
+
+  /**
+   * Ce que le coach a remarqué sur cette personne.
+   *
+   * Gratuite et sans quota, volontairement : c'est l'argument du produit, et le
+   * cacher derrière l'abonnement reviendrait à demander de payer pour savoir
+   * pourquoi payer. Ce qui se paie, c'est la suite — développer l'observation
+   * dans la conversation, ce qui consomme des messages.
+   *
+   * Le motif est calculé, jamais deviné par le modèle : voir `ObservationService`.
+   */
+  @Get('observation')
+  @ApiOperation({ summary: "Le motif que le coach a repéré dans l'historique" })
+  async getObservation(@Req() req: Request) {
+    const userId = (req.user as any).userId;
+    const sync = await this.prisma.syncData
+      .findUnique({ where: { user_id: userId }, select: { daily_scores: true } })
+      .catch(() => null);
+
+    const observation = this.observations.meilleure(
+      sync?.daily_scores as Record<string, number> | null,
+    );
+
+    // `null` est une réponse : le navigateur n'affiche alors aucune carte plutôt
+    // qu'une carte vide. Il n'y a pas d'erreur à signaler — il n'y a rien à dire.
+    return { observation };
   }
 
   @Get('history')

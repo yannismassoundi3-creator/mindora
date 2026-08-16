@@ -5,6 +5,9 @@ import { AiCoachingService } from './ai-coaching.service';
 import { AiQuotaService } from './ai-quota.service';
 import { CoinLedgerService } from './coin-ledger.service';
 import { CoachOuvertureService } from './coach-ouverture.service';
+import { ObservationService } from './observation.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { MESSAGES_AUTOMATIQUES_INSCRIPTION } from '../common/message-inscription';
 
 /**
  * Le remboursement est la contrepartie du débit anticipé : on prélève avant l'appel
@@ -24,6 +27,7 @@ describe('AiCoachingController — débit et remboursement du chat', () => {
     refund: jest.Mock;
     getBalance: jest.Mock;
     estEnDecouverte: jest.Mock;
+    estPremierMessage: jest.Mock;
   };
   let ouverture: { ouverture: jest.Mock };
 
@@ -44,6 +48,7 @@ describe('AiCoachingController — débit et remboursement du chat', () => {
       // Le cas par défaut de ces tests est un compte qui a passé la découverte et
       // paie donc ses messages ; les tests de la découverte la réactivent eux-mêmes.
       estEnDecouverte: jest.fn().mockResolvedValue(false),
+      estPremierMessage: jest.fn().mockResolvedValue(false),
     };
     ouverture = { ouverture: jest.fn().mockResolvedValue(null) };
 
@@ -54,6 +59,14 @@ describe('AiCoachingController — débit et remboursement du chat', () => {
         { provide: AiQuotaService, useValue: quota },
         { provide: CoinLedgerService, useValue: coins },
         { provide: CoachOuvertureService, useValue: ouverture },
+        // L'observation a sa propre suite de tests : le vrai service convient ici,
+        // et sans historique il ne trouve rien à dire — ce qui est la réponse
+        // attendue pour tous les cas vérifiés dans ce fichier.
+        { provide: ObservationService, useValue: new ObservationService() },
+        {
+          provide: PrismaService,
+          useValue: { syncData: { findUnique: jest.fn().mockResolvedValue(null) } },
+        },
       ],
     }).compile();
 
@@ -221,7 +234,13 @@ describe('AiCoachingController — messages de découverte', () => {
   let controller: AiCoachingController;
   let ia: { chatWithAi: jest.Mock };
   let quota: { consumeAiCredit: jest.Mock; refundAiCredit: jest.Mock; isSubscribed: jest.Mock };
-  let coins: { spend: jest.Mock; refund: jest.Mock; getBalance: jest.Mock; estEnDecouverte: jest.Mock };
+  let coins: {
+    spend: jest.Mock;
+    refund: jest.Mock;
+    getBalance: jest.Mock;
+    estEnDecouverte: jest.Mock;
+    estPremierMessage: jest.Mock;
+  };
   let ouverture: { ouverture: jest.Mock };
 
   const requete = { user: { userId: 'u1' } } as any;
@@ -239,6 +258,7 @@ describe('AiCoachingController — messages de découverte', () => {
       refund: jest.fn().mockResolvedValue({}),
       getBalance: jest.fn().mockResolvedValue(50),
       estEnDecouverte: jest.fn().mockResolvedValue(true),
+      estPremierMessage: jest.fn().mockResolvedValue(false),
     };
     ouverture = { ouverture: jest.fn().mockResolvedValue(null) };
 
@@ -249,6 +269,14 @@ describe('AiCoachingController — messages de découverte', () => {
         { provide: AiQuotaService, useValue: quota },
         { provide: CoinLedgerService, useValue: coins },
         { provide: CoachOuvertureService, useValue: ouverture },
+        // L'observation a sa propre suite de tests : le vrai service convient ici,
+        // et sans historique il ne trouve rien à dire — ce qui est la réponse
+        // attendue pour tous les cas vérifiés dans ce fichier.
+        { provide: ObservationService, useValue: new ObservationService() },
+        {
+          provide: PrismaService,
+          useValue: { syncData: { findUnique: jest.fn().mockResolvedValue(null) } },
+        },
       ],
     }).compile();
 
@@ -292,6 +320,61 @@ describe('AiCoachingController — messages de découverte', () => {
     expect(coins.spend).toHaveBeenCalledWith('u1');
   });
 
+  /**
+   * Le plan réclamé automatiquement à la fin du questionnaire.
+   *
+   * Il part au nom de la personne sans qu'elle l'écrive. Le facturer revenait à
+   * lui prendre un de ses dix messages mensuels avant sa première lettre — et ces
+   * messages-là sont exactement ceux qui décident si elle s'abonne.
+   */
+  describe("le plan d'inscription", () => {
+    const planAuto = {
+      prompt: MESSAGES_AUTOMATIQUES_INSCRIPTION[0],
+    } as any;
+
+    it('ne touche ni aux coins ni au quota mensuel', async () => {
+      coins.estEnDecouverte.mockResolvedValue(false);
+      coins.estPremierMessage.mockResolvedValue(true);
+
+      await controller.chat(requete, planAuto);
+
+      expect(coins.spend).not.toHaveBeenCalled();
+      expect(quota.consumeAiCredit).not.toHaveBeenCalled();
+    });
+
+    it("vaut aussi pour l'ancienne formulation, encore en base", async () => {
+      coins.estEnDecouverte.mockResolvedValue(false);
+      coins.estPremierMessage.mockResolvedValue(true);
+
+      await controller.chat(requete, {
+        prompt: MESSAGES_AUTOMATIQUES_INSCRIPTION[MESSAGES_AUTOMATIQUES_INSCRIPTION.length - 1],
+      } as any);
+
+      expect(quota.consumeAiCredit).not.toHaveBeenCalled();
+    });
+
+    it('est facturé si ce n’est pas le tout premier message', async () => {
+      /*
+        Le texte est fixe et lisible dans le code du navigateur : sans cette
+        borne, le renvoyer en boucle donnerait une IA gratuite et illimitée à qui
+        l'aurait remarqué.
+      */
+      coins.estEnDecouverte.mockResolvedValue(false);
+      coins.estPremierMessage.mockResolvedValue(false);
+
+      await controller.chat(requete, planAuto);
+
+      expect(coins.spend).toHaveBeenCalledWith('u1');
+      expect(quota.consumeAiCredit).toHaveBeenCalledWith('u1', 'chat');
+    });
+
+    it("ne va pas compter en base pour un message ordinaire", async () => {
+      await controller.chat(requete, message);
+
+      expect(coins.estPremierMessage).not.toHaveBeenCalled();
+    });
+  });
+
   // Un abonné ne paie jamais : inutile d'aller compter ses messages en base.
   it('ne compte même pas les messages d\'un abonné', async () => {
     quota.isSubscribed.mockResolvedValue(true);
@@ -331,6 +414,7 @@ describe('AiCoachingController — la phrase d\'ouverture', () => {
       refund: jest.fn(),
       getBalance: jest.fn().mockResolvedValue(50),
       estEnDecouverte: jest.fn().mockResolvedValue(false),
+      estPremierMessage: jest.fn().mockResolvedValue(false),
     };
     ouverture = { ouverture: jest.fn().mockResolvedValue('Il te reste ta séance.') };
 
@@ -341,6 +425,14 @@ describe('AiCoachingController — la phrase d\'ouverture', () => {
         { provide: AiQuotaService, useValue: quota },
         { provide: CoinLedgerService, useValue: coins },
         { provide: CoachOuvertureService, useValue: ouverture },
+        // L'observation a sa propre suite de tests : le vrai service convient ici,
+        // et sans historique il ne trouve rien à dire — ce qui est la réponse
+        // attendue pour tous les cas vérifiés dans ce fichier.
+        { provide: ObservationService, useValue: new ObservationService() },
+        {
+          provide: PrismaService,
+          useValue: { syncData: { findUnique: jest.fn().mockResolvedValue(null) } },
+        },
       ],
     }).compile();
 

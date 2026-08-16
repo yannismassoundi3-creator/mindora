@@ -3,6 +3,7 @@ import { CheckCircle2, TrendingUp, Sparkles, Pencil, Coins, Circle, ChevronLeft,
 import { RankIcon } from '../components/RankIcon';
 import { ProgressionRang } from '../components/ProgressionRang';
 import { PartageSemaine } from '../components/PartageSemaine';
+import { CarteObservation } from '../components/CarteObservation';
 import { VictoryGlitchOverlay } from '../components/VictoryGlitchOverlay';
 import { JarvisPopup } from '../components/JarvisPopup';
 import { NotificationsOptIn } from '../components/NotificationsOptIn';
@@ -1124,6 +1125,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
             quelqu'un d'afficher son échec.
           */}
           <PartageSemaine />
+
+          {/*
+            Ce que le coach a remarqué, juste après le graphique de la semaine.
+
+            C'est l'endroit où l'on vient regarder ses chiffres : c'est donc là
+            qu'une phrase qui les interprète a le plus de sens. La carte ne rend
+            rien tant qu'aucun motif ne tient — il faut de l'historique et des
+            seuils franchis — et c'est voulu : une remarque servie à tout le monde
+            tous les jours n'est plus une remarque.
+          */}
+          <CarteObservation onOuvrirChat={onOpenChat} />
 
           {/* Heatmap Section */}
           <section className="heatmap-section glass-panel glass-panel-interactive pulse-glow fade-in delay-2" style={{ transition: 'transform 0.3s ease, opacity 0.3s ease, background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, color 0.3s ease', cursor: 'pointer' }}>

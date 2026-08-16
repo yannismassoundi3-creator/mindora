@@ -1,0 +1,76 @@
+/*
+  Noms préfixés `observation-` : le projet définit `.stat-value`, `.stat-label` et
+  quelques autres dans plusieurs feuilles, et l'ordre de concaténation du build
+  départage — il diffère entre développement et production.
+*/
+
+.observation-carte {
+  padding: 16px 18px;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  /* Un enfant de grille refuse par défaut de descendre sous la largeur de son
+     contenu, et élargit alors toute sa piste. */
+  min-width: 0;
+}
+
+.observation-carte__entete {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary, #94a3b8);
+}
+
+.observation-carte__titre {
+  margin: 2px 0 0;
+  font-size: 1.05rem;
+  line-height: 1.25;
+}
+
+.observation-carte__fait {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--text-secondary, #94a3b8);
+}
+
+.observation-carte__action {
+  margin-top: 10px;
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 15px;
+  border: none;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: #04121a;
+  background: linear-gradient(90deg, #00f2fe, #3b82f6);
+  /* La cible tactile doit rester atteignable au pouce : en dessous de 44 px on
+     rate le bouton une fois sur trois sur téléphone. */
+  min-height: 44px;
+}
+
+.observation-carte__action:hover {
+  filter: brightness(1.08);
+}
+
+/* Le thème clair redéfinit les fonds en noir translucide ; le dégradé du bouton,
+   lui, reste lisible tel quel — seul le texte de la carte a besoin d'aide. */
+body.theme-monochrome-light .observation-carte__fait,
+body.theme-monochrome-light .observation-carte__entete {
+  color: #475569;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .observation-carte__action {
+    transition: none;
+  }
+}

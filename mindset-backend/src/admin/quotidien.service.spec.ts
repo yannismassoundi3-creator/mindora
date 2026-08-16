@@ -19,20 +19,16 @@ describe('QuotidienService', () => {
     chatMessage: { findMany: jest.Mock };
   };
 
-  /** Le message que la fin du questionnaire envoie à la place de la personne. */
-  const MESSAGE_AUTOMATIQUE =
-    "Je viens de terminer mon inscription. Donne-moi mon plan pour aujourd'hui : mes routines, mes habitudes et mes objectifs.";
-
   /**
    * Le service interroge la table des messages deux fois : une fois en excluant
-   * le message automatique, une fois pour ne compter que lui. Le double est donc
-   * aiguillé sur le filtre, sinon les deux requêtes rendraient la même chose et
-   * le test ne prouverait rien.
+   * les messages automatiques, une fois pour ne compter qu'eux. Le double est
+   * donc aiguillé sur le filtre, sinon les deux requêtes rendraient la même chose
+   * et le test ne prouverait rien.
    */
   const avec = async (utilisateurs: any[], messages: any[] = [], automatiques: any[] = []) => {
     prisma.user.findMany.mockResolvedValue(utilisateurs);
     prisma.chatMessage.findMany.mockImplementation(async (args: any) =>
-      args?.where?.text?.not === MESSAGE_AUTOMATIQUE ? messages : automatiques,
+      args?.where?.text?.notIn ? messages : automatiques,
     );
     return service.getStatsQuotidiennes();
   };

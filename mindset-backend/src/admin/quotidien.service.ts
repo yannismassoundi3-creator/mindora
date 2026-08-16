@@ -7,7 +7,10 @@ import {
   heureParis,
   minuitParis,
 } from '../common/jour-paris';
-import { MESSAGE_AUTOMATIQUE_INSCRIPTION } from '../common/message-inscription';
+import {
+  FILTRE_MESSAGES_AUTOMATIQUES,
+  FILTRE_MESSAGES_ECRITS,
+} from '../common/message-inscription';
 
 /**
  * Ce qui s'est passé aujourd'hui, et les treize jours d'avant.
@@ -25,9 +28,6 @@ import { MESSAGE_AUTOMATIQUE_INSCRIPTION } from '../common/message-inscription';
 export class QuotidienService {
   /** Deux semaines : assez pour voir une tendance, assez court pour tenir à l'écran. */
   private static readonly JOURS_AFFICHES = 14;
-
-  /** Voir `common/message-inscription.ts` : partagé avec l'entonnoir de rétention. */
-  private static readonly MESSAGE_AUTOMATIQUE = MESSAGE_AUTOMATIQUE_INSCRIPTION;
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -72,10 +72,9 @@ export class QuotidienService {
     */
     const messages = await this.prisma.chatMessage.findMany({
       where: {
-        sender: 'user',
+        ...FILTRE_MESSAGES_ECRITS,
         created_at: { gte: debutFenetre },
         user: { deleted_at: null },
-        text: { not: QuotidienService.MESSAGE_AUTOMATIQUE },
       },
       select: { user_id: true, created_at: true },
     });
@@ -84,10 +83,9 @@ export class QuotidienService {
     // questionnaires sont allés au bout, ce qui est une autre information utile.
     const automatiques = await this.prisma.chatMessage.findMany({
       where: {
-        sender: 'user',
+        ...FILTRE_MESSAGES_AUTOMATIQUES,
         created_at: { gte: debutFenetre },
         user: { deleted_at: null },
-        text: QuotidienService.MESSAGE_AUTOMATIQUE,
       },
       select: { user_id: true, created_at: true },
     });

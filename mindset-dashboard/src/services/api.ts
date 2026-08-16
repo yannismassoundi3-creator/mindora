@@ -3,6 +3,7 @@ import { definirXp } from '../utils/progression';
 import { estIOS, estAndroid, estInstallee } from '../utils/plateforme';
 import { nettoyerSemis } from '../utils/semis';
 import { construireEtatLocal } from '../utils/etatLocal';
+import { CLES_CACHE_AFFICHAGE } from '../utils/clesCache';
 import {
   CLES_TENUE_SYNCHRO,
   aDesModificationsNonSynchronisees,
@@ -929,6 +930,16 @@ try {
       chaque appareil connecté. Voir `CLES_TENUE_SYNCHRO`.
     */
     if (CLES_TENUE_SYNCHRO.has(key)) return;
+
+    /*
+      Un cache d'affichage n'est pas du travail à sauvegarder.
+
+      Ces clés gardent au chaud ce que le serveur vient de nous dire, pour ne pas
+      le redemander à chaque écran. Sans cette sortie, mettre en cache une phrase
+      calculée à partir de l'état de quelqu'un déclencherait la remontée de tout
+      cet état — un aller-retour réseau complet pour un cache. Voir `clesCache.ts`.
+    */
+    if (CLES_CACHE_AFFICHAGE.has(key)) return;
 
     // Ignore updates that are just downloading from cloud to prevent feedback loops
     if (isSyncing) return;
