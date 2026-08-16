@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { FILTRE_MESSAGES_ECRITS } from '../common/message-inscription';
+import { debutDuJourParis } from '../common/jour-paris';
 
 /**
  * Ce que deviennent les gens après leur inscription.
@@ -113,8 +114,14 @@ export class RetentionService {
     const retenus: Record<number, number> = { 1: 0, 7: 0, 30: 0 };
     const eligibles: Record<number, number> = { 1: 0, 7: 0, 30: 0 };
 
-    const debutDuJour = new Date(maintenant);
-    debutDuJour.setUTCHours(0, 0, 0, 0);
+    /*
+      La même journée que la carte « Actifs aujourd'hui » du haut de page, et que
+      le bloc du jour : minuit heure de Paris. Ce calcul était fait ici en UTC,
+      c'est-à-dire à 2 h du matin heure française — la page affichait donc deux
+      fois le libellé « Actifs aujourd'hui » avec deux nombres différents, celui
+      d'ici oubliant tous les jours quiconque avait agi entre minuit et 2 h.
+    */
+    const debutDuJour = debutDuJourParis(maintenant);
 
     for (const compte of comptes) {
       const jours = RetentionService.joursActifs(compte.sync_data?.daily_scores);

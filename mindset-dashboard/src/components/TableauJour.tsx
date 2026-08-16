@@ -159,15 +159,24 @@ export const TableauJour: React.FC = () => {
           <strong>{aujourdhui.ontOuvertUneSession}</strong> {aujourdhui.ontOuvertUneSession > 1 ? 'sont entrés' : 'est entré'} dans
           l'app, <strong>{aujourdhui.ontFiniLeQuestionnaire}</strong> {aujourdhui.ontFiniLeQuestionnaire > 1 ? 'ont' : 'a'} fini le
           questionnaire.
-          {aujourdhui.plansAutomatiques > 0 && (
-            <>
-              {' '}
-              <strong>{aujourdhui.plansAutomatiques}</strong> plan
-              {aujourdhui.plansAutomatiques > 1 ? 's ont' : ' a'} été demandé
-              {aujourdhui.plansAutomatiques > 1 ? 's' : ''} automatiquement en fin de
-              questionnaire — ce n'est pas une conversation, et ce n'est pas compté comme telle.
-            </>
-          )}
+        </p>
+      )}
+
+      {/*
+        Sorti de la phrase ci-dessus : celle-ci ne parle que des inscrits du jour,
+        alors que ce compte-ci porte sur tous les comptes. Écrits à la suite, les
+        deux se lisaient comme une même population — « 13 ont fini le
+        questionnaire, 12 plans demandés » invitait à chercher la personne
+        manquante, qui n'existe peut-être pas.
+      */}
+      {aujourdhui.plansAutomatiques > 0 && (
+        <p className="jour-marches">
+          Par ailleurs, tous comptes confondus,{' '}
+          <strong>{aujourdhui.plansAutomatiques}</strong> plan
+          {aujourdhui.plansAutomatiques > 1 ? 's ont' : ' a'} été demandé
+          {aujourdhui.plansAutomatiques > 1 ? 's' : ''} automatiquement en fin de
+          questionnaire aujourd'hui — ce n'est pas une conversation, et ce n'est pas
+          compté comme telle.
         </p>
       )}
 
