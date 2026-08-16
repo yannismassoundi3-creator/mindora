@@ -224,11 +224,68 @@ export class WeeklyReviewService {
     return null;
   }
 
-  /** Filet de longueur pour la lecture d'écran, plus généreux que la notification. */
-  private static readonly PLAFOND_LECTURE = 700;
+  /**
+   * Filet de longueur pour la lecture d'écran, plus généreux que la notification.
+   *
+   * Il valait 700, c'est-à-dire à peu près ce que le modèle écrit vraiment quand
+   * on lui demande trois paragraphes de 600 caractères. Un filet réglé sur la
+   * taille de ce qu'il attrape n'est plus un filet : il coupait à chaque fois, et
+   * il coupait dans le troisième paragraphe — celui qui porte la seule chose à
+   * changer, donc tout l'intérêt de la lecture, et la contrepartie visible de
+   * l'abonnement.
+   */
+  private static readonly PLAFOND_LECTURE = 1000;
 
-  /** De quoi écrire trois paragraphes sans être coupé au milieu du troisième. */
-  private static readonly JETONS_LECTURE = 320;
+  /**
+   * De quoi écrire trois paragraphes sans être coupé au milieu du troisième.
+   *
+   * 320 jetons font environ 700 à 800 caractères en français : le modèle butait
+   * donc sur sa limite de jetons au moment précis où le plafond de caractères le
+   * rattrapait. Les deux bornes étaient réglées sur la longueur du texte attendu,
+   * et le texte se faisait couper deux fois plutôt qu'aucune.
+   */
+  private static readonly JETONS_LECTURE = 500;
+
+  /**
+   * En deçà de cette part du plafond, finir sur une phrase coûterait trop de texte.
+   *
+   * Couper à la dernière phrase complète est presque toujours le bon geste, mais
+   * si cette phrase tombe très tôt — un premier paragraphe suivi d'une longue
+   * énumération sans point — on jetterait la moitié de la lecture pour gagner une
+   * ponctuation. Dans ce cas seulement, on coupe au mot et on l'annonce.
+   */
+  private static readonly PART_MINIMALE_PHRASE = 0.6;
+
+  /**
+   * Le plafond, appliqué sans couper au milieu d'un mot.
+   *
+   * Une troncature brute rendait « ...qui pourrait avoir u… » : le lecteur voit
+   * qu'on lui a retiré quelque chose, et sur l'écran que l'abonnement paie. Finir
+   * sur la dernière phrase complète coûte quelques caractères et se lit comme un
+   * texte terminé — il n'y a alors plus rien à signaler, donc pas de points de
+   * suspension. Ils ne reviennent que dans le cas où l'on coupe vraiment au mot.
+   */
+  private static couperProprement(texte: string, plafond: number): string {
+    if (texte.length <= plafond) return texte;
+
+    const debut = texte.slice(0, plafond);
+
+    // La dernière ponctuation de fin de phrase, celle qui est suivie d'une espace
+    // ou d'une fin de ligne — sans quoi le point d'un « 69 % » ou d'un nombre
+    // décimal ferait couper au milieu d'une donnée.
+    let finPhrase = -1;
+    const ponctuation = /[.!?](\s|$)/g;
+    let trouve: RegExpExecArray | null;
+    while ((trouve = ponctuation.exec(debut)) !== null) finPhrase = trouve.index;
+
+    if (finPhrase >= plafond * WeeklyReviewService.PART_MINIMALE_PHRASE) {
+      return debut.slice(0, finPhrase + 1);
+    }
+
+    const coupe = debut.slice(0, plafond - 1);
+    const dernierEspace = coupe.lastIndexOf(' ');
+    return (dernierEspace > 0 ? coupe.slice(0, dernierEspace) : coupe).trimEnd() + '…';
+  }
 
   /** Un appel, sur un modèle donné. Retourne null pour laisser sa chance au suivant. */
   private async tenter(
@@ -277,7 +334,7 @@ export class WeeklyReviewService {
         return null;
       }
 
-      return propre.length > plafond ? propre.slice(0, plafond - 3) + '…' : propre;
+      return WeeklyReviewService.couperProprement(propre, plafond);
     } catch (e: any) {
       this.logger.warn(
         `Bilan hebdomadaire non généré sur ${modele} : ${e?.name === 'AbortError' ? 'délai dépassé' : e?.message}`,

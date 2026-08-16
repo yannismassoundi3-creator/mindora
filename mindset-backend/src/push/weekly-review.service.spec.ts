@@ -164,7 +164,58 @@ describe('WeeklyReviewService — une réponse coupée par max_tokens', () => {
 
     const texte = await service.generate('Yannis', semaine);
 
-    expect(texte).toHaveLength(198);
+    expect(texte!.length).toBeLessThanOrEqual(200);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * Le plafond ne doit pas se voir.
+   *
+   * Il coupait au caractère près : l'écran de bilan finissait sur « qui pourrait
+   * avoir u… », sur la lecture que l'abonnement paie. Un texte qui s'arrête sur
+   * une phrase entière se lit comme un texte terminé ; un texte coupé au milieu
+   * d'un mot dit au lecteur qu'on lui a retiré quelque chose.
+   */
+  describe('le plafond de longueur', () => {
+    it('finit sur une phrase complète, sans points de suspension', async () => {
+      fetchMock.mockResolvedValueOnce(reponseOk('Quatre jours tenus cette semaine. '.repeat(10)));
+
+      const texte = await service.generate('Yannis', semaine);
+
+      expect(texte!.endsWith('.')).toBe(true);
+      expect(texte).not.toContain('…');
+      expect(texte!.length).toBeLessThanOrEqual(200);
+    });
+
+    it('ne coupe jamais au milieu d’un mot', async () => {
+      // Une seule phrase interminable : aucune ponctuation où s'arrêter proprement.
+      fetchMock.mockResolvedValueOnce(reponseOk('discipline '.repeat(40)));
+
+      const texte = await service.generate('Yannis', semaine);
+
+      expect(texte!.endsWith('…')).toBe(true);
+      // Le mot qui précède les points de suspension est entier.
+      expect(texte!.slice(0, -1).trim().endsWith('discipline')).toBe(true);
+    });
+
+    it("laisse passer intact un texte qui tient sous le plafond", async () => {
+      fetchMock.mockResolvedValueOnce(reponseOk('Quatre jours tenus. Vise cinq la semaine prochaine.'));
+
+      expect(await service.generate('Yannis', semaine)).toBe(
+        'Quatre jours tenus. Vise cinq la semaine prochaine.',
+      );
+    });
+
+    it("ne coupe pas sur le point d'un nombre décimal", async () => {
+      // « 69.5 » contient un point : sans l'espace exigée après la ponctuation, la
+      // coupure tomberait au milieu d'une donnée chiffrée.
+      const long = 'Ton score atteint 69.5 pour cette semaine complete et reguliere. ';
+      fetchMock.mockResolvedValueOnce(reponseOk(long.repeat(4)));
+
+      const texte = await service.generate('Yannis', semaine);
+
+      expect(texte!.endsWith('69.')).toBe(false);
+      expect(texte!.endsWith('.')).toBe(true);
+    });
   });
 });
