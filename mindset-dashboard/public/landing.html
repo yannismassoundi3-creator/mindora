@@ -463,6 +463,112 @@
             gap: 1.5rem;
         }
 
+        /* ======================== */
+        /*    CAPTURES DE L'APP     */
+        /* ======================== */
+
+        /*
+           Une bande qui défile horizontalement, et non une grille.
+
+           Six captures de téléphone empilées feraient six écrans de haut ; côte à
+           côte, elles en font un seul. C'est la seule mise en page qui permet
+           d'ajouter des images à une page déjà trop longue.
+
+           `scroll-snap` parce qu'un défilement libre s'arrête toujours entre deux
+           images, ce qui donne l'impression d'un contenu mal calé plutôt que d'une
+           galerie.
+        */
+        .captures {
+            display: flex;
+            gap: 1.25rem;
+            overflow-x: auto;
+            scroll-snap-type: x mandatory;
+            /* Le rembourrage vient d'ici et non du parent : sans lui, la première et
+               la dernière carte se collent aux bords pendant le défilement. */
+            padding: 0.5rem 0 1.5rem;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+        }
+
+        .captures::-webkit-scrollbar {
+            height: 4px;
+        }
+
+        .captures::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 100px;
+        }
+
+        .capture {
+            flex: 0 0 auto;
+            width: 230px;
+            scroll-snap-align: center;
+            margin: 0;
+        }
+
+        .capture img {
+            width: 100%;
+            /* Le rapport est imposé pour que la page ne saute pas pendant que les
+               images arrivent : elles sont chargées paresseusement. */
+            aspect-ratio: 9 / 19.5;
+            object-fit: cover;
+            object-position: top;
+            display: block;
+            border-radius: 22px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: var(--gray-950);
+            box-shadow: 0 20px 45px -15px rgba(0, 0, 0, 0.9);
+        }
+
+        .capture figcaption {
+            margin-top: 0.9rem;
+            font-size: 0.82rem;
+            line-height: 1.5;
+            color: var(--gray-300);
+        }
+
+        .capture figcaption strong {
+            color: var(--white);
+            font-weight: 600;
+        }
+
+        /* L'indice de défilement ne s'adresse qu'au doigt : sur ordinateur, les six
+           captures tiennent à l'écran et la phrase décrirait un geste inutile. */
+        .captures-indice {
+            display: none;
+            font-size: 0.8rem;
+            color: var(--gray-400);
+            text-align: center;
+        }
+
+        @media (max-width: 900px) {
+            .captures-indice {
+                display: block;
+            }
+
+            /*
+               La capture d'ordinateur du hero ne sert plus sur téléphone.
+
+               Elle fait 1024 px de large et s'affiche à 327 : un facteur trois, où
+               plus aucun texte de l'interface n'est lisible. Elle montrait donc une
+               image floue de l'application à l'endroit exact où il faut convaincre,
+               et elle coûtait un quart d'écran. Les vraies captures, verticales et
+               prises sur un téléphone, font ce travail deux sections plus bas.
+
+               Conservée sur grand écran, où elle est à sa taille et à sa place.
+            */
+            .hero-image-container {
+                display: none;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .captures {
+                scroll-snap-type: none;
+            }
+        }
+
         .feature-card {
             background: rgba(15, 23, 42, 0.6) !important;
             backdrop-filter: blur(20px) !important;
@@ -1345,42 +1451,50 @@
     <section id="features">
         <div class="section-container">
             <div class="features-header reveal">
-                <span class="section-label">Ce que tu obtiens</span>
-                <h2 class="section-title">De qui tu veux devenir<br>à qui tu deviens.</h2>
-                <p class="section-desc">Six maillons, dans l'ordre. Aucun ne sert à grand-chose tout seul.</p>
+                <span class="section-label">Le coach, à l'œuvre</span>
+                <h2 class="section-title">Tu demandes.<br>Il écrit ton plan.</h2>
+                <p class="section-desc">Six écrans de l'application, dans l'ordre où tu les rencontres. Rien n'est mis en scène.</p>
             </div>
-            <div class="features-grid">
-                <div class="feature-card reveal">
-                    <div class="feature-icon">🎯</div>
-                    <h3 class="feature-title">Ton cap, écrit noir sur blanc</h3>
-                    <p class="feature-desc">Ce que tu veux devenir reste affiché en haut de l'application. Ton coach le relit à chaque message, et tu peux en changer quand tu changes.</p>
-                </div>
-                <div class="feature-card reveal">
-                    <div class="feature-icon">🧠</div>
-                    <h3 class="feature-title">Un coach qui écrit ton plan</h3>
-                    <p class="feature-desc">Tu lui parles comme à quelqu'un. Il te rend des routines, des habitudes et des objectifs découpés en étapes — appliqués dans l'app d'un seul clic.</p>
-                </div>
-                <div class="feature-card reveal">
-                    <div class="feature-icon">⚡</div>
-                    <h3 class="feature-title">Une seule chose à faire maintenant</h3>
-                    <p class="feature-desc">Ta prochaine tâche est en haut de chaque écran, avec de quoi la cocher sur place. Pas de liste à trier avant de commencer.</p>
-                </div>
-                <div class="feature-card reveal">
-                    <div class="feature-icon">🔥</div>
-                    <h3 class="feature-title">Une série que tu ne veux plus casser</h3>
-                    <p class="feature-desc">Un jour tenu, un carré rempli. Ton année entière tient sur un écran, et c'est en voyant la chaîne qu'on refuse de la rompre.</p>
-                </div>
-                <div class="feature-card reveal">
-                    <div class="feature-icon">📈</div>
-                    <h3 class="feature-title">Des rangs qui se méritent</h3>
-                    <p class="feature-desc">Chaque tâche cochée donne de l'expérience. Six rangs, de Novice à Légende, et l'écran te dit toujours ce qui te sépare du suivant.</p>
-                </div>
-                <div class="feature-card reveal">
-                    <div class="feature-icon">💬</div>
-                    <h3 class="feature-title">Il se souvient de toi</h3>
-                    <p class="feature-desc">Ton coach garde ce que tu lui as confié, connaît ta semaine et ta régularité, et t'ouvre la conversation lui-même au lieu d'attendre.</p>
-                </div>
+            <!--
+                Six cartes en emoji décrivaient l'application ; elles pesaient 2 504 px
+                sur téléphone — 3,1 écrans, 23 % de la page — pour dire avec des mots
+                ce qu'une capture montre en une seconde. Elles laissent la place aux
+                écrans réels, rangés dans une bande qui défile horizontalement : six
+                captures y tiennent dans la hauteur d'une seule.
+
+                L'ordre raconte la boucle, et donne le premier rôle au coach : on lui
+                demande, il écrit le plan, le plan entre dans l'app, et le reste suit.
+
+                Les légendes décrivent un mécanisme, jamais un résultat. C'est la même
+                règle que partout ailleurs sur cette page.
+            -->
+            <div class="captures" role="list">
+                <figure class="capture reveal" role="listitem">
+                    <img src="captures/demande.png" alt="Conversation : demande d'un plan au coach" loading="lazy" decoding="async">
+                    <figcaption><strong>Tu demandes.</strong> En une phrase, comme à quelqu'un.</figcaption>
+                </figure>
+                <figure class="capture reveal" role="listitem">
+                    <img src="captures/plan.png" alt="Le coach répond avec un plan structuré" loading="lazy" decoding="async">
+                    <figcaption><strong>Il écrit le plan.</strong> Objectifs, routines, séances — découpés, datés.</figcaption>
+                </figure>
+                <figure class="capture reveal" role="listitem">
+                    <img src="captures/applique.png" alt="Le plan appliqué dans l'application" loading="lazy" decoding="async">
+                    <figcaption><strong>Il l'applique.</strong> Un clic, et c'est dans ton app. Réversible.</figcaption>
+                </figure>
+                <figure class="capture reveal" role="listitem">
+                    <img src="captures/accueil.png" alt="Écran d'accueil avec la journée bouclée et la série" loading="lazy" decoding="async">
+                    <figcaption><strong>Ta journée tient sur un écran.</strong> Ce qui reste, et ta série.</figcaption>
+                </figure>
+                <figure class="capture reveal" role="listitem">
+                    <img src="captures/habitudes.png" alt="Suivi des habitudes semaine par semaine" loading="lazy" decoding="async">
+                    <figcaption><strong>La répétition devient visible.</strong> Un jour tenu, un carré.</figcaption>
+                </figure>
+                <figure class="capture reveal" role="listitem">
+                    <img src="captures/objectifs.png" alt="Écran des objectifs long terme" loading="lazy" decoding="async">
+                    <figcaption><strong>Ton cap reste sous les yeux.</strong> Et le coach le relit à chaque message.</figcaption>
+                </figure>
             </div>
+            <p class="captures-indice">Fais glisser pour voir la suite →</p>
         </div>
     </section>
 
@@ -1731,6 +1845,45 @@
 
         const metricEl = document.getElementById('metric-users');
         if (metricEl) metricsObserver.observe(metricEl);
+
+        /*
+            Une capture qui ne se charge pas disparaît, au lieu de laisser son icône
+            cassée.
+
+            Ce n'est pas de la coquetterie : ces fichiers sont déposés à la main dans
+            `public/captures/`. Entre le moment où cette page part en production et
+            celui où les images y sont, une icône brisée sur la seule section qui
+            montre le produit fait plus de mal que pas de section du tout. Et si
+            aucune ne se charge, la section entière s'efface — la page reste
+            cohérente, simplement plus courte.
+        */
+        (() => {
+            const bande = document.querySelector('.captures');
+            const premiere = bande?.querySelector('img');
+            if (!premiere) return;
+
+            /*
+                Une sonde, plutôt que l'écoute des erreurs des six images.
+
+                Les captures portent `loading="lazy"` — ce qui est juste, ce sont les
+                fichiers les plus lourds de la page. Mais un navigateur ne tente rien
+                tant qu'on n'approche pas de la bande : ni `error`, ni `complete`. Le
+                repli ne pouvait donc décider de rien au chargement, et l'icône brisée
+                serait apparue au moment précis où l'on arrive sur la section.
+
+                Cette image-ci n'est pas dans le document : elle se charge tout de
+                suite, sans attendre, et une seule requête suffit à savoir si le
+                dossier est en place.
+            */
+            const sonde = new Image();
+            sonde.addEventListener('error', () => {
+                document.getElementById('features')?.remove();
+                // Le lien du menu partirait sinon vers une ancre qui n'existe plus :
+                // le clic ne ferait rien, ce qui se lit comme un menu cassé.
+                document.querySelector('.navbar-links a[href="#features"]')?.closest('li')?.remove();
+            }, { once: true });
+            sonde.src = premiere.getAttribute('src');
+        })();
 
         // Mobile Menu Logic
         const mobileToggle = document.getElementById('mobile-toggle');

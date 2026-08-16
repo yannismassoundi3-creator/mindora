@@ -1,0 +1,28 @@
+Les six captures de la landing (section « Le coach, à l'œuvre »).
+
+Dépose ici tes six captures d'iPhone, avec EXACTEMENT ces noms :
+
+  demande.png    la conversation où tu demandes un plan au coach
+  plan.png       la réponse du coach : macro-objectif, micro-objectifs, routines
+  applique.png   « Plan appliqué avec succès », avec le plan alimentaire
+  accueil.png    l'écran d'accueil : journée bouclée, série, routine du jour
+  habitudes.png  les habitudes et leur grille de la semaine
+  objectifs.png  les macro-objectifs (Vision)
+
+L'ordre des fichiers est l'ordre d'affichage, et il raconte la boucle :
+on demande, il écrit, ça entre dans l'app, et le reste suit.
+
+Deux choses à savoir :
+
+1. Tant que ces fichiers sont absents, la section entière disparaît de la
+   page — ni images cassées, ni trou. C'est voulu : mieux vaut une page plus
+   courte qu'une page abîmée. Elle réapparaît d'elle-même dès qu'ils sont là.
+
+2. COMPRESSE-LES avant de les déposer. Une capture d'iPhone brute pèse 1 à
+   2 Mo ; six d'entre elles ajouteraient une dizaine de mégaoctets à une page
+   que des gens ouvrent sur données mobiles depuis une publicité. Vise moins
+   de 150 Ko chacune (squoosh.app, en WebP ou PNG réduit à ~500 px de large —
+   elles ne sont jamais affichées plus grand que 230 px).
+
+Le cadre, les coins arrondis et l'ombre sont ajoutés par le CSS : ne les
+mets pas dans l'image.
