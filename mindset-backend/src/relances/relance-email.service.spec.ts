@@ -163,6 +163,38 @@ describe('RelanceEmailService', () => {
     });
   });
 
+  describe('le mode simulation', () => {
+    it('n’envoie rien et n’écrit rien, mais dit qui recevrait quoi', async () => {
+      // Un envoi est irréversible et sort du produit : la liste doit pouvoir se
+      // lire avant, sans avoir à la déduire du code.
+      prisma.user.findMany.mockResolvedValue([
+        compte({ inscritIlYA: 4, email: 'jamais@example.com' }),
+        compte({ inscritIlYA: 12, joursActifs: [12, 8], email: 'parti@example.com' }),
+        compte({ inscritIlYA: 12, joursActifs: [12, 1], email: 'actif@example.com' }),
+      ]);
+
+      const bilan = await service.tournee(true);
+
+      expect(global.fetch).not.toHaveBeenCalled();
+      expect(prisma.relanceEmail.create).not.toHaveBeenCalled();
+      expect(bilan.simulation).toBe(true);
+      expect(bilan.parMotif).toEqual({ jamais_ouvert: 1, decroche: 1 });
+      expect(bilan.destinataires).toEqual([
+        { email: 'jamais@example.com', motif: 'jamais_ouvert', inscritIlYA: 4 },
+        { email: 'parti@example.com', motif: 'decroche', inscritIlYA: 12 },
+      ]);
+    });
+
+    it('ne sort pas les adresses quand l’envoi est réel', async () => {
+      // Le décompte suffit à savoir ce qui s'est passé ; une réponse d'API n'est
+      // pas un endroit où laisser traîner les adresses de tout le monde.
+      const bilan = await avec([compte({ inscritIlYA: 4 })]);
+
+      expect(bilan.destinataires).toBeUndefined();
+      expect(bilan.envoyes).toBe(1);
+    });
+  });
+
   describe('ce qui décide du dossier indésirables', () => {
     const corpsEnvoye = () => JSON.parse((global.fetch as any).mock.calls[0][1].body);
 

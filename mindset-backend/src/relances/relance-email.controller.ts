@@ -72,9 +72,18 @@ export class RelanceEmailController {
   @ApiResponse({ status: 403, description: 'Réservé aux comptes ADMIN.' })
   @Post('relances/run')
   @HttpCode(200)
-  @ApiOperation({ summary: 'Lancer la tournée de relances maintenant, et rendre son décompte' })
-  async lancer(@Request() req) {
-    return this.relances.tournee();
+  @ApiOperation({
+    summary: 'Lancer la tournée de relances maintenant, et rendre son décompte',
+    description:
+      "Avec ?simulation=true, rien n'est envoyé ni écrit : la réponse dit seulement " +
+      'qui recevrait quoi. Un envoi est irréversible et sort du produit — la liste ' +
+      'doit pouvoir se lire avant, pas se deviner.',
+  })
+  async lancer(@Request() req, @Query('simulation') simulation?: string) {
+    // Tout ce qui n'est pas explicitement « true » envoie pour de bon : c'est le
+    // sens de la route, et un mode d'essai qu'on active par mégarde en croyant
+    // avoir envoyé est pire que pas de mode d'essai du tout.
+    return this.relances.tournee(simulation === 'true');
   }
 
   private static enveloppe(contenu: string): string {

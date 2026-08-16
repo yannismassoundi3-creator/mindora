@@ -231,8 +231,23 @@ export class RelanceEmailService {
   /**
    * Une tournée complète. Rendue publique pour être déclenchable à la main : une
    * tâche planifiée qu'on ne peut pas rejouer ne se diagnostique que le lendemain.
+   *
+   * En `simulation`, rien ne part et rien n'est écrit : on rend seulement qui
+   * recevrait quoi. Un envoi est irréversible et sort du produit — on doit pouvoir
+   * regarder la liste avant, sans avoir à la deviner d'après le code. C'est
+   * d'autant plus vrai ici que le premier passage trouve d'un coup tout
+   * l'historique des comptes dormants.
    */
-  async tournee(): Promise<{ examines: number; envoyes: number; echecs: number; parMotif: Record<string, number> }> {
+  async tournee(
+    simulation = false,
+  ): Promise<{
+    simulation: boolean;
+    examines: number;
+    envoyes: number;
+    echecs: number;
+    parMotif: Record<string, number>;
+    destinataires?: Array<{ email: string; motif: MotifRelance; inscritIlYA: number }>;
+  }> {
     const maintenant = new Date();
     const limite = new Date(maintenant.getTime() - RelanceEmailService.JOURS_MAX * 86_400_000);
 
@@ -252,7 +267,14 @@ export class RelanceEmailService {
       },
     });
 
-    const bilan = { examines: comptes.length, envoyes: 0, echecs: 0, parMotif: {} as Record<string, number> };
+    const bilan = {
+      simulation,
+      examines: comptes.length,
+      envoyes: 0,
+      echecs: 0,
+      parMotif: {} as Record<string, number>,
+      destinataires: [] as Array<{ email: string; motif: MotifRelance; inscritIlYA: number }>,
+    };
 
     for (const compte of comptes) {
       if (bilan.envoyes >= RelanceEmailService.MAX_PAR_TOURNEE) break;
@@ -266,6 +288,19 @@ export class RelanceEmailService {
         maintenant,
       );
       if (!motif) continue;
+
+      if (simulation) {
+        // Le plafond compte quand même : la simulation doit décrire la tournée
+        // réelle, pas une tournée idéale qui n'aura jamais lieu.
+        bilan.envoyes++;
+        bilan.parMotif[motif] = (bilan.parMotif[motif] ?? 0) + 1;
+        bilan.destinataires.push({
+          email: compte.email,
+          motif,
+          inscritIlYA: Math.floor((maintenant.getTime() - compte.created_at.getTime()) / 86_400_000),
+        });
+        continue;
+      }
 
       const { sujet, html, texte, lienRetrait } = this.contenu(motif, compte.first_name || 'toi', compte.id);
       const parti = await envoyerEmail({ destinataire: compte.email, sujet, html, texte, lienRetrait });
@@ -284,6 +319,10 @@ export class RelanceEmailService {
       bilan.parMotif[motif] = (bilan.parMotif[motif] ?? 0) + 1;
     }
 
+    // Hors simulation, la liste nominative n'a pas à sortir : le décompte suffit à
+    // savoir ce qui s'est passé, et une réponse d'API n'est pas un endroit où
+    // laisser traîner les adresses de tout le monde.
+    if (!simulation) return { ...bilan, destinataires: undefined };
     return bilan;
   }
 
