@@ -574,16 +574,16 @@
         }
 
         /* ======================== */
-        /*   TESTIMONIALS SECTION   */
+        /*     OBJECTIONS SECTION   */
         /* ======================== */
-        .testimonials-grid {
+        .objections-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 1.5rem;
             margin-top: 4rem;
         }
 
-        .testimonial-card {
+        .objection-card {
             background: rgba(255, 255, 255, 0.02);
             border: 1px solid rgba(255, 255, 255, 0.06);
             border-radius: 20px;
@@ -591,19 +591,13 @@
             transition: all 0.4s var(--ease-out-expo);
         }
 
-        .testimonial-card:hover {
+        .objection-card:hover {
             border-color: rgba(255, 255, 255, 0.12);
             transform: translateY(-2px);
         }
 
-        .testimonial-stars {
-            color: var(--white);
-            font-size: 0.85rem;
-            letter-spacing: 2px;
-            margin-bottom: 1rem;
-        }
 
-        .testimonial-text {
+        .objection-text {
             font-size: 0.95rem;
             color: var(--gray-200);
             line-height: 1.7;
@@ -611,11 +605,6 @@
             font-style: italic;
         }
 
-        .testimonial-author {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
 
         .author-avatar {
             width: 40px;
@@ -912,7 +901,7 @@
         @media (max-width: 900px) {
             .features-grid,
             .steps-grid,
-            .testimonials-grid,
+            .objections-grid,
             .pricing-grid {
                 grid-template-columns: 1fr;
                 max-width: 480px;
@@ -1240,7 +1229,7 @@
         <ul class="navbar-links">
             <li><a href="#how-it-works">Comment ça marche</a></li>
             <li><a href="#features">Ce que tu obtiens</a></li>
-            <li><a href="#testimonials">Témoignages</a></li>
+            <li><a href="#objections">Pourquoi ça tient</a></li>
             <li><a href="#pricing">Tarifs</a></li>
             <li><a href="#" class="btn btn-secondary open-login-btn" style="padding: 0.6rem 1rem; font-size: 0.8rem; margin-right: 0.5rem;">Connexion</a></li>
             <li><a href="#cta" class="btn btn-primary open-modal-btn" style="padding: 0.6rem 1.5rem; font-size: 0.8rem;">S'inscrire</a></li>
@@ -1278,10 +1267,21 @@
             <img src="dashboard-preview.png" alt="Disciplix Dashboard" style="width: 100%; height: auto; border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.15); box-shadow: 0 25px 50px -12px rgba(0,0,0,1);">
         </div>
 
+        <!--
+            Les trois chiffres du haut ne disent que des choses vérifiables.
+
+            Il y avait ici « 100 · Places Bêta ». Ce nombre ne correspondait à
+            aucune limite réelle : c'était une rareté décorative, c'est-à-dire le
+            genre de mention que l'article L121-2 du Code de la consommation
+            qualifie de pratique commerciale trompeuse. Remplacé par le nombre de
+            questions du parcours d'inscription, qui est exact et qui répond à la
+            seule objection qui compte à cet endroit : combien ça va me coûter
+            d'essayer.
+        -->
         <div class="hero-metrics">
             <div class="metric">
-                <div class="metric-value" id="metric-users">100</div>
-                <div class="metric-label">Places Bêta</div>
+                <div class="metric-value" id="metric-users">6</div>
+                <div class="metric-label">Questions, et ton plan est prêt</div>
             </div>
             <div class="metric">
                 <div class="metric-value">0€</div>
@@ -1384,56 +1384,62 @@
         </div>
     </section>
 
-    <!-- Testimonials -->
-    <section id="testimonials">
+    <!--
+        Ici se trouvaient trois témoignages inventés, avec prénoms, âges et étoiles.
+
+        Deux d'entre eux revendiquaient un résultat de santé — « j'ai réussi ma prise
+        de masse », « j'ai réussi à maigrir de 5 kg ». Publier de faux avis de
+        consommateurs est une pratique commerciale trompeuse (art. L121-2 du Code de
+        la consommation), contrôlée depuis 2022 par la DGCCRF, et les sanctions se
+        calculent sur le budget publicitaire annuel. Y adosser une promesse de perte
+        de poids ajoute une seconde infraction à la première.
+
+        Ils partiront de toute façon le jour où de vrais avis arriveront. En
+        attendant, la place n'est pas perdue : elle va à l'objection qui décide
+        réellement, et à laquelle la page ne répondait nulle part — « j'ai déjà
+        essayé ce genre d'application, et j'ai arrêté ». Chacune des trois réponses
+        décrit un mécanisme qu'on peut montrer à l'écran, conformément à la règle
+        que le reste de la page respecte déjà.
+    -->
+    <section id="objections">
         <div class="section-container">
             <div class="features-header reveal">
-                <span class="section-label">Témoignages</span>
-                <h2 class="section-title">Ce qu'ils en disent.</h2>
-                <p class="section-desc">Les retours exclusifs de nos premiers Bêta-testeurs sur le terrain.</p>
+                <span class="section-label">Soyons honnêtes</span>
+                <h2 class="section-title">Tu as déjà essayé.<br>Et tu as arrêté.</h2>
+                <p class="section-desc">C'est le cas de tout le monde. Voilà ce qui est fait différemment ici — et tu jugeras sur pièces.</p>
             </div>
-            <div class="testimonials-grid">
-                <div class="testimonial-card reveal">
-                    <div class="testimonial-stars">⭐⭐⭐⭐⭐</div>
-                    <p class="testimonial-text">"j'arrivais pas a tenir une routine plus de 3 jours le coté jeu video ma completement matrixé je fais mes tache juste pour voir la jauge monter j'ai meme reussi ma prise de masse grace a sa"</p>
-                    <div class="testimonial-author">
-                        <div class="author-avatar">M</div>
-                        <div>
-                            <div class="author-name">M. (19 ans)</div>
-                            <div class="author-role">Étudiant</div>
-                        </div>
-                    </div>
+            <div class="objections-grid">
+                <div class="objection-card reveal">
+                    <h3 style="font-size: 1.05rem; margin-bottom: 12px;">« Je n'ai jamais su quoi mettre dans mon planning »</h3>
+                    <p class="objection-text" style="font-style: normal;">
+                        Tu n'as rien à construire. Tu réponds à six questions — dont le temps que tu as
+                        vraiment, pas celui que tu voudrais avoir — et ton coach écrit le plan. Tu peux
+                        lui dire de le refaire autant de fois que tu veux.
+                    </p>
                 </div>
-                <div class="testimonial-card reveal">
-                    <div class="testimonial-stars">⭐⭐⭐⭐⭐</div>
-                    <p class="testimonial-text">"le theme noir est incroyable premiere fois que j'ouvre une appli sans avoir l'impression de taffer le chat ia ma debloqué sur plein de truc et j'ai reussi a maigrir de 5kg avec le trackeur"</p>
-                    <div class="testimonial-author">
-                        <div class="author-avatar">L</div>
-                        <div>
-                            <div class="author-name">L. (21 ans)</div>
-                            <div class="author-role">Bêta Testeur</div>
-                        </div>
-                    </div>
+                <div class="objection-card reveal">
+                    <h3 style="font-size: 1.05rem; margin-bottom: 12px;">« Au bout de trois jours, j'oublie »</h3>
+                    <p class="objection-text" style="font-style: normal;">
+                        L'app ne t'ouvre pas sur une liste à trier. Une seule chose à faire est en haut
+                        de chaque écran, avec de quoi la cocher sur place. Et chaque jour tenu remplit un
+                        carré : au bout d'une semaine, c'est la chaîne que tu ne veux plus casser.
+                    </p>
                 </div>
-                <div class="testimonial-card reveal">
-                    <div class="testimonial-stars">⭐⭐⭐⭐<span style="opacity:0.5">⭐</span></div>
-                    <p class="testimonial-text">"pouvoir suivre son energie comme dans un rpg c simple mais sah c'est efficace de fou j'ai vraiment hate que les nouveau rang sorte"</p>
-                    <div class="testimonial-author">
-                        <div class="author-avatar">A</div>
-                        <div>
-                            <div class="author-name">A. (24 ans)</div>
-                            <div class="author-role">Sportif</div>
-                        </div>
-                    </div>
+                <div class="objection-card reveal">
+                    <h3 style="font-size: 1.05rem; margin-bottom: 12px;">« Ces applis me font culpabiliser »</h3>
+                    <p class="objection-text" style="font-style: normal;">
+                        Rien ici ne te reproche une journée manquée. Un niveau atteint ne se reperd jamais,
+                        et ton coach reprend où tu en étais plutôt que de compter ce que tu n'as pas fait.
+                    </p>
                 </div>
             </div>
 
             <div style="text-align: center; margin-top: 40px;" class="reveal">
-                <a href="mailto:mindoraappli@gmail.com?subject=Mon avis sur Disciplix" class="btn btn-primary btn-glow" style="display: inline-flex; align-items: center; gap: 8px; text-decoration: none;">
-                    ✍️ Ajouter un avis
+                <a href="#cta" class="btn btn-primary btn-glow" style="display: inline-flex; align-items: center; gap: 8px; text-decoration: none;">
+                    Essayer, c'est gratuit <span class="btn-icon">→</span>
                 </a>
                 <p style="font-size: 0.85rem; color: var(--gray-400); margin-top: 16px;">
-                    *Vous devez être connecté et posséder un abonnement Disciplix Pro pour laisser un avis.
+                    Sans carte bancaire. Le suivi reste gratuit, pour toujours.
                 </p>
             </div>
         </div>
