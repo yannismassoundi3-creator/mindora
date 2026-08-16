@@ -1,6 +1,7 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { RetentionService } from './retention.service';
+import { QuotidienService } from './quotidien.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -13,6 +14,7 @@ export class AdminController {
   constructor(
     private readonly adminService: AdminService,
     private readonly retentionService: RetentionService,
+    private readonly quotidienService: QuotidienService,
   ) {}
 
   @Get('stats')
@@ -33,5 +35,17 @@ export class AdminController {
   @ApiOperation({ summary: 'Rétention, entonnoir et cohortes hebdomadaires' })
   async getRetentionStats() {
     return this.retentionService.getRetentionStats();
+  }
+
+  /**
+   * La journée en cours, et les treize précédentes. Même réserve d'accès : on y
+   * lit les arrivées nominatives du jour.
+   */
+  @Get('quotidien')
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Inscriptions du jour et usage du coach, jour par jour" })
+  async getStatsQuotidiennes() {
+    return this.quotidienService.getStatsQuotidiennes();
   }
 }

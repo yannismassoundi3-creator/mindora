@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, Users, CreditCard, Activity } from 'lucide-react';
 import { api } from '../services/api';
+import { TableauJour } from '../components/TableauJour';
 import { TableauRetention } from '../components/TableauRetention';
 import './AdminDashboard.css';
 
@@ -129,9 +130,16 @@ export const AdminDashboard: React.FC = () => {
       </div>
 
       {/*
-        Les trois cartes ci-dessus comptent les arrivées. Elles ne disent pas si
-        les gens restent — la seule question qui décide s'il faut faire connaître
-        l'application ou d'abord la corriger.
+        Les trois cartes ci-dessus sont des totaux depuis le début : elles ne
+        bougent presque plus une fois qu'il y a du monde. La journée en cours vient
+        donc avant la rétention — c'est ce qu'on regarde le jour où l'on pousse
+        l'application quelque part.
+      */}
+      <TableauJour />
+
+      {/*
+        Et ci-dessous, ce que les arrivées deviennent : la seule question qui
+        décide s'il faut faire connaître l'application ou d'abord la corriger.
       */}
       <TableauRetention />
     </div>
