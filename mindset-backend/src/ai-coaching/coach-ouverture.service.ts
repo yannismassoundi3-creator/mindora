@@ -157,8 +157,18 @@ export class CoachOuvertureService {
       // Le compte qui n'a encore rien créé. Le geste attendu n'est pas de cocher
       // quelque chose — il n'y a rien à cocher — mais de dire ce qu'il veut devenir.
       vide: `Exemple de ton : « Tu m'as dit vouloir devenir quelqu'un de constant. On n'a encore rien posé ensemble. Dis-moi ce que tu veux que demain matin ressemble, et je te construis le plan. »`,
-      // Il reste des choses à faire : c'est le cas où l'on nomme une action précise.
-      reste: `Exemple de ton : « Il te reste ta séance de sport et ta lecture. Il est 17 h. Commence par la séance : dix minutes suffisent à ne pas casser la série. »`,
+      /*
+        Il reste des choses à faire : c'est le cas où l'on nomme une action précise.
+
+        L'exemple ne cite plus qu'UNE tâche. Le précédent en citait deux — « ta
+        séance de sport et ta lecture » — alors même que la consigne demande de
+        n'en nommer qu'une. Un modèle imite l'exemple avant d'obéir à la règle :
+        c'est de là que venaient les ouvertures à trois sujets.
+
+        Il montre aussi le bon registre pour une journée entamée mais pas finie :
+        l'heure sert à dire ce qui reste devant, jamais à juger ce qui est passé.
+      */
+      reste: `Exemple de ton : « Il est 19 h, et ta séance de sport n'est pas encore faite. Tu as encore la soirée : dix minutes suffisent à ne pas casser la série. »`,
       // Tout est fait. Ne rien redemander — c'est le moment de reconnaître.
       fini: `Exemple de ton : « Tout est coché, et c'est le quatrième jour d'affilée. C'est exactement comme ça qu'on devient la personne dont tu m'as parlé. »`,
     };
@@ -170,7 +180,21 @@ export class CoachOuvertureService {
       `- Deux phrases maximum, en français, en la tutoyant.`,
       `- Tu ouvres sur ce que tu sais d'elle : son objectif, ce qu'elle t'a déjà dit, sa régularité, l'état de sa journée. C'est ce qui prouve que tu la suis.`,
       `- Tu termines par une seule chose à faire maintenant, ou une seule question courte. Jamais les deux.`,
-      `- Si sa tendance montre un décrochage ou des jours à zéro, c'est par là que tu ouvres, avec le chiffre, sans l'adoucir. Une reprise commence par un constat, pas par un encouragement.`,
+      /*
+        Les quatre règles qui suivent viennent d'un message réellement envoyé, à
+        19 h 19 : « tu as échoué à accomplir 11 tâches sur 11. Tu as une séance de
+        méditation et une de sport, c'est une bonne base. Qu'est-ce que tu vas
+        faire pour tes révisions ? » Un verdict d'échec sur une journée encore
+        ouverte, un compliment portant sur des tâches non faites, et trois sujets
+        en deux phrases. La consigne d'alors demandait de la franchise ; elle
+        n'interdisait pas le registre de l'accusation, et rien ne disait qu'une
+        journée en cours n'est pas jugeable.
+      */
+      `- INTERDIT de parler d'échec, d'échouer, de rater, de manquer. Une journée en cours n'est pas un échec : tant qu'il reste des heures, il reste une journée. Tu constates un état, tu ne rends pas un verdict.`,
+      `- Une tâche non faite n'est JAMAIS une réussite. Ne félicite jamais quelqu'un pour ce qu'il a prévu, seulement pour ce qu'il a coché.`,
+      `- Un seul sujet. Une seule tâche citée, jamais deux, jamais une liste. Si plusieurs restent, choisis-en une et ignore les autres.`,
+      `- Ne mets jamais un reproche et un compliment dans le même message : l'un annule l'autre, et il ne reste qu'une impression de langue de bois.`,
+      `- Si sa tendance montre un décrochage ou des jours à zéro, c'est par là que tu ouvres, avec le chiffre, sans l'adoucir — mais sans le lui reprocher. Une reprise commence par un constat, pas par un encouragement ni par un procès.`,
       `- Pas de conditionnel mou : ni « tu pourrais », ni « peut-être », ni « si tu veux ». Tu affirmes, tu demandes.`,
       `- Aucun compliment qui ne s'appuie sur un fait présent dans les données. « Bravo » tout seul est interdit.`,
       `- N'INVENTE RIEN. Aucune tâche, aucune durée, aucun chiffre, aucun rendez-vous qui ne soit dans les données ci-dessous. Si tu n'as pas de tâche précise à citer, n'en cite aucune.`,
@@ -205,18 +229,43 @@ export class CoachOuvertureService {
     }
 
     const restantes = taches.filter((t) => !t.faite);
+    const faites = taches.filter((t) => t.faite);
     if (!restantes.length) {
       return {
         cas: 'fini',
-        resume: `Sa journée : les ${taches.length} tâches prévues sont toutes faites.`,
+        resume: [
+          `Sa journée : les ${taches.length} tâches prévues sont TOUTES FAITES.`,
+          `Ce qu'il a fait : ${faites.map((t) => t.titre).filter(Boolean).join(', ')}`,
+        ].join('\n'),
       };
     }
 
+    /*
+      Les deux listes sont nommées et séparées, et l'état de chacune est répété
+      dans son intitulé.
+
+      Le résumé disait « 0 tâche(s) faite(s) sur 11 » puis « Il lui reste : … ».
+      Le modèle a lu la seconde liste comme un acquis et a écrit, à 19 h 19 :
+      « tu as échoué à accomplir 11 tâches sur 11. Tu as une séance de méditation
+      et une de sport, c'est une bonne base. » — un reproche, suivi d'un
+      compliment portant sur des tâches qui n'étaient pas faites. Les deux
+      erreurs viennent d'ici : une liste sans étiquette explicite se fait ranger
+      du côté que le modèle préfère.
+
+      D'où « PAS ENCORE FAITES » plutôt que « il lui reste » : la formule dit son
+      propre statut, même sortie de son contexte.
+    */
     return {
       cas: 'reste',
       resume: [
-        `Sa journée : ${taches.length - restantes.length} tâche(s) faite(s) sur ${taches.length}.`,
-        `Il lui reste : ${restantes.map((t) => t.titre).filter(Boolean).join(', ')}`,
+        `Sa journée : ${faites.length} tâche(s) faite(s) sur ${taches.length}.`,
+        faites.length
+          ? `DÉJÀ FAITES (ne les redemande jamais) : ${faites.map((t) => t.titre).filter(Boolean).join(', ')}`
+          : `Il n'a encore rien coché aujourd'hui.`,
+        `PAS ENCORE FAITES (ce sont des choses à faire, surtout pas des réussites) : ${restantes
+          .map((t) => t.titre)
+          .filter(Boolean)
+          .join(', ')}`,
       ].join('\n'),
     };
   }

@@ -1,0 +1,185 @@
+/*
+  Noms préfixés `bilan-` / `bilan__` : le projet définit `.stat-value`,
+  `.stat-label` et quelques autres dans plusieurs feuilles, et l'ordre de
+  concaténation du build départage — il diffère entre développement et production.
+*/
+
+.bilan {
+  padding: 16px 18px;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  /* Un enfant de grille refuse par défaut de descendre sous la largeur de son
+     contenu, et élargit alors toute sa piste. */
+  min-width: 0;
+}
+
+.bilan__entete {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary, #94a3b8);
+}
+
+/* --- Les chiffres --- */
+
+.bilan__chiffres {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.bilan__chiffre {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.bilan__valeur {
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.bilan__legende {
+  font-size: 0.7rem;
+  color: var(--text-secondary, #94a3b8);
+}
+
+.bilan__evolution {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #f87171;
+}
+
+.bilan__evolution--hausse {
+  color: #4ade80;
+}
+
+/* --- Les habitudes --- */
+
+.bilan__habitudes {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.bilan__habitude {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.82rem;
+}
+
+.bilan__habitude-titre {
+  /* Un titre long ne doit pas pousser le compteur hors de la carte. */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bilan__habitude-jours {
+  flex-shrink: 0;
+  font-weight: 700;
+  font-size: 0.78rem;
+  color: var(--text-secondary, #94a3b8);
+}
+
+/* --- La lecture du coach --- */
+
+.bilan__lecture,
+.bilan__verrou {
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.bilan__lecture-entete,
+.bilan__verrou-titre {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 6px;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary, #94a3b8);
+}
+
+.bilan__lecture-texte {
+  margin: 0 0 8px;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.bilan__lecture-texte:last-child {
+  margin-bottom: 0;
+}
+
+.bilan__verrou-texte {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--text-secondary, #94a3b8);
+}
+
+.bilan__verrou-action {
+  margin-top: 10px;
+  display: inline-flex;
+  align-items: center;
+  padding: 9px 18px;
+  border: none;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: #04121a;
+  background: linear-gradient(90deg, #fbc531, #f59e0b);
+  /* La cible tactile doit rester atteignable au pouce : en dessous de 44 px on
+     rate le bouton une fois sur trois sur téléphone. */
+  min-height: 44px;
+}
+
+.bilan__verrou-action:hover {
+  filter: brightness(1.08);
+}
+
+/* --- Le thème clair --- */
+
+/* Les filets sont du blanc translucide : sur fond clair ils disparaissent, et la
+   lecture se retrouve collée aux chiffres sans séparation. */
+body.theme-monochrome-light .bilan__lecture,
+body.theme-monochrome-light .bilan__verrou {
+  border-top-color: rgba(0, 0, 0, 0.14);
+}
+
+body.theme-monochrome-light .bilan__legende,
+body.theme-monochrome-light .bilan__entete,
+body.theme-monochrome-light .bilan__habitude-jours,
+body.theme-monochrome-light .bilan__lecture-entete,
+body.theme-monochrome-light .bilan__verrou-titre,
+body.theme-monochrome-light .bilan__verrou-texte {
+  color: #475569;
+}
+
+/*
+  Pas de bascule à deux colonnes sur téléphone : mesuré, les trois tiennent
+  jusqu'à 320 px de large (72 px par colonne, aucun débordement, aucune légende
+  sur deux lignes). La règle que j'avais posée par précaution dégradait la mise
+  en page pour rien — trois chiffres sur deux colonnes laissent un orphelin.
+*/

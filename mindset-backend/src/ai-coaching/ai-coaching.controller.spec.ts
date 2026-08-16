@@ -6,6 +6,7 @@ import { AiQuotaService } from './ai-quota.service';
 import { CoinLedgerService } from './coin-ledger.service';
 import { CoachOuvertureService } from './coach-ouverture.service';
 import { ObservationService } from './observation.service';
+import { WeeklyReviewService } from '../push/weekly-review.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MESSAGES_AUTOMATIQUES_INSCRIPTION } from '../common/message-inscription';
 
@@ -63,6 +64,9 @@ describe('AiCoachingController — débit et remboursement du chat', () => {
         // et sans historique il ne trouve rien à dire — ce qui est la réponse
         // attendue pour tous les cas vérifiés dans ce fichier.
         { provide: ObservationService, useValue: new ObservationService() },
+        // Idem : le bilan de semaine a ses propres tests. Le vrai service convient,
+        // et sans historique il ne trouve aucune semaine à résumer.
+        { provide: WeeklyReviewService, useValue: new WeeklyReviewService() },
         {
           provide: PrismaService,
           useValue: { syncData: { findUnique: jest.fn().mockResolvedValue(null) } },
@@ -242,12 +246,18 @@ describe('AiCoachingController — messages de découverte', () => {
     estPremierMessage: jest.Mock;
   };
   let ouverture: { ouverture: jest.Mock };
+  let prisma: any;
 
   const requete = { user: { userId: 'u1' } } as any;
   const message = { prompt: 'Fais-moi un plan' } as any;
 
   beforeEach(async () => {
     ia = { chatWithAi: jest.fn().mockResolvedValue({ reply: 'Voilà.' }) };
+    prisma = {
+      syncData: { findUnique: jest.fn().mockResolvedValue(null) },
+      aIProfile: { findUnique: jest.fn().mockResolvedValue(null), update: jest.fn().mockResolvedValue({}) },
+      user: { findUnique: jest.fn().mockResolvedValue({ first_name: 'Yannis' }) },
+    };
     quota = {
       consumeAiCredit: jest.fn().mockResolvedValue({}),
       refundAiCredit: jest.fn().mockResolvedValue({}),
@@ -273,10 +283,10 @@ describe('AiCoachingController — messages de découverte', () => {
         // et sans historique il ne trouve rien à dire — ce qui est la réponse
         // attendue pour tous les cas vérifiés dans ce fichier.
         { provide: ObservationService, useValue: new ObservationService() },
-        {
-          provide: PrismaService,
-          useValue: { syncData: { findUnique: jest.fn().mockResolvedValue(null) } },
-        },
+        // Idem : le bilan de semaine a ses propres tests. Le vrai service convient,
+        // et sans historique il ne trouve aucune semaine à résumer.
+        { provide: WeeklyReviewService, useValue: new WeeklyReviewService() },
+        { provide: PrismaService, useValue: prisma },
       ],
     }).compile();
 
@@ -327,6 +337,92 @@ describe('AiCoachingController — messages de découverte', () => {
    * lui prendre un de ses dix messages mensuels avant sa première lettre — et ces
    * messages-là sont exactement ceux qui décident si elle s'abonne.
    */
+  /**
+   * Le bilan de la semaine.
+   *
+   * Les chiffres appartiennent à la personne et lui sont rendus quoi qu'il
+   * arrive ; c'est la **lecture** qui distingue l'abonné. Ces deux limites sont
+   * les seules choses à ne jamais laisser glisser : donner la lecture à tout le
+   * monde vide l'abonnement de son seul avantage visible, et la refuser à un
+   * abonné lui fait payer pour rien.
+   */
+  describe('le bilan de la semaine', () => {
+    const requeteBilan = { user: { userId: 'u1' } } as any;
+
+    /** Sept jours pleins, pour que `resumerSemaine` ait de quoi répondre. */
+    const semainePleine = () => {
+      const scores: Record<string, number> = {};
+      for (let i = 1; i <= 7; i++) {
+        const d = new Date(Date.now() - i * 86400000);
+        scores[d.toLocaleDateString('sv-SE', { timeZone: 'Europe/Paris' })] = 70;
+      }
+      return scores;
+    };
+
+    it('rend les chiffres à un compte gratuit, mais aucune lecture', async () => {
+      quota.isSubscribed.mockResolvedValue(false);
+      prisma.syncData.findUnique.mockResolvedValue({ daily_scores: semainePleine(), habits: [] });
+
+      const r: any = await controller.getBilanSemaine(requeteBilan);
+
+      expect(r.disponible).toBe(true);
+      expect(r.abonne).toBe(false);
+      expect(r.semaine.joursActifs).toBe(7);
+      // La lecture est le seul avantage visible de l'abonnement : la donner ici
+      // reviendrait à ne plus rien avoir à vendre.
+      expect(r.lecture).toBeNull();
+    });
+
+    it("ne se dit pas disponible quand la semaine est vide", async () => {
+      quota.isSubscribed.mockResolvedValue(true);
+      prisma.syncData.findUnique.mockResolvedValue({ daily_scores: {}, habits: [] });
+
+      const r: any = await controller.getBilanSemaine(requeteBilan);
+
+      // « 0 jour actif, score moyen 0 % » n'est pas un bilan, c'est un reproche.
+      expect(r.disponible).toBe(false);
+      expect(r.semaine).toBeNull();
+    });
+
+    it('sert la lecture en cache quand elle porte sur la semaine en cours', async () => {
+      quota.isSubscribed.mockResolvedValue(true);
+      prisma.syncData.findUnique.mockResolvedValue({ daily_scores: semainePleine(), habits: [] });
+
+      const lundi = new Date();
+      lundi.setUTCDate(lundi.getUTCDate() - ((lundi.getUTCDay() + 6) % 7));
+      prisma.aIProfile.findUnique.mockResolvedValue({
+        bilan_texte: 'Ta semaine tient.',
+        bilan_semaine: lundi.toISOString().slice(0, 10),
+      });
+
+      const r: any = await controller.getBilanSemaine(requeteBilan);
+
+      expect(r.lecture).toBe('Ta semaine tient.');
+      // Rien n'est réécrit : c'est ce cache qui empêche un appel au modèle à
+      // chaque passage sur le tableau de bord.
+      expect(prisma.aIProfile.update).not.toHaveBeenCalled();
+    });
+
+    it("ne resert pas la lecture de la semaine précédente", async () => {
+      quota.isSubscribed.mockResolvedValue(true);
+      prisma.syncData.findUnique.mockResolvedValue({ daily_scores: semainePleine(), habits: [] });
+      prisma.aIProfile.findUnique.mockResolvedValue({
+        bilan_texte: "Le bilan d'il y a huit jours.",
+        bilan_semaine: '2020-01-06',
+      });
+
+      const r: any = await controller.getBilanSemaine(requeteBilan);
+
+      /*
+        Sans clé de semaine, une simple durée de fraîcheur se tromperait tous les
+        lundis — le jour où l'on vient justement lire son bilan. Ici aucune clé Groq
+        n'est posée, donc la génération rend null : ce qui compte est qu'on ne
+        resserve pas l'ancien texte.
+      */
+      expect(r.lecture).not.toBe("Le bilan d'il y a huit jours.");
+    });
+  });
+
   describe("le plan d'inscription", () => {
     const planAuto = {
       prompt: MESSAGES_AUTOMATIQUES_INSCRIPTION[0],
@@ -429,6 +525,9 @@ describe('AiCoachingController — la phrase d\'ouverture', () => {
         // et sans historique il ne trouve rien à dire — ce qui est la réponse
         // attendue pour tous les cas vérifiés dans ce fichier.
         { provide: ObservationService, useValue: new ObservationService() },
+        // Idem : le bilan de semaine a ses propres tests. Le vrai service convient,
+        // et sans historique il ne trouve aucune semaine à résumer.
+        { provide: WeeklyReviewService, useValue: new WeeklyReviewService() },
         {
           provide: PrismaService,
           useValue: { syncData: { findUnique: jest.fn().mockResolvedValue(null) } },

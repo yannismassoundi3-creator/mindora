@@ -162,6 +162,10 @@ export class WeeklyReviewService {
       'Maximum 180 caractères, deux phrases : ce qui a tenu, puis où porter l\'effort la semaine prochaine.',
       "INTERDIT d'inventer un chiffre, une habitude ou une activité absents des données : reprends leurs mots.",
       'Sois précis et franc, jamais mielleux. Si la semaine est en baisse, dis-le avec le chiffre dans la première phrase, et ne compense pas par un compliment : un bilan qui ménage ne sert à rien.',
+      // Franc ne veut pas dire accusateur. Le coach a déjà écrit « tu as échoué à
+      // accomplir 11 tâches sur 11 » sur un autre écran : un constat chiffré se
+      // suffit, le vocabulaire du procès ne fait que donner envie de fermer l'app.
+      "INTERDIT de parler d'échec, d'échouer ou de rater : tu constates un chiffre, tu ne rends pas un verdict.",
       'Un seul emoji maximum. Pas de guillemets.',
       'Réponds uniquement par le texte du bilan.',
     ].join(' ');
@@ -175,8 +179,66 @@ export class WeeklyReviewService {
     return null;
   }
 
+  /**
+   * Le bilan long, celui d'un écran.
+   *
+   * `generate()` écrit une notification : 180 caractères, deux phrases, à lire
+   * sur un écran verrouillé. Ce n'est pas un bilan, c'est une alerte — et c'est
+   * pourtant tout ce que l'abonnement offrait de plus, une fois par semaine, le
+   * dimanche soir.
+   *
+   * Celui-ci est fait pour être lu dans l'application, à n'importe quel moment de
+   * la semaine : trois courts paragraphes, ce qui a tenu, ce qui a lâché, et une
+   * seule chose à changer. C'est la contrepartie visible de l'abonnement, celle
+   * qu'on peut montrer avant de la vendre.
+   */
+  async genererLecture(prenom: string, s: SemaineEcoulee): Promise<string | null> {
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey) return null;
+
+    const systeme = [
+      "Tu es le coach personnel de l'utilisateur dans l'app Disciplix.",
+      'Tu lui écris la lecture de sa semaine, en français, en le tutoyant.',
+      'Trois courts paragraphes séparés par une ligne vide, 600 caractères en tout maximum :',
+      "1) ce qui a tenu cette semaine, avec le chiffre ; 2) ce qui a lâché, avec le chiffre ; 3) UNE seule chose à changer la semaine prochaine, concrète et petite.",
+      "INTERDIT d'inventer un chiffre, une habitude ou une activité absents des données : reprends leurs mots exacts.",
+      "INTERDIT de parler d'échec, d'échouer ou de rater. Tu constates des chiffres, tu ne rends pas de verdict — et une semaine faible reste une semaine, pas un procès.",
+      "Si rien n'a lâché, dis-le et passe directement à ce qui peut monter d'un cran ; n'invente pas un point faible pour remplir le paragraphe.",
+      'Pas de compliment qui ne repose sur un fait présent dans les données. Pas de liste à puces, pas de titre, pas de guillemets.',
+      'Réponds uniquement par le texte.',
+    ].join(' ');
+
+    for (const modele of WeeklyReviewService.MODELES) {
+      const texte = await this.tenter(
+        apiKey,
+        modele,
+        systeme,
+        this.buildPrompt(prenom, s),
+        WeeklyReviewService.PLAFOND_LECTURE,
+        WeeklyReviewService.JETONS_LECTURE,
+      );
+      if (texte) return texte;
+    }
+
+    this.logger.warn("Aucun modèle n'a pu écrire la lecture de la semaine");
+    return null;
+  }
+
+  /** Filet de longueur pour la lecture d'écran, plus généreux que la notification. */
+  private static readonly PLAFOND_LECTURE = 700;
+
+  /** De quoi écrire trois paragraphes sans être coupé au milieu du troisième. */
+  private static readonly JETONS_LECTURE = 320;
+
   /** Un appel, sur un modèle donné. Retourne null pour laisser sa chance au suivant. */
-  private async tenter(apiKey: string, modele: string, systeme: string, invite: string): Promise<string | null> {
+  private async tenter(
+    apiKey: string,
+    modele: string,
+    systeme: string,
+    invite: string,
+    plafond: number = WeeklyReviewService.PLAFOND_CARACTERES,
+    jetons = 120,
+  ): Promise<string | null> {
     const controleur = new AbortController();
     const minuteur = setTimeout(() => controleur.abort(), WeeklyReviewService.TIMEOUT_MS);
 
@@ -191,7 +253,7 @@ export class WeeklyReviewService {
             { role: 'user', content: invite },
           ],
           temperature: 0.7,
-          max_tokens: 120,
+          max_tokens: jetons,
         }),
         signal: controleur.signal,
       });
@@ -210,14 +272,12 @@ export class WeeklyReviewService {
       // Même raisonnement que pour le message du matin : une coupure au-delà du
       // plafond est absorbée par le plafond lui-même, en deçà elle partirait en
       // notification arrêtée au milieu d'un mot.
-      if (tronque && propre.length <= WeeklyReviewService.PLAFOND_CARACTERES) {
+      if (tronque && propre.length <= plafond) {
         this.logger.warn(`Bilan hebdomadaire coupé par max_tokens sur ${modele}`);
         return null;
       }
 
-      return propre.length > WeeklyReviewService.PLAFOND_CARACTERES
-        ? propre.slice(0, WeeklyReviewService.PLAFOND_CARACTERES - 3) + '…'
-        : propre;
+      return propre.length > plafond ? propre.slice(0, plafond - 3) + '…' : propre;
     } catch (e: any) {
       this.logger.warn(
         `Bilan hebdomadaire non généré sur ${modele} : ${e?.name === 'AbortError' ? 'délai dépassé' : e?.message}`,

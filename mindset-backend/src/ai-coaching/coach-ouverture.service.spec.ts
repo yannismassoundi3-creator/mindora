@@ -83,7 +83,35 @@ describe('CoachOuvertureService', () => {
       expect(etat.resume).toContain('Sport 30 min');
       expect(etat.resume).toContain('1 tâche(s) faite(s) sur 2');
       // La tâche déjà faite n'a pas à être proposée de nouveau.
-      expect(etat.resume).not.toMatch(/Il lui reste :.*Lecture/);
+      expect(etat.resume).not.toMatch(/PAS ENCORE FAITES.*Lecture/);
+    });
+
+    /*
+      Envoyé pour de vrai à 19 h 19 : « tu as échoué à accomplir 11 tâches sur 11.
+      Tu as une séance de méditation et une de sport, c'est une bonne base. » Le
+      modèle avait lu la liste des tâches restantes comme un acquis, parce que
+      « Il lui reste : … » ne dit pas son statut une fois recopié dans une phrase.
+      Les deux listes portent maintenant leur état dans leur intitulé.
+    */
+    it("dit explicitement que les tâches restantes ne sont pas des réussites", () => {
+      const etat = CoachOuvertureService.lireEtatDuJour({
+        routines: [{ items: [{ title: 'Méditation', done: false }, { title: 'Sport', done: false }] }],
+      });
+
+      expect(etat.resume).toContain('PAS ENCORE FAITES');
+      expect(etat.resume).toContain('surtout pas des réussites');
+      // Et l'absence totale de progrès se dit en clair, sans compter de tâche faite.
+      expect(etat.resume).toContain("Il n'a encore rien coché aujourd'hui");
+    });
+
+    it("nomme aussi ce qui a été fait quand la journée est bouclée", () => {
+      const etat = CoachOuvertureService.lireEtatDuJour({
+        routines: [{ items: [{ title: 'Sport', done: true }] }],
+      });
+
+      expect(etat.cas).toBe('fini');
+      expect(etat.resume).toContain('TOUTES FAITES');
+      expect(etat.resume).toContain('Sport');
     });
 
     it('survit à un contexte absent ou malformé', () => {
@@ -230,6 +258,51 @@ describe('CoachOuvertureService', () => {
     it('bannit la formule d\'accueil qu\'elle remplace', async () => {
       await service.ouverture('u1', {});
       expect(consigne()).toContain('Comment puis-je t\'aider');
+    });
+
+    /*
+      Le message réellement envoyé à 19 h 19 : « tu as échoué à accomplir 11 tâches
+      sur 11. Tu as une séance de méditation et une de sport, c'est une bonne base.
+      Qu'est-ce que tu vas faire pour tes révisions ? »
+
+      Trois fautes en deux phrases, et c'est la première chose que la personne lit
+      en ouvrant l'app. La consigne d'alors réclamait de la franchise mais
+      n'interdisait nulle part le registre du procès, ne disait pas qu'une journée
+      en cours n'est pas jugeable, et son propre exemple citait deux tâches.
+    */
+    it("interdit le registre de l'échec", async () => {
+      await service.ouverture('u1', {});
+      const c = consigne();
+      expect(c).toContain("INTERDIT de parler d'échec");
+      expect(c).toContain("Une journée en cours n'est pas un échec");
+    });
+
+    it('interdit de féliciter pour une tâche non faite', async () => {
+      await service.ouverture('u1', {});
+      expect(consigne()).toContain("Une tâche non faite n'est JAMAIS une réussite");
+    });
+
+    it("n'autorise qu'un seul sujet, et le montre dans l'exemple", async () => {
+      await service.ouverture('u1', {
+        routines: [{ items: [{ title: 'Sport', done: false }, { title: 'Lecture', done: false }] }],
+      });
+      const c = consigne();
+
+      expect(c).toContain('Un seul sujet');
+      /*
+        L'exemple compte autant que la règle : un modèle imite l'exemple avant
+        d'obéir. Celui du cas « reste » citait « ta séance de sport et ta lecture »
+        — deux tâches — en contradiction directe avec la consigne juste au-dessus.
+        On vérifie donc que la seconde a bien disparu de l'exemple.
+      */
+      const exemple = c.slice(c.indexOf('Exemple de ton'));
+      expect(exemple).toContain('séance de sport');
+      expect(exemple.toLowerCase()).not.toContain('lecture');
+    });
+
+    it('interdit de mélanger reproche et compliment', async () => {
+      await service.ouverture('u1', {});
+      expect(consigne()).toContain('jamais un reproche et un compliment dans le même message');
     });
 
     it('adapte l\'exemple au cas du jour', async () => {

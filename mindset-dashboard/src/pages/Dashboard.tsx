@@ -4,6 +4,7 @@ import { RankIcon } from '../components/RankIcon';
 import { ProgressionRang } from '../components/ProgressionRang';
 import { PartageSemaine } from '../components/PartageSemaine';
 import { CarteObservation } from '../components/CarteObservation';
+import { BilanSemaine } from '../components/BilanSemaine';
 import { VictoryGlitchOverlay } from '../components/VictoryGlitchOverlay';
 import { JarvisPopup } from '../components/JarvisPopup';
 import { NotificationsOptIn } from '../components/NotificationsOptIn';
@@ -1136,6 +1137,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
             tous les jours n'est plus une remarque.
           */}
           <CarteObservation onOuvrirChat={onOpenChat} />
+
+          {/*
+            Le bilan de la semaine, juste après.
+
+            Les chiffres sont à tout le monde ; la lecture qu'en fait le coach est
+            l'avantage de l'abonnement, et c'est ici qu'on peut le montrer sans le
+            donner : un cadenas posé à côté de ses propres chiffres se comprend,
+            un cadenas devant un écran vide ne vend rien.
+          */}
+          <BilanSemaine />
 
           {/* Heatmap Section */}
           <section className="heatmap-section glass-panel glass-panel-interactive pulse-glow fade-in delay-2" style={{ transition: 'transform 0.3s ease, opacity 0.3s ease, background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, color 0.3s ease', cursor: 'pointer' }}>
