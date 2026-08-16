@@ -24,6 +24,15 @@ interface Jour {
   /** Tous comptes confondus, anciens compris. */
   ontParleAuCoach: number;
   messages: number;
+  /**
+   * Les plans demandés automatiquement à la fin du questionnaire.
+   *
+   * Ce message part au nom de la personne sans qu'elle l'écrive. Compté comme une
+   * conversation, il affichait « 9 inscrits, 9 ont parlé au coach » — une
+   * conversion parfaite et entièrement mécanique. Il est donc sorti du compte, et
+   * montré ici pour que le nouveau chiffre reste explicable.
+   */
+  plansAutomatiques: number;
 }
 
 interface Quotidien {
@@ -95,12 +104,12 @@ export const TableauJour: React.FC = () => {
     {
       cle: 'nouveaux-coach',
       icone: MessageSquare,
-      libelle: 'Dont ont parlé au coach',
+      libelle: 'Dont ont vraiment écrit au coach',
       valeur: aujourdhui.inscritsAyantParleAuCoach,
       detail:
         aujourdhui.inscrits === 0
           ? 'aucune inscription à convertir'
-          : `sur ${aujourdhui.inscrits} arrivé${aujourdhui.inscrits > 1 ? 's' : ''} aujourd'hui`,
+          : `sur ${aujourdhui.inscrits} arrivé${aujourdhui.inscrits > 1 ? 's' : ''} · le plan demandé automatiquement ne compte pas`,
       alerte: aujourdhui.inscrits > 0 && aujourdhui.inscritsAyantParleAuCoach === 0,
     },
     {
@@ -150,6 +159,15 @@ export const TableauJour: React.FC = () => {
           <strong>{aujourdhui.ontOuvertUneSession}</strong> {aujourdhui.ontOuvertUneSession > 1 ? 'sont entrés' : 'est entré'} dans
           l'app, <strong>{aujourdhui.ontFiniLeQuestionnaire}</strong> {aujourdhui.ontFiniLeQuestionnaire > 1 ? 'ont' : 'a'} fini le
           questionnaire.
+          {aujourdhui.plansAutomatiques > 0 && (
+            <>
+              {' '}
+              <strong>{aujourdhui.plansAutomatiques}</strong> plan
+              {aujourdhui.plansAutomatiques > 1 ? 's ont' : ' a'} été demandé
+              {aujourdhui.plansAutomatiques > 1 ? 's' : ''} automatiquement en fin de
+              questionnaire — ce n'est pas une conversation, et ce n'est pas compté comme telle.
+            </>
+          )}
         </p>
       )}
 
@@ -161,7 +179,7 @@ export const TableauJour: React.FC = () => {
             <div
               key={j.date}
               className={`jour-colonne${estAujourdhui ? ' jour-colonne--aujourdhui' : ''}`}
-              title={`${formaterJour(j.date)} · ${j.inscrits} inscrit${j.inscrits > 1 ? 's' : ''}, dont ${j.inscritsAyantParleAuCoach} ${j.inscritsAyantParleAuCoach > 1 ? 'ont' : 'a'} parlé au coach · ${j.ontParleAuCoach} au coach en tout`}
+              title={`${formaterJour(j.date)} · ${j.inscrits} inscrit${j.inscrits > 1 ? 's' : ''}, dont ${j.inscritsAyantParleAuCoach} ${j.inscritsAyantParleAuCoach > 1 ? 'ont' : 'a'} écrit au coach · ${j.ontParleAuCoach} au coach en tout · ${j.plansAutomatiques} plan${j.plansAutomatiques > 1 ? 's' : ''} auto`}
             >
               <span className="jour-colonne__nombre">{j.inscrits || ''}</span>
               <div className="jour-colonne__piste">
@@ -204,7 +222,7 @@ export const TableauJour: React.FC = () => {
           <i className="jour-pastille jour-pastille--inscrits" /> Inscrits du jour
         </span>
         <span>
-          <i className="jour-pastille jour-pastille--coach" /> Dont ont parlé au coach le jour même
+          <i className="jour-pastille jour-pastille--coach" /> Dont ont écrit eux-mêmes au coach
         </span>
       </div>
 
@@ -250,6 +268,9 @@ export const TableauJour: React.FC = () => {
       <p className="jour-note">
         Les journées commencent à minuit heure de Paris, pas à minuit UTC : sans
         cela, tout ce qui arrive entre minuit et 2 h serait rangé dans la veille.
+        Le message que le questionnaire envoie au coach à la place de la personne
+        est exclu partout : il partait pour tout le monde, et faisait afficher une
+        conversion parfaite là où il n'y avait qu'un automatisme.
       </p>
     </section>
   );

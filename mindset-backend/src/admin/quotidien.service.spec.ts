@@ -19,9 +19,21 @@ describe('QuotidienService', () => {
     chatMessage: { findMany: jest.Mock };
   };
 
-  const avec = async (utilisateurs: any[], messages: any[] = []) => {
+  /** Le message que la fin du questionnaire envoie à la place de la personne. */
+  const MESSAGE_AUTOMATIQUE =
+    "Je viens de terminer mon inscription. Donne-moi mon plan pour aujourd'hui : mes routines, mes habitudes et mes objectifs.";
+
+  /**
+   * Le service interroge la table des messages deux fois : une fois en excluant
+   * le message automatique, une fois pour ne compter que lui. Le double est donc
+   * aiguillé sur le filtre, sinon les deux requêtes rendraient la même chose et
+   * le test ne prouverait rien.
+   */
+  const avec = async (utilisateurs: any[], messages: any[] = [], automatiques: any[] = []) => {
     prisma.user.findMany.mockResolvedValue(utilisateurs);
-    prisma.chatMessage.findMany.mockResolvedValue(messages);
+    prisma.chatMessage.findMany.mockImplementation(async (args: any) =>
+      args?.where?.text?.not === MESSAGE_AUTOMATIQUE ? messages : automatiques,
+    );
     return service.getStatsQuotidiennes();
   };
 
@@ -143,5 +155,54 @@ describe('QuotidienService', () => {
         where: expect.objectContaining({ sender: 'user' }),
       }),
     );
+  });
+
+  /**
+   * La fin du questionnaire envoie un message au coach à la place de la personne,
+   * pour qu'elle reçoive son plan sans avoir à le réclamer. Compté comme une
+   * conversation, il affichait « 9 inscrits, 9 ont parlé au coach » : une
+   * conversion parfaite et entièrement mécanique, sur un écran fait pour décider
+   * quoi corriger.
+   */
+  describe('le message envoyé automatiquement par le questionnaire', () => {
+    it('ne compte pas comme une conversation', async () => {
+      maintenantEst('2025-08-16T09:00:00Z');
+      const stats = await avec(
+        [compte({ id: 'a', creeLe: new Date('2025-08-16T07:00:00Z') })],
+        [],
+        [{ user_id: 'a', created_at: new Date('2025-08-16T07:00:05Z') }],
+      );
+
+      expect(stats.aujourdhui.inscritsAyantParleAuCoach).toBe(0);
+      expect(stats.aujourdhui.ontParleAuCoach).toBe(0);
+      expect(stats.aujourdhui.messages).toBe(0);
+      expect(stats.inscritsDuJour[0].messagesAuCoach).toBe(0);
+    });
+
+    it('est montré à part plutôt que caché', async () => {
+      // L'exclure sans le dire remplacerait un chiffre trompeur par un chiffre
+      // inexplicable : « 0 conversation » alors qu'on voit passer des échanges.
+      maintenantEst('2025-08-16T09:00:00Z');
+      const stats = await avec(
+        [compte({ id: 'a', creeLe: new Date('2025-08-16T07:00:00Z') })],
+        [],
+        [{ user_id: 'a', created_at: new Date('2025-08-16T07:00:05Z') }],
+      );
+
+      expect(stats.aujourdhui.plansAutomatiques).toBe(1);
+    });
+
+    it("laisse compter le message que la personne écrit ensuite", async () => {
+      maintenantEst('2025-08-16T09:00:00Z');
+      const stats = await avec(
+        [compte({ id: 'a', creeLe: new Date('2025-08-16T07:00:00Z') })],
+        [{ user_id: 'a', created_at: new Date('2025-08-16T07:30:00Z') }],
+        [{ user_id: 'a', created_at: new Date('2025-08-16T07:00:05Z') }],
+      );
+
+      expect(stats.aujourdhui.inscritsAyantParleAuCoach).toBe(1);
+      expect(stats.aujourdhui.messages).toBe(1);
+      expect(stats.aujourdhui.plansAutomatiques).toBe(1);
+    });
   });
 });

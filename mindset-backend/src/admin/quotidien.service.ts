@@ -25,6 +25,19 @@ export class QuotidienService {
   /** Deux semaines : assez pour voir une tendance, assez court pour tenir à l'écran. */
   private static readonly JOURS_AFFICHES = 14;
 
+  /**
+   * Le message que la fin du questionnaire envoie au coach à la place de la
+   * personne, pour qu'elle reçoive son plan sans avoir à le réclamer.
+   *
+   * Recopié depuis `Onboarding.tsx` plutôt que partagé : le client est déployé
+   * séparément, et une constante importée d'ici ne l'atteindrait pas. Si la phrase
+   * change là-bas, les anciennes lignes en base gardent l'ancienne — c'est
+   * pourquoi elle est comparée mot pour mot et jamais devinée par mots-clés, ce
+   * qui exclurait au passage de vrais messages.
+   */
+  private static readonly MESSAGE_AUTOMATIQUE =
+    "Je viens de terminer mon inscription. Donne-moi mon plan pour aujourd'hui : mes routines, mes habitudes et mes objectifs.";
+
   constructor(private readonly prisma: PrismaService) {}
 
   async getStatsQuotidiennes() {
@@ -52,16 +65,38 @@ export class QuotidienService {
     });
 
     /*
-      Seuls les messages écrits par la personne comptent. Chaque échange laisse
-      deux lignes, la sienne et celle du coach ; compter les deux doublerait
-      mécaniquement le volume et ferait passer pour bavard un compte qui a posé
-      une seule question.
+      Seuls les messages écrits par la personne comptent, et seulement ceux
+      qu'elle a réellement tapés.
+
+      Chaque échange laisse deux lignes, la sienne et celle du coach : compter les
+      deux doublerait le volume. Mais il y a plus grave — la fin du questionnaire
+      envoie un message au coach à la place de la personne, pour qu'elle reçoive
+      son plan sans avoir à le demander. Ce message est légitime, et il n'est pas
+      une conversation.
+
+      Compté comme tel, il faisait afficher « 9 inscrits, 9 ont parlé au coach » :
+      une conversion parfaite, entièrement mécanique. C'est le pire chiffre
+      possible — celui qui dit que tout va bien au moment précis où il faudrait
+      regarder. Il est donc exclu, et montré à part.
     */
     const messages = await this.prisma.chatMessage.findMany({
       where: {
         sender: 'user',
         created_at: { gte: debutFenetre },
         user: { deleted_at: null },
+        text: { not: QuotidienService.MESSAGE_AUTOMATIQUE },
+      },
+      select: { user_id: true, created_at: true },
+    });
+
+    // Les messages automatiques, comptés séparément : ils disent combien de
+    // questionnaires sont allés au bout, ce qui est une autre information utile.
+    const automatiques = await this.prisma.chatMessage.findMany({
+      where: {
+        sender: 'user',
+        created_at: { gte: debutFenetre },
+        user: { deleted_at: null },
+        text: QuotidienService.MESSAGE_AUTOMATIQUE,
       },
       select: { user_id: true, created_at: true },
     });
@@ -71,6 +106,7 @@ export class QuotidienService {
     const parleursDuJour = new Map<string, Set<string>>();
     const messagesDuJour = new Map<string, number>();
     const joursParPersonne = new Map<string, Map<string, number>>();
+    const planAutoParJour = new Map<string, number>();
 
     for (const message of messages) {
       const cle = cleJourParis(message.created_at);
@@ -84,6 +120,11 @@ export class QuotidienService {
       const parPersonne = joursParPersonne.get(message.user_id) ?? new Map<string, number>();
       parPersonne.set(cle, (parPersonne.get(cle) ?? 0) + 1);
       joursParPersonne.set(message.user_id, parPersonne);
+    }
+
+    for (const message of automatiques) {
+      const cle = cleJourParis(message.created_at);
+      planAutoParJour.set(cle, (planAutoParJour.get(cle) ?? 0) + 1);
     }
 
     const inscritsParJour = new Map<string, typeof inscrits>();
@@ -113,6 +154,9 @@ export class QuotidienService {
         // Tous comptes confondus, anciens compris : l'usage réel du coach ce jour-là.
         ontParleAuCoach: parleursDuJour.get(cle)?.size ?? 0,
         messages: messagesDuJour.get(cle) ?? 0,
+        // Les plans demandés automatiquement à la fin du questionnaire. Montrés
+        // séparément pour qu'on ne les reprenne jamais pour des conversations.
+        plansAutomatiques: planAutoParJour.get(cle) ?? 0,
       };
     });
 
