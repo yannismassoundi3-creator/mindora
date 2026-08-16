@@ -1,5 +1,6 @@
 import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
 import { definirXp, lireXp } from '../utils/progression';
+import { estIOS, estAndroid, estInstallee } from '../utils/plateforme';
 import { nettoyerSemis } from '../utils/semis';
 import { construireEtatLocal } from '../utils/etatLocal';
 import {
@@ -762,18 +763,21 @@ export function identifiantAppareil(): string {
   return deviceId;
 }
 
-export function estIOS(): boolean {
-  return /iphone|ipad|ipod/i.test(navigator.userAgent);
-}
+/*
+  La reconnaissance de l'appareil vit désormais dans `utils/plateforme.ts`, et n'a
+  qu'une seule définition.
 
-export function estAndroid(): boolean {
-  return /android/i.test(navigator.userAgent);
-}
+  Elle était écrite ici, et `estIOS` y ratait **tous les iPad** : depuis iPadOS 13,
+  Safari s'y annonce comme un Mac de bureau et le mot « ipad » a quitté la chaîne.
+  Trois chemins en dépendent — la carte d'installation, l'état `ios_a_installer`
+  des permissions push, et `cheminDeReautorisation()` — et les trois donnaient donc
+  à un utilisateur iPad la consigne prévue pour un ordinateur.
 
-/** Installée sur l'écran d'accueil — la seule façon d'avoir le push sur iOS. */
-export function estInstallee(): boolean {
-  return window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
-}
+  Réexporté pour les appelants existants. `plateforme.ts` ne dépend de rien, et
+  surtout pas de ce fichier-ci, dont le simple import installe la surcharge de
+  `localStorage.setItem`.
+*/
+export { estIOS, estAndroid, estInstallee };
 
 /**
  * Où se réautorisent les notifications, sur cet appareil précisément.
