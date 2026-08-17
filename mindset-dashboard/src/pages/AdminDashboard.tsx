@@ -3,6 +3,7 @@ import { Shield, Users, CreditCard, Activity } from 'lucide-react';
 import { api } from '../services/api';
 import { TableauJour } from '../components/TableauJour';
 import { TableauRetention } from '../components/TableauRetention';
+import { EtatSecours } from '../components/EtatSecours';
 import './AdminDashboard.css';
 
 interface AdminStats {
@@ -142,6 +143,13 @@ export const AdminDashboard: React.FC = () => {
         décide s'il faut faire connaître l'application ou d'abord la corriger.
       */}
       <TableauRetention />
+
+      {/*
+        En dernier, et c'est voulu : ce n'est pas une mesure du produit mais un
+        contrôle d'installation. On vient le chercher quand on doute, on ne le
+        croise pas en lisant ses chiffres.
+      */}
+      <EtatSecours />
     </div>
   );
 };

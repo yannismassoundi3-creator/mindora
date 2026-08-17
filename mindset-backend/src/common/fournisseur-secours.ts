@@ -61,3 +61,110 @@ export function lireFournisseurSecours(): FournisseurSecours | null {
     modele: modele.trim(),
   };
 }
+
+export interface EtatSecours {
+  configure: boolean;
+  url: string | null;
+  modele: string | null;
+  ok: boolean;
+  latenceMs: number | null;
+  erreur: string | null;
+}
+
+/**
+ * Un vrai appel au secours, pour savoir s'il répondrait le jour où tout brûle.
+ *
+ * Ce maillon ne travaille que quand toute la chaîne gratuite a échoué. Une clé
+ * fautive, une adresse mal recopiée ou un identifiant de modèle à un caractère
+ * près y resteraient donc **invisibles jusqu'à la première panne de Groq** —
+ * c'est-à-dire au seul moment où l'on comptait dessus. Un filet qu'on n'a jamais
+ * tendu n'est pas un filet, c'est une intention.
+ *
+ * L'appel est réel parce qu'il n'y a pas d'autre façon de savoir : vérifier que
+ * la variable est non vide ne prouve rien du tout. Il est en revanche réduit au
+ * strict minimum — cinq jetons, une question d'un mot — pour que le contrôle
+ * coûte moins qu'un centième de message.
+ */
+export async function verifierSecours(): Promise<EtatSecours> {
+  const secours = lireFournisseurSecours();
+  if (!secours) {
+    return {
+      configure: false,
+      url: null,
+      modele: null,
+      ok: false,
+      latenceMs: null,
+      erreur: 'Aucun secours configuré : SECOURS_API_KEY ou SECOURS_MODELE manque.',
+    };
+  }
+
+  // L'adresse et le modèle ne sont pas des secrets, et les afficher est le seul
+  // moyen de repérer une faute de frappe sans lire la valeur masquée sur Render.
+  const base = { configure: true, url: secours.url, modele: secours.modele };
+
+  const controleur = new AbortController();
+  const minuteur = setTimeout(() => controleur.abort(), 20000);
+  const depart = Date.now();
+
+  try {
+    const reponse = await fetch(secours.url, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${secours.apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: secours.modele,
+        messages: [{ role: 'user', content: 'ping' }],
+        max_tokens: 5,
+        temperature: 0,
+      }),
+      signal: controleur.signal,
+    });
+
+    const latenceMs = Date.now() - depart;
+
+    if (!reponse.ok) {
+      const corps = await reponse.text().catch(() => '');
+      return {
+        ...base,
+        ok: false,
+        latenceMs,
+        // Le corps d'erreur est celui du fournisseur : il nomme précisément la
+        // faute (« model not found », « invalid api key »), ce qu'aucun message
+        // écrit ici ne saurait faire. Il est tronqué et expurgé de la clé, qui n'a
+        // aucune raison d'atterrir dans une réponse HTTP.
+        erreur: `${reponse.status} ${reponse.statusText} — ${sansLaCle(corps, secours.apiKey).slice(0, 300)}`,
+      };
+    }
+
+    const data = await reponse.json().catch(() => null);
+    const texte = data?.choices?.[0]?.message?.content;
+    if (typeof texte !== 'string') {
+      return {
+        ...base,
+        ok: false,
+        latenceMs,
+        // 200 sans texte exploitable : le service répond mais ne parle pas la même
+        // langue. C'est le cas d'une adresse qui pointe vers un autre format d'API.
+        erreur: "Réponse acceptée mais illisible : l'adresse ne rend pas le format OpenAI attendu.",
+      };
+    }
+
+    return { ...base, ok: true, latenceMs, erreur: null };
+  } catch (e: any) {
+    return {
+      ...base,
+      ok: false,
+      latenceMs: Date.now() - depart,
+      erreur:
+        e?.name === 'AbortError'
+          ? "Aucune réponse en 20 s : adresse injoignable, ou service très lent."
+          : sansLaCle(String(e?.message ?? e), secours.apiKey).slice(0, 300),
+    };
+  } finally {
+    clearTimeout(minuteur);
+  }
+}
+
+/** Une clé n'a jamais à ressortir d'ici, même recopiée par le fournisseur. */
+function sansLaCle(texte: string, cle: string): string {
+  return cle ? texte.split(cle).join('***') : texte;
+}
