@@ -86,6 +86,87 @@ describe('AiCoachingService — chat', () => {
     else process.env.GROQ_API_KEY = cleInitiale;
   });
 
+  /**
+   * Le dernier maillon, payant.
+   *
+   * Le plan Developer de Groq est fermé depuis des mois : on ne peut pas acheter
+   * de capacité, même en le voulant. Le coach — ce que l'abonnement fait payer —
+   * dépend donc d'un quota gratuit partagé. Ce maillon-ci ne travaille que sur ce
+   * que le gratuit a refusé, et il doit rester strictement inerte tant qu'aucune
+   * clé n'est configurée : ce code se déploie avant qu'un compte existe.
+   */
+  describe('fournisseur de secours', () => {
+    const SECOURS_URL = 'https://exemple-secours.test/v1/chat/completions';
+
+    const activerSecours = (modele: string | null = 'un/modele-payant') => {
+      process.env.SECOURS_API_KEY = 'cle-secours';
+      process.env.SECOURS_API_URL = SECOURS_URL;
+      if (modele === null) delete process.env.SECOURS_MODELE;
+      else process.env.SECOURS_MODELE = modele;
+    };
+
+    afterEach(() => {
+      delete process.env.SECOURS_API_KEY;
+      delete process.env.SECOURS_API_URL;
+      delete process.env.SECOURS_MODELE;
+    });
+
+    it('ne change rien tant qu’aucune clé n’est configurée', async () => {
+      // C'est la garantie qui permet de livrer ce code avant d'avoir un compte
+      // chez qui que ce soit : sans clé, la chaîne est celle d'avant, au modèle près.
+      fetchMock.mockResolvedValue(reponseSaturee());
+
+      const resultat: any = await service.chatWithAi('u1', 'Salut');
+
+      expect(modelesAppeles()).toEqual([PREMIER, DEUXIEME, DERNIER]);
+      expect(resultat.erreur).toBe(true);
+    });
+
+    it('prend le relais quand toute la chaîne gratuite est saturée', async () => {
+      activerSecours();
+      fetchMock
+        .mockResolvedValueOnce(reponseSaturee())
+        .mockResolvedValueOnce(reponseSaturee())
+        .mockResolvedValueOnce(reponseSaturee())
+        .mockResolvedValueOnce(reponseOk('Je suis là. 💪'));
+
+      const resultat: any = await service.chatWithAi('u1', 'Salut');
+
+      expect(resultat.reply).toBe('Je suis là. 💪');
+      expect(modelesAppeles()).toEqual([PREMIER, DEUXIEME, DERNIER, 'un/modele-payant']);
+
+      // Sa propre adresse et sa propre clé : le secours n'est pas un modèle Groq
+      // de plus, c'est un autre service.
+      const [url, options] = fetchMock.mock.calls[3];
+      expect(url).toBe(SECOURS_URL);
+      expect(options.headers.Authorization).toBe('Bearer cle-secours');
+    });
+
+    it('ne coûte rien tant que le gratuit répond', async () => {
+      // Le point qui décide de la facture : placé ailleurs que en dernier, il
+      // paierait des requêtes que Groq aurait servies gratuitement.
+      activerSecours();
+      fetchMock.mockResolvedValueOnce(reponseOk('Réponse gratuite.'));
+
+      await service.chatWithAi('u1', 'Salut');
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock.mock.calls[0][0]).toContain('api.groq.com');
+    });
+
+    it('reste inerte si le modèle du secours n’est pas nommé', async () => {
+      // Une clé sans identifiant de modèle ne peut pas marcher — il n'est pas
+      // devinable et change d'un fournisseur à l'autre. Mieux vaut ne pas tenter
+      // l'appel qu'échouer sur un 400 que personne ne reliera à cette variable.
+      activerSecours(null);
+      fetchMock.mockResolvedValue(reponseSaturee());
+
+      await service.chatWithAi('u1', 'Salut');
+
+      expect(modelesAppeles()).toEqual([PREMIER, DEUXIEME, DERNIER]);
+    });
+  });
+
   describe('repli entre modèles', () => {
     it('sert la réponse du modèle suivant quand le premier est saturé', async () => {
       fetchMock

@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CoachMemoryService } from './coach-memory.service';
 import { lireReponseGroq } from '../common/groq';
+import { lireFournisseurSecours, FournisseurSecours } from '../common/fournisseur-secours';
 
 @Injectable()
 export class AiCoachingService {
@@ -772,6 +773,20 @@ RÈGLES DE COMPORTEMENT :
    * une dégradation de qualité côté utilisateur serait impossible à relier à un
    * repli dans les logs.
    */
+  /**
+   * La chaîne réellement essayée : les modèles gratuits, puis le secours payant.
+   *
+   * Le secours est **en dernier**, jamais ailleurs. Placé plus haut, il paierait
+   * des requêtes que le gratuit aurait servies ; placé ici, il ne voit que ce que
+   * Groq a refusé. Sans clé configurée, la chaîne est identique à ce qu'elle a
+   * toujours été.
+   */
+  private static chaineChat(): Array<{ modele: string; secours: FournisseurSecours | null }> {
+    const gratuits = AiCoachingService.MODELES_CHAT.map((modele) => ({ modele, secours: null }));
+    const secours = lireFournisseurSecours();
+    return secours ? [...gratuits, { modele: secours.modele, secours }] : gratuits;
+  }
+
   private async appelerGroqAvecRepli(apiKey: string, corps: any): Promise<{ response: Response; modele: string }> {
     let derniere: any;
     // La saturation prime sur les erreurs suivantes au moment de rendre la main.
@@ -780,10 +795,18 @@ RÈGLES DE COMPORTEMENT :
     // Ce qu'il doit lire, c'est « réessaie dans une minute », qui est actionnable.
     let saturation: any;
 
-    for (const modele of AiCoachingService.MODELES_CHAT) {
+    const chaine = AiCoachingService.chaineChat();
+
+    for (const { modele, secours } of chaine) {
       try {
-        const response = await this.appelerGroq(apiKey, { ...corps, model: modele });
-        if (modele !== AiCoachingService.MODELES_CHAT[0]) {
+        const response = secours
+          ? await this.appelerModele(secours.apiKey, { ...corps, model: modele }, secours.url)
+          : await this.appelerModele(apiKey, { ...corps, model: modele });
+        if (secours) {
+          // Une requête payante mérite sa ligne : c'est la seule trace qui relie la
+          // dépense à la saturation qui l'a provoquée.
+          console.warn(`[Secours] 💳 Réponse payante servie par ${modele} — toute la chaîne gratuite a échoué`);
+        } else if (modele !== AiCoachingService.MODELES_CHAT[0]) {
           console.warn(`[Groq] ⚠️ Réponse servie par ${modele} (repli après saturation)`);
         }
         return { response, modele };
@@ -815,7 +838,11 @@ RÈGLES DE COMPORTEMENT :
    * connexion restait mobilisée côté serveur — de quoi saturer une petite instance
    * bien avant que le nombre d'utilisateurs ne le justifie.
    */
-  private async appelerGroq(apiKey: string, corps: any): Promise<Response> {
+  private async appelerModele(
+    apiKey: string,
+    corps: any,
+    url = 'https://api.groq.com/openai/v1/chat/completions',
+  ): Promise<Response> {
     const DELAI_MAX_MS = 45000;
 
     const controleur = new AbortController();
@@ -823,7 +850,7 @@ RÈGLES DE COMPORTEMENT :
 
     let response: Response;
     try {
-      response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      response = await fetch(url, {
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(corps),
