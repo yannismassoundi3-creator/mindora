@@ -30,12 +30,32 @@ export class BilanHebdoService {
   ) {}
 
   /**
-   * Le repère qui date une lecture : le jour où s'arrête sa fenêtre de sept jours.
+   * La version des règles qui écrivent la lecture.
+   *
+   * Le repère ci-dessous date une lecture ; il ne dit pas avec quelles règles elle
+   * a été écrite. Quand ces règles changent — un plafond corrigé, une invite
+   * réécrite —, les textes déjà en cache gardent l'ancien défaut jusqu'à leur
+   * péremption naturelle, et sur un cache journalier cela veut dire toute la
+   * journée en cours : on répare un texte que personne ne verra réparé.
+   *
+   * L'incrémenter est le seul geste qui rattrape les lectures déjà écrites. Il ne
+   * coûte qu'une régénération par personne, une seule fois — les anciens repères
+   * ne peuvent plus jamais correspondre.
+   *
+   * **v2, 17 août 2026** : le plafond de longueur coupait au milieu d'un mot, et
+   * toujours dans le troisième paragraphe — celui qui porte la seule chose à
+   * changer. Voir `WeeklyReviewService.couperProprement`.
+   */
+  private static readonly VERSION_REGLES = 'v2';
+
+  /**
+   * Le repère qui date une lecture : le jour où s'arrête sa fenêtre de sept jours,
+   * et la version des règles qui l'ont écrite.
    *
    * En heure de Paris, comme les scores journaliers que la fenêtre parcourt.
    */
   static repere(maintenant = new Date()): string {
-    return cleJourParis(maintenant);
+    return `${BilanHebdoService.VERSION_REGLES}:${cleJourParis(maintenant)}`;
   }
 
   /**

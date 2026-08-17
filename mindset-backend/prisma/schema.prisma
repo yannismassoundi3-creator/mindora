@@ -175,8 +175,15 @@ model AIProfile {
   /// texte long, il coute davantage, et il ne change qu'une fois par jour au plus.
   /// Sans cache, chaque passage sur le tableau de bord rappellerait le modele.
   ///
-  /// `bilan_semaine` retient le JOUR ou s'arrete la fenetre commentee (heure de
-  /// Paris) — le nom de la colonne est historique, la valeur est bien un jour.
+  /// `bilan_semaine` retient `version:JOUR` — le jour ou s'arrete la fenetre
+  /// commentee (heure de Paris), precede de la version des regles qui ont ecrit le
+  /// texte. Le nom de la colonne est historique, la valeur n'est pas une semaine.
+  ///
+  /// La version sert a rattraper les textes deja ecrits quand la facon de les
+  /// ecrire est corrigee : sans elle, un defaut visible reste affiche jusqu'au
+  /// lendemain chez ceux qui ont deja leur lecture. Voir `BilanHebdoService`.
+  /// Les valeurs sans prefixe datent d'avant le 17 aout 2026 et ne correspondent
+  /// plus jamais, ce qui est l'effet recherche.
   ///
   /// Le repere est journalier parce que la fenetre est glissante : le bilan porte
   /// sur les sept derniers jours, pas sur la semaine du lundi au dimanche. Date par

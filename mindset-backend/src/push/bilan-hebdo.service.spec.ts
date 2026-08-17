@@ -27,9 +27,17 @@ describe('BilanHebdoService', () => {
     habitudes: [{ titre: 'Sport', joursTenus: 5 }],
   };
 
-  /** Le jour courant, en heure de Paris — le repère que le service doit poser. */
-  const aujourdhui = () =>
-    new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Paris' });
+  /**
+   * Le repère que le service doit poser aujourd'hui.
+   *
+   * Passe par `repere()` plutôt que de recomposer la chaîne à la main : il porte
+   * la version des règles en plus du jour, et une copie ici obligerait à la mettre
+   * à jour à chaque incrément — c'est-à-dire qu'elle finirait par mentir.
+   */
+  const aujourdhui = () => BilanHebdoService.repere();
+
+  /** Le même repère, un jour plus tôt : la fenêtre a glissé, les règles non. */
+  const hierMemesRegles = () => BilanHebdoService.repere(new Date(Date.now() - 86400000));
 
   beforeEach(async () => {
     jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
@@ -80,12 +88,9 @@ describe('BilanHebdoService', () => {
   });
 
   it("régénère dès le lendemain, la fenêtre ayant glissé d'un jour", async () => {
-    const hier = new Date(Date.now() - 86400000).toLocaleDateString('sv-SE', {
-      timeZone: 'Europe/Paris',
-    });
     prisma.aIProfile.findUnique.mockResolvedValue({
       bilan_texte: "La lecture d'hier.",
-      bilan_semaine: hier,
+      bilan_semaine: hierMemesRegles(),
     });
 
     const texte = await service.lecture('u1', 'Yannis', semaine);
@@ -97,6 +102,42 @@ describe('BilanHebdoService', () => {
     */
     expect(bilan.genererLecture).toHaveBeenCalled();
     expect(texte).toBe('Ta semaine tient.');
+  });
+
+  /**
+   * Ce que le repère journalier seul ne savait pas faire.
+   *
+   * Corriger la façon d'écrire la lecture ne répare rien pour qui en a déjà une :
+   * son texte reste servi jusqu'au lendemain. Sur un défaut visible — une phrase
+   * coupée au milieu d'un mot —, cela veut dire réparer un texte que la personne
+   * concernée ne verra pas réparé.
+   */
+  it('régénère un texte écrit sous des règles antérieures, le même jour', async () => {
+    const [, jour] = BilanHebdoService.repere().split(':');
+    prisma.aIProfile.findUnique.mockResolvedValue({
+      bilan_texte: 'Une lecture coupée au milieu d’un mo…',
+      // Même journée, version précédente des règles.
+      bilan_semaine: `v1:${jour}`,
+    });
+
+    const texte = await service.lecture('u1', 'Yannis', semaine);
+
+    expect(bilan.genererLecture).toHaveBeenCalled();
+    expect(texte).toBe('Ta semaine tient.');
+  });
+
+  it('régénère les lectures antérieures à toute version', async () => {
+    // Le repère ne portait que le jour avant le 17 août 2026 : ces valeurs-là ne
+    // doivent jamais correspondre, sans quoi les textes déjà en base gardent leur
+    // défaut pour toute la journée en cours.
+    prisma.aIProfile.findUnique.mockResolvedValue({
+      bilan_texte: 'Une lecture de l’ancien format.',
+      bilan_semaine: new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Paris' }),
+    });
+
+    await service.lecture('u1', 'Yannis', semaine);
+
+    expect(bilan.genererLecture).toHaveBeenCalled();
   });
 
   it("rend la lecture même quand elle ne peut pas être retenue", async () => {
