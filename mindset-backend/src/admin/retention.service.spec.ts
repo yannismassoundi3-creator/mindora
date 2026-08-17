@@ -70,14 +70,52 @@ describe('RetentionService', () => {
   });
 
   /**
-   * « Combien de fois elle revient » — la question que la rétention n'atteint pas.
+   * Le classement nominatif.
    *
-   * Elle range chacun dans « revenu » ou « pas revenu » ; à l'intérieur du premier
-   * groupe, deux jours et vingt-cinq jours sont indiscernables. Les pièges de ce
-   * calcul-là sont ailleurs : la moyenne tirée par un compte assidu, les comptes
-   * jamais actifs qui écrasent la distribution, et un rythme calculé sur des
-   * comptes d'un jour, mécaniquement parfait.
+   * Les taux disent combien, jamais qui — et a quarante-sept comptes, c'est « qui »
+   * qui sert : on peut ecrire a ces gens-la. Ce qui se verifie ici, c'est que les
+   * deux conditions tiennent ensemble, et que les populations ecartees sont
+   * comptees plutot que perdues.
    */
+  describe('classement', () => {
+    it('exige d avoir ecrit ET d etre revenu', async () => {
+      const stats = await avec([
+        // Les deux : il y figure.
+        compte({ inscritIlYA: 10, joursActifs: [10, 5], messages: 4 }),
+        // A ecrit, jamais revenu.
+        compte({ inscritIlYA: 10, joursActifs: [10], messages: 9 }),
+        // Revenu, jamais ecrit.
+        compte({ inscritIlYA: 10, joursActifs: [10, 9, 8] }),
+      ]);
+
+      expect(stats.classement.comptes).toHaveLength(1);
+      expect(stats.classement.comptes[0].messages).toBe(4);
+      expect(stats.classement.ontEcritSansRevenir).toBe(1);
+      expect(stats.classement.sontRevenusSansEcrire).toBe(1);
+    });
+
+    it('classe par jours actifs, puis par messages', async () => {
+      // Revenir passe avant ecrire : parler au coach une fois arrive le jour de
+      // l'inscription, revenir dix jours ne s'achete pas.
+      const stats = await avec([
+        compte({ inscritIlYA: 20, joursActifs: [20, 19], messages: 50 }),
+        compte({ inscritIlYA: 20, joursActifs: [20, 19, 18, 17], messages: 1 }),
+        compte({ inscritIlYA: 20, joursActifs: [20, 19], messages: 2 }),
+      ]);
+
+      expect(stats.classement.comptes.map((c) => c.joursActifs)).toEqual([4, 2, 2]);
+      // A jours egaux, le plus bavard devant.
+      expect(stats.classement.comptes[1].messages).toBe(50);
+    });
+
+    it('rend le dernier jour actif, pas la date d inscription', async () => {
+      const stats = await avec([compte({ inscritIlYA: 30, joursActifs: [30, 2], messages: 1 })]);
+
+      const attendu = new Date(Date.now() - 2 * JOUR).toISOString().slice(0, 10);
+      expect(stats.classement.comptes[0].dernierJourActif).toBe(attendu);
+    });
+  });
+
   /**
    * Un entonnoir qui remonte n'est pas un entonnoir.
    *
@@ -124,6 +162,15 @@ describe('RetentionService', () => {
     });
   });
 
+  /**
+   * « Combien de fois elle revient » — la question que la rétention n'atteint pas.
+   *
+   * Elle range chacun dans « revenu » ou « pas revenu » ; à l'intérieur du premier
+   * groupe, deux jours et vingt-cinq jours sont indiscernables. Les pièges de ce
+   * calcul-là sont ailleurs : la moyenne tirée par un compte assidu, les comptes
+   * jamais actifs qui écrasent la distribution, et un rythme calculé sur des
+   * comptes d'un jour, mécaniquement parfait.
+   */
   describe('fréquence de retour', () => {
     it('compte les jours distincts, pas les venues supposées', async () => {
       const stats = await avec([

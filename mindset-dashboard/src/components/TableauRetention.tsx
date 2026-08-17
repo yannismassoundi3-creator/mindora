@@ -72,6 +72,27 @@ interface Retention {
     medianeJours: number | null;
     medianeParJourOuvert: number | null;
   };
+  /**
+   * Qui a écrit au coach **et** est revenu.
+   *
+   * Les deux ensemble : écrire une fois arrive le jour de l'inscription et ne
+   * confirme rien ; revenir sans jamais parler au coach ne touche pas à ce que
+   * l'abonnement fait payer. Les deux populations écartées sont comptées à part,
+   * sans quoi une liste courte se lirait comme une panne.
+   */
+  classement: {
+    comptes: Array<{
+      prenom: string;
+      email: string;
+      messages: number;
+      joursActifs: number;
+      dernierJourActif: string | null;
+      abonne: boolean;
+      inscritLe: string;
+    }>;
+    ontEcritSansRevenir: number;
+    sontRevenusSansEcrire: number;
+  };
   retention: Fenetre[];
   /**
    * Deux blocs, parce que ces six nombres ne forment pas une seule file.
@@ -124,7 +145,7 @@ export const TableauRetention: React.FC = () => {
   if (erreur) return <p className="retention-erreur">{erreur}</p>;
   if (!donnees) return <p className="retention-attente">Calcul en cours…</p>;
 
-  const { comptes, retention, entonnoir, cohortes, frequence, ouvertures } = donnees;
+  const { comptes, retention, entonnoir, cohortes, frequence, ouvertures, classement } = donnees;
   // La barre la plus haute donne l'échelle, pas le total : sur six paliers dont un
   // concentre la moitié des comptes, une échelle sur 100 % écrase tous les autres
   // et on ne lit plus la forme de la distribution.
@@ -433,6 +454,67 @@ export const TableauRetention: React.FC = () => {
           ces comptes-là avancent sans que le coach sache rien d'eux.
         </p>
       )}
+
+      <h3 className="retention-sous-titre">Ceux qui ont écrit au coach et qui sont revenus</h3>
+      {classement.comptes.length === 0 ? (
+        <p className="retention-attente">
+          Personne ne réunit encore les deux conditions.
+        </p>
+      ) : (
+        <div className="retention-tableau-cadre">
+          <table className="retention-tableau">
+            <thead>
+              <tr>
+                <th>Personne</th>
+                <th>Jours actifs</th>
+                <th>Messages</th>
+                <th>Vu le</th>
+              </tr>
+            </thead>
+            <tbody>
+              {classement.comptes.map((c) => (
+                <tr key={c.email}>
+                  <td>
+                    <span className="retention-personne__prenom">
+                      {c.prenom}
+                      {/* L'abonnement se voit ici : c'est la seule colonne qui dit
+                          si cet engagement s'est déjà transformé en argent. */}
+                      {c.abonne && <span className="retention-abonne" title="Abonné">★</span>}
+                    </span>
+                    <span className="retention-personne__email">{c.email}</span>
+                  </td>
+                  <td><strong>{c.joursActifs}</strong></td>
+                  <td>{c.messages}</td>
+                  <td>
+                    {c.dernierJourActif ? (
+                      formaterSemaine(c.dernierJourActif)
+                    ) : (
+                      <span className="retention-trop-jeune">—</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="retention-note">
+        Trié par jours actifs, puis par messages — <strong>pas par un score
+        composite</strong> : mélanger deux grandeurs sans rapport dans un seul
+        chiffre donne un classement que personne ne peut contester, donc que
+        personne ne peut corriger. Revenir passe avant écrire, parce que parler au
+        coach une fois arrive le jour même de l'inscription, alors que revenir dix
+        jours ne s'achète pas.
+        {(classement.ontEcritSansRevenir > 0 || classement.sontRevenusSansEcrire > 0) && (
+          <>
+            {' '}À côté : <strong>{classement.ontEcritSansRevenir}</strong> ont écrit
+            sans jamais revenir, <strong>{classement.sontRevenusSansEcrire}</strong> sont
+            revenus sans jamais parler au coach. Les premiers sont ceux à qui l'app n'a
+            pas donné de raison de repasser ; les seconds n'ont pas touché à ce que
+            l'abonnement fait payer.
+          </>
+        )}
+      </p>
 
       <h3 className="retention-sous-titre">Par semaine d'arrivée</h3>
       {cohortes.length === 0 ? (

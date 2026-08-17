@@ -31,6 +31,15 @@ export class RetentionService {
   /** Nombre de semaines d'inscription détaillées dans le tableau des cohortes. */
   private static readonly SEMAINES_COHORTES = 8;
 
+  /**
+   * Longueur maximale du classement nominatif.
+   *
+   * Il sert à écrire à des gens, pas à contempler une liste : au-delà d'une
+   * vingtaine de lignes on ne contacte plus personne. La borne évite aussi qu'une
+   * réponse d'API grossisse avec la base sans que rien ne le décide.
+   */
+  private static readonly CLASSEMENT_MAX = 20;
+
   constructor(private readonly prisma: PrismaService) {}
 
   private static readonly JOUR_MS = 24 * 60 * 60 * 1000;
@@ -112,6 +121,10 @@ export class RetentionService {
       select: {
         id: true,
         created_at: true,
+        // Nominatif, comme le tableau des arrivées du jour : à cette échelle, savoir
+        // qui est engagé permet de lui écrire, ce qu'aucun taux ne permet.
+        first_name: true,
+        email: true,
         sync_data: { select: { daily_scores: true, updated_at: true } },
         subscription: { select: { status: true, plan_type: true } },
         /*
@@ -201,6 +214,30 @@ export class RetentionService {
     const joursActifsParCompte: number[] = [];
     const regularites: number[] = [];
 
+    /*
+      Le classement nominatif : qui a écrit au coach ET qui est revenu.
+
+      Les taux disent combien, jamais qui. À quarante-sept comptes, c'est « qui »
+      qui sert — on peut écrire à ces gens-là, leur demander ce qui manque, ou
+      simplement voir à quoi ressemble quelqu'un que le produit tient.
+
+      Les deux conditions ensemble, parce que séparées elles ne valent pas
+      grand-chose : quelqu'un qui a écrit une fois puis disparu n'a rien confirmé,
+      et quelqu'un qui revient sans jamais parler au coach n'a pas touché à ce que
+      l'abonnement fait payer.
+    */
+    const classement: Array<{
+      prenom: string;
+      email: string;
+      messages: number;
+      joursActifs: number;
+      dernierJourActif: string | null;
+      abonne: boolean;
+      inscritLe: string;
+    }> = [];
+    let ontEcritSansRevenir = 0;
+    let sontRevenusSansEcrire = 0;
+
     for (const compte of comptes) {
       const jours = RetentionService.joursActifs(compte.sync_data?.daily_scores, cleAujourdhui);
       const derniereSynchro = compte.sync_data?.updated_at ?? null;
@@ -235,6 +272,31 @@ export class RetentionService {
         elles ont simplement sauté l'étape et utilisent le produit quand même.
       */
       if (jours.length > 0 && !compte.ai_profile) ontAgiSansQuestionnaire++;
+
+      /*
+        « Revenu » = actif au moins deux journées distinctes. Le jour de
+        l'inscription en est une : quelqu'un qui n'a qu'une seule clé n'est jamais
+        repassé, quelle que soit son activité ce jour-là.
+      */
+      const aEcrit = compte._count.chat_messages > 0;
+      const estRevenu = jours.length >= 2;
+
+      if (aEcrit && estRevenu) {
+        classement.push({
+          prenom: compte.first_name,
+          email: compte.email,
+          messages: compte._count.chat_messages,
+          joursActifs: jours.length,
+          // Trié comme des chaînes `YYYY-MM-DD`, donc comparables directement.
+          dernierJourActif: jours.length > 0 ? [...jours].sort().at(-1)! : null,
+          abonne: !!compte.subscription && ['ACTIVE', 'TRIALING'].includes(compte.subscription.status),
+          inscritLe: RetentionService.cleJour(compte.created_at),
+        });
+      } else if (aEcrit) {
+        ontEcritSansRevenir++;
+      } else if (estRevenu) {
+        sontRevenusSansEcrire++;
+      }
 
       if (derniereSynchro && derniereSynchro.getTime() >= debutDuJour.getTime()) actifsAujourdhui++;
       if (dansLaFenetre(derniereSynchro, 7)) actifs7j++;
@@ -433,6 +495,31 @@ export class RetentionService {
           // Le nombre qui interdit de lire la chute du questionnaire comme une perte.
           ontAgiSansQuestionnaire,
         },
+      },
+      /*
+        Le classement, et de quoi le lire.
+
+        Trié par jours actifs d'abord, messages ensuite. **Pas par un score
+        composite** : mélanger deux grandeurs sans rapport dans un seul nombre
+        produit un classement que personne ne peut contester, donc que personne ne
+        peut corriger — et il faudrait choisir des coefficients qu'aucune donnée ne
+        justifie. Deux colonnes visibles et une règle dite en toutes lettres valent
+        mieux qu'un chiffre qui a l'air savant.
+
+        Revenir passe avant écrire : parler au coach une fois arrive le jour de
+        l'inscription, revenir dix jours est ce qui ne s'achète pas.
+      */
+      classement: {
+        comptes: classement
+          .sort((a, b) => b.joursActifs - a.joursActifs || b.messages - a.messages)
+          .slice(0, RetentionService.CLASSEMENT_MAX),
+        /*
+          Les deux populations écartées, comptées à part. Sans elles, un classement
+          court se lirait comme une panne : on saurait que trois personnes y
+          figurent, jamais combien ont failli y être.
+        */
+        ontEcritSansRevenir,
+        sontRevenusSansEcrire,
       },
       cohortes: this.cohortes(comptes, maintenant),
       genere_le: maintenant.toISOString(),

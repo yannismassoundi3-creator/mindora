@@ -271,3 +271,27 @@
     transition: none;
   }
 }
+
+/* L'étoile de l'abonné, dans le classement nominatif. Discrète : elle marque, elle
+   ne récompense pas — deux abonnés sur quarante-sept, une couleur vive en ferait
+   le sujet du tableau alors que le sujet est l'engagement. */
+.retention-abonne {
+  margin-left: 5px;
+  color: #fbbf24;
+  font-size: 0.8rem;
+}
+
+/* Recopiés plutôt qu'empruntés à `TableauJour.css`. L'en-tête de ce fichier le dit :
+   deux feuilles qui partagent un nom de classe dépendent de l'ordre de
+   concaténation du build, lequel diffère entre développement et production. Six
+   lignes dupliquées coûtent moins qu'un style qui disparaît une fois déployé. */
+.retention-personne__prenom {
+  display: block;
+}
+
+.retention-personne__email {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--text-secondary, #94a3b8);
+  opacity: 0.8;
+}
