@@ -305,11 +305,16 @@ export const AuthScreen = ({ onComplete }: { onComplete: () => void }) => {
         <form onSubmit={handleSubmit} className="auth-form" style={{ marginTop: '20px' }}>
           <input
             type="text"
+            inputMode="numeric"
             placeholder="Code à 6 chiffres"
             value={verificationCode}
-            onChange={(e) => setVerificationCode(e.target.value)}
+            // Le serveur n'accepte plus que six chiffres exactement. Un code copié
+            // depuis un e-mail arrive souvent avec une espace autour : elle comptait
+            // dans les six caractères, tronquait un chiffre, et le code échouait —
+            // c'était déjà vrai avant, on le voit seulement maintenant que le refus
+            // est explicite. On ne garde donc que les chiffres, et six au plus.
+            onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
             required
-            maxLength={6}
             style={{ textAlign: 'center', fontSize: '1.5rem', letterSpacing: '8px', fontWeight: 'bold' }}
           />
 
