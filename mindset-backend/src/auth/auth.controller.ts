@@ -6,6 +6,7 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { Verify2faDto } from './dto/verify-2fa.dto';
 import { Response, Request } from 'express';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
@@ -115,7 +116,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Vérifier le code 2FA par e-mail (Etape 2)' })
   @ApiResponse({ status: 200, description: 'Connexion réussie (retourne AccessToken et set RefreshToken en cookie).' })
-  async verify2FA(@Body() body: { email: string; code: string }, @Res({ passthrough: true }) response: Response) {
+  async verify2FA(@Body() body: Verify2faDto, @Res({ passthrough: true }) response: Response) {
     const { accessToken, refreshToken, user, has_ai_profile } = await this.authService.verify2FA(body.email, body.code);
 
     this.setRefreshTokenCookie(response, refreshToken);

@@ -87,12 +87,30 @@ export class AuthService {
     }
   }
 
+  /**
+   * Compare deux secrets sans laisser le temps de réponse en dire quoi que ce soit.
+   *
+   * `!==` s'arrête au premier caractère qui diffère : une clé dont les trois
+   * premiers signes sont bons met mesurablement plus longtemps à être rejetée
+   * qu'une clé fausse dès le premier. Cette différence se mesure et se remonte,
+   * signe par signe, jusqu'à reconstituer le secret entier.
+   *
+   * Les deux chaînes sont d'abord réduites à une empreinte de longueur fixe :
+   * `timingSafeEqual` exige des tampons de même taille et lève sinon — ce qui
+   * rendrait au passage la longueur du secret, qui n'a pas à être dite non plus.
+   */
+  private static memeSecret(propose: unknown, attendu: string): boolean {
+    if (typeof propose !== 'string') return false;
+    const empreinte = (v: string) => crypto.createHash('sha256').update(v).digest();
+    return crypto.timingSafeEqual(empreinte(propose), empreinte(attendu));
+  }
+
   async claimAdmin(userId: string, secretKey: string) {
     const validKey = process.env.ADMIN_SECRET_KEY;
     if (!validKey) {
       throw new InternalServerErrorException('Configuration serveur manquante.');
     }
-    if (secretKey !== validKey) {
+    if (!AuthService.memeSecret(secretKey, validKey)) {
       throw new UnauthorizedException('Clé secrète invalide.');
     }
 
@@ -270,6 +288,21 @@ export class AuthService {
     // répondre « Utilisateur introuvable » à une adresse inconnue et « Code invalide »
     // à une adresse connue transforme cette route en annuaire de comptes.
     const refus = new UnauthorizedException('Code de vérification invalide ou expiré.');
+
+    /*
+      Deuxième verrou, sous celui du DTO.
+
+      Ces deux valeurs partent dans un `where` Prisma, où un objet n'est pas une
+      valeur mais un **filtre** : `{ not: 'x' }` s'y lit « n'importe quel code sauf
+      x », et fait donc trouver le code en cours à qui ne l'a jamais reçu. Le
+      contrôle vit déjà dans `Verify2faDto`, et c'est là qu'il doit vivre — mais il
+      y a tenu à une annotation TypeScript près, effacée à la compilation et donc
+      invisible au `ValidationPipe`. Le refaire ici coûte deux lignes et ne dépend
+      plus de la façon dont on aura décoré le contrôleur.
+    */
+    if (typeof email !== 'string' || typeof code !== 'string') {
+      throw refus;
+    }
 
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) {
