@@ -14,6 +14,7 @@ describe('RetentionService', () => {
   let prisma: {
     user: { findMany: jest.Mock };
     appOuverture: { groupBy: jest.Mock; aggregate: jest.Mock };
+    chatMessage: { groupBy: jest.Mock };
   };
 
   const JOUR = 24 * 60 * 60 * 1000;
@@ -318,6 +319,9 @@ describe('RetentionService', () => {
       user: { findMany: jest.fn() },
       // Par défaut, aucune ouverture : la mesure est postérieure à la plupart des
       // comptes, et les tests écrits avant elle décrivent tous ce cas-là.
+      // Par defaut aucune ligne de conversation : les tests ecrits avant ce
+      // decompte decrivent tous ce cas-la.
+      chatMessage: { groupBy: jest.fn().mockResolvedValue([]) },
       appOuverture: {
         groupBy: jest.fn().mockResolvedValue([]),
         aggregate: jest.fn().mockResolvedValue({ _min: { jour: null } }),

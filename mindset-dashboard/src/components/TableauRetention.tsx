@@ -93,6 +93,31 @@ interface Retention {
     ontEcritSansRevenir: number;
     sontRevenusSansEcrire: number;
   };
+  /**
+   * Ce que les gens ont tapé, et ce à quoi le coach a répondu.
+   *
+   * L'écart est exact : un échange réussi écrit une ligne `user` et une ligne
+   * `ai`, un échec écrit la première et pas la seconde. Chaque unité de
+   * `sansReponse` est quelqu'un qui a parlé dans le vide.
+   */
+  coach: {
+    messagesTapes: number;
+    reponsesRecues: number;
+    sansReponse: number;
+    comptesTouches: number;
+  };
+  /** Qui paie, nommément. À deux abonnés, ce sont des personnes, pas une statistique. */
+  abonnesDetail: Array<{
+    prenom: string;
+    email: string;
+    statut: string;
+    formule: string;
+    depuis: string | null;
+    finPeriode: string | null;
+    resilie: boolean;
+    inscritLe: string;
+    messages: number;
+  }>;
   retention: Fenetre[];
   /**
    * Deux blocs, parce que ces six nombres ne forment pas une seule file.
@@ -146,6 +171,11 @@ export const TableauRetention: React.FC = () => {
   if (!donnees) return <p className="retention-attente">Calcul en cours…</p>;
 
   const { comptes, retention, entonnoir, cohortes, frequence, ouvertures, classement } = donnees;
+  // Repli tant que l'API déployée ne rend pas encore ces blocs : le front et
+  // l'API partent séparément, et un écran cassé pendant l'intervalle coûte plus
+  // cher que deux valeurs par défaut.
+  const coach = donnees.coach ?? null;
+  const abonnes = donnees.abonnesDetail ?? [];
   // La barre la plus haute donne l'échelle, pas le total : sur six paliers dont un
   // concentre la moitié des comptes, une échelle sur 100 % écrase tous les autres
   // et on ne lit plus la forme de la distribution.
@@ -453,6 +483,91 @@ export const TableauRetention: React.FC = () => {
           l'étape. Le questionnaire coûte donc moins de monde qu'il n'y paraît — mais
           ces comptes-là avancent sans que le coach sache rien d'eux.
         </p>
+      )}
+
+      {coach && coach.messagesTapes > 0 && (
+        <>
+          <h3 className="retention-sous-titre">Quand le coach n'a pas répondu</h3>
+          <div className="retention-frequence-resume">
+            <div className="retention-carte glass-panel">
+              <span className="retention-carte__libelle">Messages tapés</span>
+              <span className="retention-carte__valeur">{coach.messagesTapes}</span>
+              <span className="retention-carte__base">
+                tout ce que les gens ont écrit au coach, depuis le début
+              </span>
+            </div>
+
+            <div
+              className={`retention-carte glass-panel${coach.sansReponse > 0 ? ' retention-carte--alerte' : ''}`}
+            >
+              <span className="retention-carte__libelle">Restés sans réponse</span>
+              <span className="retention-carte__valeur">{coach.sansReponse}</span>
+              <span className="retention-carte__base">
+                {coach.reponsesRecues} réponses reçues · chacun de ces {coach.sansReponse} est
+                quelqu'un qui a parlé dans le vide
+              </span>
+            </div>
+
+            <div className="retention-carte glass-panel">
+              <span className="retention-carte__libelle">Personnes concernées</span>
+              <span className="retention-carte__valeur">{coach.comptesTouches}</span>
+              <span className="retention-carte__base">
+                ont vu le coach ne pas répondre au moins une fois
+              </span>
+            </div>
+          </div>
+          <p className="retention-note">
+            Le message est écrit en base <strong>avant</strong> l'appel au modèle : quand
+            celui-ci échoue, les coins et le crédit mensuel sont rendus, mais la ligne
+            reste. C'est pour ça qu'un compte gratuit peut afficher plus de messages que
+            son plafond mensuel — il a tapé plus qu'il n'a été facturé. L'écart est
+            exact : un échange réussi écrit une ligne de la personne et une du coach, un
+            échec n'écrit que la première.
+          </p>
+        </>
+      )}
+
+      {abonnes.length > 0 && (
+        <>
+          <h3 className="retention-sous-titre">Qui a pris l'abonnement</h3>
+          <div className="retention-tableau-cadre">
+            <table className="retention-tableau">
+              <thead>
+                <tr>
+                  <th>Personne</th>
+                  <th>Formule</th>
+                  <th>Depuis</th>
+                  <th>Jusqu'au</th>
+                  <th>Messages</th>
+                </tr>
+              </thead>
+              <tbody>
+                {abonnes.map((a) => (
+                  <tr key={a.email}>
+                    <td>
+                      <span className="retention-personne__prenom">{a.prenom}</span>
+                      <span className="retention-personne__email">{a.email}</span>
+                    </td>
+                    <td>
+                      {a.formule}
+                      {a.statut === 'TRIALING' && (
+                        <span className="retention-marche__part"> · essai</span>
+                      )}
+                    </td>
+                    <td>{a.depuis ? formaterSemaine(a.depuis) : <span className="jour-non">—</span>}</td>
+                    <td>
+                      {a.finPeriode ? formaterSemaine(a.finPeriode) : <span className="jour-non">—</span>}
+                      {/* Un abonné qui a déjà résilié est celui à qui parler en premier,
+                          et rien ailleurs ne le signalait. */}
+                      {a.resilie && <span className="retention-marche__perte"> résilié</span>}
+                    </td>
+                    <td>{a.messages}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       <h3 className="retention-sous-titre">Ceux qui ont écrit au coach et qui sont revenus</h3>

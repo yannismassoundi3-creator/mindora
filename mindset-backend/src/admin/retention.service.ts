@@ -50,6 +50,21 @@ export class RetentionService {
   }
 
   /**
+   * La même chose, pour une date qui peut manquer.
+   *
+   * Une seule colonne vide — un abonnement importé à la main, une ligne écrite par
+   * une version antérieure du schéma — suffirait sinon à faire échouer **tout**
+   * l'endpoint d'administration sur un `toISOString` d'`undefined`. Un tableau de
+   * bord doit se dégrader, jamais s'éteindre : une case vide se voit et se
+   * corrige, une page blanche ne dit rien de ce qui manque.
+   */
+  private static cleJourOuNull(date: Date | null | undefined): string | null {
+    return date instanceof Date && !Number.isNaN(date.getTime())
+      ? RetentionService.cleJour(date)
+      : null;
+  }
+
+  /**
    * Les jours où cette personne a agi, sous forme de clés comparables.
    *
    * Une entrée présente vaut activité même si le score vaut zéro : le score
@@ -126,7 +141,19 @@ export class RetentionService {
         first_name: true,
         email: true,
         sync_data: { select: { daily_scores: true, updated_at: true } },
-        subscription: { select: { status: true, plan_type: true } },
+        subscription: {
+          select: {
+            status: true,
+            plan_type: true,
+            // Quand l'abonnement a été pris, et jusqu'à quand il court. Le second
+            // est ce qui distingue un abonné qui va se renouveler d'un essai qui
+            // s'arrête dans trois jours — deux personnes à qui l'on ne parle pas
+            // de la même façon.
+            created_at: true,
+            current_period_end: true,
+            cancel_at_period_end: true,
+          },
+        },
         /*
           Les deux marches manquantes de l'entonnoir. Entre « s'est inscrit » et
           « a fait quelque chose » il y a deux murs, et le tableau les confondait
@@ -176,6 +203,51 @@ export class RetentionService {
     const premiereJournee = await this.prisma.appOuverture.aggregate({
       _min: { jour: true },
     });
+
+    /*
+      Ce que les gens ont tapé, et ce à quoi le coach a répondu.
+
+      Les deux ne se confondent pas, et l'écart n'était visible nulle part. Le
+      message de la personne est écrit en base **avant** l'appel au modèle ; quand
+      celui-ci échoue — fournisseur saturé, délai dépassé, réponse vide — les coins
+      et le crédit mensuel sont rendus, mais la ligne du message reste. Elle est
+      donc comptée comme un échange alors que personne n'a rien reçu.
+
+      La soustraction est exacte, et c'est ce qui la rend utilisable : un échange
+      réussi écrit exactement une ligne `user` et une ligne `ai`, un échec écrit la
+      première et pas la seconde. `user − ai` est donc le nombre de fois où
+      quelqu'un a parlé dans le vide, sans approximation ni correction à appliquer.
+
+      Le plan réclamé automatiquement compte ici comme le reste : lui aussi peut
+      échouer, et quand il échoue la personne arrive sur un tableau de bord vide
+      après six questions — c'est même le pire moment pour que ça arrive.
+    */
+    const lignesParSender = await this.prisma.chatMessage.groupBy({
+      by: ['user_id', 'sender'],
+      _count: { _all: true },
+    });
+
+    let messagesTapes = 0;
+    let reponsesRecues = 0;
+    const comptesSansReponse = new Set<string>();
+    const tapesParCompte = new Map<string, number>();
+    const reponsesParCompte = new Map<string, number>();
+
+    for (const ligne of lignesParSender) {
+      if (!idsVivants.has(ligne.user_id)) continue;
+      const n = ligne._count._all;
+      if (ligne.sender === 'user') {
+        messagesTapes += n;
+        tapesParCompte.set(ligne.user_id, n);
+      } else if (ligne.sender === 'ai') {
+        reponsesRecues += n;
+        reponsesParCompte.set(ligne.user_id, n);
+      }
+    }
+
+    for (const [id, tapes] of tapesParCompte) {
+      if (tapes > (reponsesParCompte.get(id) ?? 0)) comptesSansReponse.add(id);
+    }
 
     const depuis = (jours: number) => new Date(maintenant.getTime() - jours * RetentionService.JOUR_MS);
     const dansLaFenetre = (date: Date | null | undefined, jours: number) =>
@@ -521,6 +593,49 @@ export class RetentionService {
         ontEcritSansRevenir,
         sontRevenusSansEcrire,
       },
+      /*
+        Ce que le coach a laissé sans réponse.
+
+        Le chiffre le plus coûteux du tableau, et il n'existait nulle part : chaque
+        unité est quelqu'un qui a écrit au coach — le seul geste que l'abonnement
+        fait payer — et n'a rien reçu. Compté sur toute l'histoire des comptes
+        vivants, pas sur une fenêtre : une déception ne s'efface pas au bout de
+        quatorze jours.
+      */
+      coach: {
+        messagesTapes,
+        reponsesRecues,
+        sansReponse: Math.max(0, messagesTapes - reponsesRecues),
+        // Combien de personnes en ont fait les frais, au moins une fois. Un même
+        // compte peut porter dix échecs : le total dit l'ampleur, celui-ci dit
+        // combien de gens ont vu le produit ne pas répondre.
+        comptesTouches: comptesSansReponse.size,
+      },
+      /*
+        Qui paie, nommément.
+
+        Deux abonnés sur quarante-sept : à ce stade ce ne sont pas des statistiques,
+        ce sont des personnes qu'on peut remercier, interroger, et dont on peut
+        apprendre pourquoi elles ont dit oui. `cancel_at_period_end` est joint parce
+        qu'un abonné qui a déjà résilié est celui à qui il faut parler en premier,
+        et rien ailleurs ne le signale.
+      */
+      abonnesDetail: comptes
+        .filter((c) => c.subscription && ['ACTIVE', 'TRIALING'].includes(c.subscription.status))
+        .map((c) => ({
+          prenom: c.first_name,
+          email: c.email,
+          statut: c.subscription!.status,
+          formule: c.subscription!.plan_type,
+          depuis: RetentionService.cleJourOuNull(c.subscription!.created_at),
+          finPeriode: RetentionService.cleJourOuNull(c.subscription!.current_period_end),
+          resilie: !!c.subscription!.cancel_at_period_end,
+          inscritLe: RetentionService.cleJour(c.created_at),
+          messages: c._count.chat_messages,
+        }))
+        // Le plus récent d'abord. Une date absente passe en dernier plutôt que de
+        // fausser la comparaison — elle ne doit pas se retrouver en tête par accident.
+        .sort((a, b) => (b.depuis ?? '').localeCompare(a.depuis ?? '')),
       cohortes: this.cohortes(comptes, maintenant),
       genere_le: maintenant.toISOString(),
     };
