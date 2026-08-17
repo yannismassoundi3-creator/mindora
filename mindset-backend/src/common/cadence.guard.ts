@@ -1,5 +1,6 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { ThrottlerGuard } from '@nestjs/throttler';
+import { ipClient } from './cadence-globale.guard';
 
 /**
  * Ce que le garde-fou nous passe au moment du refus.
@@ -50,11 +51,12 @@ export class CadenceGuard extends ThrottlerGuard {
    *
    * Le repli sur l'IP couvre les routes non authentifiées si ce garde venait à en
    * protéger un jour — et surtout il ne laisse jamais passer sans compter, ce qui
-   * serait le pire des deux mondes.
+   * serait le pire des deux mondes. Il passe par `ipClient` et non par `req.ip`,
+   * qui derrière Render et Vercel désigne un intermédiaire commun à tous.
    */
   protected async getTracker(req: Record<string, any>): Promise<string> {
     const userId = req?.user?.userId;
-    return userId ? `compte:${userId}` : `ip:${req.ip}`;
+    return userId ? `compte:${userId}` : `ip:${ipClient(req)}`;
   }
 
   /**
