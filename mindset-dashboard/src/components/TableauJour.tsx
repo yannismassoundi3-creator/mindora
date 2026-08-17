@@ -51,6 +51,29 @@ interface Quotidien {
    * arrivées reste aveugle.
    */
   provenances: Array<{ source: string; inscrits: number; ontParleAuCoach: number }>;
+  /**
+   * Toutes les arrivées des quatorze jours, pas seulement celles d'aujourd'hui.
+   *
+   * Le tableau nominatif se vidait chaque nuit : le lendemain d'une bonne soirée,
+   * les gens arrivés la veille disparaissaient avec leur nombre de messages, au
+   * moment précis où l'on veut voir ce qu'ils sont devenus.
+   *
+   * `messagesAuCoach` compte ici **tout ce que la personne a écrit depuis son
+   * arrivée**, et non ce qu'elle a écrit le jour de son inscription : sur une
+   * ligne vieille de dix jours, le second ne voudrait plus rien dire.
+   */
+  inscritsRecents: Array<{
+    id: string;
+    prenom: string;
+    email: string;
+    jour: string;
+    heure: string;
+    entre: boolean;
+    questionnaireFini: boolean;
+    source: string | null;
+    messagesAuCoach: number;
+    dernierMessage: string | null;
+  }>;
   inscritsDuJour: Array<{
     id: string;
     prenom: string;
@@ -91,6 +114,10 @@ export const TableauJour: React.FC = () => {
   if (!donnees) return <p className="jour-attente">Lecture de la journée…</p>;
 
   const { aujourdhui, hier, jours, inscritsDuJour, provenances } = donnees;
+  // Repli sur la liste du jour tant que l'API déployée ne rend pas encore la
+  // liste longue : les deux moitiés se déploient séparément, et un écran vide
+  // pendant l'intervalle serait pris pour une perte de données.
+  const recents = donnees.inscritsRecents ?? [];
 
   /*
     Toutes les barres se lisent contre la même échelle, sinon deux journées de
@@ -321,6 +348,63 @@ export const TableauJour: React.FC = () => {
             </tbody>
           </table>
         </div>
+      )}
+
+      {recents.length > inscritsDuJour.length && (
+        <>
+          <h3 className="jour-sous-titre">Tous les arrivants · quatorze jours</h3>
+          <div className="jour-tableau-cadre">
+            <table className="jour-tableau">
+              <thead>
+                <tr>
+                  <th>Arrivé le</th>
+                  <th>Personne</th>
+                  <th>Entré</th>
+                  <th>Questionnaire</th>
+                  <th>Coach</th>
+                  <th>Dernier message</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recents.map((p) => (
+                  <tr key={p.id}>
+                    <td>
+                      {formaterJour(p.jour)}
+                      <span className="jour-personne__email"> {p.heure}</span>
+                    </td>
+                    <td>
+                      <span className="jour-personne__prenom">{p.prenom}</span>
+                      <span className="jour-personne__email">{p.email}</span>
+                    </td>
+                    <td>{p.entre ? '✓' : <span className="jour-non">—</span>}</td>
+                    <td>{p.questionnaireFini ? '✓' : <span className="jour-non">—</span>}</td>
+                    <td>
+                      {p.messagesAuCoach > 0 ? (
+                        <strong>{p.messagesAuCoach} msg</strong>
+                      ) : (
+                        <span className="jour-non">—</span>
+                      )}
+                    </td>
+                    <td>
+                      {p.dernierMessage ? (
+                        formaterJour(p.dernierMessage)
+                      ) : (
+                        <span className="jour-non">—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="jour-note">
+            Ici, <strong>« Coach » compte tout ce que la personne a écrit depuis son
+            arrivée</strong>, pas ce qu'elle a écrit le jour de son inscription — sur
+            une ligne vieille de dix jours, le second ne voudrait plus rien dire. La
+            colonne « Dernier message » est celle qui distingue quelqu'un qui a parlé
+            une fois le premier soir de quelqu'un qui revient parler.
+          </p>
+        </>
       )}
 
       <p className="jour-note">

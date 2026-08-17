@@ -200,6 +200,36 @@ export class QuotidienService {
         messagesAuCoach: joursParPersonne.get(n.id)?.get(cleAujourdhui) ?? 0,
       })),
       /*
+        Les arrivées des quatorze jours, et pas seulement celles d'aujourd'hui.
+
+        Le tableau nominatif ne montrait que la journée en cours : le lendemain
+        d'une bonne soirée, les treize personnes arrivées la veille disparaissaient
+        de l'écran avec leur nombre de messages, alors que c'est précisément le
+        moment où l'on veut voir ce qu'elles sont devenues. Un tableau qui se vide
+        chaque nuit efface la seule vue nominative du produit.
+
+        Le décompte de messages change de sens en changeant de fenêtre : ici c'est
+        **tout ce que la personne a écrit depuis son arrivée**, pas ce qu'elle a
+        écrit le jour de son inscription. Sur une ligne datée d'il y a dix jours,
+        le second ne dirait plus rien d'utile.
+      */
+      inscritsRecents: inscrits.map((n) => {
+        const parJour = joursParPersonne.get(n.id);
+        return {
+          id: n.id,
+          prenom: n.first_name,
+          email: n.email,
+          jour: cleJourParis(n.created_at),
+          heure: heureParis(n.created_at),
+          entre: n._count.refresh_tokens > 0,
+          questionnaireFini: !!n.ai_profile,
+          source: n.source,
+          messagesAuCoach: parJour ? [...parJour.values()].reduce((s, n) => s + n, 0) : 0,
+          // Le dernier jour où cette personne a écrit au coach. Vide si jamais.
+          dernierMessage: parJour && parJour.size > 0 ? [...parJour.keys()].sort().at(-1)! : null,
+        };
+      }),
+      /*
         Trié par volume : c'est dans cet ordre qu'on décide quoi refaire. La part
         qui a parlé au coach est jointe parce qu'un canal qui amène du monde sans
         que personne n'essaie le produit n'est pas un bon canal — c'est le même
