@@ -112,8 +112,22 @@ export async function verifierSecours(): Promise<EtatSecours> {
       headers: { Authorization: `Bearer ${secours.apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: secours.modele,
-        messages: [{ role: 'user', content: 'ping' }],
-        max_tokens: 5,
+        messages: [{ role: 'user', content: 'Réponds seulement : ok' }],
+        /*
+          Assez large pour qu'un modèle à raisonnement puisse répondre.
+
+          Ce contrôle demandait 5 jetons. C'est suffisant pour un modèle qui écrit
+          directement, et strictement insuffisant pour un GPT-OSS ou tout autre
+          modèle qui réfléchit d'abord : ses premiers jetons partent dans le
+          raisonnement, le budget est épuisé avant le premier mot de réponse, et
+          `content` revient vide. Le contrôle accusait alors le fournisseur d'un
+          défaut qui venait de lui-même — le pire diagnostic possible, celui qui
+          envoie corriger une configuration correcte.
+
+          200 jetons de sortie coûtent un dix-millième d'euro. Il n'y avait aucune
+          raison d'être aussi avare.
+        */
+        max_tokens: 200,
         temperature: 0,
       }),
       signal: controleur.signal,
@@ -136,15 +150,35 @@ export async function verifierSecours(): Promise<EtatSecours> {
     }
 
     const data = await reponse.json().catch(() => null);
-    const texte = data?.choices?.[0]?.message?.content;
-    if (typeof texte !== 'string') {
+    const choix = data?.choices?.[0];
+    const texte = choix?.message?.content;
+
+    if (typeof texte !== 'string' || texte.trim() === '') {
+      /*
+        200 sans texte exploitable. Trois causes possibles, et elles n'appellent
+        pas du tout le même geste — d'où ce diagnostic détaillé plutôt qu'une
+        phrase unique qui accusait l'adresse à tort :
+
+        — `finish_reason: length` : le budget de jetons a été mangé avant la
+          réponse. C'est un réglage d'ici, pas une faute du fournisseur.
+        — le message porte un champ de raisonnement mais pas de contenu : modèle à
+          raisonnement qui n'a pas eu la place de conclure.
+        — aucune structure reconnaissable : là seulement, l'adresse ne rend pas le
+          format OpenAI, et c'est bien elle qu'il faut corriger.
+
+        Les noms de champs suffisent à trancher, et ne révèlent rien : l'invite
+        envoyée est « Réponds seulement : ok ».
+      */
+      const champs = choix?.message ? Object.keys(choix.message).join(', ') : 'aucun';
+      const fin = choix?.finish_reason ?? 'non précisé';
+
       return {
         ...base,
         ok: false,
         latenceMs,
-        // 200 sans texte exploitable : le service répond mais ne parle pas la même
-        // langue. C'est le cas d'une adresse qui pointe vers un autre format d'API.
-        erreur: "Réponse acceptée mais illisible : l'adresse ne rend pas le format OpenAI attendu.",
+        erreur: choix
+          ? `Réponse acceptée mais sans texte. finish_reason : ${fin} · champs du message : ${champs}`
+          : "Réponse acceptée mais illisible : l'adresse ne rend pas le format OpenAI attendu.",
       };
     }
 
