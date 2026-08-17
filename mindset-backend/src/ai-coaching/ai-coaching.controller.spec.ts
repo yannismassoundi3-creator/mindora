@@ -1,6 +1,7 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AiCoachingController } from './ai-coaching.controller';
+import { CadenceGuard } from '../common/cadence.guard';
 import { AiCoachingService } from './ai-coaching.service';
 import { AiQuotaService } from './ai-quota.service';
 import { CoinLedgerService } from './coin-ledger.service';
@@ -76,7 +77,17 @@ describe('AiCoachingController — débit et remboursement du chat', () => {
           useValue: { syncData: { findUnique: jest.fn().mockResolvedValue(null) } },
         },
       ],
-    }).compile();
+    })
+      /*
+        La cadence n'est pas le sujet de ces tests, et son garde reclame les
+        fournisseurs du module Throttler. Le neutraliser ici evite de monter tout
+        ce module pour verifier un debit de coins — et surtout evite que ces
+        tests-la commencent a dependre d'un compteur de requetes.
+        Sa propre logique est verifiee dans cadence.guard.spec.ts.
+      */
+      .overrideGuard(CadenceGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<AiCoachingController>(AiCoachingController);
   });
@@ -295,7 +306,17 @@ describe('AiCoachingController — messages de découverte', () => {
         { provide: BilanHebdoService, useValue: bilanHebdo },
         { provide: PrismaService, useValue: prisma },
       ],
-    }).compile();
+    })
+      /*
+        La cadence n'est pas le sujet de ces tests, et son garde reclame les
+        fournisseurs du module Throttler. Le neutraliser ici evite de monter tout
+        ce module pour verifier un debit de coins — et surtout evite que ces
+        tests-la commencent a dependre d'un compteur de requetes.
+        Sa propre logique est verifiee dans cadence.guard.spec.ts.
+      */
+      .overrideGuard(CadenceGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<AiCoachingController>(AiCoachingController);
   });
@@ -538,7 +559,17 @@ describe('AiCoachingController — la phrase d\'ouverture', () => {
           useValue: { syncData: { findUnique: jest.fn().mockResolvedValue(null) } },
         },
       ],
-    }).compile();
+    })
+      /*
+        La cadence n'est pas le sujet de ces tests, et son garde reclame les
+        fournisseurs du module Throttler. Le neutraliser ici evite de monter tout
+        ce module pour verifier un debit de coins — et surtout evite que ces
+        tests-la commencent a dependre d'un compteur de requetes.
+        Sa propre logique est verifiee dans cadence.guard.spec.ts.
+      */
+      .overrideGuard(CadenceGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<AiCoachingController>(AiCoachingController);
   });

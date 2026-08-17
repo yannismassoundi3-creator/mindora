@@ -14,6 +14,7 @@ import { ChatDto } from './dto/chat.dto';
 import { ObjectifDto } from './dto/objectif.dto';
 import { CadrageDto } from './dto/cadrage.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CadenceGuard } from '../common/cadence.guard';
 import { Request } from 'express';
 
 @ApiTags('AI Coaching')
@@ -70,9 +71,28 @@ export class AiCoachingController {
     return this.aiCoachingService.processOnboarding(userId, data);
   }
 
-  // Les coins bornent le nombre total de messages, jamais la cadence : avec 500 coins
-  // on pouvait en envoyer 50 en dix secondes et saturer l'IA pour les autres.
-  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  /*
+    Dix messages par vingt minutes, comptés par compte.
+
+    Les coins bornent le nombre total de messages, jamais la cadence : avec 500
+    coins on pouvait en envoyer 50 en dix secondes et saturer l'IA pour tout le
+    monde. La fenêtre valait une minute — assez pour empêcher un script, pas pour
+    empêcher quelqu'un d'occuper le fournisseur toute la journée à plein régime.
+
+    `CadenceGuard` remplace le décompte par IP du garde-fou standard : sur une
+    route authentifiée, compter par adresse punit deux personnes derrière la même
+    box et laisse passer qui change de réseau. Il rend aussi un code lisible,
+    `AI_CADENCE`, sans quoi le refus s'affiche sous la phrase d'erreur générique du
+    chat et se lit comme une panne.
+
+    **Ce plafond est volontairement plus serré que l'usage légitime le plus
+    intense.** Un abonné a droit à 50 messages par jour ; il peut donc atteindre
+    cette limite au cours d'une vraie conversation, et devra attendre. C'est le
+    prix demandé pour la protection — et le refus, lui, ne consomme ni coins ni
+    quota : le garde s'exécute avant le contrôleur.
+  */
+  @UseGuards(CadenceGuard)
+  @Throttle({ default: { limit: 10, ttl: 1_200_000 } })
   @Post('chat')
   @ApiOperation({ summary: 'Discuter avec le Coach IA' })
   @ApiResponse({ status: 402, description: 'Coins insuffisants ou quota mensuel épuisé.' })

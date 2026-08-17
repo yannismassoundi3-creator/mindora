@@ -743,6 +743,25 @@ export const AIChat: React.FC = () => {
       // question d'argent — il a déjà payé. Lui servir le message d'erreur générique
       // (« je n'arrive pas à me connecter à mon cerveau externe ») lui ferait croire
       // à un incident, et lui proposer l'abonnement serait absurde.
+      /*
+        429 de cadence : dix messages en vingt minutes. Ce n'est ni une panne, ni
+        une question d'argent — c'est une protection qui a fait son travail.
+
+        Sans ce cas, le refus tombait dans la phrase générique plus bas (« je
+        n'arrive pas à me connecter à mon cerveau externe »), qui annonce une panne
+        au moment précis où tout fonctionne comme prévu. Quelqu'un qui la lit ferme
+        l'application en pensant que le produit est cassé.
+      */
+      if (error.status === 429 && error.code === 'AI_CADENCE') {
+        setMessages(prev => [...prev, {
+          id: Date.now() + 1,
+          text: error.message,
+          sender: 'ai',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        }]);
+        return;
+      }
+
       if (error.status === 429 && error.code === 'AI_DAILY_CAP') {
         setMessages(prev => [...prev, {
           id: Date.now() + 1,
