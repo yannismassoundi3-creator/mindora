@@ -383,7 +383,7 @@ export const TableauRetention: React.FC = () => {
       <div className="retention-entonnoir">
         {marches.map((m, i) => {
           const Icone = m.icone;
-          const part = entonnoir.inscrits === 0 ? 0 : (m.valeur / entonnoir.inscrits) * 100;
+          const part = entree.inscrits === 0 ? 0 : (m.valeur / entree.inscrits) * 100;
           // Ce qui se perd sur cette marche-là, et pas depuis le départ. Le total
           // rapporté aux inscrits dit qu'on perd du monde ; l'écart avec la marche
           // précédente dit où. C'est le second qui désigne quoi réparer.
