@@ -342,6 +342,17 @@ describe('RetentionService', () => {
     ]);
 
     expect(stats.entonnoir).toEqual({
+      // L'ancienne forme, gardée le temps que les onglets ouverts sur la version
+      // précédente du front disparaissent. Sans elle, l'écran d'avant affiche
+      // « NaN % » sur toutes les marches entre le déploiement de l'API et celui
+      // du front — deux chaînes séparées, parfois très décalées.
+      inscrits: 5,
+      ontOuvertUneSession: 5,
+      ontFiniLeQuestionnaire: 5,
+      ontAgi: 4,
+      ontParleAuCoach: 3,
+      abonnes: 1,
+
       entree: {
         inscrits: 5,
         ontOuvertUneSession: 5,

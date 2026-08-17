@@ -400,6 +400,27 @@ export class RetentionService {
         rapportent chacune au total des inscrits, jamais l'une à l'autre.
       */
       entonnoir: {
+        /*
+          Les six champs à plat sont ceux de l'ancienne forme, et ils restent.
+
+          Le front et l'API se déploient séparément — Render et Vercel, deux
+          chaînes indépendantes, parfois à dix minutes d'écart et parfois
+          davantage quand GitHub tousse. Livrer la nouvelle forme seule a suffi à
+          afficher « NaN % » sur toutes les marches pendant l'intervalle : l'ancien
+          écran lisait `entonnoir.inscrits`, désormais absent, et divisait par
+          `undefined`.
+
+          Une réponse doit donc rester lisible par la version précédente du client
+          le temps que celle-ci disparaisse. Ces champs partiront dans un second
+          temps, quand plus aucun onglet ouvert ne les réclamera.
+        */
+        inscrits: comptes.length,
+        ontOuvertUneSession,
+        ontFiniLeQuestionnaire,
+        ontAgi: comptes.length - jamaisActifs,
+        ontParleAuCoach,
+        abonnes,
+
         entree: {
           inscrits: comptes.length,
           ontOuvertUneSession,
