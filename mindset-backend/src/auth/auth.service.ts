@@ -283,6 +283,60 @@ export class AuthService {
     }
   }
 
+  /**
+   * Essais ratés tolérés sur un même code avant de le brûler.
+   *
+   * Cinq, comme un code de carte bancaire à un près : quelqu'un qui recopie six
+   * chiffres depuis sa boîte mail se trompe une fois, pas cinq. Au-delà, il faut
+   * en redemander un — ce qui suppose de repasser par le mot de passe, et fait
+   * partir un second e-mail chez la personne, qui apprend ainsi que quelqu'un
+   * s'acharne sur son compte.
+   */
+  static readonly ESSAIS_MAX_2FA = 5;
+
+  /**
+   * Compte un essai raté sur le code en cours, et le brûle s'il y en a trop.
+   *
+   * Ce plafond-ci ne remplace pas le décompte par requête, il couvre ce que
+   * celui-ci ne peut pas couvrir : compté par adresse, il borne **un appelant**,
+   * jamais un code. Or six chiffres ne font que 900 000 possibilités, et quelques
+   * milliers d'adresses — cela se loue — suffisent à en essayer une bonne part
+   * pendant les dix minutes de validité. Compté sur le code, le plafond tient
+   * quel que soit le nombre de machines en face.
+   *
+   * L'incrément porte sur tous les codes actifs du compte, sans distinguer lequel
+   * était visé : la connexion n'en laisse qu'un valable à la fois (les précédents
+   * sont marqués utilisés à chaque demande), et un essai raté ne désigne de toute
+   * façon aucun code en particulier.
+   *
+   * N'interrompt jamais l'appelant. Un échec ici doit laisser passer le refus
+   * d'origine — répondre 500 sur un mauvais code apprendrait au passage que
+   * l'adresse existe.
+   */
+  private async compterEssaiRate(userId: string): Promise<void> {
+    try {
+      const actifs = { user_id: userId, is_used: false, expires_at: { gt: new Date() } };
+
+      await this.prisma.twoFactorCode.updateMany({
+        where: actifs,
+        data: { tentatives: { increment: 1 } },
+      });
+
+      const brules = await this.prisma.twoFactorCode.updateMany({
+        where: { ...actifs, tentatives: { gte: AuthService.ESSAIS_MAX_2FA } },
+        data: { is_used: true },
+      });
+
+      if (brules.count > 0) {
+        this.logger.warn(
+          `[AUTH] ${AuthService.ESSAIS_MAX_2FA} essais ratés sur le code de ${userId} : code annulé.`,
+        );
+      }
+    } catch (e: any) {
+      this.logger.error(`[AUTH] Décompte des essais impossible pour ${userId} : ${e?.message}`);
+    }
+  }
+
   async verify2FA(email: string, code: string) {
     // Message identique dans tous les cas, comme pour l'oubli de mot de passe :
     // répondre « Utilisateur introuvable » à une adresse inconnue et « Code invalide »
@@ -320,6 +374,7 @@ export class AuthService {
     });
 
     if (!verification) {
+      await this.compterEssaiRate(user.id);
       throw refus;
     }
 

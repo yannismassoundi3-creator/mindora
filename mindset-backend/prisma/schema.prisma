@@ -424,6 +424,16 @@ model TwoFactorCode {
   expires_at DateTime
   is_used    Boolean  @default(false)
   created_at DateTime @default(now())
+  /// Essais ratés sur ce code. Au-delà de `AuthService.ESSAIS_MAX_2FA`, il est
+  /// brûlé et il faut en redemander un.
+  ///
+  /// Le décompte par adresse IP ne suffit pas ici : il borne un appelant, pas un
+  /// code. Six chiffres font 900 000 possibilités, mais cinq essais par minute
+  /// **et par adresse** deviennent des dizaines de milliers d'essais pendant les
+  /// dix minutes de validité dès qu'on dispose de quelques milliers d'adresses —
+  /// ce qui se loue. Compté sur le code, le plafond ne dépend plus de l'endroit
+  /// d'où l'on frappe.
+  tentatives Int      @default(0)
   user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([user_id])

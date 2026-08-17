@@ -74,6 +74,7 @@ describe('Second facteur — ce qui doit rester impossible', () => {
         twoFactorCode: {
           findFirst: jest.fn().mockResolvedValue({ id: 'c1' }),
           update: jest.fn().mockResolvedValue({}),
+          updateMany: jest.fn().mockResolvedValue({ count: 0 }),
         },
         aIProfile: { count: jest.fn().mockResolvedValue(0) },
         refreshToken: { create: jest.fn().mockResolvedValue({}) },
@@ -109,6 +110,50 @@ describe('Second facteur — ce qui doit rester impossible', () => {
         UnauthorizedException,
       );
       expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    });
+
+    /**
+     * Le plafond par code, et pourquoi il ne fait pas double emploi avec le
+     * décompte par requête.
+     *
+     * Celui-ci borne un appelant, pas un code : cinq essais par minute **et par
+     * adresse** font des dizaines de milliers d'essais pendant les dix minutes de
+     * validité dès qu'on dispose de quelques milliers d'adresses. Six chiffres
+     * n'en valent que 900 000. Compté sur le code, le plafond tient quel que soit
+     * le nombre de machines en face.
+     */
+    describe('essais ratés', () => {
+      beforeEach(() => {
+        prisma.user.findUnique.mockResolvedValue({ id: 'u1', role: 'USER', first_name: 'Y' });
+        prisma.twoFactorCode.findFirst.mockResolvedValue(null); // mauvais code
+      });
+
+      it('compte l’essai sur le code en cours', async () => {
+        await expect(service.verify2FA('a@b.fr', '000000')).rejects.toThrow(UnauthorizedException);
+
+        expect(prisma.twoFactorCode.updateMany).toHaveBeenCalledWith(
+          expect.objectContaining({ data: { tentatives: { increment: 1 } } }),
+        );
+      });
+
+      it('brûle le code au-delà du plafond', async () => {
+        await expect(service.verify2FA('a@b.fr', '000000')).rejects.toThrow(UnauthorizedException);
+
+        expect(prisma.twoFactorCode.updateMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({ tentatives: { gte: 5 } }),
+            data: { is_used: true },
+          }),
+        );
+      });
+
+      it('reste un 401 même si le décompte échoue', async () => {
+        // Répondre 500 sur un mauvais code apprendrait au passage que l'adresse
+        // existe — exactement ce que le message unique cherche à taire.
+        prisma.twoFactorCode.updateMany.mockRejectedValue(new Error('base indisponible'));
+
+        await expect(service.verify2FA('a@b.fr', '000000')).rejects.toThrow(UnauthorizedException);
+      });
     });
 
     it('laisse passer un vrai code, et le cherche comme une valeur', async () => {
