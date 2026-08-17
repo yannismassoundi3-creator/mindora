@@ -1,0 +1,53 @@
+.pousse {
+  padding: 14px 16px;
+  border-radius: 16px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  /* La bordure porte la raison : sur une page qu'on parcourt, la couleur est lue
+     avant le titre. */
+  border-left: 3px solid var(--primary, #00f2fe);
+}
+
+/* Reprise après un décrochage : ambre, parce qu'il s'est passé quelque chose. */
+.pousse--reprise {
+  border-left-color: #f59e0b;
+}
+
+/* Une tâche devant soi : la couleur du produit, rien de dramatique. */
+.pousse--aFinir {
+  border-left-color: var(--primary, #00f2fe);
+}
+
+/* Série en cours : chaude, c'est la seule qui célèbre. */
+.pousse--serie {
+  border-left-color: #fb7185;
+}
+
+.pousse-titre {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary, #94a3b8);
+}
+
+.pousse-action {
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.3;
+  margin: 0;
+  /* Un titre de tâche est écrit par la personne : rien ne garantit qu'il tienne
+     sur une ligne, et il ne doit pas déborder de la carte sur téléphone. */
+  overflow-wrap: anywhere;
+}
+
+.pousse-fait {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--text-secondary, #94a3b8);
+}

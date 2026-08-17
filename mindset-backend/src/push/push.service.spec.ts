@@ -471,3 +471,52 @@ describe('PushService — tournée des briefs du matin', () => {
     });
   });
 });
+
+/**
+ * Le coup de pouce affiché dans l'application.
+ *
+ * Le moteur ne voyageait que par notification : quelqu'un qui ne les active pas
+ * ne l'avait jamais vu. Ce qui se vérifie ici n'est pas qu'il répond, mais qu'il
+ * garde la seule règle qui compte — se taire sans fait à citer — tout en laissant
+ * tomber la cadence de trois jours, qui protégeait d'une intrusion que la page
+ * ne commet pas.
+ */
+describe('PushService — coup de pouce affiché', () => {
+  const JOUR = 86400000;
+  const cle = (recul: number) => new Date(Date.now() - recul * JOUR).toISOString().slice(0, 10);
+
+  it("ne dit rien quand il n'y a aucun fait à citer", async () => {
+    const coupDePouce = new CoupDePouceService();
+    const situation = coupDePouce.situation({
+      dailyScores: { [cle(0)]: 40 },
+      routines: [],
+      objectifs: [],
+      dernierCoupDePouce: null,
+      derniereSynchro: new Date(),
+    });
+
+    // Journée déjà active, plus rien devant : se taire est le comportement normal.
+    expect(situation).toBeNull();
+  });
+
+  it('ignore le délai de trois jours, qui ne protège que les notifications', () => {
+    const coupDePouce = new CoupDePouceService();
+    const etat = {
+      dailyScores: { [cle(3)]: 50, [cle(4)]: 50, [cle(5)]: 50 },
+      routines: [],
+      objectifs: [],
+      derniereSynchro: new Date(),
+    };
+
+    // Envoyé il y a une heure : la notification se tairait.
+    const pourNotification = coupDePouce.situation({
+      ...etat,
+      dernierCoupDePouce: new Date(Date.now() - 3600000),
+    });
+    expect(pourNotification).toBeNull();
+
+    // La carte, elle, doit parler : elle n'interrompt personne.
+    const pourAffichage = coupDePouce.situation({ ...etat, dernierCoupDePouce: null });
+    expect(pourAffichage?.raison).toBe('reprise');
+  });
+});

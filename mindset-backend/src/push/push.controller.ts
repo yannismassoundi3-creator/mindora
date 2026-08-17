@@ -123,6 +123,25 @@ export class PushController {
   }
 
 
+  /**
+   * Le coup de pouce du moment, pour l'afficher dans l'application.
+   *
+   * Jusqu'ici il ne partait qu'en notification. Quelqu'un qui ne les active pas ne
+   * l'a donc jamais vu — et c'est la majorité. La route est appelée à l'ouverture
+   * de la page des objectifs ; elle ne coûte qu'une lecture en base, sans appel au
+   * modèle, précisément pour pouvoir l'être à chaque fois.
+   *
+   * Rend `{ afficher: false }` la plupart du temps, et c'est voulu : sans fait à
+   * citer, il n'y a rien à dire.
+   */
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Get('coup-de-pouce')
+  @ApiOperation({ summary: "Le coup de pouce à afficher dans l'app, s'il y en a un" })
+  async coupDePouceAAfficher(@Request() req) {
+    return this.pushService.coupDePouceAAfficher(req.user.userId);
+  }
+
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Post('coup-de-pouce/test')

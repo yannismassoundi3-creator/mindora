@@ -5,6 +5,7 @@ import { AI_COSMETICS } from '../utils/cosmetics';
 import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
 import { ajouterXp } from '../utils/progression';
 import { api } from '../services/api';
+import { CoupDePouce } from '../components/CoupDePouce';
 import './Objectives.css';
 
 interface ObjectivesProps {
@@ -316,6 +317,16 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
           </button>
         </div>
       </header>
+
+      {/*
+        La chose à faire maintenant, avant tout le reste.
+
+        Placée au-dessus de la bannière qui suit, et pas en dessous : celle-ci dit
+        la même phrase à tout le monde tous les jours, alors que celle-ci ne
+        s'affiche que lorsqu'il y a un fait à citer. Montrer le générique d'abord
+        apprendrait à sauter les deux.
+      */}
+      <CoupDePouce />
 
       {/* AI Observer Banner */}
       <div className="ai-observer-banner glass-panel">

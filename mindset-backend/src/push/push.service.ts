@@ -326,6 +326,68 @@ export class PushService implements OnModuleInit {
   }
 
   /**
+   * Le coup de pouce, pour affichage dans l'application.
+   *
+   * Le moteur existait déjà, mais il ne voyageait que par notification : quelqu'un
+   * qui refuse les notifications ne l'a **jamais** vu. C'est le cas de la majorité
+   * des comptes — et c'est un utilisateur qui l'a signalé sans le savoir, en
+   * réclamant « un petit truc qui donne une chose à faire » sur la page des
+   * objectifs, une fonction qu'il possédait déjà sans pouvoir la recevoir.
+   *
+   * **Deux différences avec l'envoi, et la règle essentielle conservée.**
+   *
+   * Le délai de trois jours ne s'applique pas ici. Il existe parce qu'une
+   * notification s'impose : elle interrompt, et trop d'interruptions font couper
+   * le canal pour de bon — le seul dommage irréversible de toute l'affaire. Une
+   * carte sur une page qu'on a choisi d'ouvrir n'interrompt personne ; l'y
+   * appliquer cacherait une information utile pendant trois jours sans aucune
+   * contrepartie. D'où `dernierCoupDePouce: null`.
+   *
+   * Le texte n'est pas écrit par l'IA. Cette carte se calcule à chaque ouverture
+   * de page : un appel au modèle coûterait un quota déjà tendu, ajouterait une
+   * seconde d'attente et échouerait quand le fournisseur sature — pour une phrase
+   * que `texteFactuel` compose depuis les mêmes données, sans jamais rien inventer.
+   *
+   * Ce qui reste, et qui est tout : **on ne dit rien s'il n'y a pas de fait**.
+   * `situation()` rend `null` la plupart du temps, volontairement. Une carte qui
+   * trouve toujours quelque chose à conseiller devient un bandeau qu'on ne lit
+   * plus au bout de trois jours.
+   */
+  async coupDePouceAAfficher(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { first_name: true, sync_data: true },
+    });
+
+    if (!user) return { afficher: false as const };
+
+    const situation = this.coupDePouce.situation({
+      dailyScores: user.sync_data?.daily_scores as Record<string, number> | null,
+      routines: user.sync_data?.routines,
+      objectifs: user.sync_data?.micro_objectives,
+      dernierCoupDePouce: null,
+      derniereSynchro: user.sync_data?.updated_at ?? null,
+    });
+
+    if (!situation) return { afficher: false as const };
+
+    return {
+      afficher: true as const,
+      raison: situation.raison,
+      texte: this.coupDePouce.texteFactuel(user.first_name, situation),
+      /*
+        La tâche elle-même, telle que la personne l'a écrite. C'est ce qui sépare
+        une carte utile d'un encouragement : elle nomme une chose précise, qui
+        existe déjà dans ses listes. Jamais une action inventée — « fais 20
+        pompes » chez quelqu'un dont le plan n'en prévoit pas se lit comme un
+        reproche, et contredit le plan que le coach a lui-même écrit.
+      */
+      action: situation.restantes[0] ?? null,
+      serie: situation.serie,
+    };
+  }
+
+  /**
    * La tournée des coups de pouce.
    *
    * Elle ressemble à celle du matin, à une différence près qui est tout l'intérêt
