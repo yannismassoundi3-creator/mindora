@@ -172,6 +172,7 @@ export class RetentionService {
     let ontParleAuCoach = 0;
     let ontOuvertUneSession = 0;
     let ontFiniLeQuestionnaire = 0;
+    let ontAgiSansQuestionnaire = 0;
     let actifsAujourdhui = 0;
     let actifs7j = 0;
     let actifs30j = 0;
@@ -226,6 +227,14 @@ export class RetentionService {
       if (compte._count.chat_messages > 0) ontParleAuCoach++;
       if (compte._count.refresh_tokens > 0) ontOuvertUneSession++;
       if (compte.ai_profile) ontFiniLeQuestionnaire++;
+
+      /*
+        Ceux qui se servent de l'application sans avoir jamais répondu aux six
+        questions. C'est ce nombre qui interdit de lire « on perd 21 personnes au
+        questionnaire » : une partie d'entre elles ne sont pas perdues du tout,
+        elles ont simplement sauté l'étape et utilisent le produit quand même.
+      */
+      if (jours.length > 0 && !compte.ai_profile) ontAgiSansQuestionnaire++;
 
       if (derniereSynchro && derniereSynchro.getTime() >= debutDuJour.getTime()) actifsAujourdhui++;
       if (dansLaFenetre(derniereSynchro, 7)) actifs7j++;
@@ -372,21 +381,37 @@ export class RetentionService {
         taux: part(retenus[fenetre], eligibles[fenetre]),
       })),
       /*
-        L'entonnoir, dans l'ordre où on le perd. Chaque marche répond à une
-        question différente : est-ce qu'on s'inscrit, est-ce qu'on entre, est-ce
-        qu'on répond aux questions, est-ce qu'on essaie, est-ce qu'on parle au
-        coach — le seul geste que l'abonnement fait payer —, et est-ce qu'on paie.
+        Deux blocs, et c'est tout l'objet de cette structure.
 
-        Les marches se lisent chacune contre la précédente : c'est l'écart entre
-        deux qui nomme le mur, jamais le chiffre seul.
+        Ces six nombres étaient présentés comme un seul entonnoir descendant, où
+        chaque marche se lit contre la précédente. Or ils ne s'emboîtent pas tous :
+        « a fait au moins une action » (36) passait sous « a fini le questionnaire »
+        (21) et **remontait** — un entonnoir qui remonte n'est pas un entonnoir. Les
+        deux nombres étaient justes ; leur mise en file inventait une séquence qui
+        n'existe pas, et faisait lire « on perd 21 personnes au questionnaire »
+        alors qu'une bonne partie d'entre elles se servent de l'app sans lui.
+
+        `entree` : les seules marches réellement emboîtées. On ne peut pas finir le
+        questionnaire sans avoir ouvert de session, ni ouvrir de session sans s'être
+        inscrit. L'écart entre deux nomme donc bien un mur.
+
+        `usage` : ce qu'ils font ensuite. Ces mesures se recoupent et ne s'ordonnent
+        pas — on peut parler au coach sans avoir coché une seule habitude — et se
+        rapportent chacune au total des inscrits, jamais l'une à l'autre.
       */
       entonnoir: {
-        inscrits: comptes.length,
-        ontOuvertUneSession,
-        ontFiniLeQuestionnaire,
-        ontAgi: comptes.length - jamaisActifs,
-        ontParleAuCoach,
-        abonnes,
+        entree: {
+          inscrits: comptes.length,
+          ontOuvertUneSession,
+          ontFiniLeQuestionnaire,
+        },
+        usage: {
+          ontAgi: comptes.length - jamaisActifs,
+          ontParleAuCoach,
+          abonnes,
+          // Le nombre qui interdit de lire la chute du questionnaire comme une perte.
+          ontAgiSansQuestionnaire,
+        },
       },
       cohortes: this.cohortes(comptes, maintenant),
       genere_le: maintenant.toISOString(),

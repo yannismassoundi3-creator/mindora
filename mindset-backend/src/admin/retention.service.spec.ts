@@ -78,6 +78,52 @@ describe('RetentionService', () => {
    * jamais actifs qui écrasent la distribution, et un rythme calculé sur des
    * comptes d'un jour, mécaniquement parfait.
    */
+  /**
+   * Un entonnoir qui remonte n'est pas un entonnoir.
+   *
+   * « A fait au moins une action » etait affiche sous « a fini le questionnaire »,
+   * et passait au-dessus : 36 apres 21. Les deux nombres etaient justes — c'est
+   * leur mise en file qui inventait une sequence, puisqu'on peut cocher une
+   * habitude sans avoir jamais repondu aux six questions. Le tableau faisait donc
+   * lire « on perd 21 personnes au questionnaire » alors qu'une partie d'entre
+   * elles se servent du produit.
+   */
+  describe('entonnoir', () => {
+    it('ne garde en file que les marches reellement emboitees', async () => {
+      const stats = await avec([
+        compte({ inscritIlYA: 10, joursActifs: [10], questionnaire: false }),
+        compte({ inscritIlYA: 10, joursActifs: [10], questionnaire: false }),
+        compte({ inscritIlYA: 10, joursActifs: [10], questionnaire: true }),
+      ]);
+
+      // Chaque marche d'entree est un sous-ensemble de la precedente : la suite
+      // ne peut que descendre.
+      const { inscrits, ontOuvertUneSession, ontFiniLeQuestionnaire } = stats.entonnoir.entree;
+      expect(inscrits).toBeGreaterThanOrEqual(ontOuvertUneSession);
+      expect(ontOuvertUneSession).toBeGreaterThanOrEqual(ontFiniLeQuestionnaire);
+      expect(ontFiniLeQuestionnaire).toBe(1);
+
+      // Et l'usage sort de la file : il a le droit de depasser, c'est bien pour
+      // cela qu'il ne doit plus y figurer.
+      expect(stats.entonnoir.usage.ontAgi).toBe(3);
+      expect(stats.entonnoir.usage.ontAgi).toBeGreaterThan(ontFiniLeQuestionnaire);
+    });
+
+    it('compte ceux qui se servent de l app sans avoir fait le questionnaire', async () => {
+      // Le nombre qui interdit de lire la chute du questionnaire comme une perte
+      // seche : ces gens-la ne sont pas partis, ils ont saute l'etape.
+      const stats = await avec([
+        compte({ inscritIlYA: 10, joursActifs: [10], questionnaire: false }),
+        compte({ inscritIlYA: 10, joursActifs: [10], questionnaire: false }),
+        compte({ inscritIlYA: 10, joursActifs: [10], questionnaire: true }),
+        // Ni questionnaire ni action : celui-la est bien perdu, il ne compte pas ici.
+        compte({ inscritIlYA: 10, joursActifs: [], questionnaire: false }),
+      ]);
+
+      expect(stats.entonnoir.usage.ontAgiSansQuestionnaire).toBe(2);
+    });
+  });
+
   describe('fréquence de retour', () => {
     it('compte les jours distincts, pas les venues supposées', async () => {
       const stats = await avec([
@@ -261,7 +307,7 @@ describe('RetentionService', () => {
     expect(stats.retention.find((r) => r.fenetre === 7)!.taux).toBe(0);
     // Il a tout de même agi : ce n'est pas un compte mort-né.
     expect(stats.comptes.jamaisActifs).toBe(0);
-    expect(stats.entonnoir.ontAgi).toBe(1);
+    expect(stats.entonnoir.usage.ontAgi).toBe(1);
   });
 
   it('ne compte pas un retour survenu après la fenêtre', async () => {
@@ -282,7 +328,7 @@ describe('RetentionService', () => {
     ]);
 
     expect(stats.comptes.jamaisActifs).toBe(1);
-    expect(stats.entonnoir.ontAgi).toBe(1);
+    expect(stats.entonnoir.usage.ontAgi).toBe(1);
   });
 
   it("compte l'entonnoir dans l'ordre où on le perd", async () => {
@@ -296,12 +342,18 @@ describe('RetentionService', () => {
     ]);
 
     expect(stats.entonnoir).toEqual({
-      inscrits: 5,
-      ontOuvertUneSession: 5,
-      ontFiniLeQuestionnaire: 5,
-      ontAgi: 4,
-      ontParleAuCoach: 3,
-      abonnes: 1,
+      entree: {
+        inscrits: 5,
+        ontOuvertUneSession: 5,
+        ontFiniLeQuestionnaire: 5,
+      },
+      usage: {
+        ontAgi: 4,
+        ontParleAuCoach: 3,
+        abonnes: 1,
+        // Tous ont fini le questionnaire ici : personne n'avance sans lui.
+        ontAgiSansQuestionnaire: 0,
+      },
     });
   });
 
@@ -318,12 +370,12 @@ describe('RetentionService', () => {
       compte({ inscritIlYA: 20, joursActifs: [20, 19] }),
     ]);
 
-    expect(stats.entonnoir.inscrits).toBe(3);
-    expect(stats.entonnoir.ontOuvertUneSession).toBe(2);
-    expect(stats.entonnoir.ontFiniLeQuestionnaire).toBe(1);
+    expect(stats.entonnoir.entree.inscrits).toBe(3);
+    expect(stats.entonnoir.entree.ontOuvertUneSession).toBe(2);
+    expect(stats.entonnoir.entree.ontFiniLeQuestionnaire).toBe(1);
     // Les deux premiers sont indistinguables sur cette ligne-là, et c'était toute
     // l'information dont on disposait jusqu'ici.
-    expect(stats.entonnoir.ontAgi).toBe(1);
+    expect(stats.entonnoir.usage.ontAgi).toBe(1);
   });
 
   it('groupe les cohortes par semaine et laisse la plus jeune sans taux', async () => {

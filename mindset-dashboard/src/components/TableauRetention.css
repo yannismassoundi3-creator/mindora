@@ -124,6 +124,13 @@
   transition: width 0.5s ease;
 }
 
+/* Les mesures d'usage ne sont pas des marches d'entonnoir : une autre couleur dit
+   qu'elles ne se lisent pas l'une contre l'autre. Sans cet écart visuel, la
+   séparation en deux blocs se perd dès qu'on parcourt la page en diagonale. */
+.retention-marche__jauge--usage {
+  background: linear-gradient(90deg, #7c3aed, #a855f7);
+}
+
 .retention-marche__valeur {
   font-weight: 700;
   font-size: 0.9rem;

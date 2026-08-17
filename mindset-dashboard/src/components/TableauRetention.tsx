@@ -73,13 +73,25 @@ interface Retention {
     medianeParJourOuvert: number | null;
   };
   retention: Fenetre[];
+  /**
+   * Deux blocs, parce que ces six nombres ne forment pas une seule file.
+   *
+   * `entree` s'emboîte réellement : on ne finit pas le questionnaire sans session,
+   * ni n'ouvre de session sans s'inscrire. `usage` décrit ce qu'ils font ensuite —
+   * ces mesures se recoupent, et se rapportent au total, jamais l'une à l'autre.
+   */
   entonnoir: {
-    inscrits: number;
-    ontOuvertUneSession: number;
-    ontFiniLeQuestionnaire: number;
-    ontAgi: number;
-    ontParleAuCoach: number;
-    abonnes: number;
+    entree: {
+      inscrits: number;
+      ontOuvertUneSession: number;
+      ontFiniLeQuestionnaire: number;
+    };
+    usage: {
+      ontAgi: number;
+      ontParleAuCoach: number;
+      abonnes: number;
+      ontAgiSansQuestionnaire: number;
+    };
   };
   cohortes: Cohorte[];
 }
@@ -117,20 +129,33 @@ export const TableauRetention: React.FC = () => {
   // concentre la moitié des comptes, une échelle sur 100 % écrase tous les autres
   // et on ne lit plus la forme de la distribution.
   const sommetPalier = Math.max(1, ...frequence.distribution.map((d) => d.comptes));
+  const { entree, usage } = entonnoir;
+
   /*
-    Les deux marches du milieu sont les murs qu'on ne voyait pas. « Inscrits » puis
-    « Ont fait au moins une action » ne laissait qu'une chute de vingt-six points
-    sans nom : impossible de savoir si les gens se perdaient sur le code envoyé par
-    e-mail ou sur les six questions qui suivent. Ce sont deux problèmes distincts,
-    et deux corrections distinctes.
+    Les seules marches qui s'emboîtent, donc les seules qui se lisent en file.
+
+    « Ont fait au moins une action » figurait ici, sous le questionnaire, et passait
+    au-dessus de lui : 36 après 21. Un entonnoir qui remonte n'est pas un entonnoir.
+    Les deux nombres étaient justes — c'est leur mise en file qui inventait une
+    séquence, et qui faisait lire « on perd 21 personnes au questionnaire » alors
+    qu'une partie d'entre elles se servent de l'app sans y avoir jamais répondu.
   */
   const marches = [
-    { cle: 'inscrits', libelle: 'Inscrits', valeur: entonnoir.inscrits, icone: Users },
-    { cle: 'session', libelle: 'Sont entrés dans l\'app', valeur: entonnoir.ontOuvertUneSession, icone: KeyRound },
-    { cle: 'questionnaire', libelle: 'Ont fini le questionnaire', valeur: entonnoir.ontFiniLeQuestionnaire, icone: ClipboardList },
-    { cle: 'agi', libelle: 'Ont fait au moins une action', valeur: entonnoir.ontAgi, icone: TrendingUp },
-    { cle: 'coach', libelle: 'Ont parlé au coach', valeur: entonnoir.ontParleAuCoach, icone: MessageSquare },
-    { cle: 'abonnes', libelle: 'Abonnés', valeur: entonnoir.abonnes, icone: CreditCard },
+    { cle: 'inscrits', libelle: 'Inscrits', valeur: entree.inscrits, icone: Users },
+    { cle: 'session', libelle: 'Sont entrés dans l\'app', valeur: entree.ontOuvertUneSession, icone: KeyRound },
+    { cle: 'questionnaire', libelle: 'Ont fini le questionnaire', valeur: entree.ontFiniLeQuestionnaire, icone: ClipboardList },
+  ];
+
+  /*
+    Ce qu'ils font ensuite. Trois mesures qui se recoupent : on peut parler au coach
+    sans avoir coché une habitude, et s'abonner sans avoir fait ni l'un ni l'autre.
+    Chacune est donc rapportée au total des inscrits, et aucune ne porte d'écart
+    avec sa voisine — il n'y a pas de voisine.
+  */
+  const usages = [
+    { cle: 'agi', libelle: 'Ont fait au moins une action', valeur: usage.ontAgi, icone: TrendingUp },
+    { cle: 'coach', libelle: 'Ont parlé au coach', valeur: usage.ontParleAuCoach, icone: MessageSquare },
+    { cle: 'abonnes', libelle: 'Abonnés', valeur: usage.abonnes, icone: CreditCard },
   ];
 
   return (
@@ -354,7 +379,7 @@ export const TableauRetention: React.FC = () => {
               <span className="retention-marche__valeur">
                 {m.valeur}
                 <span className="retention-marche__part">
-                  {entonnoir.inscrits === 0 ? '' : ` · ${Math.round(part)} %`}
+                  {entree.inscrits === 0 ? '' : ` · ${Math.round(part)} %`}
                 </span>
                 {perdus > 0 && (
                   <span className="retention-marche__perte" title={`${perdus} perdus depuis « ${marches[i - 1].libelle} »`}>
@@ -366,6 +391,48 @@ export const TableauRetention: React.FC = () => {
           );
         })}
       </div>
+
+      <h3 className="retention-sous-titre">Ce qu'ils font ensuite</h3>
+      <div className="retention-entonnoir">
+        {usages.map((u) => {
+          const Icone = u.icone;
+          const part = entree.inscrits === 0 ? 0 : (u.valeur / entree.inscrits) * 100;
+          return (
+            <div key={u.cle} className="retention-marche">
+              <span className="retention-marche__libelle">
+                <Icone size={14} /> {u.libelle}
+              </span>
+              <div className="retention-marche__piste">
+                {/*
+                  Pas de « −N » ici, et c'est le point de toute cette séparation :
+                  ces trois mesures ne se suivent pas, donc l'écart entre deux
+                  d'entre elles ne nomme aucun mur. Il ne décrirait qu'un
+                  recoupement, et se lirait comme une perte.
+                */}
+                <div className="retention-marche__jauge retention-marche__jauge--usage" style={{ width: `${Math.max(part, 1.5)}%` }} />
+              </div>
+              <span className="retention-marche__valeur">
+                {u.valeur}
+                <span className="retention-marche__part">
+                  {entree.inscrits === 0 ? '' : ` · ${Math.round(part)} %`}
+                </span>
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      {usage.ontAgiSansQuestionnaire > 0 && (
+        <p className="retention-note">
+          <strong>{usage.ontAgiSansQuestionnaire}</strong> compte
+          {usage.ontAgiSansQuestionnaire > 1 ? 's se servent' : ' se sert'} de
+          l'application sans avoir jamais répondu aux six questions. C'est ce nombre
+          qui interdit de lire la chute du questionnaire comme une perte sèche : une
+          partie de ceux qui ne l'ont pas fini ne sont pas partis, ils ont sauté
+          l'étape. Le questionnaire coûte donc moins de monde qu'il n'y paraît — mais
+          ces comptes-là avancent sans que le coach sache rien d'eux.
+        </p>
+      )}
 
       <h3 className="retention-sous-titre">Par semaine d'arrivée</h3>
       {cohortes.length === 0 ? (
