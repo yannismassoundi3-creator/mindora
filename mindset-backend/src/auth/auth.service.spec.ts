@@ -341,3 +341,40 @@ describe('AuthService — prolongation de session', () => {
     });
   });
 });
+
+/**
+ * La provenance d'une inscription.
+ *
+ * Elle vient du navigateur, donc d'une chaîne libre écrite par n'importe qui, et
+ * elle finit affichée dans le panneau d'administration. Deux exigences : qu'elle
+ * se compte (une seule étiquette pour une seule origine) et qu'elle ne puisse
+ * jamais faire échouer la création du compte.
+ */
+describe('AuthService.provenanceNettoyee', () => {
+  it('ramène les variantes d’écriture à une seule étiquette', () => {
+    // Sans cela, la même story se compte sous trois lignes différentes et aucune
+    // n'a l'air d'avoir marché.
+    expect(AuthService.provenanceNettoyee('Story 16/08 !!')).toBe('story-16-08');
+    expect(AuthService.provenanceNettoyee('  DM  ')).toBe('dm');
+    expect(AuthService.provenanceNettoyee('dm')).toBe('dm');
+  });
+
+  it('borne la longueur sans laisser de tiret en fin', () => {
+    const propre = AuthService.provenanceNettoyee('a'.repeat(50));
+    expect(propre).toHaveLength(32);
+
+    // La coupe peut tomber sur un séparateur : « commentaire-… » tronqué à 32 ne
+    // doit pas produire une étiquette qui finit par un tiret.
+    expect(AuthService.provenanceNettoyee('c'.repeat(32) + ' suite')).toBe('c'.repeat(32));
+  });
+
+  it('rend null plutôt que de faire échouer une inscription', () => {
+    // Le but est de compter les gens, pas de les refuser : tout ce qui n'est pas
+    // exploitable devient une absence de provenance, en silence.
+    expect(AuthService.provenanceNettoyee(undefined)).toBeNull();
+    expect(AuthService.provenanceNettoyee(null)).toBeNull();
+    expect(AuthService.provenanceNettoyee('')).toBeNull();
+    expect(AuthService.provenanceNettoyee('!!!')).toBeNull();
+    expect(AuthService.provenanceNettoyee(42 as any)).toBeNull();
+  });
+});

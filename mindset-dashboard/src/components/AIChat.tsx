@@ -548,6 +548,23 @@ export const AIChat: React.FC = () => {
       return;
     }
 
+    /*
+      Un seul message en vol à la fois.
+
+      Rien ne l'empêchait, et c'est le premier défaut qu'un utilisateur ait signalé
+      de lui-même : « quand j'envoie un truc à l'IA elle me répond pas, puis je lui
+      repose une question et c'est là qu'elle répond ». L'attente peut durer —
+      trois modèles de repli à 45 s chacun quand Groq sature, et le double si le
+      modèle réclame le schéma du plan. Passé trente secondes devant trois points
+      qui clignotent, on renvoie son message. Partaient alors deux requêtes
+      concurrentes : deux fois le coût en énergie pour la personne, et deux
+      historiques qui se marchent dessus au serveur — celui qui lit l'historique en
+      dernier y trouve le message de l'autre et croit que c'est le sien.
+
+      `startPlanWizard` posait déjà cette garde ; le formulaire, non.
+    */
+    if (isTyping) return;
+
     const currentInput = directMessage || inputValue;
     if (!currentInput.trim()) return;
 
@@ -957,11 +974,25 @@ export const AIChat: React.FC = () => {
           <input
             type="text"
             className="chat-input"
-            placeholder="Pose-moi une question sur tes objectifs..."
+            placeholder={
+              isTyping
+                ? `${aiName} réfléchit — ta question part juste après`
+                : 'Pose-moi une question sur tes objectifs...'
+            }
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
           />
-          <button type="submit" className="chat-send-btn" disabled={!inputValue.trim()}>
+          {/*
+            Le bouton se ferme pendant la réponse, le champ reste ouvert : on peut
+            composer sa question suivante, on ne peut pas la doubler. Bloquer aussi
+            la saisie punirait la personne pour une lenteur qui n'est pas la sienne.
+          */}
+          <button
+            type="submit"
+            className="chat-send-btn"
+            disabled={!inputValue.trim() || isTyping}
+            title={isTyping ? 'Attends la réponse en cours' : undefined}
+          >
             <Send size={20} />
           </button>
         </form>

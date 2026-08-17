@@ -28,6 +28,34 @@ export class AuthService {
     private readonly configService: ConfigService,
   ) {}
 
+  /**
+   * La provenance, ramenée à quelque chose qu'on peut compter et afficher.
+   *
+   * Elle vient du navigateur : c'est une chaîne libre, écrite par n'importe qui,
+   * qui finira dans le panneau d'administration. Elle est donc mise en minuscules,
+   * réduite aux caractères d'une étiquette et bornée à 32 signes.
+   *
+   * **Ce qui ne passe pas devient `null`, jamais une erreur.** Refuser
+   * l'inscription parce qu'un paramètre de suivi est mal formé reviendrait à
+   * perdre la personne pour pouvoir la compter — l'exact contraire du but.
+   */
+  static provenanceNettoyee(brute: unknown): string | null {
+    if (typeof brute !== 'string') return null;
+
+    const propre = brute
+      .trim()
+      .toLowerCase()
+      // Tout ce qui n'est pas une étiquette devient un tiret, puis les tirets en
+      // rafale se réduisent : `Story 16/08 !!` et `story-16-08` doivent compter
+      // ensemble, sinon la provenance se fragmente en autant d'orthographes.
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 32)
+      .replace(/-+$/, '');
+
+    return propre.length > 0 ? propre : null;
+  }
+
   async register(dto: RegisterDto) {
     const existingUser = await this.prisma.user.findUnique({
       where: { email: dto.email }
@@ -45,7 +73,8 @@ export class AuthService {
           first_name: dto.first_name,
           last_name: dto.last_name,
           email: dto.email,
-          password_hash: passwordHash
+          password_hash: passwordHash,
+          source: AuthService.provenanceNettoyee(dto.source),
         },
       });
 

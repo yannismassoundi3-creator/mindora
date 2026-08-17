@@ -43,6 +43,14 @@ interface Quotidien {
   };
   hier: Jour | null;
   jours: Jour[];
+  /**
+   * D'où viennent les inscrits des quatorze derniers jours.
+   *
+   * `(lien nu)` regroupe ceux arrivés sans marque — comptes antérieurs à la mesure
+   * compris. Ce nombre-là est le plus utile au début : il dit quelle part des
+   * arrivées reste aveugle.
+   */
+  provenances: Array<{ source: string; inscrits: number; ontParleAuCoach: number }>;
   inscritsDuJour: Array<{
     id: string;
     prenom: string;
@@ -82,7 +90,7 @@ export const TableauJour: React.FC = () => {
   if (erreur) return <p className="jour-erreur">{erreur}</p>;
   if (!donnees) return <p className="jour-attente">Lecture de la journée…</p>;
 
-  const { aujourdhui, hier, jours, inscritsDuJour } = donnees;
+  const { aujourdhui, hier, jours, inscritsDuJour, provenances } = donnees;
 
   /*
     Toutes les barres se lisent contre la même échelle, sinon deux journées de
@@ -234,6 +242,47 @@ export const TableauJour: React.FC = () => {
           <i className="jour-pastille jour-pastille--coach" /> Dont ont écrit eux-mêmes au coach
         </span>
       </div>
+
+      <h3 className="jour-sous-titre">D'où ils viennent · quatorze jours</h3>
+      {provenances.length === 0 ? (
+        <p className="jour-attente">Aucune inscription sur la période.</p>
+      ) : (
+        <div className="jour-tableau-cadre">
+          <table className="jour-tableau">
+            <thead>
+              <tr>
+                <th>Provenance</th>
+                <th>Inscrits</th>
+                <th>Dont ont écrit au coach</th>
+              </tr>
+            </thead>
+            <tbody>
+              {provenances.map((p) => (
+                <tr key={p.source}>
+                  <td>
+                    {p.source === '(lien nu)' ? (
+                      <span className="jour-non">lien sans marque</span>
+                    ) : (
+                      <strong>{p.source}</strong>
+                    )}
+                  </td>
+                  <td>{p.inscrits}</td>
+                  <td>{p.ontParleAuCoach}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="jour-note">
+        La provenance est celle du lien suivi : ajoute <code>?s=dm</code> ou{' '}
+        <code>?s=com</code> à l'adresse que tu donnes, et l'inscription se rangera
+        sous cette étiquette. Elle est retenue au premier chargement et gardée
+        jusqu'à la création du compte — entre les deux, l'adresse a perdu son
+        paramètre depuis longtemps. La première vue gagne : quelqu'un qui arrive par
+        une story puis revient par la bio s'est décidé sur la story. Tout ce qui
+        précède le 17 août 2026 est forcément sans marque.
+      </p>
 
       <h3 className="jour-sous-titre">Qui est arrivé aujourd'hui</h3>
       {inscritsDuJour.length === 0 ? (

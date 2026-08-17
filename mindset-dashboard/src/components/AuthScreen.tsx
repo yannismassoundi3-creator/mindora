@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api, memoriserSession } from '../services/api';
 import './AuthScreen.css';
 import { Brain, ArrowRight, Eye, EyeOff, ShieldCheck, KeyRound } from 'lucide-react';
+import { lireProvenance } from '../utils/provenance';
 
 /**
  * Note le questionnaire d'inscription comme fait, ou pas, d'après le serveur.
@@ -122,11 +123,14 @@ export const AuthScreen = ({ onComplete }: { onComplete: () => void }) => {
           onComplete();
         }
       } else {
-        await api.post('/auth/register', { 
-          email, 
-          password, 
-          first_name: firstName, 
-          last_name: lastName
+        await api.post('/auth/register', {
+          email,
+          password,
+          first_name: firstName,
+          last_name: lastName,
+          // Retenue au tout premier chargement : à cet instant l'adresse a depuis
+          // longtemps perdu son paramètre. Voir `utils/provenance.ts`.
+          source: lireProvenance(),
         });
         
         // Auto login after register

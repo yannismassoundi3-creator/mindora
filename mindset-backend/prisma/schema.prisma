@@ -51,6 +51,16 @@ model User {
   coup_de_pouce      CoupDePouce?
   relances           RelanceEmail[]
   ouvertures         AppOuverture[]
+  /// D'ou vient cette inscription : la valeur du parametre `?s=` du lien suivi.
+  ///
+  /// Rien ne la captait avant le 17 aout 2026, si bien qu'aucune inscription
+  /// n'etait attribuable : une soiree a treize arrivees ne disait pas laquelle des
+  /// publications les avait fait venir, donc laquelle refaire. `null` sur tous les
+  /// comptes anterieurs, et sur quiconque arrive par un lien nu.
+  ///
+  /// Ecrite par le navigateur, donc falsifiable — sans consequence, elle n'ouvre
+  /// aucun acces et ne sert qu'a compter. Normalisee cote serveur.
+  source             String?
 }
 
 /// Combien de fois l'application est ouverte, et quels jours.

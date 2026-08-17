@@ -51,6 +51,9 @@ export class QuotidienService {
         // n'a pas voulu parler au coach ou s'il n'a jamais atteint l'application.
         _count: { select: { refresh_tokens: true } },
         ai_profile: { select: { id: true } },
+        // `null` sur tout compte antérieur au 17 août 2026, et sur quiconque
+        // arrive par un lien sans marque.
+        source: true,
       },
       orderBy: { created_at: 'desc' },
     });
@@ -151,6 +154,24 @@ export class QuotidienService {
 
     const nouveauxDuJour = inscritsParJour.get(cleAujourdhui) ?? [];
 
+    /*
+      D'où viennent les inscrits de la fenêtre.
+
+      Sans cette ventilation, une bonne soirée ne dit pas laquelle des publications
+      l'a produite — donc laquelle refaire. Les comptes sans provenance sont
+      montrés sous « lien nu » plutôt que masqués : leur nombre est l'information
+      la plus utile au début, puisqu'il dit combien de liens circulent encore sans
+      marque, c'est-à-dire quelle part de la mesure est aveugle.
+    */
+    const parProvenance = new Map<string, { inscrits: number; ontParle: number }>();
+    for (const inscrit of inscrits) {
+      const cle = inscrit.source ?? '(lien nu)';
+      const groupe = parProvenance.get(cle) ?? { inscrits: 0, ontParle: 0 };
+      groupe.inscrits++;
+      if ((joursParPersonne.get(inscrit.id)?.size ?? 0) > 0) groupe.ontParle++;
+      parProvenance.set(cle, groupe);
+    }
+
     return {
       fuseau: FUSEAU_AFFICHAGE,
       aujourdhui: {
@@ -178,6 +199,15 @@ export class QuotidienService {
         questionnaireFini: !!n.ai_profile,
         messagesAuCoach: joursParPersonne.get(n.id)?.get(cleAujourdhui) ?? 0,
       })),
+      /*
+        Trié par volume : c'est dans cet ordre qu'on décide quoi refaire. La part
+        qui a parlé au coach est jointe parce qu'un canal qui amène du monde sans
+        que personne n'essaie le produit n'est pas un bon canal — c'est le même
+        raisonnement que pour la journée, appliqué à chaque origine.
+      */
+      provenances: [...parProvenance.entries()]
+        .map(([source, g]) => ({ source, inscrits: g.inscrits, ontParleAuCoach: g.ontParle }))
+        .sort((a, b) => b.inscrits - a.inscrits),
       genere_le: maintenant.toISOString(),
     };
   }
