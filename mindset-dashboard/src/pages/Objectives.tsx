@@ -340,9 +340,52 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
             style={equippedCosmetic?.type === 'color' ? { background: equippedCosmetic.value } : {}}
           ></div>
         )}
+        {/*
+          Cette bannière annonçait « {aiName} analyse tes objectifs… » suivi d'une
+          consigne identique pour tout le monde. Rien ne s'analysait : la phrase
+          était fixe, écrite une fois pour toutes. C'est le genre de promesse qui
+          coûte cher — quelqu'un qui comprend qu'elle est décorative cesse de
+          croire le reste, y compris ce qui est vrai.
+
+          À la place, des chiffres pris sur cette page même. Ils sont vérifiables
+          d'un coup d'œil en descendant de trois lignes, et c'est exactement ce qui
+          les rend croyables. Aucun appel réseau : rien à faire échouer.
+        */}
         <div className="banner-text">
-          <strong>{aiName} analyse tes objectifs...</strong>
-          <span>Complète tes actions hebdomadaires pour faire grimper ton Score du Jour ! (+10%)</span>
+          {microObjectives.length === 0 && macroObjectives.length === 0 ? (
+            <>
+              <strong>Aucun objectif posé pour l'instant</strong>
+              <span>
+                {aiName} ne connaît de toi que ce qui est écrit ici. Tant que cette page
+                est vide, il n'a rien sur quoi s'appuyer.
+              </span>
+            </>
+          ) : (
+            <>
+              <strong>
+                {microObjectives.filter((o) => o.done).length} sur {microObjectives.length}{' '}
+                action{microObjectives.length > 1 ? 's' : ''} faite
+                {microObjectives.filter((o) => o.done).length > 1 ? 's' : ''}
+                {macroObjectives.length > 0 && (
+                  <>
+                    {' · '}
+                    {macroObjectives.filter((o) => !o.done).length} cap
+                    {macroObjectives.filter((o) => !o.done).length > 1 ? 's' : ''} en cours
+                  </>
+                )}
+              </strong>
+              {/*
+                Dire comment il sait, plutôt que prétendre qu'il cherche. C'est
+                vrai — le chat envoie ces listes au coach à chaque message — et
+                c'est plus rassurant qu'une analyse imaginaire : on comprend d'où
+                vient ce qu'il dit, donc on peut lui faire confiance dessus.
+              */}
+              <span>
+                {aiName} lit ces lignes à chaque fois que tu lui parles : il ne connaît de
+                toi que ce qui est écrit ici.
+              </span>
+            </>
+          )}
         </div>
       </div>
 
