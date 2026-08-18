@@ -203,6 +203,18 @@ model AIProfile {
   bilan_texte         String?
   bilan_genere_le     DateTime?
   bilan_semaine       String?
+
+  /// La lecture longue reservee aux abonnes : ce que le coach a compris de la
+  /// personne, et non de sa semaine. Meme mecanique de cache que `bilan_*`, et
+  /// pour la meme raison — sans elle, chaque ouverture du tableau de bord
+  /// paierait un appel au modele.
+  ///
+  /// `analyse_repere` retient `version:JOUR`. La version rattrape les textes
+  /// deja ecrits quand la facon de les ecrire change ; le jour suffit comme
+  /// fraicheur, l'historique d'une personne ne bouge pas plus vite que ca.
+  analyse_texte       String?
+  analyse_genere_le   DateTime?
+  analyse_repere      String?
   created_at          DateTime  @default(now())
   updated_at          DateTime  @updatedAt
   user                User      @relation(fields: [user_id], references: [id], onDelete: Cascade)

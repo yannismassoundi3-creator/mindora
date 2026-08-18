@@ -6,6 +6,7 @@ import { AiQuotaService } from './ai-quota.service';
 import { CoinLedgerService } from './coin-ledger.service';
 import { CoachOuvertureService } from './coach-ouverture.service';
 import { ObservationService } from './observation.service';
+import { AnalyseCompleteService } from './analyse-complete.service';
 import { WeeklyReviewService } from '../push/weekly-review.service';
 import { BilanHebdoService } from '../push/bilan-hebdo.service';
 import { AnalyseHabitudesService } from '../push/analyse-habitudes.service';
@@ -35,6 +36,7 @@ export class AiCoachingController {
     private readonly bilan: WeeklyReviewService,
     private readonly bilanHebdo: BilanHebdoService,
     private readonly analyseHabitudes: AnalyseHabitudesService,
+    private readonly analyseComplete: AnalyseCompleteService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -296,6 +298,57 @@ export class AiCoachingController {
     // `null` est une réponse : le navigateur n'affiche alors aucune carte plutôt
     // qu'une carte vide. Il n'y a pas d'erreur à signaler — il n'y a rien à dire.
     return { observation };
+  }
+
+  /**
+   * L'analyse complète : ce que le coach a compris de la personne.
+   *
+   * Réservée aux abonnés, et c'est le seul endroit du produit où une lecture est
+   * refusée à quelqu'un. La contrepartie est écrite juste au-dessus : la carte
+   * gratuite montre **qu'il y a** quelque chose à lire, et combien de motifs
+   * tiennent. Elle ne montre pas lesquels. Faire payer pour savoir pourquoi payer
+   * serait une impasse ; faire payer la suite d'une phrase qu'on a déjà lue est
+   * la seule forme de mur qui se justifie ici.
+   *
+   * Un compte gratuit reçoit 200 et `verrouille: true`, pas une erreur : ce n'est
+   * pas une panne, c'est un état du compte, et le navigateur doit pouvoir dessiner
+   * la version fermée sans traiter un échec.
+   */
+  @Get('analyse')
+  @ApiOperation({ summary: "L'analyse complète du coach, réservée aux abonnés" })
+  async getAnalyse(@Req() req: Request) {
+    const userId = (req.user as any).userId;
+
+    const [abonne, compte] = await Promise.all([
+      this.aiQuota.isSubscribed(userId),
+      this.prisma.user
+        .findUnique({ where: { id: userId }, select: { first_name: true } })
+        .catch(() => null),
+    ]);
+
+    if (!abonne) {
+      /*
+        Ce qu'un compte gratuit apprend : le nombre, jamais le contenu.
+
+        Les motifs sont recalculés ici plutôt que devinés côté navigateur — c'est
+        le même calcul que pour les abonnés, et il coûte une lecture de scores.
+        Aucun appel au modèle n'est fait : verrouillé veut dire qu'on ne paie rien
+        non plus.
+      */
+      const sync = await this.prisma.syncData
+        .findUnique({ where: { user_id: userId }, select: { daily_scores: true } })
+        .catch(() => null);
+
+      return {
+        verrouille: true,
+        nombreFaits: this.observations.observations(
+          sync?.daily_scores as Record<string, number> | null,
+        ).length,
+      };
+    }
+
+    const analyse = await this.analyseComplete.pour(userId, compte?.first_name || 'toi');
+    return { verrouille: false, ...analyse };
   }
 
   /**

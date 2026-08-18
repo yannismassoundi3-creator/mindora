@@ -315,6 +315,29 @@ export class WeeklyReviewService {
   }
 
   /** Un appel, sur un modèle donné. Retourne null pour laisser sa chance au suivant. */
+  /**
+   * Faire écrire un texte au modèle, en descendant la même chaîne que le bilan.
+   *
+   * Ouvert pour `AnalyseCompleteService`, qui a besoin d'exactement ce
+   * traitement : la liste de modèles, le délai maximum, la lecture de
+   * `finish_reason` et la coupe propre. Le recopier ailleurs ferait diverger deux
+   * codes dont l'un finirait par réafficher une phrase tronquée au milieu d'un
+   * mot — le défaut que `couperProprement` existe précisément pour éviter.
+   *
+   * Rend `null` quand aucun modèle n'aboutit : l'appelant montre alors ses
+   * chiffres sans texte, jamais une erreur.
+   */
+  async ecrire(systeme: string, invite: string, plafond: number, jetons: number): Promise<string | null> {
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey) return null;
+
+    for (const modele of WeeklyReviewService.MODELES) {
+      const texte = await this.tenter(apiKey, modele, systeme, invite, plafond, jetons);
+      if (texte) return texte;
+    }
+    return null;
+  }
+
   private async tenter(
     apiKey: string,
     modele: string,

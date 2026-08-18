@@ -5,6 +5,7 @@ import { CoinLedgerService } from './coin-ledger.service';
 import { CoachMemoryService } from './coach-memory.service';
 import { CoachOuvertureService } from './coach-ouverture.service';
 import { ObservationService } from './observation.service';
+import { AnalyseCompleteService } from './analyse-complete.service';
 import { WeeklyReviewService } from '../push/weekly-review.service';
 import { BilanHebdoService } from '../push/bilan-hebdo.service';
 import { AnalyseHabitudesService } from '../push/analyse-habitudes.service';
@@ -29,6 +30,8 @@ import { AiCoachingController } from './ai-coaching.controller';
     BilanHebdoService,
     // Le croisement habitudes x score, qui nourrit la lecture reservee aux abonnes.
     AnalyseHabitudesService,
+    // La lecture longue reservee aux abonnes : elle assemble tout ce qui precede.
+    AnalyseCompleteService,
   ],
   exports: [
     AiCoachingService,
@@ -37,6 +40,7 @@ import { AiCoachingController } from './ai-coaching.controller';
     CoachMemoryService,
     CoachOuvertureService,
     ObservationService,
+    AnalyseCompleteService,
   ],
 })
 export class AiCoachingModule {}

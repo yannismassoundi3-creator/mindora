@@ -10,6 +10,8 @@ import { ObservationService } from './observation.service';
 import { WeeklyReviewService } from '../push/weekly-review.service';
 import { BilanHebdoService } from '../push/bilan-hebdo.service';
 import { AnalyseHabitudesService } from '../push/analyse-habitudes.service';
+import { AnalyseCompleteService } from './analyse-complete.service';
+import { CoachMemoryService } from './coach-memory.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MESSAGES_AUTOMATIQUES_INSCRIPTION } from '../common/message-inscription';
 
@@ -74,9 +76,20 @@ describe('AiCoachingController — débit et remboursement du chat', () => {
         // le contrôleur puisse être construit et qu'aucune lecture ne soit rendue.
         { provide: BilanHebdoService, useValue: { lecture: jest.fn().mockResolvedValue(null) } },
         AnalyseHabitudesService,
+        AnalyseCompleteService,
+        CoachMemoryService,
         {
           provide: PrismaService,
-          useValue: { syncData: { findUnique: jest.fn().mockResolvedValue(null) } },
+          useValue: {
+            syncData: { findUnique: jest.fn().mockResolvedValue(null) },
+            user: { findUnique: jest.fn().mockResolvedValue({ first_name: 'Yannis' }) },
+            // L'analyse complete lit et ecrit son cache ici. Sans historique elle
+            // n'ira pas jusqu'a l'ecriture, mais la lecture doit repondre.
+            aIProfile: {
+              findUnique: jest.fn().mockResolvedValue(null),
+              update: jest.fn().mockResolvedValue({}),
+            },
+          },
         },
       ],
     })
@@ -307,6 +320,8 @@ describe('AiCoachingController — messages de découverte', () => {
         { provide: WeeklyReviewService, useValue: new WeeklyReviewService() },
         { provide: BilanHebdoService, useValue: bilanHebdo },
         AnalyseHabitudesService,
+        AnalyseCompleteService,
+        CoachMemoryService,
         { provide: PrismaService, useValue: prisma },
       ],
     })
@@ -596,9 +611,20 @@ describe('AiCoachingController — la phrase d\'ouverture', () => {
         // le contrôleur puisse être construit et qu'aucune lecture ne soit rendue.
         { provide: BilanHebdoService, useValue: { lecture: jest.fn().mockResolvedValue(null) } },
         AnalyseHabitudesService,
+        AnalyseCompleteService,
+        CoachMemoryService,
         {
           provide: PrismaService,
-          useValue: { syncData: { findUnique: jest.fn().mockResolvedValue(null) } },
+          useValue: {
+            syncData: { findUnique: jest.fn().mockResolvedValue(null) },
+            user: { findUnique: jest.fn().mockResolvedValue({ first_name: 'Yannis' }) },
+            // L'analyse complete lit et ecrit son cache ici. Sans historique elle
+            // n'ira pas jusqu'a l'ecriture, mais la lecture doit repondre.
+            aIProfile: {
+              findUnique: jest.fn().mockResolvedValue(null),
+              update: jest.fn().mockResolvedValue({}),
+            },
+          },
         },
       ],
     })
@@ -646,6 +672,52 @@ describe('AiCoachingController — la phrase d\'ouverture', () => {
   it('supporte un corps de requête absent', async () => {
     await expect(controller.getOuverture(requete, undefined as any)).resolves.toEqual({
       texte: 'Il te reste ta séance.',
+    });
+  });
+
+  /*
+    Le mur de l'analyse complète.
+
+    C'est le seul endroit du produit où une lecture est refusée à quelqu'un, et
+    ce qui compte est **la forme du refus** : 200 avec un drapeau, jamais une
+    erreur. Un compte gratuit n'est pas en panne, il est gratuit — le navigateur
+    doit pouvoir dessiner la version fermée sans traiter un échec.
+  */
+  describe("l'analyse complète", () => {
+    it('rend un état verrouillé, et non une erreur, à un compte gratuit', async () => {
+      quota.isSubscribed.mockResolvedValue(false);
+
+      const reponse: any = await controller.getAnalyse(requete);
+
+      expect(reponse.verrouille).toBe(true);
+      // Le nombre, jamais le contenu : c'est ce qui donne envie de payer sans
+      // faire payer pour savoir pourquoi payer.
+      expect(reponse).not.toHaveProperty('lecture');
+      expect(typeof reponse.nombreFaits).toBe('number');
+    });
+
+    it("n'appelle jamais le modèle pour un compte gratuit", async () => {
+      // Verrouillé doit vouloir dire « on ne paie rien non plus ». Sans ce test,
+      // un jour quelqu'un calculera la lecture avant de la cacher.
+      quota.isSubscribed.mockResolvedValue(false);
+      const analyse = (controller as any).analyseComplete;
+      const espion = jest.spyOn(analyse, 'pour');
+
+      await controller.getAnalyse(requete);
+
+      expect(espion).not.toHaveBeenCalled();
+    });
+
+    it('ouvre la lecture à un abonné', async () => {
+      quota.isSubscribed.mockResolvedValue(true);
+
+      const reponse: any = await controller.getAnalyse(requete);
+
+      expect(reponse.verrouille).toBe(false);
+      // Sans historique il n'y a ni fait ni lecture — mais la forme est celle
+      // d'une analyse, pas celle d'un mur.
+      expect(reponse).toHaveProperty('lecture');
+      expect(reponse).toHaveProperty('faits');
     });
   });
 });
