@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { CheckCircle2, TrendingUp, Sparkles, Pencil, Coins, Circle, ChevronLeft, ChevronRight, Plus, Trophy, Calendar, Trash2, Target } from 'lucide-react';
+import { CheckCircle2, TrendingUp, Sparkles, Pencil, Coins, Circle, ChevronLeft, ChevronRight, Plus, Trophy, Calendar, Trash2, Target, Lock } from 'lucide-react';
 import { RankIcon } from '../components/RankIcon';
 import { ProgressionRang } from '../components/ProgressionRang';
 import { PartageSemaine } from '../components/PartageSemaine';
@@ -126,6 +126,19 @@ interface DashboardProps {
 
 export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   const [currentDate, setCurrentDate] = useState('');
+  /*
+    L'année entière est réservée aux abonnés ; les trente derniers jours restent
+    à tout le monde.
+
+    C'est le même principe que le bilan de la semaine, juste au-dessus : un
+    cadenas posé à côté de ses propres chiffres se comprend, un cadenas devant un
+    écran vide ne vend rien. Trente jours suffisent à voir sa régularité du mois
+    et ne suffisent pas à voir sa trajectoire — c'est exactement ce que
+    l'abonnement ajoute.
+  */
+  const estAbonne = localStorage.getItem('mindset_is_subscribed') === 'true';
+  const JOURS_LIBRES = 30;
+
   const heatmapRef = useRef<HTMLDivElement>(null);
   const routinesRef = useRef<HTMLElement>(null);
   // Le jour du damier que l'on vient de toucher, écrit en clair sous la grille.
@@ -1152,12 +1165,29 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
           <section className="heatmap-section glass-panel glass-panel-interactive pulse-glow fade-in delay-2" style={{ transition: 'transform 0.3s ease, opacity 0.3s ease, background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, color 0.3s ease', cursor: 'pointer' }}>
             <div className="section-header-flex" style={{ marginBottom: '6px' }}>
               <h3 className="section-title" style={{ fontSize: '1.2rem', margin: 0 }}>
-                <Calendar size={18} /> Ton année
+                <Calendar size={18} /> {estAbonne ? 'Ton année' : `Tes ${JOURS_LIBRES} derniers jours`}
               </h3>
             </div>
             <p className="heatmap-intro">
               Un carré par jour, de gauche à droite jusqu’à aujourd’hui. Plus il est vif, plus la journée a compté.
             </p>
+            {/*
+              Le verrou nomme ce qui manque, pas ce qu'on perd : « ton année
+              entière » est une chose qu'on peut se représenter, « fonction
+              premium » n'en est pas une.
+            */}
+            {!estAbonne && (
+              <p className="heatmap-verrou">
+                <Lock size={12} /> Ton année entière, mois par mois, est réservée aux abonnés.{' '}
+                <button
+                  type="button"
+                  className="heatmap-verrou__action"
+                  onClick={() => window.dispatchEvent(new Event('openPricing'))}
+                >
+                  Voir l’offre
+                </button>
+              </p>
+            )}
             {(() => {
               /*
                 Les 365 derniers jours, **dans l'ordre**.
@@ -1168,7 +1198,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
                 chargement, on arrivait sur le jour le plus vieux. C'est ce qui
                 rendait ce graphique illisible.
               */
-              const jours = getLastNDays(365);
+              const jours = getLastNDays(estAbonne ? 365 : JOURS_LIBRES);
               const scores = loadDailyScores();
               const aujourdhui = getTodayKey();
 
@@ -1250,7 +1280,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
                     </div>
                     <div className="heatmap-chiffre">
                       <strong>{presence} %</strong>
-                      <span>depuis le début</span>
+                      <span>{estAbonne ? 'depuis le début' : 'sur la période'}</span>
                     </div>
                   </div>
 

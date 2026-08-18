@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Shield, HardDrive, AlertTriangle, Save, CheckCircle, Database, Palette, FileText, X, Crown, LogOut, Sparkles, Target } from 'lucide-react';
+import { User, Shield, HardDrive, AlertTriangle, Save, CheckCircle, Database, Palette, FileText, X, Crown, LogOut, Sparkles, Target, Lock } from 'lucide-react';
 import { PricingScreen } from './PricingScreen';
 import { playHoverSound, playClickSound, playToggleSound, playLevelUpSound } from '../utils/sounds';
 import { api } from '../services/api';
@@ -416,18 +416,35 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
               <small>Comment l'IA doit-elle t'appeler ?</small>
             </div>
 
+            {/*
+              Le prénom reste libre, le reste ne l'est pas.
+
+              Distinction volontaire : le prénom n'est pas un ornement, c'est
+              par lui que le coach s'adresse à quelqu'un, et il part dans les
+              e-mails et les notifications. Le faire payer reviendrait à vendre
+              le droit d'être appelé par son nom. Renommer l'assistant et
+              choisir sa couleur, eux, ne changent rien à ce que l'app fait —
+              c'est exactement ce qu'on peut réserver sans rien retirer.
+            */}
             <div className="form-group mt-4">
-              <label>Nom de l'IA</label>
+              <label>
+                Nom de l'IA
+                {!isSubscribed && <span className="perso-verrou__badge"><Lock size={11} /> Abonnés</span>}
+              </label>
               <input 
                 type="text" 
                 className="glass-input ai-name-input" 
                 value={aiName} 
+                disabled={!isSubscribed}
                 onChange={(e) => setAiName(e.target.value)}
               />
               <small>Renomme ton assistant (ex: Jarvis, Friday...)</small>
             </div>
 
-            <h3 className="card-title" style={{ marginTop: '24px' }}><Palette size={18}/> Couleur du Texte</h3>
+            <h3 className="card-title" style={{ marginTop: '24px' }}>
+              <Palette size={18}/> Couleur du Texte
+              {!isSubscribed && <span className="perso-verrou__badge"><Lock size={11} /> Abonnés</span>}
+            </h3>
             <div className="theme-picker" style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '12px' }}>
               {TEXT_COLORS.map(t => (
                 <button 
@@ -438,6 +455,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
                     border: t.value === '#ffffff' ? '1px solid rgba(255,255,255,0.2)' : 'none',
                     position: 'relative'
                   }}
+                  disabled={!isSubscribed}
                   onClick={() => { playClickSound(); setTextColor(t.value); }}
                   onMouseEnter={() => playHoverSound()}
                   title={t.name}
@@ -446,6 +464,20 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
                 </button>
               ))}
             </div>
+
+            {!isSubscribed && (
+              <p className="perso-verrou">
+                Renommer ton coach et changer la couleur de l'app sont réservés aux
+                abonnés.{' '}
+                <button
+                  type="button"
+                  className="perso-verrou__action"
+                  onClick={() => window.dispatchEvent(new Event('openPricing'))}
+                >
+                  Voir l'offre
+                </button>
+              </p>
+            )}
 
             <div style={{ marginTop: '24px' }}>
               <div className="setting-item" style={{ background: 'rgba(255,255,255,0.02)', padding: '12px 16px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid rgba(255,255,255,0.05)' }}>

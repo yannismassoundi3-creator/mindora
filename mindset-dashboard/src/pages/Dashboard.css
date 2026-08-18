@@ -1557,3 +1557,29 @@
     order: 2;
   }
 }
+
+/* Le verrou de l'année, sous l'intro du damier.
+
+   En ligne avec le texte plutôt qu'en encart : ce n'est pas une interruption,
+   c'est une note de bas de page sur ce que l'écran montre déjà. */
+.heatmap-verrou {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: #fbbf24;
+}
+
+.heatmap-verrou__action {
+  border: none;
+  background: none;
+  padding: 0;
+  color: #fbbf24;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}

@@ -431,3 +431,46 @@ input:checked + .slider:before {
     grid-template-columns: 1fr;
   }
 }
+
+/* Les deux réglages de personnalisation réservés aux abonnés.
+
+   Montrés et désactivés plutôt que cachés : un réglage absent ne se vend pas,
+   et il ne se comprend pas non plus — on ne peut pas vouloir ce qu'on ne voit
+   pas. Grisés, ils disent ce que l'abonnement rend possible. */
+.perso-verrou__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(251, 191, 36, 0.12);
+  color: #fbbf24;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+}
+
+.perso-verrou {
+  margin: 14px 0 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--secondary, #94a3b8);
+}
+
+.perso-verrou__action {
+  border: none;
+  background: none;
+  padding: 0;
+  color: #fbbf24;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.theme-swatch:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
