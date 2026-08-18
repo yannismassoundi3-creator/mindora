@@ -9,6 +9,7 @@ import * as cron from 'node-cron';
 import * as webpush from 'web-push';
 import { lienApp } from '../common/origines';
 import { titreProgression } from './jauge';
+import { separerTaches } from './taches';
 
 /** Décompte d'une tournée de briefs, identique dans le log et dans la réponse HTTP. */
 export interface ResumeTournee {
@@ -586,6 +587,19 @@ export class PushService implements OnModuleInit {
       // paie sur toute la base à chaque tournée.
       const progression = () => titreProgression(scoreToday, this.morningBrief.computeStreak(scores));
 
+      /*
+        Ce qui reste à cocher ce soir.
+
+        Jusqu'ici ces deux tournées ne savaient qu'avertir : toutes leurs branches
+        partent de `scoreToday === 0` ou d'un nombre de jours manqués. Quelqu'un
+        qui bouclait sa journée ne recevait donc **rien** — le produit ne parlait
+        qu'à ceux qui échouaient, ce qui est l'inverse de ce qu'on demande à un
+        coach.
+      */
+      const taches = separerTaches((user.sync_data as any)?.routines);
+      const avaitQuelqueChose = taches.restantes.length + taches.faites.length > 0;
+      const journeePleine = avaitQuelqueChose && taches.restantes.length === 0;
+
       // Comme pour le brief du matin : un échec sur une personne ne doit pas
       // interrompre la tournée des suivantes.
       try {
@@ -597,27 +611,66 @@ export class PushService implements OnModuleInit {
               body: 'Je remarque que tu as du mal depuis quelques jours. Ouvre le Chat IA pour réduire la difficulté de tes objectifs.',
               url: this.lienVers('chat')
             });
+          } else if (journeePleine) {
+            /*
+              La félicitation, et le seul moment de la journée où elle a un sens.
+
+              À 18 h la journée peut encore bouger ; à 22 h il est trop tard pour
+              que ça serve à autre chose qu'à réveiller quelqu'un. 20 h est l'heure
+              où c'est fini et où le téléphone est encore en main.
+
+              Le nombre de jours est dit quand il existe, jamais inventé : « bravo »
+              tout seul est ce qu'on écrit quand on n'a rien regardé, et ça se sent.
+              `computeStreak` repart d'hier, d'où le +1 : la journée qu'on est en
+              train de féliciter n'y est pas encore comptée.
+            */
+            const serie = this.morningBrief.computeStreak(scores);
+            await this.sendNotification(user.id, {
+              title: progression(),
+              body:
+                serie >= 2
+                  ? `Journée pleine. Ça fait ${serie + 1} jours d'affilée.`
+                  : 'Journée pleine. Tout ce que tu avais prévu est coché.',
+              url: this.lienVers()
+            });
           } else if (scoreToday === 0 && scoreYesterday > 0) {
             // Warning 1st day miss
             await this.sendNotification(user.id, {
               title: progression(),
-              body: 'Rien de coché aujourd\'hui, et tu avais tenu hier. Il te reste la soirée.',
+              body: "Rien de coché aujourd'hui, et tu avais tenu hier. Il te reste la soirée.",
               url: this.lienVers()
             });
           }
         } else if (hour === 22) {
-          // Warning 2nd day miss (Urgency)
+          /*
+            Les deux branches étaient inversées par rapport à la réalité de la série.
+
+            `missedDays === 2` veut dire : rien aujourd'hui **et** rien hier. Or
+            `computeStreak` repart d'hier — la série est donc déjà à zéro depuis
+            la veille au soir. « Ta série va disparaître à minuit » y était
+            simplement faux, doublé d'un « dernier avertissement » que rien ne
+            justifiait. C'est le registre que le produit a retiré partout ailleurs
+            (fausse rareté, majuscules criées) et qui avait survécu ici.
+
+            Le seul soir où une série meurt vraiment à minuit, c'est l'autre
+            branche : rien aujourd'hui, mais quelque chose hier. Elle ne le disait
+            pas. L'urgence était donc criée le soir où elle n'existe plus, et tue le
+            soir où elle existe.
+          */
           if (missedDays === 2) {
             await this.sendNotification(user.id, {
-              title: '🚨 URGENCE STREAK 🚨',
-              body: 'Dernier avertissement ! Ta série va disparaître à minuit si tu n\'agis pas tout de suite !',
+              title: progression(),
+              body: "Deux jours sans rien cocher. Une seule case ce soir, et tu repars.",
               url: this.lienVers()
             });
           } else if (scoreToday === 0 && scoreYesterday > 0) {
-            // Normal night review for those who just haven't finished today yet
+            const serie = this.morningBrief.computeStreak(scores);
             await this.sendNotification(user.id, {
               title: progression(),
-              body: 'Deux heures avant minuit. Valide ce que tu as fait avant de dormir.',
+              body:
+                serie >= 2
+                  ? `Ta série de ${serie} jours s'arrête à minuit. Une case suffit à la garder.`
+                  : 'Deux heures avant minuit. Valide ce que tu as fait avant de dormir.',
               url: this.lienVers()
             });
           }
@@ -954,13 +1007,32 @@ export class PushService implements OnModuleInit {
             ? donnees.routines.some((r: any) => Array.isArray(r?.items) && r.items.length > 0)
             : false;
 
+          /*
+            Ce qu'il reste, plutôt que ce que dit le score.
+
+            Le corps du message était le même pour tout le monde : quelqu'un qui
+            avait tout coché à 15 h lisait à 18 h « il te reste la soirée pour
+            finir ». Le titre, lui, portait déjà la jauge à 100 % — la
+            notification se contredisait donc à l'intérieur d'elle-même, et c'est
+            le genre de détail qui apprend qu'aucune de ces phrases n'est vraiment
+            adressée à vous.
+
+            La question se tranche sur les tâches restantes et non sur le score :
+            le score est calculé par le client, et 100 % n'y garantit pas qu'il ne
+            reste rien à cocher.
+          */
+          const restantes = separerTaches(donnees?.routines).restantes.length;
+          const toutEstFait = avecProgression && aDesTaches && restantes === 0;
+
           await this.sendNotification(user.id, {
             title: avecProgression && aDesTaches
               ? titreProgression(scores[aujourdhui] || 0, this.morningBrief.computeStreak(scores))
               : titreParDefaut,
             body: avecProgression && !aDesTaches
               ? "Ta journée est vide. Ouvre le chat et dis-moi ce que tu veux accomplir demain."
-              : body,
+              : toutEstFait
+                ? "Tout est coché. Tu peux poser la journée."
+                : body,
             url: this.lienVers()
           });
         } catch (e) {

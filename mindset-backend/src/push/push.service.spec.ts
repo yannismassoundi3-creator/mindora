@@ -325,6 +325,135 @@ describe('PushService — tournée des briefs du matin', () => {
     });
   });
 
+  /*
+    Ce que le coach dit à quelqu'un qui a **réussi** sa journée.
+
+    Toutes les branches du soir partaient d'un échec — score à zéro, jours
+    manqués. Une journée bouclée ne déclenchait donc rien du tout, et celle de
+    18 h allait jusqu'à dire « il te reste la soirée pour finir » à quelqu'un dont
+    le titre affichait 100 %. Un produit qui ne parle qu'aux échecs apprend qu'on
+    ne le regarde pas.
+  */
+  describe('quand la journée est finie', () => {
+    const jour = (n: number) =>
+      new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
+
+    const avecRoutines = (id: string, routines: any, scores: Record<string, number> = {}) => ({
+      id,
+      push_subscriptions: [{ id: 's1' }],
+      sync_data: { daily_scores: scores, routines },
+    });
+
+    const charge = () => JSON.parse((webpush.sendNotification as jest.Mock).mock.calls[0][1]);
+
+    beforeEach(() => {
+      prisma.pushSubscription.findMany.mockResolvedValue([
+        { id: 's1', endpoint: 'https://push.example/abc', p256dh: 'p', auth: 'a' },
+      ]);
+    });
+
+    it('ne dit plus « il te reste la soirée » à 18 h à celui qui a tout coché', async () => {
+      prisma.user.findMany.mockResolvedValue([
+        avecRoutines('u1', [{ items: [{ title: 'Sport', done: true }] }], { [jour(0)]: 100 }),
+      ]);
+
+      await service.sendBulkReminders('Check-in de 18h 🎯', 'Il te reste la soirée pour finir.', true);
+
+      expect(charge().body).not.toContain('reste la soirée');
+      expect(charge().body).toContain('Tout est coché');
+    });
+
+    it('garde le rappel de 18 h pour celui à qui il reste quelque chose', async () => {
+      prisma.user.findMany.mockResolvedValue([
+        avecRoutines('u1', [{ items: [{ title: 'Sport', done: true }, { title: 'Lire' }] }]),
+      ]);
+
+      await service.sendBulkReminders('Check-in de 18h 🎯', 'Il te reste la soirée pour finir.', true);
+
+      expect(charge().body).toContain('reste la soirée');
+    });
+
+    it('félicite à 20 h, et compte la journée en cours dans la série', async () => {
+      // `computeStreak` repart d'hier : la journée qu'on félicite n'y est pas
+      // encore. Annoncer 4 au lieu de 5 ferait dire au coach un chiffre que la
+      // personne peut compter elle-même — et donc contredire.
+      morningBrief.computeStreak.mockReturnValue(4);
+      prisma.user.findMany.mockResolvedValue([
+        avecRoutines('u1', [{ items: [{ title: 'Sport', done: true }] }], { [jour(0)]: 100, [jour(1)]: 80 }),
+      ]);
+
+      await service.checkStreaksAndWarn(20);
+
+      expect(charge().body).toContain('5 jours');
+    });
+
+    it('ne félicite pas une journée vide', async () => {
+      // Rien à cocher n'est pas une réussite. Féliciter ici apprendrait que le
+      // message part tout seul, ce qui dévalue tous les autres.
+      // Un score aujourd'hui, pour ne pas retomber dans la branche des quatre
+      // jours manqués : ce qu'on teste ici est l'absence de tâches, pas l'absence
+      // d'activité.
+      prisma.user.findMany.mockResolvedValue([avecRoutines('u1', [], { [jour(0)]: 50 })]);
+
+      await service.checkStreaksAndWarn(20);
+
+      expect(webpush.sendNotification).not.toHaveBeenCalled();
+    });
+  });
+
+  /*
+    L'urgence était annoncée le soir où elle n'existe plus, et tue le soir où elle
+    existe. `missedDays === 2` veut dire « rien aujourd'hui et rien hier » : la
+    série est morte la veille au soir, et « elle va disparaître à minuit » y était
+    faux.
+  */
+  describe('la série à 22 h', () => {
+    const jour = (n: number) =>
+      new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
+
+    const charge = () => JSON.parse((webpush.sendNotification as jest.Mock).mock.calls[0][1]);
+
+    beforeEach(() => {
+      prisma.pushSubscription.findMany.mockResolvedValue([
+        { id: 's1', endpoint: 'https://push.example/abc', p256dh: 'p', auth: 'a' },
+      ]);
+    });
+
+    it('nomme la série le soir où elle meurt vraiment', async () => {
+      morningBrief.computeStreak.mockReturnValue(7);
+      prisma.user.findMany.mockResolvedValue([
+        {
+          id: 'u1',
+          push_subscriptions: [{ id: 's1' }],
+          // Rien aujourd'hui, quelque chose hier : c'est cette nuit qu'elle tombe.
+          sync_data: { daily_scores: { [jour(1)]: 90 }, routines: [] },
+        },
+      ]);
+
+      await service.checkStreaksAndWarn(22);
+
+      expect(charge().body).toContain('7 jours');
+      expect(charge().body).toContain('minuit');
+    });
+
+    it('ne prétend plus sauver une série déjà perdue', async () => {
+      prisma.user.findMany.mockResolvedValue([
+        {
+          id: 'u1',
+          push_subscriptions: [{ id: 's1' }],
+          // Rien aujourd'hui ni hier : elle est tombée la veille.
+          sync_data: { daily_scores: { [jour(2)]: 90 }, routines: [] },
+        },
+      ]);
+
+      await service.checkStreaksAndWarn(22);
+
+      expect(charge().body).not.toContain('minuit');
+      expect(charge().title).not.toContain('URGENCE');
+      expect(charge().body).toContain('Deux jours');
+    });
+  });
+
   /**
    * Le bilan du dimanche soir prépare la lecture longue des abonnés.
    *
