@@ -6,6 +6,7 @@ import { MorningBriefService } from './morning-brief.service';
 import { WeeklyReviewService } from './weekly-review.service';
 import { CoupDePouceService } from './coup-de-pouce.service';
 import { BilanHebdoService } from './bilan-hebdo.service';
+import { AnalyseHabitudesService } from './analyse-habitudes.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 jest.mock('web-push', () => ({
@@ -83,6 +84,7 @@ describe('PushService — tournée des briefs du matin', () => {
         // Le cache de la lecture hebdomadaire a ses propres tests ; ici on vérifie
         // seulement que la tournée l'appelle au bon moment et pour les bons comptes.
         { provide: BilanHebdoService, useValue: bilanHebdo },
+        AnalyseHabitudesService,
       ],
     }).compile();
 

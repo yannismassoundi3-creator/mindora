@@ -7,6 +7,7 @@ import { CoachOuvertureService } from './coach-ouverture.service';
 import { ObservationService } from './observation.service';
 import { WeeklyReviewService } from '../push/weekly-review.service';
 import { BilanHebdoService } from '../push/bilan-hebdo.service';
+import { AnalyseHabitudesService } from '../push/analyse-habitudes.service';
 import { AiCoachingController } from './ai-coaching.controller';
 
 @Module({
@@ -26,6 +27,8 @@ import { AiCoachingController } from './ai-coaching.controller';
     WeeklyReviewService,
     // Le cache de la lecture hebdomadaire, partagé avec le cron du dimanche soir.
     BilanHebdoService,
+    // Le croisement habitudes x score, qui nourrit la lecture reservee aux abonnes.
+    AnalyseHabitudesService,
   ],
   exports: [
     AiCoachingService,

@@ -4,6 +4,7 @@ import { MorningBriefService } from './morning-brief.service';
 import { WeeklyReviewService } from './weekly-review.service';
 import { CoupDePouceService } from './coup-de-pouce.service';
 import { BilanHebdoService } from './bilan-hebdo.service';
+import { AnalyseHabitudesService } from './analyse-habitudes.service';
 import * as cron from 'node-cron';
 import * as webpush from 'web-push';
 import { lienApp } from '../common/origines';
@@ -112,6 +113,7 @@ export class PushService implements OnModuleInit {
     private weeklyReview: WeeklyReviewService,
     private coupDePouce: CoupDePouceService,
     private bilanHebdo: BilanHebdoService,
+    private analyseHabitudes: AnalyseHabitudesService,
   ) {
     const vapidSubject = process.env.VAPID_SUBJECT || 'mailto:mindoraappli@gmail.com';
     const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
@@ -713,7 +715,18 @@ export class PushService implements OnModuleInit {
           await new Promise((r) => setTimeout(r, PushService.INTERVALLE_ENTRE_BRIEFS_MS));
           appelsIA++;
           const lecture = await this.bilanHebdo
-            .lecture(user.id, prenom, semaine)
+            .lecture(
+              user.id,
+              prenom,
+              semaine,
+              // Le meme levier que l'ecran : les deux appelants partagent le cache de
+              // BilanHebdoService, et deux entrees differentes rendraient deux textes
+              // pour la meme semaine selon la porte par laquelle on arrive.
+              this.analyseHabitudes.analyser(
+                user.sync_data?.daily_scores as any,
+                user.sync_data?.habits as any,
+              ).levier,
+            )
             .catch((e) => {
               this.logger.warn(`Lecture hebdo non préparée pour ${user.id} : ${e?.message}`);
               return null;

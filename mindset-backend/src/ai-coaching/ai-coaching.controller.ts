@@ -8,6 +8,7 @@ import { CoachOuvertureService } from './coach-ouverture.service';
 import { ObservationService } from './observation.service';
 import { WeeklyReviewService } from '../push/weekly-review.service';
 import { BilanHebdoService } from '../push/bilan-hebdo.service';
+import { AnalyseHabitudesService } from '../push/analyse-habitudes.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { estMessageAutomatique } from '../common/message-inscription';
 import { ChatDto } from './dto/chat.dto';
@@ -33,6 +34,7 @@ export class AiCoachingController {
     // notification finiront par annoncer deux semaines différentes.
     private readonly bilan: WeeklyReviewService,
     private readonly bilanHebdo: BilanHebdoService,
+    private readonly analyseHabitudes: AnalyseHabitudesService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -328,9 +330,37 @@ export class AiCoachingController {
 
     // Rien à raconter : sept jours sans la moindre action. Afficher « 0 jour actif,
     // score moyen 0 % » à quelqu'un qui n'a rien fait est un reproche, pas un bilan.
-    if (!semaine) return { disponible: false, abonne, semaine: null, lecture: null };
+    if (!semaine) {
+      return { disponible: false, abonne, semaine: null, analyse: null, lecture: null };
+    }
 
-    if (!abonne) return { disponible: true, abonne: false, semaine, lecture: null };
+    /*
+      L'analyse, et où passe la frontière de l'abonnement.
+
+      La trajectoire de chaque habitude — 2/7 cette semaine contre 5/7 la
+      précédente — reste à tout le monde : ce sont ses propres jours, comptés. La
+      mettre derrière le péage reviendrait à lui vendre ce qu'il a déjà fait.
+
+      Le **levier** est d'un autre ordre. Croiser quatre semaines de scores avec
+      quatre semaines d'habitudes pour en sortir « tes journées avec cette
+      habitude valent 24 points de plus » est un travail que l'application fait
+      *pour* elle, et que personne ne peut faire de tête. C'est ça qu'on paie —
+      pas l'accès à ses propres chiffres.
+    */
+    const analyse = this.analyseHabitudes.analyser(
+      sync?.daily_scores as Record<string, number> | null,
+      sync?.habits,
+    );
+
+    if (!abonne) {
+      return {
+        disponible: true,
+        abonne: false,
+        semaine,
+        analyse: { habitudes: analyse.habitudes, levier: null },
+        lecture: null,
+      };
+    }
 
     const prenom = await this.prisma.user
       .findUnique({ where: { id: userId }, select: { first_name: true } })
@@ -341,8 +371,10 @@ export class AiCoachingController {
     // cron du dimanche soir qui prépare la même lecture d'avance. Deux copies de
     // cette règle finiraient par rendre deux textes différents pour la même
     // semaine, selon qu'on arrive par la notification ou par l'écran.
-    const lecture = await this.bilanHebdo.lecture(userId, prenom, semaine).catch(() => null);
-    return { disponible: true, abonne: true, semaine, lecture };
+    const lecture = await this.bilanHebdo
+      .lecture(userId, prenom, semaine, analyse.levier)
+      .catch(() => null);
+    return { disponible: true, abonne: true, semaine, analyse, lecture };
   }
 
   @Get('history')

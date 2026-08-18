@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { WeeklyReviewService, SemaineEcoulee } from './weekly-review.service';
+import type { LienHabitudeScore } from './analyse-habitudes.service';
 import { cleJourParis } from '../common/jour-paris';
 
 /**
@@ -46,7 +47,7 @@ export class BilanHebdoService {
    * toujours dans le troisième paragraphe — celui qui porte la seule chose à
    * changer. Voir `WeeklyReviewService.couperProprement`.
    */
-  private static readonly VERSION_REGLES = 'v2';
+  private static readonly VERSION_REGLES = 'v3';
 
   /**
    * Le repère qui date une lecture : le jour où s'arrête sa fenêtre de sept jours,
@@ -65,7 +66,12 @@ export class BilanHebdoService {
    * sans lecture, ce qui reste utile. On ne montre jamais d'erreur à quelqu'un qui
    * a seulement ouvert son tableau de bord.
    */
-  async lecture(userId: string, prenom: string, semaine: SemaineEcoulee): Promise<string | null> {
+  async lecture(
+    userId: string,
+    prenom: string,
+    semaine: SemaineEcoulee,
+    levier?: LienHabitudeScore | null,
+  ): Promise<string | null> {
     const repere = BilanHebdoService.repere();
 
     const profil = await this.prisma.aIProfile
@@ -74,7 +80,7 @@ export class BilanHebdoService {
 
     if (profil?.bilan_texte && profil.bilan_semaine === repere) return profil.bilan_texte;
 
-    const texte = await this.bilan.genererLecture(prenom, semaine);
+    const texte = await this.bilan.genererLecture(prenom, semaine, levier);
     if (!texte) return null;
 
     /*

@@ -9,6 +9,7 @@ import { CoachOuvertureService } from './coach-ouverture.service';
 import { ObservationService } from './observation.service';
 import { WeeklyReviewService } from '../push/weekly-review.service';
 import { BilanHebdoService } from '../push/bilan-hebdo.service';
+import { AnalyseHabitudesService } from '../push/analyse-habitudes.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MESSAGES_AUTOMATIQUES_INSCRIPTION } from '../common/message-inscription';
 
@@ -72,6 +73,7 @@ describe('AiCoachingController — débit et remboursement du chat', () => {
         // Le cache de la lecture a ses propres tests ; ici on veut seulement que
         // le contrôleur puisse être construit et qu'aucune lecture ne soit rendue.
         { provide: BilanHebdoService, useValue: { lecture: jest.fn().mockResolvedValue(null) } },
+        AnalyseHabitudesService,
         {
           provide: PrismaService,
           useValue: { syncData: { findUnique: jest.fn().mockResolvedValue(null) } },
@@ -304,6 +306,7 @@ describe('AiCoachingController — messages de découverte', () => {
         // et sans historique il ne trouve aucune semaine à résumer.
         { provide: WeeklyReviewService, useValue: new WeeklyReviewService() },
         { provide: BilanHebdoService, useValue: bilanHebdo },
+        AnalyseHabitudesService,
         { provide: PrismaService, useValue: prisma },
       ],
     })
@@ -431,7 +434,45 @@ describe('AiCoachingController — messages de découverte', () => {
         'u1',
         'Yannis',
         expect.objectContaining({ joursActifs: 7 }),
+        // Le levier part avec, quatrième argument : c'est lui qui nourrit la
+        // lecture. `null` ici — aucune habitude dans cette fixture, donc rien à
+        // rapprocher, et le service se tait plutôt que d'inventer un lien.
+        null,
       );
+    });
+
+    /*
+      La frontière de l'abonnement, sur cet écran précis.
+
+      Elle est facile à déplacer sans s'en rendre compte : il suffit d'ajouter un
+      champ au retour. La règle du produit est que les **chiffres** de quelqu'un
+      lui appartiennent — les mettre derrière le péage reviendrait à lui vendre ce
+      qu'il a déjà fait — alors que le **rapprochement** entre ses habitudes et le
+      score de ses journées est le travail que l'application fait pour lui.
+    */
+    it('rend la trajectoire des habitudes à tout le monde, le levier aux seuls abonnés', async () => {
+      const jour = (recul: number) =>
+        new Date(Date.now() - recul * 86400000).toLocaleDateString('sv-SE', {
+          timeZone: 'Europe/Paris',
+        });
+
+      // Trois journées à 90 avec l'habitude, trois à 50 sans : un écart franc.
+      const scores: Record<string, number> = {};
+      [1, 3, 5].forEach((r) => (scores[jour(r)] = 90));
+      [2, 4, 6].forEach((r) => (scores[jour(r)] = 50));
+      const habits = [{ title: 'Sport', history: [1, 3, 5].map(jour) }];
+
+      prisma.syncData.findUnique.mockResolvedValue({ daily_scores: scores, habits });
+
+      quota.isSubscribed.mockResolvedValue(false);
+      const gratuit: any = await controller.getBilanSemaine(requeteBilan);
+      expect(gratuit.analyse.habitudes[0]).toMatchObject({ titre: 'Sport', joursTenus: 3 });
+      expect(gratuit.analyse.levier).toBeNull();
+
+      quota.isSubscribed.mockResolvedValue(true);
+      const abonne: any = await controller.getBilanSemaine(requeteBilan);
+      expect(abonne.analyse.habitudes[0]).toMatchObject({ titre: 'Sport', joursTenus: 3 });
+      expect(abonne.analyse.levier).toMatchObject({ titre: 'Sport', ecart: 40 });
     });
 
     it("ne demande aucune lecture pour un compte gratuit", async () => {
@@ -554,6 +595,7 @@ describe('AiCoachingController — la phrase d\'ouverture', () => {
         // Le cache de la lecture a ses propres tests ; ici on veut seulement que
         // le contrôleur puisse être construit et qu'aucune lecture ne soit rendue.
         { provide: BilanHebdoService, useValue: { lecture: jest.fn().mockResolvedValue(null) } },
+        AnalyseHabitudesService,
         {
           provide: PrismaService,
           useValue: { syncData: { findUnique: jest.fn().mockResolvedValue(null) } },

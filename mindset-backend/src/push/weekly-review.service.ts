@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { lireReponseGroq } from '../common/groq';
+import type { LienHabitudeScore } from './analyse-habitudes.service';
 
 /** Ce qu'on sait d'une semaine, avant d'en faire une phrase. */
 export interface SemaineEcoulee {
@@ -106,7 +107,10 @@ export class WeeklyReviewService {
     if (!Array.isArray(historique)) return 0;
 
     const recents = new Set<string>();
-    for (let i = 0; i <= 7; i++) recents.add(WeeklyReviewService.cleJour(i));
+    // La meme fenetre que les scores de resumerSemaine : les jours 1 a 7, aujourd'hui
+    // exclu parce qu'il est incomplet. Elle allait de 0 a 7, soit huit jours affiches
+    // en « /7 » — une habitude tenue chaque jour rendait 8/7.
+    for (let i = 1; i <= 7; i++) recents.add(WeeklyReviewService.cleJour(i));
 
     const tenus = new Set(
       historique
@@ -129,7 +133,15 @@ export class WeeklyReviewService {
     return `${prenom ? prenom + ', t' : 'T'}a semaine : ${jours}, score moyen ${s.scoreMoyen}%${tendance}.`;
   }
 
-  buildPrompt(prenom: string, s: SemaineEcoulee): string {
+  /**
+   * Les faits donnés au modèle.
+   *
+   * `levier` est le seul élément ici que la personne ne peut pas voir elle-même :
+   * le rapprochement entre une habitude et le score de ses journées, calculé sur
+   * quatre semaines par `AnalyseHabitudesService`. Il est passé **déjà seuillé** —
+   * absent veut dire « pas assez de matière », jamais « à toi de chercher ».
+   */
+  buildPrompt(prenom: string, s: SemaineEcoulee, levier?: LienHabitudeScore | null): string {
     const habitudes = s.habitudes.length
       ? s.habitudes.map((h) => `• ${h.titre} : tenue ${h.joursTenus}/7`).join('\n')
       : 'Aucune habitude suivie';
@@ -144,6 +156,17 @@ export class WeeklyReviewService {
       ``,
       `HABITUDES :`,
       habitudes,
+      ...(levier
+        ? [
+            ``,
+            `SUR LES 28 DERNIERS JOURS (mesuré, à reprendre tel quel) :`,
+            `Les journées où « ${levier.titre} » a été tenue affichent ${levier.scoreAvec}% de score moyen ` +
+              `(${levier.joursAvec} journées). Les autres journées actives : ${levier.scoreSans}% ` +
+              `(${levier.joursSans} journées).`,
+            `C'est une coïncidence mesurée entre deux séries, PAS une cause : n'écris jamais que cette ` +
+              `habitude "fait" ou "provoque" ces journées. Dis ce qu'on observe, et propose de la garder.`,
+          ]
+        : []),
     ].join('\n');
   }
 
@@ -192,7 +215,11 @@ export class WeeklyReviewService {
    * seule chose à changer. C'est la contrepartie visible de l'abonnement, celle
    * qu'on peut montrer avant de la vendre.
    */
-  async genererLecture(prenom: string, s: SemaineEcoulee): Promise<string | null> {
+  async genererLecture(
+    prenom: string,
+    s: SemaineEcoulee,
+    levier?: LienHabitudeScore | null,
+  ): Promise<string | null> {
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) return null;
 
@@ -213,7 +240,7 @@ export class WeeklyReviewService {
         apiKey,
         modele,
         systeme,
-        this.buildPrompt(prenom, s),
+        this.buildPrompt(prenom, s, levier),
         WeeklyReviewService.PLAFOND_LECTURE,
         WeeklyReviewService.JETONS_LECTURE,
       );
