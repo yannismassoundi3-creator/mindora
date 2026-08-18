@@ -8,49 +8,50 @@ datasource db {
 }
 
 model User {
-  id                 String            @id @default(uuid())
-  email              String            @unique
-  password_hash      String
-  first_name         String
-  last_name          String
-  role               Role              @default(USER)
-  stripe_customer_id String?           @unique
-  created_at         DateTime          @default(now())
-  updated_at         DateTime          @updatedAt
-  deleted_at         DateTime?
+  id                    String               @id @default(uuid())
+  email                 String               @unique
+  password_hash         String
+  first_name            String
+  last_name             String
+  role                  Role                 @default(USER)
+  stripe_customer_id    String?              @unique
+  created_at            DateTime             @default(now())
+  updated_at            DateTime             @updatedAt
+  deleted_at            DateTime?
   /// Date à laquelle un code envoyé à cette adresse a été validé, donc preuve que
   /// la boîte existe et appartient à la personne. Distincte de « a ouvert une
   /// session » depuis que la toute première connexion se passe du code : sans cette
   /// colonne, les deux se confondraient et l'entonnoir ne saurait plus dire lequel
   /// des deux murs coûte des comptes.
-  email_verifie_le   DateTime?
+  email_verifie_le      DateTime?
   /// Faux quand la personne a demandé à ne plus recevoir de relances. Ne concerne
   /// que celles-ci : un code de connexion et un lien de réinitialisation partent
   /// toujours, ils répondent à un geste qu'elle vient de faire.
-  relances_email     Boolean           @default(true)
-  ai_profile         AIProfile?
-  audit_logs         AuditLog[]
-  calendar_events    CalendarEvent[]
-  daily_progress     DailyProgress[]
-  goals              Goal[]
-  habits             Habit[]
-  payments           Payment[]
-  refresh_tokens     RefreshToken[]
-  routines           Routine[]
-  subscription       Subscription?
-  sync_data          SyncData?
-  achievements       UserAchievement[]
-  push_subscriptions PushSubscription[]
-  two_factor_codes   TwoFactorCode[]
-  chat_messages      ChatMessage[]
+  relances_email        Boolean              @default(true)
+  ai_profile            AIProfile?
+  audit_logs            AuditLog[]
+  calendar_events       CalendarEvent[]
+  daily_progress        DailyProgress[]
+  goals                 Goal[]
+  habits                Habit[]
+  payments              Payment[]
+  refresh_tokens        RefreshToken[]
+  routines              Routine[]
+  subscription          Subscription?
+  sync_data             SyncData?
+  achievements          UserAchievement[]
+  push_subscriptions    PushSubscription[]
+  two_factor_codes      TwoFactorCode[]
+  chat_messages         ChatMessage[]
   password_reset_tokens PasswordResetToken[]
-  ai_usages          AiUsage[]
-  coin_claims        CoinClaim[]
-  push_permissions   PushPermission[]
-  offer_prompt       OfferPrompt?
-  coup_de_pouce      CoupDePouce?
-  relances           RelanceEmail[]
-  ouvertures         AppOuverture[]
+  ai_usages             AiUsage[]
+  coach_echecs          CoachEchec[]
+  coin_claims           CoinClaim[]
+  push_permissions      PushPermission[]
+  offer_prompt          OfferPrompt?
+  coup_de_pouce         CoupDePouce?
+  relances              RelanceEmail[]
+  ouvertures            AppOuverture[]
   /// D'ou vient cette inscription : la valeur du parametre `?s=` du lien suivi.
   ///
   /// Rien ne la captait avant le 17 aout 2026, si bien qu'aucune inscription
@@ -60,7 +61,7 @@ model User {
   ///
   /// Ecrite par le navigateur, donc falsifiable — sans consequence, elle n'ouvre
   /// aucun acces et ne sert qu'a compter. Normalisee cote serveur.
-  source             String?
+  source                String?
 }
 
 /// Combien de fois l'application est ouverte, et quels jours.
@@ -100,12 +101,12 @@ model AppOuverture {
 /// e-mail chaque matin, ce qui est la meilleure façon de se faire marquer comme
 /// indésirable — pour tout le domaine, y compris les codes de connexion.
 model RelanceEmail {
-  id      String   @id @default(uuid())
-  user_id String
+  id        String   @id @default(uuid())
+  user_id   String
   /// jamais_ouvert | decroche
-  motif   String
+  motif     String
   envoye_le DateTime @default(now())
-  user    User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@unique([user_id, motif])
   @@index([envoye_le])
@@ -146,38 +147,38 @@ model RefreshToken {
 }
 
 model AIProfile {
-  id             String   @id @default(uuid())
-  user_id        String   @unique
-  age            Int?
-  occupation     String?
-  objectives     String[]
-  constraints    String[]
-  current_habits String[]
-  personality    String?
-  coaching_style String?
+  id                  String    @id @default(uuid())
+  user_id             String    @unique
+  age                 Int?
+  occupation          String?
+  objectives          String[]
+  constraints         String[]
+  current_habits      String[]
+  personality         String?
+  coaching_style      String?
   /// Ce que la personne raconte d'elle en texte libre a l'inscription : horaires,
   /// blessure, materiel, contexte. C'est le seul champ ou elle peut dire quelque
   /// chose qu'aucun bouton ne prevoyait, et donc le plus utile au coach : sans lui,
   /// le profil se resume a trois reponses parmi quarante-huit combinaisons possibles,
   /// et tout le monde recoit le meme plan.
-  situation      String?
+  situation           String?
   /// Minutes par jour qu'elle dit pouvoir y consacrer. Borne le volume du plan : un
   /// programme de deux heures propose a quelqu'un qui en a vingt minutes n'est pas
   /// ambitieux, il est abandonne des le premier jour.
-  minutes_par_jour Int?
+  minutes_par_jour    Int?
   /// Point de depart physique declare. Decide des exercices : on ne prescrit pas
   /// quatre series de douze pompes a quelqu'un qui se declare sedentaire.
-  niveau_depart  String?
+  niveau_depart       String?
   /// Note de synthese sur la personne, recompressee periodiquement a partir des
   /// anciens echanges. L'historique brut est plafonne : sans ce resume, tout ce qui
   /// depasse la fenetre est definitivement oublie.
-  memory_summary String?
-  memory_updated_at DateTime?
+  memory_summary      String?
+  memory_updated_at   DateTime?
   /// Phrase d'ouverture du coach, celle qu'il dit avant qu'on lui ait rien demande.
   /// Mise en cache parce qu'elle coute un appel au modele : sans cache, recharger la
   /// page en rappellerait un a chaque fois. Regeneree quand elle date de plus de
   /// quelques heures, sinon elle parlerait du matin a quelqu'un qui ouvre le soir.
-  ouverture_texte String?
+  ouverture_texte     String?
   ouverture_genere_le DateTime?
   /// La lecture de la semaine ecoulee, ecrite par le coach pour les abonnes.
   ///
@@ -199,12 +200,12 @@ model AIProfile {
   /// sur les sept derniers jours, pas sur la semaine du lundi au dimanche. Date par
   /// semaine calendaire, une lecture resterait affichee jusqu'a six jours pendant
   /// que les chiffres qu'elle commente auraient entierement change.
-  bilan_texte    String?
-  bilan_genere_le DateTime?
-  bilan_semaine  String?
-  created_at     DateTime @default(now())
-  updated_at     DateTime @updatedAt
-  user           User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  bilan_texte         String?
+  bilan_genere_le     DateTime?
+  bilan_semaine       String?
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+  user                User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
 model Subscription {
@@ -348,25 +349,25 @@ model AuditLog {
 }
 
 model SyncData {
-  id               String   @id @default(uuid())
-  user_id          String   @unique
-  routines         Json?
-  micro_objectives Json?
-  macro_objectives Json?
-  habits           Json?
-  nutrition        Json?
-  points           Int      @default(0)
+  id                String    @id @default(uuid())
+  user_id           String    @unique
+  routines          Json?
+  micro_objectives  Json?
+  macro_objectives  Json?
+  habits            Json?
+  nutrition         Json?
+  points            Int       @default(0)
   /// Expérience cumulée, qui décide du niveau et du rang. Distincte de `points` :
   /// ceux-ci sont la monnaie de la Boutique et redescendent à chaque achat, ce qui
   /// faisait rétrograder de rang quiconque s'achetait un cosmétique. L'XP, elle, ne
   /// baisse que si un gain est annulé (une tâche décochée). Nullable : les comptes
   /// antérieurs la reçoivent au premier envoi, initialisée à leur solde de points.
-  xp               Int?
+  xp                Int?
   /// Solde de coins faisant foi pour l'IA. Jamais alimenté par la synchro : le
   /// client peut y écrire ce qu'il veut, c'est justement ce qu'on corrige.
-  ai_credits       Int?
-  mental_score     Int      @default(0)
-  bonus_score       Int      @default(0)
+  ai_credits        Int?
+  mental_score      Int       @default(0)
+  bonus_score       Int       @default(0)
   daily_scores      Json?
   last_routine_date String?
   last_habit_date   String?
@@ -376,7 +377,7 @@ model SyncData {
   inventory         Json?
   owned_cosmetics   Json?
   ai_skin_id        String?
-  updated_at        DateTime @updatedAt
+  updated_at        DateTime  @updatedAt
   /// Le jeton de version de l'ETAT synchronise, et lui seul.
   ///
   /// Distinct d'`updated_at`, qui bouge des que **n'importe quoi** touche cette
@@ -394,7 +395,7 @@ model SyncData {
   /// `null` sur les lignes anterieures : la premiere remontee est alors acceptee
   /// sans comparaison, comme une base_version absente.
   etat_version      DateTime?
-  user              User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user              User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
 enum Role {
@@ -495,10 +496,35 @@ model AiUsage {
   @@index([user_id, created_at])
 }
 
+/// Un message auquel le coach n'a pas repondu, et pourquoi.
+///
+/// L'echec ne laissait qu'un console.error sur l'hebergeur — c'est-a-dire rien,
+/// puisque personne ne lit ces journaux le lendemain. Le tableau d'administration
+/// savait donc compter les silences (lignes `user` moins lignes `ai`) sans jamais
+/// pouvoir en nommer la cause : saturation, delai depasse, cle refusee et reponse
+/// vide se soignent pourtant de quatre facons differentes.
+///
+/// Seuls le code et le dernier modele essaye sont conserves. Ni l'invite ni le
+/// corps d'erreur du fournisseur : le premier est intime, le second peut recopier
+/// n'importe quoi de la requete. Un diagnostic n'a pas besoin de les relire.
+model CoachEchec {
+  id         String   @id @default(uuid())
+  user_id    String
+  /// GROQ_RATE_LIMIT, GROQ_TIMEOUT, GROQ_AUTH, GROQ_MODELE_INCONNU, VIDE, INCONNU...
+  code       String
+  /// Le dernier maillon essaye. Nul quand la chaine n'a meme pas demarre.
+  modele     String?
+  created_at DateTime @default(now())
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, created_at])
+  @@index([created_at])
+}
+
 model ChatMessage {
   id         String   @id @default(uuid())
   user_id    String
-  sender     String   // "user" or "ai"
+  sender     String // "user" or "ai"
   text       String
   created_at DateTime @default(now())
   user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)

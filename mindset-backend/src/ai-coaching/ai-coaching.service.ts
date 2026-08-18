@@ -676,13 +676,20 @@ RÈGLES DE COMPORTEMENT :
         ({ texte: reply, modele, tronque, schemaJoint } = await demander(true));
       }
 
-      if (!reply) throw new Error('Empty response from Groq');
+      // Le maillon est joint à l'erreur comme le fait la chaîne pour les siennes : ces
+      // deux échecs-là naissent après un appel réussi, et sans ça la trace écrite en
+      // base ne dirait pas quel modèle rend du vide — c'est pourtant ce qui décide
+      // s'il faut le retirer de la liste.
+      if (!reply) throw Object.assign(new Error('Empty response from Groq'), { modele });
 
       // Garde-fou : si le marqueur survit au second appel, il ne doit jamais s'afficher
       // dans la conversation. Mieux vaut une réponse vide traitée comme une erreur —
       // et donc remboursée — qu'un mot de code envoyé à l'utilisateur.
       if (reply.includes(AiCoachingService.MARQUEUR_PLAN)) {
-        throw new Error('Le modèle a renvoyé le marqueur de plan deux fois de suite');
+        throw Object.assign(
+          new Error('Le modèle a renvoyé le marqueur de plan deux fois de suite'),
+          { modele },
+        );
       }
 
       // Réponse arrêtée par `max_tokens` et non par le modèle.
@@ -735,6 +742,7 @@ RÈGLES DE COMPORTEMENT :
       // d'environnement à vérifier sur Render : un message écrit pour le développeur,
       // lu par les utilisateurs à chaque saturation du fournisseur.
       console.error('[Groq] ❌ Erreur Groq API:', error?.message);
+      this.tracerEchec(userId, error);
 
       const sature = error?.code === 'GROQ_RATE_LIMIT';
       return {
@@ -745,6 +753,54 @@ RÈGLES DE COMPORTEMENT :
         // faire payer un message jamais reçu est le plus sûr moyen de perdre un client.
         erreur: true,
       };
+    }
+  }
+
+  /**
+   * Garde la cause d'un silence, pour que le suivant n'ait plus à être deviné.
+   *
+   * Le tableau d'administration sait compter les silences depuis toujours — lignes
+   * `user` moins lignes `ai` — mais la cause n'existait que dans un `console.error`
+   * sur l'hébergeur, c'est-à-dire nulle part : personne ne relit ces journaux le
+   * lendemain, et c'est le lendemain qu'on se demande pourquoi quelqu'un est parti.
+   * Saturation, délai dépassé, clé refusée et réponse vide appellent pourtant
+   * quatre gestes différents.
+   *
+   * **N'interrompt jamais rien et n'est jamais attendue.** La personne a déjà son
+   * message d'excuse à l'écran ; faire échouer la réponse parce que la trace de
+   * l'échec n'a pas pu s'écrire serait ajouter une panne à une panne, et la faire
+   * attendre pour cela serait pire encore.
+   */
+  private tracerEchec(userId: string | undefined, erreur: any): void {
+    if (!userId || userId === 'demo-user') return;
+
+    const code =
+      typeof erreur?.code === 'string' && erreur.code
+        ? erreur.code
+        // Les deux échecs qui n'ont pas de code parce qu'ils naissent ici et non chez
+        // le fournisseur : un 200 sans texte, et le marqueur de plan qui a survécu au
+        // second appel. Les confondre avec « inconnu » ferait chercher chez Groq une
+        // panne qui est de notre côté.
+        : /Empty response/i.test(String(erreur?.message))
+          ? 'VIDE'
+          : /marqueur de plan/i.test(String(erreur?.message))
+            ? 'MARQUEUR_PLAN'
+            : 'INCONNU';
+
+    /*
+      Le `try` entoure aussi l'appel lui-même, pas seulement la promesse.
+
+      Nous sommes ici dans le `catch` de la réponse au coach : une exception lancée
+      à cet endroit ne serait rattrapée par personne et transformerait un message
+      d'excuse en 500. Le `.catch()` seul ne couvre que l'échec de l'écriture, pas
+      celui du chemin qui y mène.
+    */
+    try {
+      this.prisma.coachEchec
+        .create({ data: { user_id: userId, code, modele: erreur?.modele ?? null } })
+        .catch((e: any) => console.error('[Groq] Trace de l’échec non écrite :', e?.message));
+    } catch (e: any) {
+      console.error('[Groq] Trace de l’échec impossible :', e?.message);
     }
   }
 
@@ -811,6 +867,7 @@ RÈGLES DE COMPORTEMENT :
     /* Vraie dès qu'une clé Groq a été refusée : les maillons gratuits restants la
        partagent, les essayer coûterait trois 401 pour la même réponse. */
     let cleGroqRefusee = false;
+    let dernierModele: string | null = null;
     const depart = Date.now();
 
     for (const { modele, secours } of chaine) {
@@ -831,6 +888,8 @@ RÈGLES DE COMPORTEMENT :
         console.warn(`[Groq] ⏱️ Budget de la chaîne épuisé avant ${modele}.`);
         break;
       }
+
+      dernierModele = modele;
 
       try {
         const response = secours
@@ -878,7 +937,16 @@ RÈGLES DE COMPORTEMENT :
       }
     }
 
-    throw saturation ?? derniere;
+    /*
+      Le maillon sur lequel la chaîne s'est arrêtée, attaché à l'erreur.
+
+      Sans lui, la trace écrite en base dirait « saturé » sans dire de quoi — or
+      les limites de Groq se comptent par modèle, et savoir lequel a cédé est
+      justement ce qui désigne le réglage à changer.
+    */
+    const sortie = saturation ?? derniere;
+    if (sortie && typeof sortie === 'object' && !sortie.modele) sortie.modele = dernierModele;
+    throw sortie;
   }
 
   /**

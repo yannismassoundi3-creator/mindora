@@ -15,6 +15,7 @@ describe('RetentionService', () => {
     user: { findMany: jest.Mock };
     appOuverture: { groupBy: jest.Mock; aggregate: jest.Mock };
     chatMessage: { groupBy: jest.Mock };
+    coachEchec: { groupBy: jest.Mock; aggregate: jest.Mock };
   };
 
   const JOUR = 24 * 60 * 60 * 1000;
@@ -322,6 +323,12 @@ describe('RetentionService', () => {
       // Par defaut aucune ligne de conversation : les tests ecrits avant ce
       // decompte decrivent tous ce cas-la.
       chatMessage: { groupBy: jest.fn().mockResolvedValue([]) },
+      // Par defaut aucune cause enregistree : la trace est posterieure a la
+      // plupart des silences, et les tests ecrits avant elle decrivent ce cas-la.
+      coachEchec: {
+        groupBy: jest.fn().mockResolvedValue([]),
+        aggregate: jest.fn().mockResolvedValue({ _min: { created_at: null } }),
+      },
       appOuverture: {
         groupBy: jest.fn().mockResolvedValue([]),
         aggregate: jest.fn().mockResolvedValue({ _min: { jour: null } }),
@@ -544,6 +551,36 @@ describe('RetentionService', () => {
       expect(detail[1]).toEqual(
         expect.objectContaining({ tapes: 10, recues: 4, manques: 6, abonne: false }),
       );
+    });
+
+    it('dit à partir de quand les causes sont mesurées', async () => {
+      /*
+        Le décompte des silences se déduit des messages et couvre donc toute
+        l'histoire ; les causes, elles, n'existent que depuis qu'on les écrit. Sans
+        cette date, « aucune saturation » se lirait comme un constat alors que
+        c'est une absence de mesure — l'erreur exacte qu'on veut ne plus refaire.
+      */
+      prisma.coachEchec.groupBy.mockResolvedValue([
+        { code: 'GROQ_TIMEOUT', _count: { _all: 2 } },
+        { code: 'GROQ_RATE_LIMIT', _count: { _all: 9 } },
+      ]);
+      prisma.coachEchec.aggregate.mockResolvedValue({ _min: { created_at: ilYA(3) } });
+
+      const stats = await avec([compte({ inscritIlYA: 5, joursActifs: [1] })]);
+
+      // La cause la plus fréquente en tête : c'est celle qui désigne le geste à faire.
+      expect(stats.coach.causes).toEqual([
+        { code: 'GROQ_RATE_LIMIT', nombre: 9 },
+        { code: 'GROQ_TIMEOUT', nombre: 2 },
+      ]);
+      expect(stats.coach.mesureDepuis).toBe(cle(ilYA(3)));
+    });
+
+    it('avoue que rien n’est mesuré plutôt que d’annoncer zéro cause', async () => {
+      const stats = await avec([compte({ inscritIlYA: 5, joursActifs: [1] })]);
+
+      expect(stats.coach.causes).toEqual([]);
+      expect(stats.coach.mesureDepuis).toBeNull();
     });
 
     it('ne nomme personne quand le coach a répondu à tout le monde', async () => {

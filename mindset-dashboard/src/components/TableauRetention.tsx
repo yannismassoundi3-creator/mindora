@@ -105,6 +105,10 @@ interface Retention {
     reponsesRecues: number;
     sansReponse: number;
     comptesTouches: number;
+    /** Pourquoi, quand on le sait. Vide avant la mise en service de la trace. */
+    causes: Array<{ code: string; nombre: number }>;
+    /** Premier échec enregistré. `null` = rien n'a encore été mesuré. */
+    mesureDepuis: string | null;
     /** Qui, nommément. Vide quand le coach a répondu à tout le monde. */
     sansReponseDetail: Array<{
       prenom: string;
@@ -164,6 +168,24 @@ function formaterSemaine(iso: string): string {
   const d = new Date(iso + 'T00:00:00Z');
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 }
+
+/*
+  Le code technique traduit une fois, ici.
+
+  Écrire « GROQ_RATE_LIMIT » dans un tableau qu'on lit pour décider quoi faire
+  oblige à connaître le code avant de pouvoir s'en servir. Un code absent de cette
+  liste reste affiché tel quel : inventer une traduction pour une cause inconnue
+  serait pire que de montrer son nom.
+*/
+const LIBELLES_CAUSE: Record<string, string> = {
+  GROQ_RATE_LIMIT: 'saturé',
+  GROQ_TIMEOUT: 'délai dépassé',
+  GROQ_AUTH: 'clé refusée',
+  GROQ_MODELE_INCONNU: 'modèle retiré',
+  VIDE: 'réponse vide',
+  MARQUEUR_PLAN: 'plan mal formé',
+  INCONNU: 'cause inconnue',
+};
 
 export const TableauRetention: React.FC = () => {
   const [donnees, setDonnees] = useState<Retention | null>(null);
@@ -573,6 +595,36 @@ export const TableauRetention: React.FC = () => {
                 </tbody>
               </table>
             </div>
+          )}
+
+          {/*
+            La cause, quand elle a été mesurée.
+
+            Quatre causes possibles, quatre gestes différents : une saturation
+            appelle le filet payant, un délai dépassé un modèle plus rapide, une
+            clé refusée un tour sur Render, une réponse vide le retrait d'un modèle
+            de la liste. Le décompte seul ne désignait aucun des quatre.
+          */}
+          {coach.causes?.length > 0 ? (
+            <p className="retention-note">
+              <strong>Pourquoi :</strong>{' '}
+              {coach.causes.map((c, i) => (
+                <span key={c.code}>
+                  {i > 0 && ' · '}
+                  {LIBELLES_CAUSE[c.code] ?? c.code} <strong>{c.nombre}</strong>
+                </span>
+              ))}
+              . Mesuré depuis le{' '}
+              {coach.mesureDepuis ? formaterSemaine(coach.mesureDepuis) : '?'} : les silences
+              antérieurs ne sont pas dans ce compte.
+            </p>
+          ) : (
+            <p className="retention-note">
+              <strong>Pourquoi : pas encore mesuré.</strong> La cause de chaque silence
+              s'écrit désormais en base au moment où il se produit — saturé, délai
+              dépassé, clé refusée, réponse vide. Tant que cette ligne le dit, c'est
+              qu'aucun échec n'est survenu depuis, pas que tout allait bien avant.
+            </p>
           )}
         </>
       )}

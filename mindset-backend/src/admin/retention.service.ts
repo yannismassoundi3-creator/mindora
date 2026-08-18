@@ -227,6 +227,19 @@ export class RetentionService {
       _count: { _all: true },
     });
 
+    /*
+      Les causes des silences, groupées.
+
+      Le décompte des silences se déduit des messages ; leur cause, non — elle
+      n'existe que si on l'a écrite au moment de l'échec. Ces lignes ne commencent
+      donc qu'à la mise en service de la trace, et le tableau le dit plutôt que de
+      laisser lire « aucune saturation » là où il faut lire « rien n'était mesuré ».
+    */
+    const [echecsParCause, premierEchec] = await Promise.all([
+      this.prisma.coachEchec.groupBy({ by: ['code'], _count: { _all: true } }),
+      this.prisma.coachEchec.aggregate({ _min: { created_at: true } }),
+    ]);
+
     let messagesTapes = 0;
     let reponsesRecues = 0;
     const comptesSansReponse = new Set<string>();
@@ -610,6 +623,19 @@ export class RetentionService {
         // compte peut porter dix échecs : le total dit l'ampleur, celui-ci dit
         // combien de gens ont vu le produit ne pas répondre.
         comptesTouches: comptesSansReponse.size,
+        /*
+          Pourquoi, quand on le sait.
+
+          Saturation, délai dépassé, clé refusée, réponse vide : quatre causes, quatre
+          gestes différents, et jusqu'ici aucune n'était conservée. `mesureDepuis`
+          est là pour que ce tableau ne se lise jamais comme un bilan de toute
+          l'histoire : les silences antérieurs à la trace n'y figurent pas, et rien
+          d'autre ne permettrait de s'en apercevoir.
+        */
+        causes: echecsParCause
+          .map((e) => ({ code: e.code, nombre: e._count._all }))
+          .sort((a, b) => b.nombre - a.nombre),
+        mesureDepuis: RetentionService.cleJourOuNull(premierEchec._min.created_at),
         /*
           Qui, nommément.
 

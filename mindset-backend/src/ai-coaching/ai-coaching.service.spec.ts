@@ -59,6 +59,7 @@ describe('AiCoachingService — chat', () => {
     prisma = {
       chatMessage: { create: jest.fn().mockResolvedValue({}), findMany: jest.fn().mockResolvedValue([]) },
       syncData: { findUnique: jest.fn().mockResolvedValue(null) },
+      coachEchec: { create: jest.fn().mockResolvedValue({}) },
     };
 
     const memoire = {
@@ -259,6 +260,51 @@ describe('AiCoachingService — chat', () => {
 
       expect(resultat.reply).toBe('Reconnecté.');
       expect(modelesAppeles()).toEqual([PREMIER, DEUXIEME]);
+    });
+
+    it("garde la cause du silence, et le maillon qui a cédé", async () => {
+      /*
+        La cause n'existait que dans un `console.error` sur l'hébergeur — c'est-à-dire
+        nulle part, puisque personne ne relit ces journaux le lendemain, et que c'est
+        le lendemain qu'on se demande pourquoi quelqu'un est parti. Le tableau
+        comptait les silences sans jamais pouvoir dire lequel des quatre gestes
+        possibles il fallait faire.
+      */
+      fetchMock.mockResolvedValue(reponseSaturee());
+
+      const resultat: any = await service.chatWithAi('u1', 'Comment tu vas ?');
+
+      expect(resultat.erreur).toBe(true);
+      expect(prisma.coachEchec.create).toHaveBeenCalledWith({
+        data: { user_id: 'u1', code: 'GROQ_RATE_LIMIT', modele: DERNIER },
+      });
+    });
+
+    it('distingue une réponse vide d’une panne du fournisseur', async () => {
+      // Un 200 sans texte naît ici, pas chez Groq : le ranger dans « inconnu »
+      // enverrait chercher une panne du côté du fournisseur alors qu'elle est du
+      // nôtre. Les deux ne se soignent pas au même endroit.
+      fetchMock.mockResolvedValue(reponseOk('   '));
+
+      await service.chatWithAi('u1', 'Comment tu vas ?');
+
+      expect(prisma.coachEchec.create).toHaveBeenCalledWith({
+        data: { user_id: 'u1', code: 'VIDE', modele: PREMIER },
+      });
+    });
+
+    it('ne transforme pas une trace impossible en panne supplémentaire', async () => {
+      // On est dans le `catch` de la réponse au coach : une exception lancée là ne
+      // serait rattrapée par personne et changerait un message d'excuse en 500.
+      prisma.coachEchec.create.mockImplementation(() => {
+        throw new Error('base injoignable');
+      });
+      fetchMock.mockResolvedValue(reponseSaturee());
+
+      const resultat: any = await service.chatWithAi('u1', 'Comment tu vas ?');
+
+      expect(resultat.erreur).toBe(true);
+      expect(resultat.reply).toContain('Trop de monde');
     });
 
     it("s'arrête sur un 403 qui ne parle pas de modèle", async () => {
