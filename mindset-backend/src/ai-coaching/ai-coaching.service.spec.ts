@@ -3,6 +3,8 @@ import { AiCoachingService } from './ai-coaching.service';
 import { CoachMemoryService } from './coach-memory.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RappelService } from './rappel.service';
+import { ObservationService } from './observation.service';
+import { AnalyseHabitudesService } from '../push/analyse-habitudes.service';
 
 /**
  * Le repli entre modèles, le second appel sur BESOIN_SCHEMA_PLAN et le drapeau qui
@@ -73,6 +75,8 @@ describe('AiCoachingService — chat', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ObservationService,
+        AnalyseHabitudesService,
         {
           provide: RappelService,
           // Les rappels ont leur propre suite : ici on veut seulement que le
@@ -647,6 +651,8 @@ describe('AiCoachingService — l\'objectif déclaré', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ObservationService,
+        AnalyseHabitudesService,
         {
           provide: RappelService,
           // Les rappels ont leur propre suite : ici on veut seulement que le

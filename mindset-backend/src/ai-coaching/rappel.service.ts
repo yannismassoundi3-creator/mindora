@@ -50,6 +50,16 @@ export class RappelService {
   static readonly MARQUEUR =
     /<RAPPEL\s+(\d{4}-\d{2}-\d{2})[T ](\d{2}):(\d{2})(?::\d{2})?(?:Z|[+-]\d{2}:?\d{2})?\s*>([\s\S]{1,300}?)<\/RAPPEL>/gi;
 
+  /**
+   * Le marqueur d annulation : le numero affiche au modele, pas un identifiant.
+   *
+   * Le contexte lui liste ses rappels numerotes [1], [2]... Lui faire recopier un
+   * UUID reviendrait a parier sur trente-six caracteres recopies sans faute par un
+   * modele — et une seule lettre fausse annulerait un rappel qui n existe pas, en
+   * silence, pendant qu il confirme.
+   */
+  static readonly MARQUEUR_ANNULE = /<ANNULE_RAPPEL\s+(\d{1,2})\s*>/gi;
+
   /** Au-delà, on ne demande plus un rappel, on prend un rendez-vous. */
   private static readonly HORIZON_JOURS = 30;
 
@@ -87,6 +97,51 @@ export class RappelService {
       .trim();
 
     return { texte, rappels };
+  }
+
+  /**
+   * Sort les numeros de rappel que le coach veut annuler, et nettoie le texte.
+   *
+   * Le coach savait poser un rappel et pas en retirer un : a « annule celui de
+   * 22 h 30 » il repondait « c est annule » et le rappel sonnait quand meme. Plus
+   * grave que la panne d origine — la personne avait alors une raison de croire
+   * que c etait regle, et le telephone la contredisait.
+   */
+  static extraireAnnulations(reponse: string): { texte: string; numeros: number[] } {
+    const numeros: number[] = [];
+
+    const texte = reponse
+      .replace(RappelService.MARQUEUR_ANNULE, (_tout, n: string) => {
+        const num = Number(n);
+        if (num >= 1 && !numeros.includes(num)) numeros.push(num);
+        return '';
+      })
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+
+    return { texte, numeros };
+  }
+
+  /**
+   * Annule par le numero affiche au modele, et rend ce qui a vraiment ete annule.
+   *
+   * La liste est relue ici plutot que passee depuis le contexte : entre le moment
+   * ou le contexte a ete construit et celui ou la reponse arrive, un rappel a pu
+   * partir. Annuler d apres une liste perimee retirerait le mauvais.
+   */
+  async annulerParNumero(userId: string, numeros: number[]): Promise<string[]> {
+    if (!numeros.length) return [];
+
+    const liste = await this.aVenir(userId);
+    const annules: string[] = [];
+
+    for (const n of numeros) {
+      const cible = liste[n - 1];
+      if (!cible) continue;
+      if (await this.annuler(userId, cible.id)) annules.push(cible.texte);
+    }
+
+    return annules;
   }
 
   /**
