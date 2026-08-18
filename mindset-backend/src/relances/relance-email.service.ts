@@ -5,8 +5,15 @@ import { PrismaService } from '../prisma/prisma.service';
 import { envoyerEmail, gabarit } from '../common/email';
 import { lienApi, lienApp } from '../common/origines';
 
-/** Les deux raisons de reprendre contact. Sert aussi de clé d'unicité en base. */
-export type MotifRelance = 'jamais_ouvert' | 'decroche';
+/**
+ * Les raisons d'écrire à quelqu'un. Sert aussi de clé d'unicité en base.
+ *
+ * Les deux premières reprennent contact avec quelqu'un qui s'éloigne. La troisième
+ * fait l'inverse : elle répond à un geste qu'on vient de recevoir. Elles partagent
+ * le même mécanisme parce qu'elles partagent la même exigence — une fois, jamais
+ * deux, et retirable d'un clic.
+ */
+export type MotifRelance = 'jamais_ouvert' | 'decroche' | 'merci_abonnement';
 
 /**
  * Reprendre contact par e-mail avec ceux qui ne reviennent pas.
@@ -53,6 +60,17 @@ export class RelanceEmailService {
 
   /** Plafond par tournée : une salve massive est ce qui abîme une réputation d'envoi. */
   static readonly MAX_PAR_TOURNEE = 50;
+
+  /**
+   * Les statuts qui valent « a pris l'abonnement ».
+   *
+   * Recopiés de `AiQuotaService.PAID_STATUSES` plutôt qu'importés, comme le fait
+   * déjà le module push : le remerciement n'a pas à créer un lien entre l'envoi
+   * d'e-mails et le quota d'IA. `TRIALING` en fait partie — quelqu'un en essai a
+   * donné sa carte, c'est le geste qu'on remercie, et attendre le prélèvement pour
+   * le dire ferait arriver le merci une semaine trop tard.
+   */
+  static readonly STATUTS_ABONNES = ['ACTIVE', 'TRIALING'] as const;
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -180,6 +198,48 @@ export class RelanceEmailService {
     const retrait = this.lienRetrait(userId);
     const app = lienApp('');
 
+    if (motif === 'merci_abonnement') {
+      /*
+        Le seul message du produit qui ne demande rien.
+
+        Les deux autres constatent un éloignement et invitent à revenir. Celui-ci
+        répond à quelqu'un qui vient de payer : lui glisser un appel à l'action
+        transformerait un merci en relance, et c'est exactement ce qui fait qu'on
+        ne croit plus les remerciements. D'où l'absence de bouton, seule de tout
+        le fichier.
+
+        Il est écrit à la première personne parce qu'il y a vraiment quelqu'un
+        derrière : un merci signé « l'équipe », pour un produit tenu par une seule
+        personne, se lit comme un automatisme — ce qu'il est précisément en train
+        d'essayer de ne pas être.
+      */
+      return {
+        sujet: 'Merci',
+        html: gabarit({
+          titre: `${prenom}, merci.`,
+          corps:
+            "<p>Tu viens de prendre l'abonnement. Disciplix est un produit jeune et tu es " +
+            "parmi les tout premiers à le soutenir — ça se voit d'ici, et ça compte.</p>" +
+            "<p>Ton coach n'a plus de compteur mensuel. Je continue à travailler dessus " +
+            "toutes les semaines, et je te tiendrai au courant des prochaines mises à jour " +
+            "— sans t'écrire pour rien.</p>" +
+            "<p>Si quelque chose ne va pas, ou si tu vois ce qui manque : réponds à cet " +
+            "e-mail. Je le lis.</p>",
+          lienRetrait: retrait,
+        }),
+        texte:
+          `${prenom}, merci.\n\n` +
+          "Tu viens de prendre l'abonnement. Disciplix est un produit jeune et tu es " +
+          "parmi les tout premiers à le soutenir — ça se voit d'ici, et ça compte.\n\n" +
+          "Ton coach n'a plus de compteur mensuel. Je continue à travailler dessus " +
+          "toutes les semaines, et je te tiendrai au courant des prochaines mises à jour " +
+          "— sans t'écrire pour rien.\n\n" +
+          "Si quelque chose ne va pas, ou si tu vois ce qui manque : réponds à cet e-mail. " +
+          `Je le lis.\n\n${app}\n\nNe plus recevoir ces messages : ${retrait}\n`,
+        lienRetrait: retrait,
+      };
+    }
+
     if (motif === 'jamais_ouvert') {
       return {
         // Sujet sans majuscules criées ni promesse : il décrit l'état du compte.
@@ -269,6 +329,9 @@ export class RelanceEmailService {
 
     const bilan = {
       simulation,
+      // Renseigné après la requête des remerciements, plus bas : les deux passes
+      // regardent deux populations différentes, et n'en compter qu'une donnerait
+      // à croire que la tournée n'a pas vu les abonnés.
       examines: comptes.length,
       envoyes: 0,
       echecs: 0,
@@ -276,8 +339,70 @@ export class RelanceEmailService {
       destinataires: [] as Array<{ email: string; motif: MotifRelance; inscritIlYA: number }>,
     };
 
+    /*
+      Les remerciements, en premier et sur leur propre requête.
+
+      Ils ne peuvent pas passer par `motifPour` ni par la requête ci-dessus, et
+      c'est structurel : celle-là cherche des gens qui s'éloignent, bornés à 30
+      jours d'ancienneté. Or un abonné est actif par définition, et quelqu'un peut
+      très bien s'abonner six mois après son inscription — la borne des 30 jours
+      protège d'un démarchage tardif, elle n'a aucun sens pour répondre à un geste
+      qu'on vient de recevoir.
+
+      `relances_email` reste respecté : quelqu'un qui a demandé à ne plus rien
+      recevoir n'a pas fait d'exception pour les bonnes nouvelles.
+    */
+    const aRemercier = await this.prisma.user.findMany({
+      where: {
+        deleted_at: null,
+        relances_email: true,
+        subscription: { status: { in: [...RelanceEmailService.STATUTS_ABONNES] } },
+        relances: { none: { motif: 'merci_abonnement' } },
+      },
+      select: { id: true, email: true, first_name: true, created_at: true },
+    });
+
+    // Les abonnés ne figurent pas forcément dans `comptes` : celui-là s'arrête à
+    // 30 jours d'ancienneté. Sans cette ligne, la tournée dirait avoir examiné
+    // moins de monde qu'elle n'en a écrit.
+    bilan.examines += aRemercier.length;
+
+    for (const compte of aRemercier) {
+      if (bilan.envoyes >= RelanceEmailService.MAX_PAR_TOURNEE) break;
+      const motif: MotifRelance = 'merci_abonnement';
+      const inscritIlYA = Math.floor((maintenant.getTime() - compte.created_at.getTime()) / 86_400_000);
+
+      if (simulation) {
+        bilan.envoyes++;
+        bilan.parMotif[motif] = (bilan.parMotif[motif] ?? 0) + 1;
+        bilan.destinataires.push({ email: compte.email, motif, inscritIlYA });
+        continue;
+      }
+
+      const { sujet, html, texte, lienRetrait } = this.contenu(motif, compte.first_name || 'toi', compte.id);
+      const parti = await envoyerEmail({ destinataire: compte.email, sujet, html, texte, lienRetrait });
+
+      if (!parti) {
+        // Rien n'est écrit sur un échec : la trace dit « envoyé », pas « tenté ».
+        // L'inscrire ici priverait définitivement quelqu'un de son remerciement en
+        // donnant à croire qu'il l'a reçu.
+        bilan.echecs++;
+        continue;
+      }
+
+      await this.prisma.relanceEmail.create({ data: { user_id: compte.id, motif } });
+      bilan.envoyes++;
+      bilan.parMotif[motif] = (bilan.parMotif[motif] ?? 0) + 1;
+      this.logger.log(`Merci envoyé à ${compte.id}`);
+    }
+
+    // Personne ne reçoit deux e-mails dans la même tournée : un merci suivi d'un
+    // « tu n'es jamais revenu » le même jour se contredirait tout seul.
+    const dejaEcrit = new Set(aRemercier.map((c) => c.id));
+
     for (const compte of comptes) {
       if (bilan.envoyes >= RelanceEmailService.MAX_PAR_TOURNEE) break;
+      if (dejaEcrit.has(compte.id)) continue;
 
       const motif = RelanceEmailService.motifPour(
         {

@@ -98,3 +98,51 @@
   background: rgba(0, 0, 0, 0.3);
   border-radius: 4px;
 }
+
+/* La tournée d'e-mails.
+
+   Deux boutons volontairement dissemblables : l'un est un aperçu, l'autre est
+   irréversible. Leur donner le même poids visuel serait la meilleure façon de
+   cliquer sur le second en croyant appuyer sur le premier. */
+.tournee-boutons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.tournee-bouton--reel {
+  background: transparent;
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.tournee-bouton--reel:hover:not(:disabled) {
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.tournee-bouton--reel:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.tournee-liste {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  font-size: 0.82rem;
+}
+
+.tournee-liste li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.tournee-motif {
+  color: var(--text-secondary, #94a3b8);
+  white-space: nowrap;
+}

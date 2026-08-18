@@ -34,10 +34,27 @@ describe('RelanceEmailService', () => {
     };
   };
 
-  const avec = async (comptes: any[]) => {
-    prisma.user.findMany.mockResolvedValue(comptes);
+  /**
+   * Les deux populations de la tournée, distinguées sur la requête.
+   *
+   * `tournee()` interroge la base deux fois : ceux qui s'éloignent, puis les
+   * abonnés à remercier. Un mock qui rend la même liste aux deux ferait remercier
+   * tout le monde, et les tests de relance mesureraient alors le mauvais motif.
+   */
+  const avec = async (comptes: any[], abonnes: any[] = []) => {
+    prisma.user.findMany.mockImplementation(({ where }: any) =>
+      Promise.resolve(where?.subscription ? abonnes : comptes),
+    );
     return service.tournee();
   };
+
+  /** Un abonné tel que le rend la requête des remerciements. */
+  const abonne = (opts: { email?: string; inscritIlYA?: number } = {}) => ({
+    id: `a-${Math.random()}`,
+    email: opts.email ?? 'abonne@example.com',
+    first_name: 'Mohamed',
+    created_at: ilYA(opts.inscritIlYA ?? 0),
+  });
 
   beforeEach(async () => {
     prisma = {
@@ -167,11 +184,14 @@ describe('RelanceEmailService', () => {
     it('n’envoie rien et n’écrit rien, mais dit qui recevrait quoi', async () => {
       // Un envoi est irréversible et sort du produit : la liste doit pouvoir se
       // lire avant, sans avoir à la déduire du code.
-      prisma.user.findMany.mockResolvedValue([
+      const eloignes = [
         compte({ inscritIlYA: 4, email: 'jamais@example.com' }),
         compte({ inscritIlYA: 12, joursActifs: [12, 8], email: 'parti@example.com' }),
         compte({ inscritIlYA: 12, joursActifs: [12, 1], email: 'actif@example.com' }),
-      ]);
+      ];
+      prisma.user.findMany.mockImplementation(({ where }: any) =>
+        Promise.resolve(where?.subscription ? [] : eloignes),
+      );
 
       const bilan = await service.tournee(true);
 
@@ -260,6 +280,85 @@ describe('RelanceEmailService', () => {
         where: { id: 'u1' },
         data: { relances_email: false },
       });
+    });
+  });
+
+  /*
+    Le remerciement.
+
+    C'est le seul message qui répond à un geste au lieu d'en réclamer un. Ce qui
+    se vérifie ici est exactement ce qui coûterait cher à rater : qu'il parte une
+    fois, qu'il ne reparte jamais, et qu'il ne se transforme pas en relance.
+  */
+  describe('le merci aux abonnés', () => {
+    it('part une fois à celui qui vient de prendre l’abonnement', async () => {
+      const bilan = await avec([], [abonne({ email: 'mohamed@example.com' })]);
+
+      expect(bilan.parMotif).toEqual({ merci_abonnement: 1 });
+      expect(prisma.relanceEmail.create).toHaveBeenCalledWith({
+        data: { user_id: expect.any(String), motif: 'merci_abonnement' },
+      });
+    });
+
+    it('ne demande que les abonnés jamais remerciés, et joignables', async () => {
+      /*
+        L'unicité se joue dans la requête, pas après : la filtrer en mémoire
+        marcherait tant que la liste tient dans une page, puis cesserait
+        silencieusement. Et l'absence de borne d'ancienneté est volontaire — on
+        peut s'abonner six mois après son inscription.
+      */
+      await avec([], []);
+
+      const requete = prisma.user.findMany.mock.calls
+        .map(([a]: any) => a)
+        .find((a: any) => a?.where?.subscription);
+
+      expect(requete.where).toEqual(
+        expect.objectContaining({
+          deleted_at: null,
+          relances_email: true,
+          subscription: { status: { in: ['ACTIVE', 'TRIALING'] } },
+          relances: { none: { motif: 'merci_abonnement' } },
+        }),
+      );
+      expect(requete.where.created_at).toBeUndefined();
+    });
+
+    it('ne demande rien en retour', async () => {
+      // Un merci muni d'un bouton redevient une relance. C'est le seul message du
+      // produit qui n'a pas d'appel à l'action, et ça doit le rester.
+      await avec([], [abonne()]);
+
+      const corps = JSON.parse((global.fetch as any).mock.calls[0][1].body);
+      // Un seul lien, et c'est celui du retrait : le pied de page en porte
+      // toujours un, l'absence de bouton se vérifie donc au compte et non à
+      // l'absence de balise.
+      const liens = corps.htmlContent.match(/<a /g) ?? [];
+      expect(liens).toHaveLength(1);
+      expect(corps.htmlContent).toContain('/emails/retrait');
+      expect(corps.textContent).toContain('merci');
+    });
+
+    it('n’écrit pas deux fois à la même personne dans une tournée', async () => {
+      // Un merci suivi le même jour d'un « tu n'es jamais revenu » se contredirait
+      // tout seul. Le cas existe : on peut s'abonner puis ne pas ouvrir l'app.
+      const dormant = compte({ inscritIlYA: 5 });
+      const bilan = await avec([dormant], [{ ...dormant }]);
+
+      expect(bilan.envoyes).toBe(1);
+      expect(bilan.parMotif).toEqual({ merci_abonnement: 1 });
+    });
+
+    it('n’inscrit rien quand l’envoi échoue', async () => {
+      // La trace dit « envoyé », pas « tenté » : l'inscrire sur un échec priverait
+      // définitivement quelqu'un de son remerciement.
+      (global.fetch as any).mockResolvedValue({ ok: false, text: async () => 'refus' });
+
+      const bilan = await avec([], [abonne()]);
+
+      expect(bilan.echecs).toBe(1);
+      expect(bilan.envoyes).toBe(0);
+      expect(prisma.relanceEmail.create).not.toHaveBeenCalled();
     });
   });
 });

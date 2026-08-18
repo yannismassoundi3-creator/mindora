@@ -4,6 +4,7 @@ import { api } from '../services/api';
 import { TableauJour } from '../components/TableauJour';
 import { TableauRetention } from '../components/TableauRetention';
 import { EtatSecours } from '../components/EtatSecours';
+import { TourneeEmails } from '../components/TourneeEmails';
 import './AdminDashboard.css';
 
 interface AdminStats {
@@ -150,6 +151,13 @@ export const AdminDashboard: React.FC = () => {
         croise pas en lisant ses chiffres.
       */}
       <EtatSecours />
+
+      {/*
+        Juste après le secours, et pour la même raison : de l'outillage
+        d'exploitation, pas une mesure du produit. On vient l'ouvrir quand on veut
+        remercier quelqu'un sans attendre 11h.
+      */}
+      <TourneeEmails />
     </div>
   );
 };
