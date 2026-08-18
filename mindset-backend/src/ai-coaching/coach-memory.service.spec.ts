@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { CoachMemoryService } from './coach-memory.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { MODELES_COURTS } from '../common/modeles';
 
 /**
  * La note de mémoire longue est le seul texte que ce projet écrit une fois puis relit
@@ -90,8 +91,7 @@ describe('CoachMemoryService — recompression de la mémoire longue', () => {
     await service.rafraichirMemoire('u1', profil);
 
     expect(fetchMock.mock.calls.map((a) => JSON.parse(a[1].body).model)).toEqual([
-      'llama-3.1-8b-instant',
-      'llama-3.3-70b-versatile',
+      ...MODELES_COURTS,
     ]);
     expect(prisma.aIProfile.update).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -8,6 +8,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { verifierSecours } from '../common/fournisseur-secours';
+import { verifierModeles } from '../common/verifier-modeles';
 
 @ApiTags('Admin')
 @Controller('admin')
@@ -70,5 +71,27 @@ export class AdminController {
   @ApiOperation({ summary: 'Tester le fournisseur de secours du coach' })
   async testerSecours() {
     return verifierSecours();
+  }
+
+  /**
+   * Est-ce que les modeles nommes par le code existent encore chez Groq ?
+   *
+   * Groq a eteint deux des modeles du produit le 16 aout 2026 ; le 18, ils
+   * etaient encore nommes dans cinq fichiers. Personne ne l a su : chaque
+   * service retombe proprement sur son repli local, donc le brief du matin est
+   * parti generique pour tout le monde pendant deux jours sans lever la moindre
+   * erreur.
+   *
+   * Ce controle est le seul moyen de l apprendre avant les utilisateurs. Comme
+   * pour le secours, l appel est reel : lire un catalogue dans une documentation
+   * ne prouve rien sur ce que cette cle-la peut appeler.
+   */
+  @Get('modeles')
+  @Roles('ADMIN')
+  @Throttle({ default: { limit: 6, ttl: 60_000 } })
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Verifier que les modeles appeles existent encore' })
+  async testerModeles() {
+    return verifierModeles();
   }
 }

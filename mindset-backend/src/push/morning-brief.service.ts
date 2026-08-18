@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { lireReponseGroq } from '../common/groq';
 import { separerTaches } from './taches';
+import { MODELES_COURTS } from '../common/modeles';
 
 /**
  * Rédige le message du matin avec l'IA, à partir de la situation réelle de la personne.
@@ -33,7 +34,7 @@ export class MorningBriefService {
    * ne le signalait ailleurs qu'une ligne d'avertissement noyée dans les logs. La
    * personnalisation entière du réveil tenait à un seul identifiant.
    */
-  static readonly MODELES = ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile'];
+  static readonly MODELES = MODELES_COURTS;
 
   /**
    * Longueur au-delà de laquelle la phrase est coupée avant d'être envoyée.

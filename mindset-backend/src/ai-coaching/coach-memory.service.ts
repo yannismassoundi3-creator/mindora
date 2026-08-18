@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { lireReponseGroq } from '../common/groq';
+import { MODELES_COURTS } from '../common/modeles';
 
 /**
  * Ce que le coach sait de la personne au-delà de l'instant présent.
@@ -225,7 +226,7 @@ export class CoachMemoryService {
    * où le premier est retiré du catalogue ou interdit sur le projet Groq : sans lui,
    * la mémoire longue cessait de se mettre à jour définitivement et en silence.
    */
-  static readonly MODELES = ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile'];
+  static readonly MODELES = MODELES_COURTS;
 
   /** Un appel. Retourne null pour laisser sa chance au modèle suivant. */
   private async resumer(apiKey: string, modele: string, messages: any[]): Promise<string | null> {

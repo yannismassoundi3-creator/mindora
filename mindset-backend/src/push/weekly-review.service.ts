@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { lireReponseGroq } from '../common/groq';
 import type { LienHabitudeScore } from './analyse-habitudes.service';
+import { MODELES_COURTS } from '../common/modeles';
 
 /** Ce qu'on sait d'une semaine, avant d'en faire une phrase. */
 export interface SemaineEcoulee {
@@ -43,7 +44,7 @@ export class WeeklyReviewService {
    * projet — sans recours, tous les bilans repasseraient au texte factuel sans que
    * rien ne le signale.
    */
-  static readonly MODELES = ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile'];
+  static readonly MODELES = MODELES_COURTS;
 
   /** Filet de longueur, pour les jours où le modèle ignore les 180 caractères demandés. */
   private static readonly PLAFOND_CARACTERES = 200;

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { lireReponseGroq } from '../common/groq';
 import { separerTaches } from './taches';
+import { MODELES_COURTS } from '../common/modeles';
 
 /**
  * Le coup de pouce : un message du coach en pleine journée, quand il a quelque
@@ -76,7 +77,7 @@ export class CoupDePouceService {
   /** Une série en dessous de ce seuil ne vaut pas la peine d'être défendue à voix haute. */
   private static readonly SERIE_NOTABLE = 3;
 
-  private static readonly MODELES = ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile'];
+  private static readonly MODELES = MODELES_COURTS;
   private static readonly TIMEOUT_MS = 8000;
   private static readonly PLAFOND_CARACTERES = 160;
 

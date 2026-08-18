@@ -1,5 +1,6 @@
 import { Logger } from '@nestjs/common';
 import { MorningBriefService } from './morning-brief.service';
+import { MODELES_COURTS } from '../common/modeles';
 
 /**
  * Toute la personnalisation du réveil tenait à un seul identifiant de modèle. S'il
@@ -58,18 +59,18 @@ describe('MorningBriefService — écriture du message', () => {
 
     await service.generate('Yannis', sync);
 
-    expect(modelesAppeles()).toEqual(['llama-3.1-8b-instant']);
+    expect(modelesAppeles()).toEqual([MODELES_COURTS[0]]);
   });
 
   it('bascule sur le gros modèle quand le petit est interdit sur le projet', async () => {
     fetchMock
-      .mockResolvedValueOnce(reponseInterdite('llama-3.1-8b-instant'))
+      .mockResolvedValueOnce(reponseInterdite(MODELES_COURTS[0]))
       .mockResolvedValueOnce(reponseOk('Debout, ta série t’attend.'));
 
     const texte = await service.generate('Yannis', sync);
 
     expect(texte).toBe('Debout, ta série t’attend.');
-    expect(modelesAppeles()).toEqual(['llama-3.1-8b-instant', 'llama-3.3-70b-versatile']);
+    expect(modelesAppeles()).toEqual([MODELES_COURTS[0], MODELES_COURTS[1]]);
   });
 
   it('rend null quand aucun modèle ne répond, pour laisser passer le générique', async () => {
@@ -109,7 +110,7 @@ describe('MorningBriefService — écriture du message', () => {
       const texte = await service.generate('Yannis', sync);
 
       expect(texte).toBe('Debout : ta série de 4 jours se joue ce matin.');
-      expect(modelesAppeles()).toEqual(['llama-3.1-8b-instant', 'llama-3.3-70b-versatile']);
+      expect(modelesAppeles()).toEqual([MODELES_COURTS[0], MODELES_COURTS[1]]);
     });
 
     it('retombe sur le message générique si les deux modèles sont coupés', async () => {

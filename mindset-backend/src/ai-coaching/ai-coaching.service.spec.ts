@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RappelService } from './rappel.service';
 import { ObservationService } from './observation.service';
 import { AnalyseHabitudesService } from '../push/analyse-habitudes.service';
+import { MODELES_CHAT } from '../common/modeles';
 
 /**
  * Le repli entre modèles, le second appel sur BESOIN_SCHEMA_PLAN et le drapeau qui
@@ -22,9 +23,9 @@ describe('AiCoachingService — chat', () => {
   let fetchMock: jest.Mock;
   const cleInitiale = process.env.GROQ_API_KEY;
 
-  const PREMIER = 'llama-3.3-70b-versatile';
-  const DEUXIEME = 'openai/gpt-oss-120b';
-  const DERNIER = 'llama-3.1-8b-instant';
+  const PREMIER = MODELES_CHAT[0];
+  const DEUXIEME = MODELES_CHAT[1];
+  const DERNIER = MODELES_CHAT[2];
 
   /** Extrait du repère textuel du schéma, présent seulement dans la version longue. */
   const EXTRAIT_SCHEMA = 'GÉRER LES HABITUDES';
@@ -235,7 +236,7 @@ describe('AiCoachingService — chat', () => {
       // level ». Sans ce cas, le premier modèle interdit emportait toute la chaîne.
       fetchMock
         .mockResolvedValueOnce(
-          reponseErreur(403, 'The model `llama-3.3-70b-versatile` is blocked at the project level.'),
+          reponseErreur(403, 'The model `' + MODELES_CHAT[0] + '` is blocked at the project level.'),
         )
         .mockResolvedValueOnce(reponseOk('Présent.'));
 

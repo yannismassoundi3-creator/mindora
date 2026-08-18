@@ -6,6 +6,7 @@ import { ObservationService } from './observation.service';
 import { AnalyseHabitudesService } from '../push/analyse-habitudes.service';
 import { lireReponseGroq } from '../common/groq';
 import { lireFournisseurSecours, FournisseurSecours } from '../common/fournisseur-secours';
+import { MODELES_CHAT } from '../common/modeles';
 
 @Injectable()
 export class AiCoachingService {
@@ -1054,11 +1055,7 @@ RÈGLES DE COMPORTEMENT :
    * 500 000 jetons par jour à lui seul, contre 100 000 pour le premier : c'est le
    * filet qui rend la journée survivable sur le plan gratuit.
    */
-  private static readonly MODELES_CHAT = [
-    'llama-3.3-70b-versatile',
-    'openai/gpt-oss-120b',
-    'llama-3.1-8b-instant',
-  ];
+  private static readonly MODELES_CHAT = MODELES_CHAT;
 
   /**
    * Appelle Groq en descendant la chaîne de modèles tant que la saturation persiste.

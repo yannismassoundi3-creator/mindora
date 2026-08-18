@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { CoachOuvertureService } from './coach-ouverture.service';
 import { CoachMemoryService } from './coach-memory.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { MODELES_COURTS } from '../common/modeles';
 
 /**
  * La phrase d'ouverture est le premier contact avec le coach, et c'est aussi une
@@ -16,8 +17,8 @@ describe('CoachOuvertureService', () => {
   let fetchMock: jest.Mock;
   const cleInitiale = process.env.GROQ_API_KEY;
 
-  const PETIT = 'llama-3.1-8b-instant';
-  const GROS = 'llama-3.3-70b-versatile';
+  const PETIT = MODELES_COURTS[0];
+  const GROS = MODELES_COURTS[1];
 
   const reponseOk = (contenu: string) => ({
     ok: true,
