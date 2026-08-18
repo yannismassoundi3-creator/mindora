@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { CalendarCheck, Lock, TrendingUp, TrendingDown } from 'lucide-react';
+import { CalendarCheck, Lock, Sparkles, TrendingUp, TrendingDown } from 'lucide-react';
 import { api } from '../services/api';
 import './BilanSemaine.css';
 
@@ -38,10 +38,42 @@ interface Semaine {
   habitudes: Habitude[];
 }
 
+/** Une habitude et sa trajectoire d'une semaine sur l'autre. */
+interface HabitudeAnalysee {
+  titre: string;
+  joursTenus: number;
+  /** `null` quand il n'y a pas eu de semaine précédente à comparer. */
+  joursTenusAvant: number | null;
+  evolution: number | null;
+}
+
+/**
+ * Le rapprochement entre une habitude et le score des journées, mesuré sur quatre
+ * semaines. `null` tant qu'il n'y a pas assez de matière — et c'est le cas le plus
+ * fréquent, exprès : un lien annoncé sur trois journées serait une devinette.
+ */
+interface Levier {
+  titre: string;
+  scoreAvec: number;
+  scoreSans: number;
+  ecart: number;
+  joursAvec: number;
+  joursSans: number;
+}
+
+interface Analyse {
+  habitudes: HabitudeAnalysee[];
+  /** Toujours `null` pour un compte gratuit : c'est la part payante de l'écran. */
+  levier: Levier | null;
+}
+
 interface Bilan {
   disponible: boolean;
   abonne: boolean;
   semaine: Semaine | null;
+  /** Absent quand un serveur d'avant l'analyse répond : l'affichage retombe alors
+      sur les habitudes de `semaine`, sans trajectoire. */
+  analyse?: Analyse | null;
   /** La lecture du coach. `null` pour un compte gratuit, ou si le modèle n'a pas répondu. */
   lecture: string | null;
 }
@@ -82,6 +114,22 @@ export const BilanSemaine: React.FC = () => {
   const { semaine, lecture, abonne } = bilan;
   const enHausse = semaine.evolution > 0;
 
+  /*
+    Les habitudes viennent de l'analyse quand le serveur la fournit.
+
+    Le repli sur `semaine.habitudes` n'est pas de la superstition : le front et
+    l'API se déploient séparément, et pendant quelques minutes un navigateur
+    chargé avec ce code peut interroger un serveur qui ne renvoie pas encore
+    `analyse`. Sans repli, la liste disparaîtrait de la carte pendant ce temps.
+    Les deux comptent la même chose sur la même fenêtre — les jours 1 à 7 —, seule
+    la trajectoire manque.
+  */
+  const habitudes: HabitudeAnalysee[] =
+    bilan.analyse?.habitudes ??
+    semaine.habitudes.map((h) => ({ ...h, joursTenusAvant: null, evolution: null }));
+
+  const levier = bilan.analyse?.levier ?? null;
+
   return (
     <section className="bilan glass-panel">
       <p className="bilan__entete">
@@ -116,15 +164,62 @@ export const BilanSemaine: React.FC = () => {
         </p>
       )}
 
-      {semaine.habitudes.length > 0 && (
+      {habitudes.length > 0 && (
         <ul className="bilan__habitudes">
-          {semaine.habitudes.map((h) => (
+          {habitudes.map((h) => (
             <li key={h.titre} className="bilan__habitude">
               <span className="bilan__habitude-titre">{h.titre}</span>
-              <span className="bilan__habitude-jours">{h.joursTenus}/7</span>
+              <span className="bilan__habitude-compte">
+                <span className="bilan__habitude-jours">{h.joursTenus}/7</span>
+                {/* Un zéro ne s'affiche pas : « =0 » face à une semaine identique
+                    ajoute du bruit là où il n'y a rien à signaler. Et `null` veut
+                    dire qu'il n'y avait pas de semaine avant — pas qu'elle valait
+                    zéro, ce qui se lirait comme une chute. */}
+                {h.evolution !== null && h.evolution !== 0 && (
+                  <span
+                    className={`bilan__habitude-delta${h.evolution > 0 ? ' bilan__habitude-delta--hausse' : ''}`}
+                    title={`${h.joursTenusAvant}/7 la semaine dernière`}
+                  >
+                    {h.evolution > 0 ? '+' : ''}
+                    {h.evolution}
+                  </span>
+                )}
+              </span>
             </li>
           ))}
         </ul>
+      )}
+
+      {/*
+        Le levier : le seul chiffre de cette carte que la personne ne peut pas
+        obtenir en regardant son propre calendrier. Il est placé avant la lecture
+        du coach, qui le commente — le fait d'abord, la phrase ensuite.
+
+        « avec » et « sans », jamais « grâce à ». Ce qui est mesuré est une
+        coïncidence entre deux séries sur quatre semaines, pas une cause : quelqu'un
+        qui s'entraîne les jours où il va déjà bien produit exactement le même
+        chiffre. Le nombre de journées est affiché pour cette raison — c'est ce qui
+        permet de juger ce que vaut l'écart.
+      */}
+      {abonne && levier && (
+        <div className="bilan__levier">
+          <p className="bilan__levier-entete">
+            <Sparkles size={13} /> Ce qui revient dans tes bonnes journées
+          </p>
+          <p className="bilan__levier-titre">{levier.titre}</p>
+          <div className="bilan__levier-mesure">
+            <span className="bilan__levier-cote">
+              <strong>{levier.scoreAvec} %</strong> les jours avec
+            </span>
+            <span className="bilan__levier-cote bilan__levier-cote--sans">
+              <strong>{levier.scoreSans} %</strong> les jours sans
+            </span>
+          </div>
+          <p className="bilan__levier-note">
+            {levier.ecart} points d'écart, sur {levier.joursAvec + levier.joursSans} journées
+            des quatre dernières semaines.
+          </p>
+        </div>
       )}
 
       {abonne && lecture && (
@@ -146,8 +241,10 @@ export const BilanSemaine: React.FC = () => {
             <Lock size={13} /> Ce que ton coach en lit
           </p>
           <p className="bilan__verrou-texte">
-            Ton coach peut lire cette semaine et te dire ce qui a tenu, ce qui a lâché,
-            et la seule chose à changer la semaine prochaine. C'est réservé aux abonnés.
+            Ton coach croise tes habitudes avec le score de tes journées sur quatre
+            semaines, et te dit laquelle revient dans tes meilleures. Puis il lit ta
+            semaine : ce qui a tenu, ce qui a lâché, la seule chose à changer.
+            C'est réservé aux abonnés.
           </p>
           <button type="button" className="bilan__verrou-action" onClick={voirOffre}>
             Voir l'offre

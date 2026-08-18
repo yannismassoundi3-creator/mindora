@@ -100,6 +100,92 @@
   color: var(--text-secondary, #94a3b8);
 }
 
+/* La trajectoire d'une habitude, à côté de son compte. */
+.bilan__habitude-compte {
+  flex-shrink: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.bilan__habitude-delta {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #f87171;
+}
+
+.bilan__habitude-delta--hausse {
+  color: #4ade80;
+}
+
+/* --- Le levier : la part mesurée de l'abonnement --- */
+
+.bilan__levier {
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.bilan__levier-entete {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 6px;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary, #94a3b8);
+}
+
+.bilan__levier-titre {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  /* Un titre d'habitude est saisi librement : il ne doit pas élargir la carte. */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/*
+  Les deux côtés se placent l'un à côté de l'autre quand la place le permet et
+  passent l'un sous l'autre sinon. Une base de 120 px plutôt qu'une requête média :
+  la bascule se décide sur la largeur réellement disponible, qui n'est pas celle de
+  l'écran — cette carte vit dans une grille dont le nombre de colonnes change.
+*/
+.bilan__levier-mesure {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+
+.bilan__levier-cote {
+  flex: 1 1 120px;
+  min-width: 0;
+  font-size: 0.78rem;
+  color: var(--text-secondary, #94a3b8);
+}
+
+.bilan__levier-cote strong {
+  display: block;
+  font-size: 1.15rem;
+  line-height: 1.2;
+  color: #4ade80;
+}
+
+.bilan__levier-cote--sans strong {
+  /* Pas de rouge : l'autre moitié de sa semaine n'est pas une faute. */
+  color: var(--text-secondary, #94a3b8);
+}
+
+.bilan__levier-note {
+  margin: 8px 0 0;
+  font-size: 0.74rem;
+  line-height: 1.45;
+  color: var(--text-secondary, #94a3b8);
+}
+
 /* --- La lecture du coach --- */
 
 .bilan__lecture,
@@ -164,6 +250,7 @@
 /* Les filets sont du blanc translucide : sur fond clair ils disparaissent, et la
    lecture se retrouve collée aux chiffres sans séparation. */
 body.theme-monochrome-light .bilan__lecture,
+body.theme-monochrome-light .bilan__levier,
 body.theme-monochrome-light .bilan__verrou {
   border-top-color: rgba(0, 0, 0, 0.14);
 }
@@ -173,7 +260,19 @@ body.theme-monochrome-light .bilan__entete,
 body.theme-monochrome-light .bilan__habitude-jours,
 body.theme-monochrome-light .bilan__lecture-entete,
 body.theme-monochrome-light .bilan__verrou-titre,
-body.theme-monochrome-light .bilan__verrou-texte {
+body.theme-monochrome-light .bilan__verrou-texte,
+body.theme-monochrome-light .bilan__levier-entete,
+body.theme-monochrome-light .bilan__levier-cote,
+body.theme-monochrome-light .bilan__levier-note {
+  color: #475569;
+}
+
+/* Le vert clair du thème sombre passe mal sur fond blanc. */
+body.theme-monochrome-light .bilan__levier-cote strong {
+  color: #15803d;
+}
+
+body.theme-monochrome-light .bilan__levier-cote--sans strong {
   color: #475569;
 }
 
