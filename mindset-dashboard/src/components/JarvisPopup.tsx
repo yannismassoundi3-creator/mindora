@@ -61,11 +61,19 @@ export const JarvisPopup: React.FC<JarvisPopupProps> = ({ data, onClose, onChatN
 
     La bulle annonçait la tâche et enchaînait aussitôt sur une question, sans
     jamais dire où l'on en était. C'est pourtant le seul instant où la réponse
-    intéresse vraiment : on vient de cocher, on veut savoir ce qu'il reste. Le
-    `useMemo` fige la valeur à l'ouverture — recalculée, la jauge repartirait
-    en arrière au prochain rendu.
+    intéresse vraiment : on vient de cocher, on veut savoir ce qu'il reste.
+
+    La dépendance est `data`, et surtout pas `[]`. La bulle reste affichée cinq
+    secondes : cocher une deuxième tâche pendant ce temps ne la démonte pas, elle
+    reçoit seulement une nouvelle tâche. Avec une liste de dépendances vide, le
+    compte restait donc figé sur celui de la première — on cochait trois routines
+    d'affilée et la bulle affichait trois fois « 3 / 6 ». Signalé par Yannis :
+    « à chaque fois que je coche une routine c'est toujours marqué la même
+    chose. » Recalculer à chaque rendu, en revanche, ferait bien repartir la
+    jauge en arrière : `data` ne change qu'à une nouvelle tâche, c'est le bon
+    repère.
   */
-  const journee = useMemo(() => lireEtatDuJour(), []);
+  const journee = useMemo(() => lireEtatDuJour(), [data]);
   const avancee = journee.total > 0 ? Math.round((journee.faites / journee.total) * 100) : 0;
   const restantes = Math.max(0, journee.total - journee.faites);
 
@@ -80,12 +88,32 @@ export const JarvisPopup: React.FC<JarvisPopupProps> = ({ data, onClose, onChatN
   */
   const montrerAvancee = data.itemType === 'routine' && journee.total > 0;
 
-  // « Journée bouclée » se lit sur les mêmes routines : l'annoncer après un repas
-  // serait la même erreur, avec une phrase à la place d'un chiffre.
-  const question =
-    montrerAvancee && restantes === 0
-      ? 'Journée bouclée. Ça s’est passé comment ?'
-      : 'Ça s’est passé comment ?';
+  /*
+    Ce que la bulle a de plus à dire, quand la journée le justifie.
+
+    Elle posait la même question à chaque case cochée, mot pour mot : six
+    routines dans la journée, six bulles identiques. Le réflexe serait de tirer
+    une phrase au sort — c'est précisément ce qui a été retiré du reste du
+    produit, parce qu'un commentaire qui apparaît sans raison se lit comme un
+    défaut, jamais comme une attention.
+
+    Chaque phrase ci-dessous est donc **méritée par un fait du moment**, et
+    l'ordre va du plus rare au plus banal. Rien à signaler rend la chaîne vide,
+    et la question reste seule — c'est le cas le plus fréquent, et c'est bien.
+
+    Comme le compteur, tout ceci se lit sur les routines : après un repas on se
+    tait, sous peine d'annoncer une journée bouclée qui ne l'est pas.
+  */
+  const prefixe = (() => {
+    if (!montrerAvancee) return '';
+    if (restantes === 0) return 'Journée bouclée.';
+    if (restantes === 1) return 'Plus qu’une.';
+    if (journee.total > 2 && journee.faites * 2 === journee.total) return 'La moitié est passée.';
+    if (journee.faites === 1 && journee.total > 1) return 'La première est tombée.';
+    return '';
+  })();
+
+  const question = prefixe ? `${prefixe} Ça s’est passé comment ?` : 'Ça s’est passé comment ?';
 
   return createPortal(
     <div
