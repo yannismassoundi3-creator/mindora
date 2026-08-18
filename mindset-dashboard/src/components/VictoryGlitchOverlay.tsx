@@ -10,14 +10,21 @@ interface VictoryGlitchOverlayProps {
 /*
   Les 100 % de la journée.
 
-  L'effet existait déjà — secousse, ondes concentriques, lignes de parasites —
-  mais il ne **disait** rien : huit dixièmes de seconde de scintillement, et on
-  revenait au tableau de bord sans savoir ce qui venait d'être franchi. Le seul
-  moment de la journée qui mérite d'être marqué passait pour un bug d'affichage.
+  L'effet d'avant était une explosion : trois ondes de choc concentriques, une
+  gerbe de vingt-six éclats dorés et vingt-deux traits blancs clignotants. Beaucoup
+  de mouvement, et un registre — celui du feu d'artifice — que n'importe quelle
+  application de to-do sort au moindre prétexte. Yannis n'en voulait plus, tout en
+  gardant le thème.
 
-  Il annonce désormais l'événement en toutes lettres, avec les chiffres qui l'ont
-  produit, et laisse le temps de le lire. La secousse est raccourcie : elle
-  ponctue, elle ne s'installe pas.
+  Le registre est donc renversé, sans quitter le glitch : au lieu d'exploser, le
+  message **se décode**. Un balayage traverse l'écran une fois, le titre arrive
+  dédoublé en cyan et magenta puis se recale, la grille de fond se stabilise. On
+  passe du feu d'artifice au signal qui s'accroche — ce qui, pour une application
+  qui parle de discipline, dit à peu près la bonne chose.
+
+  Bonus non décoratif : cinquante et un éléments animés deviennent cinq. Cette
+  scène se joue sur un téléphone, au moment précis où la personne vient de cocher
+  sa dernière tâche — ce n'est pas là qu'il faut faire ramer l'appareil.
 */
 export const VictoryGlitchOverlay: React.FC<VictoryGlitchOverlayProps> = ({ onClose }) => {
   const [sort, setSort] = useState(false);
@@ -27,9 +34,8 @@ export const VictoryGlitchOverlay: React.FC<VictoryGlitchOverlayProps> = ({ onCl
     playGlitchSound();
     document.body.classList.add('cyber-glitch-active');
 
-    // La secousse est décrochée du reste : elle dure le temps de l'impact, pas
-    // celui du message.
-    const finSecousse = setTimeout(() => document.body.classList.remove('cyber-glitch-active'), 350);
+    // La secousse ponctue l'impact, elle ne s'installe pas.
+    const finSecousse = setTimeout(() => document.body.classList.remove('cyber-glitch-active'), 280);
     const debutSortie = setTimeout(() => setSort(true), 2500);
     const fin = setTimeout(onClose, 3000);
 
@@ -41,67 +47,28 @@ export const VictoryGlitchOverlay: React.FC<VictoryGlitchOverlayProps> = ({ onCl
     };
   }, [onClose]);
 
-  const lignes = useMemo(
-    () =>
-      [...Array(22)].map(() => ({
-        top: `${Math.random() * 100}%`,
-        left: `${Math.random() * 100}%`,
-        width: `${Math.random() * 150 + 30}px`,
-        delay: `${Math.random() * 0.2}s`,
-      })),
-    [],
-  );
-
-  // Les éclats partent du centre dans toutes les directions. Les angles sont
-  // tirés une fois pour toutes : recalculés à chaque rendu, la gerbe repartirait
-  // de zéro au moindre changement d'état.
-  const eclats = useMemo(
-    () =>
-      [...Array(26)].map((_, i) => ({
-        angle: (360 / 26) * i + Math.random() * 8,
-        distance: 120 + Math.random() * 180,
-        delai: Math.random() * 0.18,
-        taille: 4 + Math.random() * 5,
-      })),
-    [],
-  );
+  const titre = 'Journée pleine';
 
   return (
     <div className={`cyber-glitch-container ${sort ? 'sort' : ''}`}>
-      <div className="cyber-shockwave"></div>
-      <div className="cyber-shockwave delay-1"></div>
-      <div className="cyber-shockwave delay-2"></div>
+      {/* La grille : le décor du signal, pas un effet. Elle se stabilise et reste. */}
+      <div className="victoire-grille" />
 
-      <div className="glitch-lines">
-        {lignes.map((style, i) => (
-          <div
-            key={i}
-            className="glitch-line"
-            style={{ top: style.top, left: style.left, width: style.width, animationDelay: style.delay }}
-          ></div>
-        ))}
-      </div>
-
-      <div className="victoire-eclats">
-        {eclats.map((e, i) => (
-          <span
-            key={i}
-            className="victoire-eclat"
-            style={
-              {
-                '--angle': `${e.angle}deg`,
-                '--distance': `${e.distance}px`,
-                '--taille': `${e.taille}px`,
-                animationDelay: `${e.delai}s`,
-              } as React.CSSProperties
-            }
-          />
-        ))}
-      </div>
+      {/* Le balayage passe une seule fois, de haut en bas, et révèle le message. */}
+      <div className="victoire-balayage" />
 
       <div className="victoire-carte">
         <span className="victoire-sur-titre">Énergie au maximum</span>
-        <strong className="victoire-titre">Journée pleine</strong>
+        {/*
+          Le titre est écrit trois fois : une fois pour de vrai, et deux fois par
+          les pseudo-éléments qui portent les décalages cyan et magenta. D'où
+          `data-texte` — `content: attr()` est le seul moyen de dédoubler un texte
+          sans le recopier dans le balisage, où un lecteur d'écran le lirait trois
+          fois de suite.
+        */}
+        <strong className="victoire-titre" data-texte={titre}>
+          {titre}
+        </strong>
         <div className="victoire-chiffres">
           <span>
             <strong>{etat.faites}</strong> tâche{etat.faites > 1 ? 's' : ''}
