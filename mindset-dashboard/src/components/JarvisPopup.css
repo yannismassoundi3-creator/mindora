@@ -174,15 +174,46 @@
   color: #fff;
 }
 
+/*
+  Le libellé et le compte sur une ligne, la jauge sous les deux.
+
+  La jauge était auparavant sur la même ligne, en `flex: 1`, et le compte en
+  `nowrap` à côté. Y ajouter un libellé aurait comprimé la jauge jusqu'à la faire
+  disparaître dans une bulle de 320 px : c'est le texte qui gagne toujours contre
+  un élément qui accepte de rétrécir.
+*/
 .jarvis-avancee {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  gap: 5px;
   margin-bottom: 10px;
 }
 
+.jarvis-avancee-ligne {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.jarvis-avancee-libelle {
+  /* Le libellé cède avant le compte : c'est le chiffre qu'on est venu lire. */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--secondary);
+  opacity: 0.75;
+}
+
 .jarvis-jauge {
-  flex: 1;
+  /* `flex: 1` ferait grandir la jauge sur l'axe vertical depuis que le parent est
+     une colonne : elle se déploierait en hauteur au lieu de garder ses 5 px. */
+  flex: none;
+  width: 100%;
   min-width: 0;
   height: 5px;
   border-radius: 3px;

@@ -69,7 +69,23 @@ export const JarvisPopup: React.FC<JarvisPopupProps> = ({ data, onClose, onChatN
   const avancee = journee.total > 0 ? Math.round((journee.faites / journee.total) * 100) : 0;
   const restantes = Math.max(0, journee.total - journee.faites);
 
-  const question = restantes === 0 ? 'Journée bouclée. Ça s’est passé comment ?' : 'Ça s’est passé comment ?';
+  /*
+    Ce compteur mesure les routines, et rien d'autre.
+
+    La bulle s'ouvre aussi sur un repas (`Dashboard.tsx`, itemType 'objective') :
+    elle affichait alors l'avancement des routines juste sous le nom du plat, un
+    chiffre sans le moindre rapport avec ce qu'on venait de cocher — et qui ne
+    bougeait pas d'un cran quand on en cochait un second. Mieux vaut ne rien dire
+    que répondre à côté.
+  */
+  const montrerAvancee = data.itemType === 'routine' && journee.total > 0;
+
+  // « Journée bouclée » se lit sur les mêmes routines : l'annoncer après un repas
+  // serait la même erreur, avec une phrase à la place d'un chiffre.
+  const question =
+    montrerAvancee && restantes === 0
+      ? 'Journée bouclée. Ça s’est passé comment ?'
+      : 'Ça s’est passé comment ?';
 
   return createPortal(
     <div
@@ -97,16 +113,26 @@ export const JarvisPopup: React.FC<JarvisPopupProps> = ({ data, onClose, onChatN
           <span className="jarvis-fait-titre">{data.title}</span>
         </div>
 
-        {journee.total > 0 && (
+        {montrerAvancee && (
           <div className="jarvis-avancee">
+            {/*
+              Le libellé n'est pas décoratif : sans lui, ce compteur change de sujet
+              en silence. La ligne du dessus parle de la tâche qu'on vient de cocher,
+              celle-ci parle de la journée entière, et rien ne le disait — « 3/6 »
+              apparaissait juste sous « Course à pied » et se lisait comme une
+              progression de cette tâche-là.
+            */}
+            <div className="jarvis-avancee-ligne">
+              <span className="jarvis-avancee-libelle">Routines du jour</span>
+              <span className="jarvis-avancee-texte">
+                {restantes === 0
+                  ? `${journee.total} / ${journee.total}`
+                  : `${journee.faites} / ${journee.total} · ${restantes} restante${restantes > 1 ? 's' : ''}`}
+              </span>
+            </div>
             <div className="jarvis-jauge">
               <div className="jarvis-jauge-remplie" style={{ width: `${avancee}%` }} />
             </div>
-            <span className="jarvis-avancee-texte">
-              {restantes === 0
-                ? `${journee.total} / ${journee.total}`
-                : `${journee.faites} / ${journee.total} · ${restantes} restante${restantes > 1 ? 's' : ''}`}
-            </span>
           </div>
         )}
 
