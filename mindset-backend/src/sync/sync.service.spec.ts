@@ -159,7 +159,7 @@ describe('SyncService — conflit entre appareils', () => {
   beforeEach(() => {
     prisma = {
       syncData: {
-        findUnique: jest.fn().mockResolvedValue({ updated_at: LUNDI }),
+        findUnique: jest.fn().mockResolvedValue({ etat_version: LUNDI }),
         create: jest.fn(),
         upsert: jest.fn().mockImplementation((args) => Promise.resolve(args)),
       },
@@ -176,7 +176,7 @@ describe('SyncService — conflit entre appareils', () => {
   });
 
   it('refuse une écriture fondée sur une version dépassée, sans rien écrire', async () => {
-    prisma.syncData.findUnique.mockResolvedValue({ updated_at: MARDI });
+    prisma.syncData.findUnique.mockResolvedValue({ etat_version: MARDI });
 
     await expect(
       service.updateSyncData('u1', { base_version: LUNDI.toISOString(), points: 5 }),
@@ -192,7 +192,7 @@ describe('SyncService — conflit entre appareils', () => {
     éviter — et il n'a, lui, aucun moyen de se mettre à jour tout seul.
   */
   it('accepte un client qui ne connaît pas encore les versions', async () => {
-    prisma.syncData.findUnique.mockResolvedValue({ updated_at: MARDI });
+    prisma.syncData.findUnique.mockResolvedValue({ etat_version: MARDI });
 
     await expect(service.updateSyncData('u1', { points: 5 })).resolves.toBeDefined();
     expect(prisma.syncData.upsert).toHaveBeenCalled();
@@ -206,8 +206,76 @@ describe('SyncService — conflit entre appareils', () => {
     ).resolves.toBeDefined();
   });
 
+  /*
+    Le vrai défaut, et la raison d'être de la colonne `etat_version`.
+,
+    Signalé par Yannis le 18 août 2026 : « des fois on me demande d'actualiser
+    ma page car elle n'est pas sauvegardée, après mes routines tombent à 0 ».
+
+    Cocher une routine déclenche deux requêtes. `POST /ai-coaching/coins/claim`
+    crédite les coins — et cette écriture touche la MÊME ligne `SyncData`, donc
+    son `updated_at`, qui servait de jeton de version. La remontée temporisée
+    partait 500 ms plus tard avec le jeton d'avant, le serveur voyait un écart et
+    rendait 409. L'application concluait « un autre appareil a écrit », mettait le
+    travail local de côté et adoptait la version du serveur : les cases cochées
+    disparaissaient. Un conflit de l'application contre elle-même, sur un seul
+    appareil.
+
+    `ai_credits` ne fait pas partie de l'état synchronisé — les deux ensembles de
+    champs sont disjoints. Un crédit de coins ne peut donc pas entrer en conflit
+    avec une remontée, et ne doit pas périmer le jeton.
+  */
+  it('accepte une remontée alors que les coins ont écrit entre-temps', async () => {
+    // La ligne a été touchée mardi par un crédit de coins, mais l'état, lui,
+    // n'a pas bougé depuis lundi.
+    prisma.syncData.findUnique.mockResolvedValue({ updated_at: MARDI, etat_version: LUNDI });
+
+    await expect(
+      service.updateSyncData('u1', { base_version: LUNDI.toISOString(), points: 5 }),
+    ).resolves.toBeDefined();
+
+    expect(prisma.syncData.upsert).toHaveBeenCalled();
+  });
+
+  it('accepte une ligne antérieure à la colonne, une fois', async () => {
+    // Les comptes existants n'ont pas encore de jeton : comparer contre `null`
+    // les mettrait tous en conflit au déploiement.
+    prisma.syncData.findUnique.mockResolvedValue({ updated_at: MARDI, etat_version: null });
+
+    await expect(
+      service.updateSyncData('u1', { base_version: LUNDI.toISOString(), points: 5 }),
+    ).resolves.toBeDefined();
+  });
+
+  it('pose un jeton neuf à chaque écriture de l’état', async () => {
+    const args: any = await service.updateSyncData('u1', { points: 5 });
+    expect(args.update.etat_version).toBeInstanceOf(Date);
+    expect(args.create.etat_version).toBeInstanceOf(Date);
+  });
+
+  it('rend le jeton sous les deux noms, pour les anciens scripts comme pour les neufs', async () => {
+    /*
+      Un navigateur qui tourne sur un script d'avant ne lit que `updated_at` et
+      n'a aucun moyen de se mettre à jour tout seul. Ne corriger que dans un
+      nouveau champ l'aurait laissé en conflit permanent — la panne même qu'on
+      répare.
+    */
+    const jeton = new Date('2026-08-18T10:00:00.000Z');
+    prisma.syncData.findUnique.mockResolvedValue({ etat_version: null });
+    prisma.syncData.upsert.mockResolvedValue({
+      user_id: 'u1',
+      updated_at: MARDI,
+      etat_version: jeton,
+    });
+
+    const rendu: any = await service.updateSyncData('u1', { points: 5 });
+
+    expect(rendu.etat_version).toEqual(jeton);
+    expect(rendu.updated_at).toEqual(jeton);
+  });
+
   it('dit au client quelle version le serveur détient', async () => {
-    prisma.syncData.findUnique.mockResolvedValue({ updated_at: MARDI });
+    prisma.syncData.findUnique.mockResolvedValue({ etat_version: MARDI });
 
     await service
       .updateSyncData('u1', { base_version: LUNDI.toISOString() })

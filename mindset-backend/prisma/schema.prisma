@@ -377,6 +377,23 @@ model SyncData {
   owned_cosmetics   Json?
   ai_skin_id        String?
   updated_at        DateTime @updatedAt
+  /// Le jeton de version de l'ETAT synchronise, et lui seul.
+  ///
+  /// Distinct d'`updated_at`, qui bouge des que **n'importe quoi** touche cette
+  /// ligne — or `CoinLedgerService` y ecrit `ai_credits` a chaque routine cochee
+  /// et a chaque message au coach. Le client, lui, renvoie le dernier jeton connu
+  /// pour prouver sur quelle version il a travaille : un credit de coins suffisait
+  /// donc a le perimer, le serveur repondait 409, et l'application declarait un
+  /// conflit **contre elle-meme**. Elle mettait alors le travail local de cote et
+  /// adoptait la version du serveur — les cases cochees disparaissaient.
+  ///
+  /// `ai_credits` n'est pas dans l'etat synchronise : les deux ensembles de champs
+  /// sont disjoints, une ecriture de coins ne peut donc pas entrer en conflit avec
+  /// une remontee. Le jeton ne doit bouger que quand /sync/state ecrit.
+  ///
+  /// `null` sur les lignes anterieures : la premiere remontee est alors acceptee
+  /// sans comparaison, comme une base_version absente.
+  etat_version      DateTime?
   user              User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 

@@ -30,6 +30,24 @@ export class SyncService {
     return Math.floor(valeur);
   }
 
+  /**
+   * La ligne telle qu'on la rend au client, jeton de version compris.
+   *
+   * `updated_at` porte ici la **version de l'état**, pas la date de dernière
+   * écriture de la ligne. Ce n'est pas une coquetterie : le client renvoie ce
+   * qu'on lui a donné, et il existe des navigateurs qui tournent encore sur un
+   * ancien script — celui-ci lit `updated_at` et rien d'autre. Le corriger
+   * seulement dans un nouveau champ aurait laissé ces appareils-là en conflit
+   * permanent, c'est-à-dire précisément la panne qu'on répare.
+   *
+   * `etat_version` est rendu à côté, sous son vrai nom, pour que le client à jour
+   * puisse s'y référer sans ambiguïté. Les deux valent la même chose.
+   */
+  private static avecJeton<T extends { updated_at: Date; etat_version: Date | null }>(ligne: T) {
+    const jeton = ligne.etat_version ?? ligne.updated_at;
+    return { ...ligne, updated_at: jeton, etat_version: jeton };
+  }
+
   async getSyncData(userId: string) {
     let syncData = await this.prisma.syncData.findUnique({
       where: { user_id: userId }
@@ -41,7 +59,7 @@ export class SyncService {
       });
     }
 
-    return syncData;
+    return SyncService.avecJeton(syncData);
   }
 
   /**
@@ -66,15 +84,22 @@ export class SyncService {
 
     const actuel = await this.prisma.syncData.findUnique({
       where: { user_id: userId },
-      select: { updated_at: true },
+      select: { etat_version: true },
     });
     if (!actuel) return;
 
-    if (actuel.updated_at.toISOString() !== base) {
+    /*
+      Aucune version d'état encore posée : cette ligne est antérieure à la colonne.
+      On accepte sans comparer, exactement comme une `base_version` absente, et
+      l'écriture qui suit posera le premier jeton. Une seule fois par compte.
+    */
+    if (!actuel.etat_version) return;
+
+    if (actuel.etat_version.toISOString() !== base) {
       throw new ConflictException({
         code: 'SYNC_CONFLIT',
         message: 'Cet appareil travaillait sur une version qui n’est plus la plus récente.',
-        version_serveur: actuel.updated_at.toISOString(),
+        version_serveur: actuel.etat_version.toISOString(),
       });
     }
   }
@@ -82,9 +107,11 @@ export class SyncService {
   async updateSyncData(userId: string, data: any) {
     await this.verifierVersion(userId, data?.base_version);
 
-    return this.prisma.syncData.upsert({
+    const ligne = await this.prisma.syncData.upsert({
       where: { user_id: userId },
       update: {
+        // Le jeton ne bouge que d'ici : c'est tout l'intérêt d'une colonne à part.
+        etat_version: new Date(),
         routines: this.borner(data.routines),
         micro_objectives: this.borner(data.micro_objectives),
         macro_objectives: this.borner(data.macro_objectives),
@@ -106,6 +133,7 @@ export class SyncService {
       },
       create: {
         user_id: userId,
+        etat_version: new Date(),
         routines: this.borner(data.routines),
         micro_objectives: this.borner(data.micro_objectives),
         macro_objectives: this.borner(data.macro_objectives),
@@ -126,5 +154,7 @@ export class SyncService {
         ai_skin_id: data.ai_skin_id,
       }
     });
+
+    return SyncService.avecJeton(ligne);
   }
 }
