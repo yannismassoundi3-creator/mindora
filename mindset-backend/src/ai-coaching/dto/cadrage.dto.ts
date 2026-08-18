@@ -1,4 +1,4 @@
-import { IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -37,4 +37,21 @@ export class CadrageDto {
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @MaxLength(600, { message: 'Six cents caractères maximum.' })
   situation?: string;
+
+  /**
+   * L'heure de lever, « HH:MM » en heure de Paris. La chaîne vide efface.
+   *
+   * C'est la valeur qui décide de l'heure du brief du matin. Une saisie abîmée
+   * acceptée ici ne lèverait rien et priverait la personne de sa notification tous
+   * les matins, sans que rien ne le signale — d'où le motif strict, doublé dans le
+   * service pour un client qui n'utiliserait pas ce DTO.
+   */
+  @ApiPropertyOptional({ example: '07:00' })
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Matches(/^(([01]\d|2[0-3]):([0-5]\d))?$/, {
+    message: 'Heure de réveil attendue au format HH:MM.',
+  })
+  reveil?: string;
 }

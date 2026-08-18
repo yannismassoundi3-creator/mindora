@@ -682,6 +682,8 @@ describe('AiCoachingService — l\'objectif déclaré', () => {
       situation: 'Genou fragile',
       minutesParJour: 30,
       niveau: 'reprise',
+      // Nul veut dire « rien de regle » : le brief part alors a 10 h, comme avant.
+      reveil: null,
       cadrageManquant: false,
     });
   });
@@ -734,6 +736,7 @@ describe('AiCoachingService — l\'objectif déclaré', () => {
       situation: null,
       minutesParJour: null,
       niveau: null,
+      reveil: null,
       cadrageManquant: true,
     });
   });

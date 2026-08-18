@@ -202,6 +202,7 @@ export class AiCoachingService {
         situation: true,
         minutes_par_jour: true,
         niveau_depart: true,
+        reveil: true,
       },
     });
     return {
@@ -212,6 +213,9 @@ export class AiCoachingService {
       situation: profil?.situation ?? null,
       minutesParJour: profil?.minutes_par_jour ?? null,
       niveau: profil?.niveau_depart ?? null,
+      // Nul veut dire « rien de reglé », pas « pas de brief » : l'écran affiche
+      // alors l'heure par défaut comme un choix implicite, ce qu'elle est.
+      reveil: profil?.reveil ?? null,
       // Le questionnaire ne se rejoue que si le serveur ignore tout de la personne
       // (`has_ai_profile`), donc les comptes ouverts avant ces trois questions ne les
       // verront jamais : leurs réponses resteraient vides à vie, et leur coach
@@ -238,7 +242,7 @@ export class AiCoachingService {
    */
   async majCadrage(
     userId: string,
-    donnees: { minutesParJour?: number; niveau?: string; situation?: string },
+    donnees: { minutesParJour?: number; niveau?: string; situation?: string; reveil?: string | null },
   ) {
     const champs: Record<string, unknown> = {};
 
@@ -260,6 +264,26 @@ export class AiCoachingService {
     if (donnees.situation !== undefined) {
       const propre = String(donnees.situation).trim().slice(0, 600);
       champs.situation = propre || null;
+    }
+
+    /*
+      L'heure de réveil, validée ici et nulle part ailleurs.
+
+      C'est une valeur qui décide de l'heure d'une notification : acceptée telle
+      quelle, une saisie abîmée ne lèverait rien et priverait simplement la
+      personne de son brief, tous les matins, sans que rien ne le signale. Une
+      chaîne vide efface et fait revenir au défaut de 10 h — c'est le seul moyen de
+      revenir en arrière, et il doit exister.
+    */
+    if (donnees.reveil !== undefined) {
+      const propre = String(donnees.reveil ?? '').trim();
+      if (!propre) {
+        champs.reveil = null;
+      } else if (!/^([01]\d|2[0-3]):([0-5]\d)$/.test(propre)) {
+        throw new BadRequestException('Heure de réveil attendue au format HH:MM.');
+      } else {
+        champs.reveil = propre;
+      }
     }
 
     if (!Object.keys(champs).length) throw new BadRequestException('Rien à mettre à jour.');

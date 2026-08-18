@@ -74,12 +74,23 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
   const [situation, setSituation] = useState('');
   const [etatSituation, setEtatSituation] = useState<'idle' | 'envoi' | 'ok' | 'erreur'>('idle');
 
+  /*
+    L'heure de lever, qui décide de l'heure du brief du matin.
+
+    Vide veut dire « rien de réglé », et le brief part alors à 10 h comme avant :
+    personne n'a à répondre à une question pour continuer à recevoir ce qu'il
+    recevait déjà. Le placeholder de l'input dit donc ce défaut, plutôt que de
+    laisser un champ vide qui ressemblerait à une panne.
+  */
+  const [reveil, setReveil] = useState('');
+
   useEffect(() => {
     api
       .get('/ai-coaching/profil')
       .then((p) => {
         // Même précaution que pour le cap : ne pas écraser une saisie en cours.
         setSituation((actuel) => (actuel ? actuel : p?.situation || ''));
+        setReveil((actuel) => (actuel ? actuel : p?.reveil || ''));
       })
       .catch(() => {});
   }, []);
@@ -88,7 +99,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
     playClickSound();
     setEtatSituation('envoi');
     try {
-      await api.patch('/ai-coaching/profil/cadrage', { situation });
+      await api.patch('/ai-coaching/profil/cadrage', { situation, reveil });
       setEtatSituation('ok');
     } catch {
       setEtatSituation('erreur');
@@ -384,6 +395,35 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
                 onChange={(e) => { setSituation(e.target.value); setEtatSituation('idle'); }}
               />
               <small>Blessure, horaires, matériel, échéance. C'est ce qui rend ton plan applicable — laisse vide s'il n'y a plus rien.</small>
+            </div>
+
+            {/*
+              L'heure de lever.
+
+              Le brief du matin partait à 10 h pour tout le monde — quatre heures
+              après le réveil de qui se lève à 6 h, donc bien trop tard pour lui
+              servir à quoi que ce soit. L'avancer pour tous était exclu : une
+              notification chez quelqu'un qui dort fait couper les notifications,
+              et **un refus du navigateur ne se redemande jamais**.
+
+              Il est rangé avec la situation et non avec les réglages d'affichage :
+              c'est une information que le coach utilise, pas une préférence
+              d'interface — et il s'enregistre avec le même bouton.
+            */}
+            <div className="form-group">
+              <label>À quelle heure tu te lèves</label>
+              <input
+                type="time"
+                className="glass-input reveil-input"
+                value={reveil}
+                onChange={(e) => { setReveil(e.target.value); setEtatSituation('idle'); }}
+              />
+              <small>
+                {reveil
+                  ? `Ton brief partira à ${reveil}.`
+                  : 'Laissé vide, ton brief part à 10 h.'}{' '}
+                C'est l'heure à laquelle {aiName} te dit quoi faire de ta journée.
+              </small>
             </div>
 
             <button

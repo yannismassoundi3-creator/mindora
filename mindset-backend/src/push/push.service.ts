@@ -354,7 +354,21 @@ export class PushService implements OnModuleInit {
       this.logger.log(`[CRON] ${nom} programmé (${expression}, Europe/Paris)`);
     };
 
-    planifier('0 10 * * *', 'Briefs du matin', () => this.sendMorningBriefs());
+    /*
+      Le brief part a l heure de reveil de chacun, pas a 10 h pour tout le monde.
+
+      La tache passe toutes les demi-heures et ne sert que les comptes dont l heure
+      declaree tombe dans le creneau. Qui n a rien regle garde 10 h — exactement ce
+      qu il recevait avant, sans avoir a repondre a quoi que ce soit.
+
+      **Le garde anti-chevauchement joue ici aussi** : une tournee qui deborde de
+      trente minutes ferait raccrocher la suivante a celle en cours, et le creneau
+      d apres serait saute. C est peu probable — chaque creneau ne sert qu une
+      fraction des comptes — mais ca se lirait dans les journaux, pas a l ecran.
+    */
+    planifier('*/30 * * * *', 'Briefs du matin', () =>
+      this.sendMorningBriefs('cron', PushService.creneauCourant()),
+    );
     planifier('0 18 * * *', 'Check-in 18h', () =>
       this.sendBulkReminders(
         'Check-in de 18h 🎯',
@@ -865,7 +879,7 @@ export class PushService implements OnModuleInit {
    * fera pas revenir. Si l'IA est indisponible, on retombe sur le message générique
    * plutôt que de ne rien envoyer.
    */
-  async sendMorningBriefs(declencheur = 'cron'): Promise<ResumeTournee> {
+  async sendMorningBriefs(declencheur = 'cron', creneau?: string): Promise<ResumeTournee> {
     // Une tournée déjà en vol est réutilisée plutôt que doublée : l'appelant obtient
     // le résultat de celle qui tourne, et personne ne reçoit deux notifications.
     if (this.tourneeEnCours) {
@@ -877,7 +891,7 @@ export class PushService implements OnModuleInit {
     }
 
     const debut = Date.now();
-    const promesse = this.executerTourneeBriefs();
+    const promesse = this.executerTourneeBriefs(creneau);
     this.tourneeEnCours = { promesse, debut, declencheur };
 
     try {
@@ -950,10 +964,65 @@ export class PushService implements OnModuleInit {
     };
   }
 
-  private async executerTourneeBriefs(): Promise<ResumeTournee> {
-    const users = await this.prisma.user.findMany({
-      include: { push_subscriptions: true, sync_data: true },
+  /** L heure par defaut du brief, pour qui n a rien regle. C est celle d avant. */
+  static readonly REVEIL_PAR_DEFAUT = '10:00';
+
+  /** Largeur d un creneau, en minutes. Doit diviser 60 : le cron est une demi-heure. */
+  static readonly CRENEAU_MINUTES = 30;
+
+  /**
+   * Le creneau courant, en heure de Paris, sous la forme « HH:MM ».
+   *
+   * Le serveur tourne en UTC : compare a une heure locale, il enverrait les briefs
+   * avec deux heures de decalage en ete, tous les jours, sans rien signaler. Meme
+   * piege que les rappels dates, et il se paie ici sur tout le monde a la fois.
+   */
+  static creneauCourant(maintenant = new Date()): string {
+    const hhmm = maintenant.toLocaleTimeString('fr-FR', {
+      timeZone: 'Europe/Paris',
+      hour: '2-digit',
+      minute: '2-digit',
     });
+    const [h, m] = hhmm.split(':').map(Number);
+    const debut = Math.floor(m / PushService.CRENEAU_MINUTES) * PushService.CRENEAU_MINUTES;
+    return String(h).padStart(2, '0') + ':' + String(debut).padStart(2, '0');
+  }
+
+  /**
+   * Vrai quand l heure de reveil declaree tombe dans ce creneau.
+   *
+   * On arrondit vers le bas plutot que d exiger une correspondance exacte : quelqu un
+   * qui reglerait 7 h 15 ne recevrait jamais rien avec une egalite stricte, et il n y
+   * a aucun moyen pour lui de le deviner. Un quart d heure d avance vaut mieux qu un
+   * silence.
+   */
+  static dansLeCreneau(reveil: string | null | undefined, creneau: string): boolean {
+    const brut = (reveil ?? PushService.REVEIL_PAR_DEFAUT).trim();
+    const valide = /^([01]\d|2[0-3]):([0-5]\d)$/.test(brut);
+    // Une valeur abimee retombe sur le defaut : elle ne doit pas priver quelqu un
+    // de son brief, ni le lui envoyer a une heure inventee.
+    const heure = valide ? brut : PushService.REVEIL_PAR_DEFAUT;
+
+    const [h, m] = heure.split(':').map(Number);
+    const debut = Math.floor(m / PushService.CRENEAU_MINUTES) * PushService.CRENEAU_MINUTES;
+    return String(h).padStart(2, '0') + ':' + String(debut).padStart(2, '0') === creneau;
+  }
+
+  private async executerTourneeBriefs(creneau?: string): Promise<ResumeTournee> {
+    const tous = await this.prisma.user.findMany({
+      include: { push_subscriptions: true, sync_data: true, ai_profile: { select: { reveil: true } } },
+    });
+
+    /*
+      Le creneau filtre la tournee.
+
+      Sans creneau — le declencheur manuel d administration — tout le monde est
+      servi, ce qui reste le comportement attendu quand on rejoue une tournee a la
+      main : on veut la voir partir, pas attendre la bonne demi-heure.
+    */
+    const users = creneau
+      ? tous.filter((u) => PushService.dansLeCreneau((u as any).ai_profile?.reveil, creneau))
+      : tous;
 
     let personnalises = 0;
     let generiques = 0;

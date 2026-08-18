@@ -338,6 +338,66 @@ describe('PushService — tournée des briefs du matin', () => {
   });
 
   /*
+    L'heure du brief, choisie par la personne.
+
+    Le brief partait à 10 h pour tout le monde : trop tard pour qui se lève à 6 h,
+    et l'app ne pouvait donc pas « inciter à se lever ». L'avancer pour tous était
+    exclu — une notification à 7 h chez quelqu'un qui dort fait couper les
+    notifications, et un refus du navigateur ne se redemande jamais.
+
+    Les deux points vérifiés ici sont ceux qui se paieraient sur tout le monde à la
+    fois : le fuseau, et le sort de ceux qui n'ont rien réglé.
+  */
+  describe('le créneau du brief', () => {
+    it('lit l’heure de Paris, pas celle du serveur', () => {
+      /*
+        Render tourne en UTC. Comparé à une heure locale sans conversion, le brief
+        serait parti avec deux heures de décalage en été, tous les jours, sans rien
+        signaler — le même piège que les rappels datés, mais subi par tous.
+      */
+      expect(PushService.creneauCourant(new Date('2026-08-18T05:10:00Z'))).toBe('07:00');
+      expect(PushService.creneauCourant(new Date('2026-12-18T06:40:00Z'))).toBe('07:30');
+    });
+
+    it('sert à 10 h ceux qui n’ont rien réglé', () => {
+      // Personne n'a à répondre à une question pour continuer à recevoir ce qu'il
+      // recevait déjà. C'est ce qui rend ce changement sûr à déployer.
+      expect(PushService.dansLeCreneau(null, '10:00')).toBe(true);
+      expect(PushService.dansLeCreneau(undefined, '07:00')).toBe(false);
+    });
+
+    it('arrondit vers le bas au lieu d’exiger l’heure pile', () => {
+      // Quelqu'un qui règle 7 h 15 ne recevrait jamais rien avec une égalité
+      // stricte, et il n'aurait aucun moyen de le deviner.
+      expect(PushService.dansLeCreneau('07:15', '07:00')).toBe(true);
+      expect(PushService.dansLeCreneau('07:45', '07:30')).toBe(true);
+      expect(PushService.dansLeCreneau('07:45', '07:00')).toBe(false);
+    });
+
+    it('retombe sur le défaut quand la valeur est abîmée', () => {
+      // Une valeur illisible ne doit ni priver quelqu'un de son brief, ni le lui
+      // envoyer à une heure inventée.
+      for (const abime of ['25:00', 'sept heures', '7h', '']) {
+        expect(PushService.dansLeCreneau(abime, '10:00')).toBe(true);
+      }
+    });
+
+    it('ne sert que le créneau demandé', async () => {
+      prisma.user.findMany.mockResolvedValue([
+        { ...compteActif('tot'), ai_profile: { reveil: '07:00' } },
+        { ...compteActif('tard'), ai_profile: { reveil: null } },
+      ]);
+      prisma.pushSubscription.findMany.mockResolvedValue([
+        { id: 's1', endpoint: 'https://push.example/abc', p256dh: 'p', auth: 'a' },
+      ]);
+
+      const resume = await service.sendMorningBriefs('test', '07:00');
+
+      expect(resume.comptesExamines).toBe(1);
+    });
+  });
+
+  /*
     La tournée des rappels.
 
     C'est la seule tâche dont l'heure est choisie par la personne : elle a dit

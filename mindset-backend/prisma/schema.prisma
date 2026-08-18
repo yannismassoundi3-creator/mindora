@@ -167,6 +167,17 @@ model AIProfile {
   /// programme de deux heures propose a quelqu'un qui en a vingt minutes n'est pas
   /// ambitieux, il est abandonne des le premier jour.
   minutes_par_jour    Int?
+  /// L'heure a laquelle la personne dit se lever, « HH:MM » en heure de Paris.
+  ///
+  /// Le brief du matin partait a 10 h pour tout le monde. C'est tard pour qui se
+  /// leve a 6 h, et l'app ne pouvait donc pas « inciter a se lever » — elle arrivait
+  /// quatre heures apres. Avancer l'heure pour tous etait exclu : une notification a
+  /// 7 h chez quelqu'un qui dort fait couper les notifications, et **un refus du
+  /// navigateur ne se redemande jamais**. D'ou un reglage par personne.
+  ///
+  /// Nul = 10 h, exactement le comportement d'avant. Personne n'a a repondre a une
+  /// question pour continuer a recevoir ce qu'il recevait deja.
+  reveil              String?
   /// Point de depart physique declare. Decide des exercices : on ne prescrit pas
   /// quatre series de douze pompes a quelqu'un qui se declare sedentaire.
   niveau_depart       String?

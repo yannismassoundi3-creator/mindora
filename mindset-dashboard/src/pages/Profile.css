@@ -474,3 +474,15 @@ input:checked + .slider:before {
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+/* Le sélecteur d'heure de lever.
+
+   Safari iOS rend `input[type=time]` avec sa propre chrome et ignore une partie
+   des styles : on fixe surtout la largeur, pour qu'il ne s'étire pas sur toute
+   la carte comme un champ de texte, ce qui ferait croire à une saisie libre. */
+.reveil-input {
+  width: auto;
+  min-width: 140px;
+  /* Le champ natif garde le fond clair du système en thème sombre sans ça. */
+  color-scheme: dark light;
+}
