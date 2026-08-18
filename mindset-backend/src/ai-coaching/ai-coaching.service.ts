@@ -787,6 +787,18 @@ RÈGLES DE COMPORTEMENT :
     return secours ? [...gratuits, { modele: secours.modele, secours }] : gratuits;
   }
 
+  /**
+   * Le temps total que la chaîne a le droit de prendre, tous maillons confondus.
+   *
+   * Borné bien en deçà de ce qu'un hébergeur coupe de lui-même : une requête tuée
+   * à la passerelle rend une erreur que le code d'ici ne voit jamais passer — donc
+   * qu'il ne journalise pas, et surtout qu'il ne rembourse pas.
+   */
+  private static readonly BUDGET_CHAINE_MS = 75000;
+
+  /** En deçà, un maillon de plus n'a plus le temps de répondre : autant s'arrêter. */
+  private static readonly MINIMUM_UTILE_MS = 10000;
+
   private async appelerGroqAvecRepli(apiKey: string, corps: any): Promise<{ response: Response; modele: string }> {
     let derniere: any;
     // La saturation prime sur les erreurs suivantes au moment de rendre la main.
@@ -796,12 +808,34 @@ RÈGLES DE COMPORTEMENT :
     let saturation: any;
 
     const chaine = AiCoachingService.chaineChat();
+    /* Vraie dès qu'une clé Groq a été refusée : les maillons gratuits restants la
+       partagent, les essayer coûterait trois 401 pour la même réponse. */
+    let cleGroqRefusee = false;
+    const depart = Date.now();
 
     for (const { modele, secours } of chaine) {
+      if (cleGroqRefusee && !secours) continue;
+
+      /*
+        Le temps qu'il reste à la personne, pas au modèle.
+
+        Rendre les délais réessayables ouvre un risque neuf : quatre maillons à
+        45 s chacun font trois minutes devant un curseur qui clignote, et personne
+        n'attend trois minutes. Le budget est donc porté par la chaîne, pas par
+        l'appel — chaque maillon reçoit ce qui reste, et on n'en ouvre pas un
+        nouveau avec si peu de temps qu'il ne pourrait qu'expirer à son tour. Un
+        échec en 8 s vaut mieux que le même échec en 20 s.
+      */
+      const restant = AiCoachingService.BUDGET_CHAINE_MS - (Date.now() - depart);
+      if (restant < AiCoachingService.MINIMUM_UTILE_MS) {
+        console.warn(`[Groq] ⏱️ Budget de la chaîne épuisé avant ${modele}.`);
+        break;
+      }
+
       try {
         const response = secours
-          ? await this.appelerModele(secours.apiKey, { ...corps, model: modele }, secours.url)
-          : await this.appelerModele(apiKey, { ...corps, model: modele });
+          ? await this.appelerModele(secours.apiKey, { ...corps, model: modele }, secours.url, restant)
+          : await this.appelerModele(apiKey, { ...corps, model: modele }, undefined, restant);
         if (secours) {
           // Une requête payante mérite sa ligne : c'est la seule trace qui relie la
           // dépense à la saturation qui l'a provoquée.
@@ -814,16 +848,33 @@ RÈGLES DE COMPORTEMENT :
         derniere = e;
         if (e?.code === 'GROQ_RATE_LIMIT' && !saturation) saturation = e;
 
-        // Saturation, ou modèle retiré du catalogue : dans les deux cas le suivant
-        // peut répondre. Groq met régulièrement des modèles hors service, et sans ce
-        // second cas un identifiant devenu invalide en milieu de chaîne emporterait
-        // silencieusement tout le filet placé derrière lui.
-        const reessayable = e?.code === 'GROQ_RATE_LIMIT' || e?.code === 'GROQ_MODELE_INCONNU';
+        /*
+          Ce qui condamne la suite, et ce qui ne condamne que le maillon essayé.
 
-        // Une clé invalide échouerait à l'identique sur toute la chaîne : insister ne
-        // ferait que tripler la latence avant d'afficher la même erreur.
-        if (!reessayable) throw e;
-        console.warn(`[Groq] ${modele} indisponible (${e?.code}), essai du modèle suivant`);
+          La liste était écrite à l'envers : elle énumérait les deux pannes autorisées
+          à passer au maillon suivant, et **tout le reste emportait la chaîne
+          entière, filet payant compris**. Un délai dépassé sur le premier modèle
+          suffisait donc à ce que les deux autres et le secours ne soient jamais
+          appelés — alors qu'un modèle lent ne dit rien de la disponibilité des
+          autres. C'est exactement le raisonnement déjà tenu pour un modèle retiré
+          du catalogue ; il valait pour la même raison ici, et manquait.
+
+          La question juste n'est pas « cette panne est-elle connue ? » mais « le
+          maillon suivant échouerait-il pour la même cause ? ». Une seule le fait :
+          une clé refusée — et seulement pour les maillons qui partagent cette clé.
+          Le secours a la sienne, il reste donc joignable même quand Groq nous
+          claque la porte au nez.
+        */
+        if (e?.code === 'GROQ_AUTH') {
+          if (secours) throw e;
+          console.error('[Groq] 🔑 Clé refusée : le reste des modèles Groq est sauté.');
+          cleGroqRefusee = true;
+          continue;
+        }
+
+        console.warn(
+          `[Groq] ${modele} indisponible (${e?.code ?? e?.message}), essai du maillon suivant`,
+        );
       }
     }
 
@@ -842,8 +893,11 @@ RÈGLES DE COMPORTEMENT :
     apiKey: string,
     corps: any,
     url = 'https://api.groq.com/openai/v1/chat/completions',
+    /* Ce que la chaîne consent à attendre pour cet appel-ci. Le plafond historique
+       reste le défaut : un appel isolé ne perd rien au passage. */
+    budgetMs = 45000,
   ): Promise<Response> {
-    const DELAI_MAX_MS = 45000;
+    const DELAI_MAX_MS = Math.min(45000, budgetMs);
 
     const controleur = new AbortController();
     const minuteur = setTimeout(() => controleur.abort(), DELAI_MAX_MS);
@@ -871,6 +925,15 @@ RÈGLES DE COMPORTEMENT :
       throw Object.assign(new Error(`${corps?.model} saturé (429)`), { code: 'GROQ_RATE_LIMIT' });
     }
 
+    // La seule panne qui se reproduirait à l'identique sur les maillons partageant
+    // cette clé — et donc la seule qui autorise à sauter la suite.
+    if (response.status === 401) {
+      const corpsErreur = await response.text().catch(() => '');
+      throw Object.assign(new Error(`Groq API Error: 401 ${response.statusText} - ${corpsErreur}`), {
+        code: 'GROQ_AUTH',
+      });
+    }
+
     if (!response.ok) {
       const errBody = await response.text();
       const erreur = new Error(`Groq API Error: ${response.status} ${response.statusText} - ${errBody}`);
@@ -888,6 +951,15 @@ RÈGLES DE COMPORTEMENT :
       ) {
         throw Object.assign(erreur, { code: 'GROQ_MODELE_INCONNU' });
       }
+
+      // Un 403 qui ne parle pas de modèle vise le compte, pas le modèle : une
+      // suspension, un blocage géographique. Les autres modèles Groq répondraient
+      // le même refus à la même clé — mais le secours, lui, a la sienne, et c'est
+      // toute la différence entre « sauter les maillons jumeaux » et « abandonner ».
+      if (response.status === 403) {
+        throw Object.assign(erreur, { code: 'GROQ_AUTH' });
+      }
+
       throw erreur;
     }
 

@@ -165,6 +165,25 @@ describe('AiCoachingService — chat', () => {
 
       expect(modelesAppeles()).toEqual([PREMIER, DEUXIEME, DERNIER]);
     });
+
+    it('reste joignable quand Groq refuse la clé', async () => {
+      /*
+        Une clé Groq révoquée ou un compte suspendu condamne les trois modèles
+        gratuits — ils la partagent — mais **pas** le secours, qui a la sienne.
+        C'est précisément le jour où Groq nous ferme la porte qu'un filet payant
+        sert à quelque chose ; l'ancienne boucle le sautait avec le reste.
+      */
+      activerSecours();
+      fetchMock
+        .mockResolvedValueOnce(reponseErreur(401, 'invalid api key'))
+        .mockResolvedValueOnce(reponseOk('Toujours là, malgré tout.'));
+
+      const resultat: any = await service.chatWithAi('u1', 'Salut');
+
+      expect(resultat.reply).toBe('Toujours là, malgré tout.');
+      // Les deux modèles Groq restants sont sautés : même clé, même refus.
+      expect(modelesAppeles()).toEqual([PREMIER, 'un/modele-payant']);
+    });
   });
 
   describe('repli entre modèles', () => {
@@ -206,6 +225,39 @@ describe('AiCoachingService — chat', () => {
       const resultat: any = await service.chatWithAi('u1', 'Comment tu vas ?');
 
       expect(resultat.reply).toBe('Présent.');
+      expect(modelesAppeles()).toEqual([PREMIER, DEUXIEME]);
+    });
+
+    it('passe au suivant quand un modèle ne répond pas à temps', async () => {
+      /*
+        Le trou le plus coûteux de l'ancienne boucle : elle énumérait les pannes
+        autorisées à continuer, si bien qu'un délai dépassé — panne non listée —
+        emportait les deux modèles suivants **et** le secours payant. Or un modèle
+        lent ne dit rien de la disponibilité des autres : c'est au contraire le cas
+        où le maillon suivant a toutes ses chances.
+      */
+      fetchMock
+        .mockRejectedValueOnce(Object.assign(new Error('aborted'), { name: 'AbortError' }))
+        .mockResolvedValueOnce(reponseOk('Me revoilà.'));
+
+      const resultat: any = await service.chatWithAi('u1', 'Comment tu vas ?');
+
+      expect(resultat.reply).toBe('Me revoilà.');
+      expect(resultat.erreur).toBeUndefined();
+      expect(modelesAppeles()).toEqual([PREMIER, DEUXIEME]);
+    });
+
+    it('passe au suivant quand la connexion tombe', async () => {
+      // Même raisonnement : un réseau qui lâche sur un appel ne condamne pas le
+      // suivant. Aucun code d'erreur n'est posé ici, et c'est justement le cas que
+      // l'ancienne liste blanche rejetait par défaut.
+      fetchMock
+        .mockRejectedValueOnce(new Error('ECONNRESET'))
+        .mockResolvedValueOnce(reponseOk('Reconnecté.'));
+
+      const resultat: any = await service.chatWithAi('u1', 'Comment tu vas ?');
+
+      expect(resultat.reply).toBe('Reconnecté.');
       expect(modelesAppeles()).toEqual([PREMIER, DEUXIEME]);
     });
 
