@@ -46,6 +46,7 @@ model User {
   password_reset_tokens PasswordResetToken[]
   ai_usages             AiUsage[]
   coach_echecs          CoachEchec[]
+  rappels               Rappel[]
   coin_claims           CoinClaim[]
   push_permissions      PushPermission[]
   offer_prompt          OfferPrompt?
@@ -519,6 +520,37 @@ model AiUsage {
 /// Seuls le code et le dernier modele essaye sont conserves. Ni l'invite ni le
 /// corps d'erreur du fournisseur : le premier est intime, le second peut recopier
 /// n'importe quoi de la requete. Un diagnostic n'a pas besoin de les relire.
+/// Un rappel demande au coach, et qui doit vraiment arriver.
+///
+/// Le coach repondait « Rappel : 22 h 30 - commence la premiere tache » et il ne
+/// se passait rien : aucune table, aucune tache planifiee, aucune notification.
+/// La promesse etait parfaitement credible et entierement fausse — la pire forme
+/// de panne muette, parce que c'est l'utilisateur qui la decouvre, a l'heure ou
+/// il comptait dessus.
+///
+/// `envoye_le` est ecrit apres l'envoi, jamais avant : une ligne marquee envoyee
+/// alors que le push a echoue condamne le rappel au silence en donnant a croire
+/// qu'il est parti. Meme regle que les relances par e-mail.
+model Rappel {
+  id         String    @id @default(uuid())
+  user_id    String
+  /// Ce que la personne doit lire a l'heure dite. Ecrit par le coach.
+  texte      String
+  /// L'instant vise, en UTC. L'heure de Paris est convertie a la creation.
+  quand      DateTime
+  envoye_le  DateTime?
+  /// Annule par la personne. Garde plutot que supprime : « je t'avais mis un
+  /// rappel, tu l'as retire » est une chose que le coach doit pouvoir dire.
+  annule_le  DateTime?
+  cree_le    DateTime  @default(now())
+  user       User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  /// La tournee cherche les rappels dus et jamais envoyes : c'est cet index-la
+  /// qui evite de parcourir toute la table toutes les cinq minutes.
+  @@index([envoye_le, quand])
+  @@index([user_id, quand])
+}
+
 model CoachEchec {
   id         String   @id @default(uuid())
   user_id    String

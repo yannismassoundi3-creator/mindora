@@ -6,6 +6,7 @@ import { CoachMemoryService } from './coach-memory.service';
 import { CoachOuvertureService } from './coach-ouverture.service';
 import { ObservationService } from './observation.service';
 import { AnalyseCompleteService } from './analyse-complete.service';
+import { RappelService } from './rappel.service';
 import { WeeklyReviewService } from '../push/weekly-review.service';
 import { BilanHebdoService } from '../push/bilan-hebdo.service';
 import { AnalyseHabitudesService } from '../push/analyse-habitudes.service';
@@ -32,6 +33,8 @@ import { AiCoachingController } from './ai-coaching.controller';
     AnalyseHabitudesService,
     // La lecture longue reservee aux abonnes : elle assemble tout ce qui precede.
     AnalyseCompleteService,
+    // Les rappels dates que le coach pose lui-meme.
+    RappelService,
   ],
   exports: [
     AiCoachingService,

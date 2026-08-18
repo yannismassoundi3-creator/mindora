@@ -8,6 +8,7 @@ import { CoupDePouceService } from './coup-de-pouce.service';
 import { BilanHebdoService } from './bilan-hebdo.service';
 import { AnalyseHabitudesService } from './analyse-habitudes.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { RappelService } from '../ai-coaching/rappel.service';
 
 jest.mock('web-push', () => ({
   setVapidDetails: jest.fn(),
@@ -71,6 +72,17 @@ describe('PushService — tournée des briefs du matin', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        {
+          provide: RappelService,
+          // Les rappels ont leur propre suite : ici on veut seulement que le
+          // module se construise, et qu aucun rappel ne soit pose.
+          useValue: {
+            poser: jest.fn().mockResolvedValue([]),
+            dus: jest.fn().mockResolvedValue([]),
+            marquerEnvoye: jest.fn(),
+            abandonnerLesPerimes: jest.fn().mockResolvedValue(0),
+          },
+        },
         PushService,
         { provide: PrismaService, useValue: prisma },
         { provide: MorningBriefService, useValue: morningBrief },
@@ -322,6 +334,60 @@ describe('PushService — tournée des briefs du matin', () => {
       // Le corps promet le Chat IA ; l'adresse doit y mener, sinon la notification
       // ouvre l'accueil et la promesse tombe à plat.
       expect(charge.url).toBe('https://disciplix-ai.vercel.app/?auth=true&vue=chat');
+    });
+  });
+
+  /*
+    La tournée des rappels.
+
+    C'est la seule tâche dont l'heure est choisie par la personne : elle a dit
+    « 22 h 30 », elle attend 22 h 30. Et c'est la seule dont l'échec est
+    strictement invisible — pas d'erreur, pas de trace à l'écran, juste un
+    téléphone qui ne sonne pas chez quelqu'un qui comptait dessus. D'où le seul
+    point vérifié ici, qui est aussi le seul qui coûte : **on ne marque jamais
+    envoyé ce qui n'est pas parti.**
+  */
+  describe('les rappels', () => {
+    let rappels: any;
+
+    beforeEach(() => {
+      rappels = (service as any).rappels;
+      rappels.dus.mockResolvedValue([{ id: 'r1', user_id: 'u1', texte: 'Commence le livre', quand: new Date() }]);
+    });
+
+    it('remet le rappel et ne le marque qu’ensuite', async () => {
+      prisma.pushSubscription.findMany.mockResolvedValue([
+        { id: 's1', endpoint: 'https://push.example/abc', p256dh: 'p', auth: 'a' },
+      ]);
+
+      const bilan: any = await service.envoyerRappels();
+
+      const charge = JSON.parse((webpush.sendNotification as jest.Mock).mock.calls[0][1]);
+      expect(charge.body).toBe('Commence le livre');
+      expect(rappels.marquerEnvoye).toHaveBeenCalledWith('r1');
+      expect(bilan.envoyes).toBe(1);
+    });
+
+    it('laisse la ligne ouverte quand personne n’est joignable', async () => {
+      /*
+        Un téléphone éteint cinq minutes ne doit pas coûter le rappel : la
+        tournée suivante réessaiera, jusqu'à la borne de retard. Marquer envoyé
+        ici condamnerait la personne au silence en donnant à croire que c'est
+        parti — la panne exacte qu'on répare.
+      */
+      prisma.pushSubscription.findMany.mockResolvedValue([]);
+
+      const bilan: any = await service.envoyerRappels();
+
+      expect(rappels.marquerEnvoye).not.toHaveBeenCalled();
+      expect(bilan.envoyes).toBe(0);
+    });
+
+    it('ferme les rappels trop en retard avant d’envoyer', async () => {
+      // Sinon ils restent éligibles pour toujours et sonnent un mardi matin sans
+      // que rien n'explique pourquoi.
+      await service.envoyerRappels();
+      expect(rappels.abandonnerLesPerimes).toHaveBeenCalled();
     });
   });
 

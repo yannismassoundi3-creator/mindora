@@ -5,6 +5,7 @@ import { WeeklyReviewService } from './weekly-review.service';
 import { CoupDePouceService } from './coup-de-pouce.service';
 import { BilanHebdoService } from './bilan-hebdo.service';
 import { AnalyseHabitudesService } from './analyse-habitudes.service';
+import { RappelService } from '../ai-coaching/rappel.service';
 import * as cron from 'node-cron';
 import * as webpush from 'web-push';
 import { lienApp } from '../common/origines';
@@ -115,6 +116,9 @@ export class PushService implements OnModuleInit {
     private coupDePouce: CoupDePouceService,
     private bilanHebdo: BilanHebdoService,
     private analyseHabitudes: AnalyseHabitudesService,
+    // Les rappels que le coach a promis. Le seul envoi de ce fichier dont
+    // l heure est choisie par la personne et non par nous.
+    private rappels: RappelService,
   ) {
     const vapidSubject = process.env.VAPID_SUBJECT || 'mailto:mindoraappli@gmail.com';
     const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
@@ -290,6 +294,48 @@ export class PushService implements OnModuleInit {
     return { abonnements: subscriptions.length, envoyees };
   }
 
+  /**
+   * Envoie les rappels arrives a echeance.
+   *
+   * `envoye_le` n est ecrit **qu apres** un envoi accepte. L ecrire avant, ou en
+   * cas d echec, condamnerait le rappel au silence en donnant a croire qu il est
+   * parti — exactement la panne qu on repare ici. Un rappel trop en retard n est
+   * pas envoye du tout : il reveillerait une intention morte et apprendrait
+   * surtout que l application n est pas a l heure.
+   */
+  async envoyerRappels() {
+    await this.rappels.abandonnerLesPerimes();
+    const dus = await this.rappels.dus();
+    if (dus.length === 0) return { dus: 0, envoyes: 0 };
+
+    let envoyes = 0;
+    for (const r of dus) {
+      try {
+        const { envoyees } = await this.sendNotification(r.user_id, {
+          title: '⏰ Rappel',
+          body: r.texte,
+          url: this.lienVers(),
+        });
+
+        if (envoyees > 0) {
+          await this.rappels.marquerEnvoye(r.id);
+          envoyes++;
+        } else {
+          // Aucun abonnement joignable : la ligne reste ouverte et la tournee
+          // suivante reessaiera, jusqu a la borne de retard. Un telephone eteint
+          // cinq minutes ne doit pas couter le rappel.
+          this.logger.warn('Rappel ' + r.id + ' non remis a ' + r.user_id + ' : aucun abonnement joignable.');
+        }
+      } catch (e) {
+        // Un echec sur une personne ne doit pas interrompre les suivantes.
+        this.logger.error('Rappel ' + r.id + ' echoue pour ' + r.user_id + ' : ' + (e as any)?.message);
+      }
+    }
+
+    this.logger.log('Rappels : ' + envoyes + '/' + dus.length + ' remis.');
+    return { dus: dus.length, envoyes };
+  }
+
   onModuleInit() {
     // Une exception dans une tâche planifiée est avalée en silence : ni notification,
     // ni trace. C'est exactement ce qui rend un envoi manqué indiagnosticable le
@@ -326,6 +372,19 @@ export class PushService implements OnModuleInit {
     planifier('0 20 * * *', 'Alerte série 20h', () => this.checkStreaksAndWarn(20));
     planifier('0 22 * * *', 'Dernière chance 22h', () => this.checkStreaksAndWarn(22));
     planifier('0 20 * * 0', 'Bilan hebdomadaire', () => this.sendWeeklyReports());
+
+    /*
+      Les rappels, toutes les cinq minutes.
+
+      C'est la seule tache dont l'heure est choisie par la personne et non par
+      nous : elle a dit « 22 h 30 », elle attend 22 h 30. Un passage horaire
+      decalerait la moitie des rappels d'une demi-heure, ce qui, pour une
+      promesse datee, revient a ne pas la tenir.
+
+      Cinq minutes coutent une requete indexee qui ne rend presque jamais rien :
+      la table est petite et la fenetre etroite. Voir RappelService.dus.
+    */
+    planifier('*/5 * * * *', 'Rappels', () => this.envoyerRappels());
   }
 
   /**

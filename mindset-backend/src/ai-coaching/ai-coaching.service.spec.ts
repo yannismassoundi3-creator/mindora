@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AiCoachingService } from './ai-coaching.service';
 import { CoachMemoryService } from './coach-memory.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { RappelService } from './rappel.service';
 
 /**
  * Le repli entre modèles, le second appel sur BESOIN_SCHEMA_PLAN et le drapeau qui
@@ -72,6 +73,17 @@ describe('AiCoachingService — chat', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        {
+          provide: RappelService,
+          // Les rappels ont leur propre suite : ici on veut seulement que le
+          // module se construise, et qu aucun rappel ne soit pose.
+          useValue: {
+            poser: jest.fn().mockResolvedValue([]),
+            dus: jest.fn().mockResolvedValue([]),
+            marquerEnvoye: jest.fn(),
+            abandonnerLesPerimes: jest.fn().mockResolvedValue(0),
+          },
+        },
         AiCoachingService,
         { provide: PrismaService, useValue: prisma },
         { provide: CoachMemoryService, useValue: memoire },
@@ -634,7 +646,18 @@ describe('AiCoachingService — l\'objectif déclaré', () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [AiCoachingService, CoachMemoryService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        {
+          provide: RappelService,
+          // Les rappels ont leur propre suite : ici on veut seulement que le
+          // module se construise, et qu aucun rappel ne soit pose.
+          useValue: {
+            poser: jest.fn().mockResolvedValue([]),
+            dus: jest.fn().mockResolvedValue([]),
+            marquerEnvoye: jest.fn(),
+            abandonnerLesPerimes: jest.fn().mockResolvedValue(0),
+          },
+        },AiCoachingService, CoachMemoryService, { provide: PrismaService, useValue: prisma }],
     }).compile();
 
     service = module.get(AiCoachingService);
