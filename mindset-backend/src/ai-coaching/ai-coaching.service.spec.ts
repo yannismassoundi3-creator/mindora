@@ -280,16 +280,40 @@ describe('AiCoachingService — chat', () => {
       });
     });
 
-    it('distingue une réponse vide d’une panne du fournisseur', async () => {
-      // Un 200 sans texte naît ici, pas chez Groq : le ranger dans « inconnu »
-      // enverrait chercher une panne du côté du fournisseur alors qu'elle est du
-      // nôtre. Les deux ne se soignent pas au même endroit.
+    it('redescend la chaîne quand un modèle rend 200 sans texte', async () => {
+      /*
+        Le même défaut que dans la boucle, d'un cran plus haut : le modèle avait
+        « réussi », donc le repli était terminé et les maillons suivants — dont le
+        filet payant — n'étaient jamais sollicités. Or ce n'est pas parce qu'un
+        modèle rend du vide que le suivant en rendrait aussi.
+      */
+      fetchMock
+        .mockResolvedValueOnce(reponseOk('   '))
+        .mockResolvedValueOnce(reponseOk('Je suis là.'));
+
+      const resultat: any = await service.chatWithAi('u1', 'Comment tu vas ?');
+
+      expect(resultat.reply).toBe('Je suis là.');
+      expect(resultat.erreur).toBeUndefined();
+      expect(modelesAppeles()).toEqual([PREMIER, DEUXIEME]);
+      expect(prisma.coachEchec.create).not.toHaveBeenCalled();
+    });
+
+    it('n’insiste pas au-delà du second maillon muet', async () => {
+      /*
+        Si deux modèles se taisent d'affilée, la cause n'est plus le modèle mais ce
+        qu'on lui envoie : un troisième appel paierait le même vide. Le code du
+        silence dit « VIDE » et non « inconnu » — le ranger dans « inconnu »
+        enverrait chercher chez le fournisseur une panne qui est de notre côté.
+      */
       fetchMock.mockResolvedValue(reponseOk('   '));
 
-      await service.chatWithAi('u1', 'Comment tu vas ?');
+      const resultat: any = await service.chatWithAi('u1', 'Comment tu vas ?');
 
+      expect(resultat.erreur).toBe(true);
+      expect(modelesAppeles()).toEqual([PREMIER, DEUXIEME]);
       expect(prisma.coachEchec.create).toHaveBeenCalledWith({
-        data: { user_id: 'u1', code: 'VIDE', modele: PREMIER },
+        data: { user_id: 'u1', code: 'VIDE', modele: DEUXIEME },
       });
     });
 

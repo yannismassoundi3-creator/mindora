@@ -625,7 +625,7 @@ RÈGLES DE COMPORTEMENT :
       // La règle du marqueur n'accompagne que la version sans schéma : la laisser dans
       // les deux ferait réclamer au modèle des instructions qu'il a déjà sous les yeux,
       // et chaque demande de plan coûterait deux appels au lieu d'un.
-      const demander = async (avecPlan: boolean) => {
+      const demander = async (avecPlan: boolean, exclus: string[] = []) => {
         // Rendu avec la réponse, et non déduit du message : quand le second appel a
         // lieu, le schéma est joint alors que la détection par mots-clés disait le
         // contraire. Un journal de diagnostic qui se trompe sur ce point-là ferait
@@ -640,8 +640,10 @@ RÈGLES DE COMPORTEMENT :
           { role: 'user', content: prompt },
         ];
 
-        const { response, modele } = await this.appelerGroqAvecRepli(apiKey, {
-          messages,
+        const { response, modele } = await this.appelerGroqAvecRepli(
+          apiKey,
+          {
+            messages,
           // Deux exigences opposées, donc deux réglages.
           //
           // Quand le schéma est joint, la réponse doit contenir un JSON strictement
@@ -652,8 +654,10 @@ RÈGLES DE COMPORTEMENT :
           temperature: avecPlan ? 0.3 : 0.6,
           // Un plan complet fait à lui seul près de mille jetons de JSON : rogner ici
           // le tronquerait en plein objet et casserait son application dans l'app.
-          max_tokens: 1500,
-        });
+            max_tokens: 1500,
+          },
+          exclus,
+        );
 
         const data = await response.json();
         const { texte, tronque } = lireReponseGroq(data);
@@ -674,6 +678,24 @@ RÈGLES DE COMPORTEMENT :
       if (reply?.includes(AiCoachingService.MARQUEUR_PLAN)) {
         console.log('[Groq] ↻ Schéma du plan réclamé par le modèle, second appel');
         ({ texte: reply, modele, tronque, schemaJoint } = await demander(true));
+      }
+
+      /*
+        Un 200 sans texte est une panne du maillon, pas une panne de la chaîne.
+
+        Ce cas sortait directement en message d'excuse : le modèle avait répondu
+        « avec succès », donc la boucle de repli était déjà terminée et les maillons
+        suivants — dont le filet payant — n'étaient jamais sollicités. C'est le même
+        défaut que celui corrigé dans la boucle, d'un cran plus haut : ce n'est pas
+        parce qu'un modèle rend du vide que le suivant en rendrait aussi.
+
+        On redescend donc la chaîne en sautant le maillon muet. Une seule fois : si
+        le second se tait aussi, la cause n'est plus le modèle mais ce qu'on lui
+        envoie, et insister ferait payer un troisième appel pour le même vide.
+      */
+      if (!reply) {
+        console.warn(`[Groq] 🔇 ${modele} a répondu 200 sans texte, essai du maillon suivant`);
+        ({ texte: reply, modele, tronque, schemaJoint } = await demander(schemaJoint, [modele]));
       }
 
       // Le maillon est joint à l'erreur comme le fait la chaîne pour les siennes : ces
@@ -855,7 +877,13 @@ RÈGLES DE COMPORTEMENT :
   /** En deçà, un maillon de plus n'a plus le temps de répondre : autant s'arrêter. */
   private static readonly MINIMUM_UTILE_MS = 10000;
 
-  private async appelerGroqAvecRepli(apiKey: string, corps: any): Promise<{ response: Response; modele: string }> {
+  private async appelerGroqAvecRepli(
+    apiKey: string,
+    corps: any,
+    /* Maillons déjà essayés et écartés par l'appelant — un modèle qui vient de
+       rendre 200 sans texte, par exemple. Les redemander coûterait le même vide. */
+    exclus: string[] = [],
+  ): Promise<{ response: Response; modele: string }> {
     let derniere: any;
     // La saturation prime sur les erreurs suivantes au moment de rendre la main.
     // Quand les modèles de repli sont interdits ou retirés, la dernière erreur de la
@@ -872,6 +900,7 @@ RÈGLES DE COMPORTEMENT :
 
     for (const { modele, secours } of chaine) {
       if (cleGroqRefusee && !secours) continue;
+      if (exclus.includes(modele)) continue;
 
       /*
         Le temps qu'il reste à la personne, pas au modèle.
