@@ -495,4 +495,65 @@ describe('RetentionService', () => {
       expect(stats.comptes.jamaisActifs).toBe(1);
     }
   });
+
+  /**
+   * Les silences du coach, nommément.
+   *
+   * Le décompte seul (« 4 personnes concernées ») ne désigne personne à qui
+   * écrire, et surtout il ne dit pas si l'abonné en fait partie — le seul cas où
+   * le silence se rembourse en euros. Ce qui se vérifie ici, c'est que la liste
+   * n'inclut que ceux à qui il manque une réponse, et que l'abonné passe devant
+   * quelqu'un qui en a pourtant manqué davantage.
+   */
+  describe('les silences du coach', () => {
+    const ligne = (user_id: string, sender: string, n: number) => ({
+      user_id,
+      sender,
+      _count: { _all: n },
+    });
+
+    it("nomme ceux qui ont parlé dans le vide, et met l'abonné en tête", async () => {
+      const libre = { ...compte({ inscritIlYA: 10, joursActifs: [1] }), id: 'u-libre' };
+      const abonne = {
+        ...compte({ inscritIlYA: 2, joursActifs: [1], statut: 'TRIALING' }),
+        id: 'u-abonne',
+      };
+      const servi = { ...compte({ inscritIlYA: 5, joursActifs: [1] }), id: 'u-servi' };
+
+      prisma.chatMessage.groupBy.mockResolvedValue([
+        ligne('u-libre', 'user', 10),
+        ligne('u-libre', 'ai', 4),
+        ligne('u-abonne', 'user', 3),
+        ligne('u-abonne', 'ai', 2),
+        // Celui-ci a reçu une réponse à chaque message : il n'a rien à faire là.
+        ligne('u-servi', 'user', 6),
+        ligne('u-servi', 'ai', 6),
+      ]);
+
+      const stats = await avec([libre, abonne, servi]);
+
+      expect(stats.coach.sansReponse).toBe(7);
+      expect(stats.coach.comptesTouches).toBe(2);
+
+      const detail = stats.coach.sansReponseDetail;
+      expect(detail).toHaveLength(2);
+      // L'abonné d'abord, même avec un seul silence contre six.
+      expect(detail[0]).toEqual(
+        expect.objectContaining({ tapes: 3, recues: 2, manques: 1, abonne: true }),
+      );
+      expect(detail[1]).toEqual(
+        expect.objectContaining({ tapes: 10, recues: 4, manques: 6, abonne: false }),
+      );
+    });
+
+    it('ne nomme personne quand le coach a répondu à tout le monde', async () => {
+      const c = { ...compte({ inscritIlYA: 5, joursActifs: [1] }), id: 'u1' };
+      prisma.chatMessage.groupBy.mockResolvedValue([ligne('u1', 'user', 4), ligne('u1', 'ai', 4)]);
+
+      const stats = await avec([c]);
+
+      expect(stats.coach.sansReponse).toBe(0);
+      expect(stats.coach.sansReponseDetail).toEqual([]);
+    });
+  });
 });

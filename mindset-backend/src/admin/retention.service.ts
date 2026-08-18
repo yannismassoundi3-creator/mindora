@@ -610,6 +610,31 @@ export class RetentionService {
         // compte peut porter dix échecs : le total dit l'ampleur, celui-ci dit
         // combien de gens ont vu le produit ne pas répondre.
         comptesTouches: comptesSansReponse.size,
+        /*
+          Qui, nommément.
+
+          Le décompte seul ne se répare pas : il dit que quatre personnes ont vu le
+          coach se taire, jamais lesquelles. Or la seule question qui compte dès
+          qu'il y a un abonné est de savoir s'il en fait partie — il a payé
+          précisément pour cette réponse, et c'est le seul cas où le silence se
+          rembourse en euros. Trié par silences, l'abonné d'abord.
+        */
+        sansReponseDetail: comptes
+          .filter((c) => (tapesParCompte.get(c.id) ?? 0) > (reponsesParCompte.get(c.id) ?? 0))
+          .map((c) => {
+            const tapes = tapesParCompte.get(c.id) ?? 0;
+            const recues = reponsesParCompte.get(c.id) ?? 0;
+            return {
+              prenom: c.first_name,
+              email: c.email,
+              tapes,
+              recues,
+              manques: tapes - recues,
+              abonne: !!c.subscription && ['ACTIVE', 'TRIALING'].includes(c.subscription.status),
+            };
+          })
+          .sort((a, b) => Number(b.abonne) - Number(a.abonne) || b.manques - a.manques)
+          .slice(0, RetentionService.CLASSEMENT_MAX),
       },
       /*
         Qui paie, nommément.

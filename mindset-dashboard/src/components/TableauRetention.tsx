@@ -105,6 +105,15 @@ interface Retention {
     reponsesRecues: number;
     sansReponse: number;
     comptesTouches: number;
+    /** Qui, nommément. Vide quand le coach a répondu à tout le monde. */
+    sansReponseDetail: Array<{
+      prenom: string;
+      email: string;
+      tapes: number;
+      recues: number;
+      manques: number;
+      abonne: boolean;
+    }>;
   };
   /** Qui paie, nommément. À deux abonnés, ce sont des personnes, pas une statistique. */
   abonnesDetail: Array<{
@@ -524,6 +533,47 @@ export const TableauRetention: React.FC = () => {
             exact : un échange réussi écrit une ligne de la personne et une du coach, un
             échec n'écrit que la première.
           </p>
+
+          {/*
+            Le nom derrière le nombre.
+
+            « 4 personnes concernées » ne se répare pas : on ne sait ni à qui
+            écrire, ni si l'abonné en fait partie. C'est pourtant la seule question
+            qui compte — lui a payé pour cette réponse, et c'est le seul silence
+            qui se rembourse en euros. D'où l'étoile, et le tri qui le met en tête.
+          */}
+          {coach.sansReponseDetail?.length > 0 && (
+            <div className="retention-tableau-cadre">
+              <table className="retention-tableau">
+                <thead>
+                  <tr>
+                    <th>Personne</th>
+                    <th>Tapés</th>
+                    <th>Reçus</th>
+                    <th>Sans réponse</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {coach.sansReponseDetail.map((c) => (
+                    <tr key={c.email} className={c.abonne ? 'retention-ligne--alerte' : undefined}>
+                      <td>
+                        <span className="retention-personne__prenom">
+                          {c.prenom}
+                          {c.abonne && (
+                            <span className="retention-abonne" title="Abonné">★</span>
+                          )}
+                        </span>
+                        <span className="retention-personne__email">{c.email}</span>
+                      </td>
+                      <td>{c.tapes}</td>
+                      <td>{c.recues}</td>
+                      <td><strong>{c.manques}</strong></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </>
       )}
 

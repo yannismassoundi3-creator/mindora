@@ -295,3 +295,17 @@
   color: var(--text-secondary, #94a3b8);
   opacity: 0.8;
 }
+
+/* La ligne d'un abonné resté sans réponse.
+
+   Même ambre que le compteur « Restés sans réponse » : c'est le même fait, vu de
+   deux distances. Un fond très transparent plutôt qu'un texte coloré — le
+   tableau contient des chiffres, et recolorer des chiffres les rend plus durs à
+   comparer entre eux. Le liseré à gauche fait le travail sans toucher au contenu. */
+.retention-ligne--alerte td {
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.retention-ligne--alerte td:first-child {
+  box-shadow: inset 3px 0 0 #f59e0b;
+}
