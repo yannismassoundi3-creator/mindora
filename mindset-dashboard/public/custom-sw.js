@@ -1,3 +1,30 @@
+/*
+  Ce qu'on peut faire pour qu'une notification ne se perde pas, et ce qu'on ne peut
+  pas faire.
+
+  Rapporté par un utilisateur : « je la reçois bien, mais elle est au milieu de
+  plein d'autres ». **Aucune application web ne peut se classer devant les autres
+  dans le volet du téléphone.** Le rang y est décidé par le système et par les
+  réglages de la personne ; sur Android nos notifications vivent toutes dans le
+  salon de Chrome, sur iOS on ne contrôle rien du tout. Promettre l'inverse serait
+  mentir, et bricoler pour l'obtenir ne produirait que du bruit.
+
+  Restent trois leviers réels, et ils sont posés ici :
+
+  - **`tag` : ne plus se faire concurrence à soi-même.** Deux notifications de même
+    nature s'empilaient ; la seconde remplace désormais la première. Une pile de
+    trois messages du même coach se lit comme du harcèlement et se balaie d'un
+    geste — une seule, à jour, se lit.
+  - **`renotify` : le remplacement doit se signaler.** Sans lui, remplacer se fait
+    en silence, et la notification à jour arriverait sans que personne ne le sache.
+  - **`requireInteraction` : ce qui a été demandé ne s'évapore pas.** Réservé aux
+    rappels, que la personne a elle-même fixés à une heure précise. Une notification
+    ambiante qui refuse de disparaître serait exactement l'inverse du service rendu.
+
+  Les rappels ne sont jamais regroupés : chacun porte son propre texte et son propre
+  `tag`. Les fondre ferait disparaître un rappel de 22 h 30 sous celui de 23 h,
+  c'est-à-dire perdre ce que la personne avait demandé.
+*/
 self.addEventListener('push', function (event) {
   if (event.data) {
     try {
@@ -11,6 +38,19 @@ self.addEventListener('push', function (event) {
           url: data.url || '/'
         }
       };
+
+      // `renotify` sans `tag` lève une TypeError et la notification n'est jamais
+      // affichée : les deux vont ensemble, ou aucun des deux.
+      if (data.tag) {
+        options.tag = data.tag;
+        options.renotify = true;
+      }
+
+      if (data.persistante) {
+        options.requireInteraction = true;
+        // Une vibration courte : c'est le seul signal qui traverse une poche.
+        options.vibrate = [200, 100, 200];
+      }
 
       event.waitUntil(self.registration.showNotification(title, options));
     } catch (e) {

@@ -9,6 +9,7 @@ import { normaliserJours } from '../utils/recurrence';
 import { extrairePlan, reparerJson } from '../utils/extractionPlan';
 import { listesIllisibles, reparerListe, type ListeIllisible } from '../utils/etatLocal';
 import { composerOuverture } from '../utils/ouverture';
+import { SuggestionsCoach } from './SuggestionsCoach';
 import { ajouterNotification } from '../utils/notifications';
 import './AIChat.css';
 import { api } from '../services/api';
@@ -988,6 +989,18 @@ export const AIChat: React.FC = () => {
         </div>
       </div>
 
+      {/*
+        Les propositions ne s'affichent qu'avant le premier mot.
+
+        Tant que la conversation se résume à la phrase d'ouverture, la personne n'a
+        rien demandé : c'est le seul moment où proposer aide. Dès qu'elle a parlé,
+        un rang de boutons au-dessus de la conversation n'est plus une aide, c'est
+        du décor — et il volerait la place de la réponse sur un téléphone.
+      */}
+      {messages.length === 1 && messages[0].estOuverture && !isTyping && (
+        <SuggestionsCoach onChoisir={(texte) => handleSend(undefined, texte)} />
+      )}
+
       <div className="chat-input-area glass-panel">
         <form onSubmit={handleSend} className="chat-form">
           <input
@@ -996,7 +1009,7 @@ export const AIChat: React.FC = () => {
             placeholder={
               isTyping
                 ? `${aiName} réfléchit — ta question part juste après`
-                : 'Pose-moi une question sur tes objectifs...'
+                : 'Demande-lui un plan, un rappel, un conseil…'
             }
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}

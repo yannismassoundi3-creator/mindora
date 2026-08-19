@@ -428,6 +428,32 @@ describe('PushService — tournée des briefs du matin', () => {
       expect(bilan.envoyes).toBe(1);
     });
 
+    it('porte un tag propre à ce rappel, et refuse de s’évaporer', async () => {
+      /*
+        Un utilisateur : « je la reçois bien, mais elle est au milieu de plein
+        d'autres ». On ne peut pas se classer devant les autres applications — le
+        rang appartient au système. On peut deux choses, et elles sont ici.
+
+        Le tag doit être **unique par rappel**. Un tag commun « rappel » ferait
+        remplacer celui de 22 h 30 par celui de 23 h : la personne perdrait ce
+        qu'elle avait elle-même demandé, sans que rien ne le signale. C'est
+        l'inverse exact du regroupement voulu pour les messages ambiants, qui,
+        eux, se répètent.
+
+        Et `persistante` n'est vrai qu'ici : c'est la seule notification dont
+        l'heure a été choisie par la personne.
+      */
+      prisma.pushSubscription.findMany.mockResolvedValue([
+        { id: 's1', endpoint: 'https://push.example/abc', p256dh: 'p', auth: 'a' },
+      ]);
+
+      await service.envoyerRappels();
+
+      const charge = JSON.parse((webpush.sendNotification as jest.Mock).mock.calls[0][1]);
+      expect(charge.tag).toBe('rappel-r1');
+      expect(charge.persistante).toBe(true);
+    });
+
     it('laisse la ligne ouverte quand personne n’est joignable', async () => {
       /*
         Un téléphone éteint cinq minutes ne doit pas coûter le rappel : la

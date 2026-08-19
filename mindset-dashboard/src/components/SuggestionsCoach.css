@@ -1,0 +1,81 @@
+/*
+  Les propositions vivent juste au-dessus du champ de saisie : c'est là que le
+  regard se pose quand on ne sait pas quoi écrire, et le seul endroit où elles ne
+  repoussent pas la conversation hors de l'écran.
+
+  **Aucune couleur n'est écrite en dur ici**, et ce n'est pas de la coquetterie :
+  l'application a un thème clair (`theme-monochrome-light`) où `--primary` vaut du
+  presque noir. Un fond blanc translucide et une bordure blanche, réflexe naturel
+  sur une interface sombre, y donneraient des boutons invisibles — le piège que ce
+  projet a déjà payé plusieurs fois.
+*/
+
+.suggestions-coach {
+  padding: 0 14px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.suggestions-coach-intro {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--secondary);
+}
+
+/*
+  Elles défilent horizontalement plutôt que de passer à la ligne : trois phrases
+  empilées prendraient un tiers de l'écran d'un téléphone au moment précis où l'on
+  veut voir la réponse du coach. L'inertie est conservée sur iOS, où une bande qui
+  s'arrête net passe pour un blocage.
+*/
+.suggestions-coach-liste {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+
+.suggestions-coach-liste::-webkit-scrollbar {
+  display: none;
+}
+
+.suggestions-coach-puce {
+  flex: 0 0 auto;
+  /* Une puce ne se coupe jamais en deux lignes : elle se lit d'un coup d'œil, ou
+     elle ne sert à rien. */
+  white-space: nowrap;
+  padding: 8px 14px;
+  border-radius: 999px;
+
+  /* Un gris neutre d'abord : il tient sur fond clair comme sur fond sombre, et
+     reste la valeur affichée si `color-mix` n'est pas compris. */
+  border: 1px solid rgba(128, 128, 128, 0.35);
+  border: 1px solid color-mix(in srgb, var(--secondary) 45%, transparent);
+  background: var(--bg-panel);
+  color: inherit;
+
+  font-size: 0.82rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.suggestions-coach-puce:hover {
+  border-color: var(--accent-text);
+}
+
+.suggestions-coach-puce:active {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .suggestions-coach-puce {
+    transition: none;
+  }
+  .suggestions-coach-puce:active {
+    transform: none;
+  }
+}

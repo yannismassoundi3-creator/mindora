@@ -315,6 +315,16 @@ export class PushService implements OnModuleInit {
           title: '⏰ Rappel',
           body: r.texte,
           url: this.lienVers(),
+          /*
+            Un tag par rappel, jamais un tag « rappel » commun : chacun porte un
+            texte que personne d'autre ne porte, et les fondre ferait disparaître
+            celui de 22 h 30 sous celui de 23 h. La persistance, en revanche, est
+            ici et nulle part ailleurs : c'est la personne qui a fixé cette heure,
+            et une notification qu'elle a demandée ne doit pas s'évaporer avant
+            qu'elle regarde son téléphone.
+          */
+          tag: `rappel-${r.id}`,
+          persistante: true,
         });
 
         if (envoyees > 0) {
@@ -518,6 +528,7 @@ export class PushService implements OnModuleInit {
 
         const envoi = await this.sendNotification(user.id, {
           title: this.coupDePouce.titre(situation),
+          tag: 'coup-de-pouce',
           body,
           // Une reprise se joue dans la conversation, pas sur un tableau de bord :
           // quelqu'un qui a décroché a besoin de redécider quoi faire, ce qui est
@@ -600,6 +611,7 @@ export class PushService implements OnModuleInit {
     const body = texte ?? this.coupDePouce.texteFactuel(user.first_name, situation);
     const envoi = await this.sendNotification(user.id, {
       title: this.coupDePouce.titre(situation),
+      tag: 'coup-de-pouce',
       body,
       url: this.lienVers(situation.raison === 'reprise' ? 'chat' : 'dashboard'),
     });
@@ -681,6 +693,7 @@ export class PushService implements OnModuleInit {
             // AI Dynamic Adjustment Prompt
             await this.sendNotification(user.id, {
               title: '🤖 Coach IA : Stratégie',
+              tag: 'progression',
               body: 'Je remarque que tu as du mal depuis quelques jours. Ouvre le Chat IA pour réduire la difficulté de tes objectifs.',
               url: this.lienVers('chat')
             });
@@ -700,6 +713,7 @@ export class PushService implements OnModuleInit {
             const serie = this.morningBrief.computeStreak(scores);
             await this.sendNotification(user.id, {
               title: progression(),
+              tag: 'progression',
               body:
                 serie >= 2
                   ? `Journée pleine. Ça fait ${serie + 1} jours d'affilée.`
@@ -710,6 +724,7 @@ export class PushService implements OnModuleInit {
             // Warning 1st day miss
             await this.sendNotification(user.id, {
               title: progression(),
+              tag: 'progression',
               body: "Rien de coché aujourd'hui, et tu avais tenu hier. Il te reste la soirée.",
               url: this.lienVers()
             });
@@ -733,6 +748,7 @@ export class PushService implements OnModuleInit {
           if (missedDays === 2) {
             await this.sendNotification(user.id, {
               title: progression(),
+              tag: 'progression',
               body: "Deux jours sans rien cocher. Une seule case ce soir, et tu repars.",
               url: this.lienVers()
             });
@@ -740,6 +756,7 @@ export class PushService implements OnModuleInit {
             const serie = this.morningBrief.computeStreak(scores);
             await this.sendNotification(user.id, {
               title: progression(),
+              tag: 'progression',
               body:
                 serie >= 2
                   ? `Ta série de ${serie} jours s'arrête à minuit. Une case suffit à la garder.`
@@ -820,6 +837,7 @@ export class PushService implements OnModuleInit {
 
         await this.sendNotification(user.id, {
           title: '📊 Bilan de ta semaine',
+          tag: 'bilan',
           body: texte,
           url: this.lienVers(abonne ? 'chat' : 'dashboard'),
         });
@@ -1088,6 +1106,9 @@ export class PushService implements OnModuleInit {
     const envoi = await this.sendNotification(user.id, {
       title: texte ? '🎯 Ton brief du jour' : 'Réveil ! ☀️',
       body,
+      // Un brief par jour : si un second partait, il remplacerait le premier au
+      // lieu de s'empiler dessus.
+      tag: 'brief',
       // Seule notification restée en dur après le passage des six autres à lienApp() :
       // elle visait le bon domaine, donc rien ne clochait à l'œil. Un changement de
       // FRONTEND_URL l'aurait pourtant laissée seule derrière, sur l'ancienne adresse.
@@ -1153,6 +1174,7 @@ export class PushService implements OnModuleInit {
           const toutEstFait = avecProgression && aDesTaches && restantes === 0;
 
           await this.sendNotification(user.id, {
+            tag: 'progression',
             title: avecProgression && aDesTaches
               ? titreProgression(scores[aujourdhui] || 0, this.morningBrief.computeStreak(scores))
               : titreParDefaut,
