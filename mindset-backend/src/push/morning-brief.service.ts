@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { lireReponseGroq, corpsGroq } from '../common/groq';
+import { lireReponseGroq } from '../common/groq';
+import { chaineCourte, appelerMaillon, MaillonCourt } from '../common/chaine-courte';
 import { separerTaches } from './taches';
 import { MODELES_COURTS } from '../common/modeles';
 
@@ -143,8 +144,8 @@ export class MorningBriefService {
    * message générique. Une notification banale vaut mieux que pas de notification.
    */
   async generate(prenom: string, sync: any): Promise<string | null> {
-    const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey) return null;
+    const chaine = chaineCourte(process.env.GROQ_API_KEY);
+    if (chaine.length === 0) return null;
 
     const systeme = [
       "Tu es le coach personnel de l'utilisateur dans l'app Disciplix.",
@@ -160,38 +161,42 @@ export class MorningBriefService {
 
     const invite = this.buildPrompt(prenom, sync);
 
-    for (const modele of MorningBriefService.MODELES) {
-      const texte = await this.tenter(apiKey, modele, systeme, invite);
-      if (texte) return texte;
+    for (const maillon of chaine) {
+      const texte = await this.tenter(maillon, systeme, invite);
+      if (!texte) continue;
+
+      // Une dépense mérite sa trace : c'est la seule ligne qui relie l'argent
+      // sorti à la saturation gratuite qui l'a provoquée.
+      if (maillon.paye) {
+        this.logger.warn(`[Secours] 💳 Message du matin écrit par ${maillon.modele} — la chaîne gratuite a refusé`);
+      }
+      return texte;
     }
 
-    // Les deux modèles ont renoncé : l'appelant enverra le message générique.
+    // Toute la chaîne a renoncé : l'appelant enverra le message générique.
     this.logger.warn("Aucun modèle n'a pu écrire le message du matin");
     return null;
   }
 
   /** Un appel, sur un modèle donné. Retourne null pour laisser sa chance au suivant. */
-  private async tenter(apiKey: string, modele: string, systeme: string, invite: string): Promise<string | null> {
+  private async tenter(maillon: MaillonCourt, systeme: string, invite: string): Promise<string | null> {
+    const modele = maillon.modele;
     const controleur = new AbortController();
     const minuteur = setTimeout(() => controleur.abort(), MorningBriefService.TIMEOUT_MS);
 
     try {
-      const reponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(
-          corpsGroq({
-            modele,
-            messages: [
-              { role: 'system', content: systeme },
-              { role: 'user', content: invite },
-            ],
-            temperature: 0.7,
-            jetons: 80,
-          }),
-        ),
-        signal: controleur.signal,
-      });
+      const reponse = await appelerMaillon(
+        maillon,
+        {
+          messages: [
+            { role: 'system', content: systeme },
+            { role: 'user', content: invite },
+          ],
+          temperature: 0.7,
+          jetons: 80,
+        },
+        controleur.signal,
+      );
 
       if (!reponse.ok) {
         this.logger.warn(`Groq a répondu ${reponse.status} sur ${modele} pour le message du matin`);

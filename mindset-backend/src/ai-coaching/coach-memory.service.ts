@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { lireReponseGroq, corpsGroq } from '../common/groq';
+import { lireReponseGroq } from '../common/groq';
+import { chaineCourte, appelerMaillon, MaillonCourt } from '../common/chaine-courte';
 import { MODELES_COURTS } from '../common/modeles';
 
 /**
@@ -159,8 +160,8 @@ export class CoachMemoryService {
    * répondre à l'utilisateur.
    */
   async rafraichirMemoire(userId: string, profil: any): Promise<void> {
-    const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey || !profil) return;
+    const chaine = chaineCourte(process.env.GROQ_API_KEY);
+    if (chaine.length === 0 || !profil) return;
 
     const recemment =
       profil.memory_updated_at &&
@@ -201,9 +202,14 @@ export class CoachMemoryService {
       },
     ];
 
-    for (const modele of CoachMemoryService.MODELES) {
-      const note = await this.resumer(apiKey, modele, messages);
+    for (const maillon of chaine) {
+      const modele = maillon.modele;
+      const note = await this.resumer(maillon, messages);
       if (!note) continue;
+
+      if (maillon.paye) {
+        this.logger.warn(`[Secours] 💳 Mémoire longue résumée par ${modele} — la chaîne gratuite a refusé`);
+      }
 
       await this.prisma.aIProfile.update({
         where: { user_id: userId },
@@ -229,16 +235,12 @@ export class CoachMemoryService {
   static readonly MODELES = MODELES_COURTS;
 
   /** Un appel. Retourne null pour laisser sa chance au modèle suivant. */
-  private async resumer(apiKey: string, modele: string, messages: any[]): Promise<string | null> {
+  private async resumer(maillon: MaillonCourt, messages: any[]): Promise<string | null> {
+    const modele = maillon.modele;
     const controleur = new AbortController();
     const minuteur = setTimeout(() => controleur.abort(), 12000);
     try {
-      const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(corpsGroq({ modele, messages, temperature: 0.3, jetons: 300 })),
-        signal: controleur.signal,
-      });
+      const r = await appelerMaillon(maillon, { messages, temperature: 0.3, jetons: 300 }, controleur.signal);
       if (!r.ok) {
         this.logger.warn(`Groq a répondu ${r.status} sur ${modele} pour la mémoire longue`);
         return null;

@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { lireReponseGroq, corpsGroq } from '../common/groq';
+import { lireReponseGroq } from '../common/groq';
+import { chaineCourte, appelerMaillon, MaillonCourt } from '../common/chaine-courte';
 import type { LienHabitudeScore } from './analyse-habitudes.service';
 import { MODELES_COURTS } from '../common/modeles';
 
@@ -177,8 +178,8 @@ export class WeeklyReviewService {
    * reçoit rien croit que le service est mort.
    */
   async generate(prenom: string, s: SemaineEcoulee): Promise<string | null> {
-    const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey) return null;
+    const chaine = chaineCourte(process.env.GROQ_API_KEY);
+    if (chaine.length === 0) return null;
 
     const systeme = [
       "Tu es le coach personnel de l'utilisateur dans l'app Disciplix.",
@@ -194,9 +195,14 @@ export class WeeklyReviewService {
       'Réponds uniquement par le texte du bilan.',
     ].join(' ');
 
-    for (const modele of WeeklyReviewService.MODELES) {
-      const texte = await this.tenter(apiKey, modele, systeme, this.buildPrompt(prenom, s));
-      if (texte) return texte;
+    for (const maillon of chaine) {
+      const texte = await this.tenter(maillon, systeme, this.buildPrompt(prenom, s));
+      if (!texte) continue;
+
+      if (maillon.paye) {
+        this.logger.warn(`[Secours] 💳 Bilan hebdomadaire écrit par ${maillon.modele} — la chaîne gratuite a refusé`);
+      }
+      return texte;
     }
 
     this.logger.warn("Aucun modèle n'a pu écrire le bilan hebdomadaire");
@@ -221,8 +227,8 @@ export class WeeklyReviewService {
     s: SemaineEcoulee,
     levier?: LienHabitudeScore | null,
   ): Promise<string | null> {
-    const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey) return null;
+    const chaine = chaineCourte(process.env.GROQ_API_KEY);
+    if (chaine.length === 0) return null;
 
     const systeme = [
       "Tu es le coach personnel de l'utilisateur dans l'app Disciplix.",
@@ -236,16 +242,20 @@ export class WeeklyReviewService {
       'Réponds uniquement par le texte.',
     ].join(' ');
 
-    for (const modele of WeeklyReviewService.MODELES) {
+    for (const maillon of chaine) {
       const texte = await this.tenter(
-        apiKey,
-        modele,
+        maillon,
         systeme,
         this.buildPrompt(prenom, s, levier),
         WeeklyReviewService.PLAFOND_LECTURE,
         WeeklyReviewService.JETONS_LECTURE,
       );
-      if (texte) return texte;
+      if (!texte) continue;
+
+      if (maillon.paye) {
+        this.logger.warn(`[Secours] 💳 Lecture de la semaine écrite par ${maillon.modele} — la chaîne gratuite a refusé`);
+      }
+      return texte;
     }
 
     this.logger.warn("Aucun modèle n'a pu écrire la lecture de la semaine");
@@ -329,44 +339,49 @@ export class WeeklyReviewService {
    * chiffres sans texte, jamais une erreur.
    */
   async ecrire(systeme: string, invite: string, plafond: number, jetons: number): Promise<string | null> {
-    const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey) return null;
+    for (const maillon of chaineCourte(process.env.GROQ_API_KEY)) {
+      const texte = await this.tenter(maillon, systeme, invite, plafond, jetons);
+      if (!texte) continue;
 
-    for (const modele of WeeklyReviewService.MODELES) {
-      const texte = await this.tenter(apiKey, modele, systeme, invite, plafond, jetons);
-      if (texte) return texte;
+      /*
+        Cette ligne couvre deux surfaces, dont une payante pour l'utilisateur : le
+        bilan du dimanche et l'analyse complète, qui passe par la même plume. La
+        seconde est vendue avec l'abonnement — c'est celle qu'il serait le plus
+        coûteux de laisser s'éteindre en silence, et celle pour laquelle payer
+        quelques centimes se discute le moins.
+      */
+      if (maillon.paye) {
+        this.logger.warn(`[Secours] 💳 Texte de bilan écrit par ${maillon.modele} — la chaîne gratuite a refusé`);
+      }
+      return texte;
     }
     return null;
   }
 
   private async tenter(
-    apiKey: string,
-    modele: string,
+    maillon: MaillonCourt,
     systeme: string,
     invite: string,
     plafond: number = WeeklyReviewService.PLAFOND_CARACTERES,
     jetons = 120,
   ): Promise<string | null> {
+    const modele = maillon.modele;
     const controleur = new AbortController();
     const minuteur = setTimeout(() => controleur.abort(), WeeklyReviewService.TIMEOUT_MS);
 
     try {
-      const reponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(
-          corpsGroq({
-            modele,
-            messages: [
-              { role: 'system', content: systeme },
-              { role: 'user', content: invite },
-            ],
-            temperature: 0.7,
-            jetons,
-          }),
-        ),
-        signal: controleur.signal,
-      });
+      const reponse = await appelerMaillon(
+        maillon,
+        {
+          messages: [
+            { role: 'system', content: systeme },
+            { role: 'user', content: invite },
+          ],
+          temperature: 0.7,
+          jetons,
+        },
+        controleur.signal,
+      );
 
       if (!reponse.ok) {
         this.logger.warn(`Groq a répondu ${reponse.status} sur ${modele} pour le bilan hebdomadaire`);

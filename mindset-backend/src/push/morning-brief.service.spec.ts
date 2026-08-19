@@ -62,6 +62,34 @@ describe('MorningBriefService — écriture du message', () => {
     expect(modelesAppeles()).toEqual([MODELES_COURTS[0]]);
   });
 
+  it('descend jusqu’au fournisseur payant quand toute la chaîne gratuite a refusé', async () => {
+    /*
+      Le chat avait ce filet, le brief non : quand le quota gratuit tombait, la
+      notification du matin partait en version générique pour tout le monde, sans
+      qu'une seule erreur soit levée. Le maillon payant est en dernier — il ne
+      travaille que sur ce que Groq a refusé — et il laisse une trace, seule façon
+      de relier une dépense à la saturation qui l'a causée.
+    */
+    process.env.SECOURS_API_KEY = 'cle-payante';
+    process.env.SECOURS_MODELE = 'openai/gpt-oss-120b';
+    process.env.SECOURS_API_URL = 'https://inference.exemple/v1/chat/completions';
+
+    fetchMock
+      .mockResolvedValueOnce(reponseInterdite(MODELES_COURTS[0]))
+      .mockResolvedValueOnce(reponseInterdite(MODELES_COURTS[1]))
+      .mockResolvedValueOnce(reponseOk('Debout, ta série t’attend.'));
+
+    const texte = await service.generate('Yannis', sync);
+
+    expect(texte).toBe('Debout, ta série t’attend.');
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls[2][0]).toBe('https://inference.exemple/v1/chat/completions');
+
+    delete process.env.SECOURS_API_KEY;
+    delete process.env.SECOURS_MODELE;
+    delete process.env.SECOURS_API_URL;
+  });
+
   it('borne le raisonnement du modèle, sinon les 80 jetons partent en réflexion', async () => {
     /*
       Le budget du brief est de 80 jetons, et les modèles actuels réfléchissent
