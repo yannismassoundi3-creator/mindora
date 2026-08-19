@@ -120,9 +120,11 @@
   transition: transform 0.2s, opacity 0.2s, background-color 0.2s, border-color 0.2s, box-shadow 0.2s, color 0.2s;
 }
 
+@media (hover: hover) {
 .consume-btn:hover:not(:disabled) {
   background: rgba(16, 185, 129, 0.25);
   transform: scale(1.05);
+}
 }
 
 .consuming-anim {
@@ -195,9 +197,11 @@
   transition: transform 0.2s, opacity 0.2s, background-color 0.2s, border-color 0.2s, box-shadow 0.2s, color 0.2s;
 }
 
+@media (hover: hover) {
 .equip-btn:hover:not(.equipped) {
   background: rgba(255,255,255,0.1);
   color: var(--text);
+}
 }
 
 .equip-btn.equipped {

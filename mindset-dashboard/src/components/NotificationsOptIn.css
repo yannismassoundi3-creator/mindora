@@ -62,9 +62,11 @@
   transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
+@media (hover: hover) {
 .push-optin-btn:hover:not(:disabled) {
   opacity: 1;
   transform: translateY(-1px);
+}
 }
 
 .push-optin-btn:disabled {
@@ -132,10 +134,12 @@
   cursor: pointer;
 }
 
+@media (hover: hover) {
 .push-optin-fermer:hover,
 .push-optin-fermer:focus-visible {
   background: rgba(255, 255, 255, 0.1);
   color: #fff;
+}
 }
 
 .push-optin-ligne-detail {

@@ -1,3 +1,4 @@
+@media (hover: hover) {
 /*
   Deux pièges connus de ce projet sont traités ici, et il ne faut pas les défaire.
 
@@ -28,11 +29,14 @@
   cursor: pointer;
   transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
 }
+}
 
+@media (hover: hover) {
 .partage-semaine__declencheur.partage-semaine__declencheur:hover {
   color: #ffffff;
   border-color: rgba(255, 255, 255, 0.28);
   background: rgba(255, 255, 255, 0.08);
+}
 }
 
 .partage-semaine__fond {

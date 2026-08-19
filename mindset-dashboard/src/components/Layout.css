@@ -76,9 +76,11 @@
   font-weight: 500;
 }
 
+@media (hover: hover) {
 .nav-item:hover {
   background: rgba(255, 255, 255, 0.05);
   color: var(--primary);
+}
 }
 
 .nav-item.active {

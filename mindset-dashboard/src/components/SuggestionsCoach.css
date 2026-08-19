@@ -63,8 +63,10 @@
   transition: border-color 0.15s ease, transform 0.15s ease;
 }
 
+@media (hover: hover) {
 .suggestions-coach-puce:hover {
   border-color: var(--accent-text);
+}
 }
 
 .suggestions-coach-puce:active {

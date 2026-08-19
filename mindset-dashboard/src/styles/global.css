@@ -49,6 +49,7 @@ body {
   transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), background-color 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), border-color 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), color 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
+@media (hover: hover) {
 /* Premium Liquid Glass Hover for all interactive cards and buttons */
 .glass-panel-interactive:not(.btn-primary):hover, .reward-card:hover, .dressing-card:hover, .routine-item:hover, button:not(:disabled):not(.btn-primary):hover, .ai-notification-banner:hover, .chat-header:hover, .stat-box:hover, .profile-card:hover {
   transform: translateY(-4px) scale(1.02);
@@ -62,6 +63,7 @@ body {
     0 0 20px var(--accent-glow);
   filter: brightness(1.1);
   cursor: pointer;
+}
 }
 
 /* Premium Liquid Glass Active (Press/Touch) */
@@ -149,8 +151,10 @@ button, .nav-item, .bottom-nav-item, .routine-item, .ai-fab, .reward-card, .dres
   background: var(--border-light);
   border-radius: 10px;
 }
+@media (hover: hover) {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--border-focus);
+}
 }
 
 /*
@@ -199,7 +203,9 @@ button, .nav-item, .bottom-nav-item, .routine-item, .ai-fab, .reward-card, .dres
   color: var(--secondary);
   cursor: pointer;
 }
+@media (hover: hover) {
 .modal-close:hover { color: var(--primary); }
+}
 
 .modal-title {
   font-size: 1.5rem;
@@ -223,8 +229,10 @@ button, .nav-item, .bottom-nav-item, .routine-item, .ai-fab, .reward-card, .dres
   font-weight: 600;
   cursor: pointer;
 }
+@media (hover: hover) {
 .btn-secondary:hover {
   background: rgba(255, 255, 255, 0.12);
+}
 }
 
 /* Page Navigation Swipe Transitions */

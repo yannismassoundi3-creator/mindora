@@ -68,10 +68,12 @@
   position: relative;
 }
 
+@media (hover: hover) {
 .jarvis-popup-bubble:hover {
   transform: translateY(-2px);
   box-shadow: 0 0 35px rgba(236, 72, 153, 0.6), inset 0 0 20px rgba(236, 72, 153, 0.4);
   border-color: #ec4899;
+}
 }
 
 .jarvis-popup-header {
@@ -115,9 +117,11 @@
   color: #34d399;
 }
 
+@media (hover: hover) {
 .jarvis-popup-btn.success:hover {
   background: rgba(16, 185, 129, 0.3);
   transform: translateY(-2px);
+}
 }
 
 .jarvis-popup-btn.failure {
@@ -126,9 +130,11 @@
   color: #f87171;
 }
 
+@media (hover: hover) {
 .jarvis-popup-btn.failure:hover {
   background: rgba(239, 68, 68, 0.3);
   transform: translateY(-2px);
+}
 }
 
 .jarvis-popup-text {
@@ -277,9 +283,11 @@
   transition: transform 0.2s ease;
 }
 
+@media (hover: hover) {
 .jarvis-popup-bubble:hover .jarvis-popup-action svg {
   transform: translateX(4px);
   color: #ec4899;
+}
 }
 
 /*

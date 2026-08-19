@@ -136,12 +136,16 @@
   transition: opacity 0.2s;
 }
 
+@media (hover: hover) {
 .reward-card:hover .reward-delete-btn {
   opacity: 1;
 }
+}
 
+@media (hover: hover) {
 .reward-delete-btn:hover {
   color: #ef4444;
+}
 }
 
 .reward-icon-large {
@@ -180,9 +184,11 @@
   border: 1px solid rgba(251, 191, 36, 0.3);
 }
 
+@media (hover: hover) {
 .buy-btn.affordable:hover {
   background: rgba(251, 191, 36, 0.25);
   transform: translateY(-2px);
+}
 }
 
 .buy-btn.expensive {
@@ -220,9 +226,11 @@
   transition: transform 0.2s, opacity 0.2s, background-color 0.2s, border-color 0.2s, box-shadow 0.2s, color 0.2s;
 }
 
+@media (hover: hover) {
 .add-reward-card:hover {
   border-color: var(--primary);
   background: rgba(255,255,255,0.02);
+}
 }
 
 .add-icon-wrapper {

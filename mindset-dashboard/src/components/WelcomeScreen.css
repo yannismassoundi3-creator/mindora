@@ -126,9 +126,11 @@
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+@media (hover: hover) {
 .welcome-btn:hover {
   transform: translateY(-2px) scale(1.05);
   box-shadow: 0 8px 25px rgba(139, 92, 246, 0.5);
+}
 }
 
 .welcome-btn:active {

@@ -264,9 +264,11 @@
   transition: transform 0.2s, opacity 0.2s, background-color 0.2s, border-color 0.2s, box-shadow 0.2s, color 0.2s;
 }
 
+@media (hover: hover) {
 .chat-action-btn:hover {
   background: rgba(255,255,255,0.1);
   border-color: rgba(255,255,255,0.2);
+}
 }
 
 .chat-messages-area {
@@ -519,9 +521,11 @@
   box-shadow: 0 4px 15px rgba(236, 72, 153, 0.3);
 }
 
+@media (hover: hover) {
 .chat-send-btn:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(236, 72, 153, 0.5);
+}
 }
 
 .chat-send-btn:disabled {

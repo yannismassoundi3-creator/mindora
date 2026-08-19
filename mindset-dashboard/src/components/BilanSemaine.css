@@ -241,8 +241,10 @@
   min-height: 44px;
 }
 
+@media (hover: hover) {
 .bilan__verrou-action:hover {
   filter: brightness(1.08);
+}
 }
 
 /* --- Le thème clair --- */

@@ -1,0 +1,137 @@
+/*
+  Ce qui distingue une application d'un site web, au doigt.
+
+  Rapporté par des utilisateurs : « quand je veux cocher quelque chose, ça
+  rebondit », « ça fait site web ». Les deux ont la même origine, et elle n'est
+  pas dans le code de l'application : **le survol se colle sur un écran tactile.**
+  Un téléphone n'a pas de pointeur ; quand on touche un élément, le navigateur
+  déclenche quand même `:hover` et le **laisse actif** jusqu'à ce qu'on touche
+  ailleurs. Une case cochée portant `:hover { transform: scale(1.1) }` avec une
+  courbe à dépassement grossit donc en rebondissant, et reste grossie. C'était le
+  cas de 88 règles dans cette application.
+
+  Elles sont désormais toutes enfermées dans `@media (hover: hover)` : elles ne
+  s'appliquent qu'à un appareil qui possède réellement un pointeur. Ce fichier
+  pose ce qui doit prendre leur place — le retour au toucher — et les quatre
+  autres réflexes qui trahissent le navigateur.
+
+  **Une contrepartie à connaître :** plusieurs commandes n'apparaissaient que
+  parce que le survol restait collé (le crayon d'une routine, la corbeille d'une
+  récompense). Sans elles, ces boutons deviendraient inatteignables au doigt. Les
+  rendre visibles sur tactile n'est donc pas un choix de goût, c'est la condition
+  pour que le reste tienne.
+*/
+
+/*
+  Le rectangle gris qui clignote sur ce qu'on touche : c'est le marqueur le plus
+  reconnaissable d'une page web, et aucune application n'en affiche.
+*/
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/*
+  L'appui long qui sélectionne du texte, et le menu « Copier / Rechercher /
+  Partager » d'iOS par-dessus.
+
+  Une application ne fait ni l'un ni l'autre : on y appuie longuement pour
+  déplacer ou pour ouvrir un menu qu'elle a dessiné, jamais pour attraper des
+  mots. Les champs de saisie gardent évidemment tout leur comportement — sans
+  quoi on ne pourrait plus corriger ce qu'on tape.
+*/
+body {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+input,
+textarea,
+select,
+[contenteditable='true'] {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
+/*
+  Le rebond élastique quand on tire la page au-delà de sa fin, et le
+  tirer-pour-rafraîchir d'Android.
+
+  Le second est le pire des deux : dans une application, un geste vers le bas en
+  haut de l'écran ne recharge rien — ici il rechargeait toute l'application, ce
+  qui ressemble à un plantage pour qui ne connaît pas la manœuvre.
+*/
+html,
+body {
+  overscroll-behavior: none;
+}
+
+/*
+  Le retard de 300 ms avant qu'un toucher ne soit pris en compte, et le zoom au
+  double-toucher qui le cause.
+
+  `manipulation` conserve le défilement et le pincement, et supprime seulement le
+  double-toucher : le navigateur n'a donc plus à attendre un éventuel second
+  appui avant de réagir au premier. C'est ce délai, invisible mais senti, qui
+  fait qu'une interface web « répond mollement » à côté d'une native.
+*/
+body,
+button,
+a,
+label,
+select,
+[role='button'],
+.routine-checkbox,
+.habit-card,
+.reward-card {
+  touch-action: manipulation;
+}
+
+/*
+  Le retour au toucher, qui remplace le survol.
+
+  Un bouton natif s'assombrit sous le doigt et revient dès qu'on le lâche : le
+  geste est confirmé pendant qu'il a lieu, pas après. On atténue plutôt que de
+  déformer — une mise à l'échelle entrerait en conflit avec les `transform` que
+  portent déjà certains éléments (centrages, décalages), et rejouerait le rebond
+  qu'on vient de retirer.
+*/
+@media (hover: none) {
+  button:active,
+  a:active,
+  [role='button']:active {
+    opacity: 0.6;
+    /* Assez court pour être perçu comme instantané, assez long pour être vu. */
+    transition: opacity 0.08s ease-out;
+  }
+
+  /* Ce qu'on cochait « avec un rebond » : maintenant, un appui franc. */
+  .routine-checkbox:active {
+    opacity: 1;
+    transform: scale(0.88);
+    transition: transform 0.06s ease-out;
+  }
+
+  /*
+    Les commandes que le survol révélait, et que plus rien ne révélerait.
+    Toujours visibles au doigt : c'est le seul moyen de les atteindre.
+  */
+  .routine-edit-btn,
+  .edit-habit-btn,
+  .edit-hint,
+  .reward-delete-btn {
+    opacity: 1;
+  }
+
+  /*
+    L'infobulle des barres du graphe suivait le survol. À l'appui, elle
+    s'affiche tant que le doigt reste posé, et disparaît quand il se lève — elle
+    ne peut donc plus rester collée sur une barre qu'on a quittée.
+  */
+  .bar-col:active .bar-tooltip {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+    top: -30px;
+  }
+}

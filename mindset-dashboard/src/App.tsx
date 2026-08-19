@@ -28,6 +28,8 @@ import { reconcilierPaiement, controlerAbonnement, activerPro, retenirFormule, t
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import './styles/global.css';
 import './index.css';
+// En dernier : il neutralise des reflexes de navigateur poses plus haut.
+import './styles/tactile.css';
 
 // Lazy load heavy pages for code-splitting
 const Shop = React.lazy(() => import('./pages/Shop').then(module => ({ default: module.Shop })));

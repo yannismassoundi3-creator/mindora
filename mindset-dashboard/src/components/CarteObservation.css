@@ -58,8 +58,10 @@
   min-height: 44px;
 }
 
+@media (hover: hover) {
 .observation-carte__action:hover {
   filter: brightness(1.08);
+}
 }
 
 /* Le thème clair redéfinit les fonds en noir translucide ; le dégradé du bouton,
@@ -96,8 +98,10 @@ body.theme-monochrome-light .observation-carte__entete {
   min-height: 32px;
 }
 
+@media (hover: hover) {
 .observation-carte__deplier:hover {
   text-decoration: underline;
+}
 }
 
 .observation-analyse,
@@ -166,8 +170,10 @@ body.theme-monochrome-light .observation-carte__entete {
   min-height: 44px;
 }
 
+@media (hover: hover) {
 .observation-verrou__action:hover {
   background: rgba(251, 191, 36, 0.12);
+}
 }
 
 body.theme-monochrome-light .observation-analyse__texte,

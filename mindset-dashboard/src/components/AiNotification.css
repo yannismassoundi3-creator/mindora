@@ -196,11 +196,13 @@
   box-shadow: none !important;
 }
 
+@media (hover: hover) {
 .ai-notification-banner .ai-notification-close:hover,
 .ai-notification-banner .ai-notification-close:focus-visible {
   background: rgba(255, 255, 255, 0.18);
   color: #fff;
   box-shadow: none !important;
+}
 }
 
 /*

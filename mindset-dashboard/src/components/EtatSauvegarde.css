@@ -51,9 +51,11 @@
   transition: color 0.2s ease, border-color 0.2s ease;
 }
 
+@media (hover: hover) {
 .sauvegarde-pastille-memoire:hover {
   color: var(--primary);
   border-color: rgba(255, 255, 255, 0.24);
+}
 }
 
 .sauvegarde-reessayer {
@@ -84,9 +86,11 @@
   inset: -11px -8px;
 }
 
+@media (hover: hover) {
 .sauvegarde-reessayer:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(255, 255, 255, 0.4);
+}
 }
 
 .sauvegarde-reessayer:disabled {
@@ -171,8 +175,10 @@
   font-weight: 600;
 }
 
+@media (hover: hover) {
 .sauvegarde-btn-principal:hover {
   box-shadow: 0 0 16px rgba(255, 255, 255, 0.25);
+}
 }
 
 .sauvegarde-btn-discret {
@@ -181,9 +187,11 @@
   color: var(--secondary);
 }
 
+@media (hover: hover) {
 .sauvegarde-btn-discret:hover {
   border-color: rgba(255, 255, 255, 0.4);
   color: var(--primary);
+}
 }
 
 @keyframes sauvegarde-apparait {

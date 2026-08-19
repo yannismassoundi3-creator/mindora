@@ -154,8 +154,10 @@
   z-index: 3;
 }
 
+@media (hover: hover) {
 .macro-card:hover .edit-hint {
   opacity: 1;
+}
 }
 
 
@@ -203,10 +205,12 @@
   height: 140px;
 }
 
+@media (hover: hover) {
 .add-macro-card:hover {
   background: rgba(255,255,255,0.08) !important;
   color: var(--primary);
   border-color: rgba(255,255,255,0.3);
+}
 }
 
 /* MICRO LIST */
@@ -303,7 +307,9 @@
   cursor: pointer;
   padding: 4px;
 }
+@media (hover: hover) {
 .inline-edit-btn:hover { color: var(--primary); }
+}
 
 .add-micro-btn {
   display: flex;
@@ -322,10 +328,12 @@
   transition: transform 0.2s ease, opacity 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
 }
 
+@media (hover: hover) {
 .add-micro-btn:hover {
   background: rgba(255,255,255,0.05);
   color: var(--primary);
   border-color: var(--primary);
+}
 }
 
 /* FORMS */
@@ -399,7 +407,9 @@
   align-items: center;
   justify-content: center;
 }
+@media (hover: hover) {
 .btn-delete:hover { background: rgba(239, 68, 68, 0.4); }
+}
 
 .btn-delete-full {
   background: transparent;
@@ -446,8 +456,10 @@
   transition: transform 0.2s;
 }
 
+@media (hover: hover) {
 .gradient-swatch:hover {
   transform: scale(1.1);
+}
 }
 
 .gradient-swatch.selected {
@@ -579,6 +591,7 @@
   }
 }
 
+@media (hover: hover) {
 /* Ces cartes cumulent overflow:hidden, backdrop-filter et une mise à l'échelle au
    survol. Firefox re-rastérise le calque de flou à la mauvaise taille pendant le
    scale et rogne visiblement le contenu ; Chromium ne le fait pas, d'où un défaut
@@ -595,6 +608,7 @@
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   background: rgba(28, 28, 32, 0.92) !important;
+}
 }
 
 /* Le survol ne s'applique qu'aux appareils qui pointent réellement. Sur tactile il

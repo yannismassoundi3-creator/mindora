@@ -47,9 +47,11 @@
   z-index: 10;
 }
 
+@media (hover: hover) {
 .pricing-close-btn:hover {
   background: rgba(255, 255, 255, 0.2);
   transform: rotate(90deg);
+}
 }
 
 .pricing-header {
@@ -218,9 +220,11 @@
   overflow: hidden;
 }
 
+@media (hover: hover) {
 .btn-subscribe:hover {
   transform: translateY(-2px);
   box-shadow: 0 10px 25px rgba(139, 92, 246, 0.4);
+}
 }
 
 .btn-subscribe.loading {
@@ -254,6 +258,7 @@
   cursor: pointer;
 }
 
+@media (hover: hover) {
 /* Trois classes plus le survol, pour passer devant
    `button:not(:disabled):not(.btn-primary):hover` de global.css, qui soulève et
    éclaircit tout bouton survolé. */
@@ -262,6 +267,7 @@
   background: transparent;
   transform: none;
   box-shadow: none;
+}
 }
 
 .pricing-card .pricing-deja-paye:disabled {

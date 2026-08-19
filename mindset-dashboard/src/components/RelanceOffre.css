@@ -64,9 +64,11 @@
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
+@media (hover: hover) {
 .relance-offre-cta:hover {
   transform: translateY(-1px);
   box-shadow: 0 6px 18px rgba(251, 191, 36, 0.28);
+}
 }
 
 /* Volontairement discret, et surtout pas peint avec une variable de thème :
@@ -85,9 +87,11 @@
   transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
+@media (hover: hover) {
 .relance-offre-btn:hover {
   opacity: 1;
   transform: translateY(-1px);
+}
 }
 
 /* Côte à côte sur un écran étroit, « Plus tard » se touche par erreur — et un

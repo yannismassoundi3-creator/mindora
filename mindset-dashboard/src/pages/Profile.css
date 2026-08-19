@@ -159,10 +159,12 @@
   transition: transform 0.3s, opacity 0.3s, background-color 0.3s, border-color 0.3s, box-shadow 0.3s, color 0.3s;
 }
 
+@media (hover: hover) {
 .btn-save-profile:hover {
   filter: brightness(1.2);
   transform: translateY(-2px);
   box-shadow: 0 0 15px rgba(255,255,255,0.2);
+}
 }
 
 .btn-save-profile.saved {
@@ -310,9 +312,11 @@ input:checked + .slider:before {
   transition: background-color 0.2s, border-color 0.2s;
 }
 
+@media (hover: hover) {
 .btn-admin-acces:hover {
   background: rgba(0, 242, 254, 0.2);
   border-color: rgba(0, 242, 254, 0.6);
+}
 }
 
 .btn-purge {
@@ -330,9 +334,11 @@ input:checked + .slider:before {
   transition: transform 0.2s, opacity 0.2s, background-color 0.2s, border-color 0.2s, box-shadow 0.2s, color 0.2s;
 }
 
+@media (hover: hover) {
 .btn-purge:hover {
   background: #ef4444;
   color: var(--primary);
+}
 }
 
 /* Theme Picker */
@@ -351,8 +357,10 @@ input:checked + .slider:before {
   transition: transform 0.2s, opacity 0.2s, background-color 0.2s, border-color 0.2s, box-shadow 0.2s, color 0.2s;
 }
 
+@media (hover: hover) {
 .theme-swatch:hover {
   transform: scale(1.1);
+}
 }
 
 .theme-swatch.selected {
@@ -382,9 +390,11 @@ input:checked + .slider:before {
   transition: color 0.2s;
 }
 
+@media (hover: hover) {
 .legal-link:hover {
   color: var(--primary);
   text-decoration: underline;
+}
 }
 
 /* Legal Modal */

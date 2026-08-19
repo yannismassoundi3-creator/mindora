@@ -64,6 +64,7 @@
   line-height: 1.35;
 }
 
+@media (hover: hover) {
 /*
   Deux classes, et le conteneur en plus pour le survol : `body.theme-monochrome-dark
   button` impose un rayon et un halo en `!important` à tous les boutons, et
@@ -80,12 +81,15 @@
   cursor: pointer;
   line-height: 0;
 }
+}
 
+@media (hover: hover) {
 .pro-actif .pro-actif-fermer:hover:not(:disabled) {
   color: var(--primary);
   background: transparent;
   transform: none;
   box-shadow: none;
+}
 }
 
 @keyframes pro-actif-entree {

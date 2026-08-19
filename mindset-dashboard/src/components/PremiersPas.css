@@ -119,8 +119,10 @@
   box-shadow: none !important;
 }
 
+@media (hover: hover) {
 .premiers-pas .premiers-pas-action:hover {
   background: color-mix(in srgb, var(--primary) 26%, transparent) !important;
+}
 }
 
 @media (max-width: 900px) {
