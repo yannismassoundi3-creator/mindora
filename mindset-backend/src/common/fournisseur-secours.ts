@@ -114,22 +114,27 @@ export async function verifierSecours(): Promise<EtatSecours> {
         model: secours.modele,
         messages: [{ role: 'user', content: 'Réponds seulement : ok' }],
         /*
-          Ce que ce contrôle prouve, et ce qu'il ne prouve pas.
+          Un budget assez large pour qu’une phrase existe.
 
-          Il demandait 5 jetons, ce qui condamnait tout modèle réfléchissant avant
-          d'écrire à rendre un contenu vide : le contrôle accusait alors le
-          fournisseur d'un défaut qui venait de lui-même.
+          Ce contrôle demandait 5 jetons. C’est assez pour un modèle qui écrit
+          directement, et strictement insuffisant pour un modèle qui réfléchit
+          d’abord : ses premiers jetons partent dans le raisonnement et `content`
+          revient vide. Le contrôle accusait alors le fournisseur d’un défaut qui
+          venait de lui-même.
 
-          200 jetons ne suffisent pas non plus à le garantir — mesuré le 19 août
-          2026 : un GPT-OSS à qui l'on accorde 300 jetons en dépense 298 en
-          raisonnement, et 498 sur 500. **Ce contrôle établit donc que l'adresse
-          répond et que la clé est acceptée, pas qu'une phrase en sort.** On s'y
-          tient : le modèle du secours vient d'une variable d'environnement, chez
-          un service dont on ne sait rien, et le seul réglage qui bornerait son
-          raisonnement se dit dans un vocabulaire propre à chaque famille — un mot
-          étranger vaut un 400, donc un dernier maillon perdu pour un contrôle.
-          La chaîne payante ne sert que le chat, dont les 1500 jetons absorbent un
-          raisonnement complet : le risque réel est nul là où il compte.
+          200 jetons ne sont pas une garantie pour autant — mesuré le 19 août 2026
+          chez Groq : sur cette invite triviale, un GPT-OSS à qui l’on accorde 300
+          jetons en dépense 298 et 498 sur 500, l’invite courte étant précisément
+          ce qui le fait ruminer. **C’est pour cela que le cas « 200 sans texte »
+          est diagnostiqué plus bas au lieu d’être imputé à l’adresse** : il
+          nomme `finish_reason` et les champs du message, seuls capables de
+          distinguer un budget trop court d’un fournisseur qui ne rend pas le
+          format attendu.
+
+          Le verdict, lui, exige bien une phrase : un 200 vide vaut échec. Vert
+          ici veut donc dire que du texte sort du secours, pas seulement que
+          l’adresse répond — vérifié en production le 19 août 2026 sur
+          `openai/gpt-oss-120b` chez Baseten, 688 ms.
         */
         max_tokens: 200,
         temperature: 0,
