@@ -4,7 +4,7 @@ import { CoachMemoryService } from './coach-memory.service';
 import { RappelService } from './rappel.service';
 import { ObservationService } from './observation.service';
 import { AnalyseHabitudesService } from '../push/analyse-habitudes.service';
-import { lireReponseGroq } from '../common/groq';
+import { lireReponseGroq, pourModele } from '../common/groq';
 import { lireFournisseurSecours, FournisseurSecours } from '../common/fournisseur-secours';
 import { MODELES_CHAT } from '../common/modeles';
 
@@ -1135,8 +1135,8 @@ RÈGLES DE COMPORTEMENT :
 
       try {
         const response = secours
-          ? await this.appelerModele(secours.apiKey, { ...corps, model: modele }, secours.url, restant)
-          : await this.appelerModele(apiKey, { ...corps, model: modele }, undefined, restant);
+          ? await this.appelerModele(secours.apiKey, pourModele(corps, modele, false), secours.url, restant)
+          : await this.appelerModele(apiKey, pourModele(corps, modele), undefined, restant);
         if (secours) {
           // Une requête payante mérite sa ligne : c'est la seule trace qui relie la
           // dépense à la saturation qui l'a provoquée.

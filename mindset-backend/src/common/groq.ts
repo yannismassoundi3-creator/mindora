@@ -13,6 +13,8 @@
  * caractères, ce qui absorbe la coupure sans que personne ne la voie jamais.
  */
 
+import { effortDeRaisonnement } from './modeles';
+
 export interface ReponseGroq {
   /** Le texte rendu par le modèle, sans espaces de bord, ou `null` s'il est vide. */
   texte: string | null;
@@ -31,4 +33,57 @@ export function lireReponseGroq(data: any): ReponseGroq {
   const contenu = typeof choix?.message?.content === 'string' ? choix.message.content.trim() : '';
 
   return { texte: contenu || null, tronque: choix?.finish_reason === 'length' };
+}
+
+/**
+ * Le corps d'un appel de complétion, construit en un seul endroit.
+ *
+ * Sept appels distincts écrivaient leur propre littéral. C'est le même défaut que
+ * les cinq listes de modèles du 18 août : le jour où un réglage manque à tous, il
+ * faut le retrouver sept fois, et on en oublie. Le réglage en question est
+ * `reasoning_effort`, sans lequel les modèles actuels dépensent en réflexion tout
+ * le budget des textes courts et ne rendent rien — voir `effortDeRaisonnement`.
+ */
+export interface DemandeGroq {
+  modele: string;
+  messages: any[];
+  temperature: number;
+  /** `max_tokens` : la réponse **et** le raisonnement se servent dedans. */
+  jetons: number;
+}
+
+export function corpsGroq({ modele, messages, temperature, jetons }: DemandeGroq): Record<string, any> {
+  const effort = effortDeRaisonnement(modele);
+  return {
+    model: modele,
+    messages,
+    temperature,
+    max_tokens: jetons,
+    ...(effort ? { reasoning_effort: effort } : {}),
+  };
+}
+
+/**
+ * Le même corps, réadressé au maillon suivant de la chaîne.
+ *
+ * Le chat compose son corps une fois puis le repasse de modèle en modèle. Le
+ * réglage de raisonnement, lui, **ne se transporte pas** : `low` est valide chez
+ * GPT-OSS et refusé par Qwen d'un 400 sec. Reconduire l'ancienne valeur ferait
+ * échouer le maillon de secours au seul moment où l'on compte dessus — et
+ * l'échec ressemblerait à un modèle mort. D'où le retrait avant recalcul.
+ *
+ * `avecEffort: false` pour le fournisseur de secours : son modèle vient d'une
+ * variable d'environnement, chez un service dont on ne sait rien. Il ne travaille
+ * que sur le chat, dont le budget de 1500 jetons absorbe un raisonnement complet.
+ * Ne rien lui envoyer est donc sans coût, là où un paramètre refusé coûterait le
+ * dernier maillon de la chaîne.
+ */
+export function pourModele(
+  corps: Record<string, any>,
+  modele: string,
+  avecEffort = true,
+): Record<string, any> {
+  const { reasoning_effort: _ignore, ...reste } = corps;
+  const effort = avecEffort ? effortDeRaisonnement(modele) : undefined;
+  return { ...reste, model: modele, ...(effort ? { reasoning_effort: effort } : {}) };
 }

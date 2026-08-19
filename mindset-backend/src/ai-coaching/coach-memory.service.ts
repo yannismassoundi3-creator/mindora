@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { lireReponseGroq } from '../common/groq';
+import { lireReponseGroq, corpsGroq } from '../common/groq';
 import { MODELES_COURTS } from '../common/modeles';
 
 /**
@@ -236,7 +236,7 @@ export class CoachMemoryService {
       const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: modele, messages, temperature: 0.3, max_tokens: 300 }),
+        body: JSON.stringify(corpsGroq({ modele, messages, temperature: 0.3, jetons: 300 })),
         signal: controleur.signal,
       });
       if (!r.ok) {

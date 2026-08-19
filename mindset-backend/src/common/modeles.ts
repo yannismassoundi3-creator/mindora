@@ -60,3 +60,38 @@ export const MODELES_COURTS = ['openai/gpt-oss-20b', 'openai/gpt-oss-120b'];
 export function tousLesModeles(): string[] {
   return [...new Set([...MODELES_CHAT, ...MODELES_COURTS])];
 }
+
+/**
+ * Le réglage de raisonnement à envoyer pour ce modèle, ou `undefined` s'il n'en
+ * accepte aucun.
+ *
+ * **Les trois modèles qui ont remplacé les llama éteints réfléchissent avant
+ * d'écrire, et leur réflexion se paie sur le même budget que leur réponse.**
+ * Mesuré le 19 août 2026 contre le vrai Groq : `openai/gpt-oss-20b` à qui l'on
+ * accorde 80 jetons — le budget du brief du matin — en dépense 80 en
+ * raisonnement, rend `content: ""` et `finish_reason: "length"`. À 300 jetons,
+ * il en dépense 298. À 500, 498. Le budget n'est jamais assez grand : ce n'est
+ * pas une question de taille, c'est que rien ne borne le raisonnement tant qu'on
+ * ne le borne pas explicitement.
+ *
+ * Conséquence, exactement celle de la panne précédente et par le même chemin :
+ * brief du matin, coup de pouce, phrase d'ouverture, bilan du dimanche et
+ * mémoire longue rendaient du vide, chaque service retombait proprement sur son
+ * repli local, et **rien ne levait d'erreur**. Le correctif du 18 août avait
+ * remplacé des modèles morts par des modèles muets.
+ *
+ * Avec le réglage ci-dessous, le même appel à 80 jetons dépense 6 jetons de
+ * raisonnement et rend une vraie phrase. Le bloc `<PLAN>` du chat reste du JSON
+ * valide sur les trois modèles — vérifié avant d'écrire cette ligne.
+ *
+ * **Le vocabulaire n'est pas le même d'une famille à l'autre, et une valeur
+ * étrangère est un 400, pas un défaut ignoré** : les GPT-OSS n'acceptent que
+ * `low`, `medium` ou `high` ; Qwen 3.6 n'accepte que `none` ou `default`.
+ * D'où cette fonction plutôt qu'une constante — et `undefined` pour tout modèle
+ * inconnu, car ne rien envoyer est le seul choix qui ne casse jamais un appel.
+ */
+export function effortDeRaisonnement(modele: string): string | undefined {
+  if (modele.startsWith('openai/gpt-oss')) return 'low';
+  if (modele.startsWith('qwen/')) return 'none';
+  return undefined;
+}

@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { lireReponseGroq } from '../common/groq';
+import { lireReponseGroq, corpsGroq } from '../common/groq';
 import type { LienHabitudeScore } from './analyse-habitudes.service';
 import { MODELES_COURTS } from '../common/modeles';
 
@@ -354,15 +354,17 @@ export class WeeklyReviewService {
       const reponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: modele,
-          messages: [
-            { role: 'system', content: systeme },
-            { role: 'user', content: invite },
-          ],
-          temperature: 0.7,
-          max_tokens: jetons,
-        }),
+        body: JSON.stringify(
+          corpsGroq({
+            modele,
+            messages: [
+              { role: 'system', content: systeme },
+              { role: 'user', content: invite },
+            ],
+            temperature: 0.7,
+            jetons,
+          }),
+        ),
         signal: controleur.signal,
       });
 

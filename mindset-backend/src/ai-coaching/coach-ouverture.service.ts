@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CoachMemoryService } from './coach-memory.service';
-import { lireReponseGroq } from '../common/groq';
+import { lireReponseGroq, corpsGroq } from '../common/groq';
 
 /**
  * La première phrase du coach — celle qu'il dit avant qu'on lui ait rien demandé.
@@ -315,12 +315,14 @@ export class CoachOuvertureService {
       const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: modele,
-          messages,
-          temperature: 0.7,
-          max_tokens: CoachOuvertureService.MAX_JETONS,
-        }),
+        body: JSON.stringify(
+          corpsGroq({
+            modele,
+            messages,
+            temperature: 0.7,
+            jetons: CoachOuvertureService.MAX_JETONS,
+          }),
+        ),
         signal: controleur.signal,
       });
       if (!r.ok) {

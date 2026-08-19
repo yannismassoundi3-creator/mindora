@@ -1,4 +1,5 @@
 import { MODELES_CHAT, MODELES_COURTS, tousLesModeles } from './modeles';
+import { corpsGroq, lireReponseGroq } from './groq';
 
 /**
  * Est-ce que les modèles qu'on appelle existent encore ?
@@ -81,16 +82,24 @@ async function tester(apiKey: string, modele: string): Promise<EtatModele> {
     const reponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: modele,
-        messages: [{ role: 'user', content: 'Réponds seulement : ok' }],
-        // Large assez pour un modèle qui raisonne avant d'écrire : avec cinq
-        // jetons, un GPT-OSS épuise son budget dans son raisonnement et rend un
-        // contenu vide. Le contrôle accuserait alors le fournisseur d'un défaut
-        // qui vient de lui-même — le pire diagnostic possible.
-        max_tokens: 200,
-        temperature: 0,
-      }),
+      body: JSON.stringify(
+        corpsGroq({
+          modele,
+          messages: [{ role: 'user', content: 'Réponds seulement : ok' }],
+          temperature: 0,
+          /*
+            Le budget le plus serré du produit, pas un budget confortable.
+
+            Ce contrôle demandait 200 jetons quand le brief du matin en accorde
+            80. Il a donc certifié verts, le 18 août au soir, trois modèles qui
+            rendaient tous un `content` vide en production : ils réfléchissaient
+            avant d'écrire et épuisaient les 80 jetons dans leur raisonnement.
+            **Un contrôle plus indulgent que la production ne contrôle rien** — il
+            met un tampon sur la panne qu'il était censé trouver.
+          */
+          jetons: 80,
+        }),
+      ),
       signal: controleur.signal,
     });
 
@@ -106,6 +115,26 @@ async function tester(apiKey: string, modele: string): Promise<EtatModele> {
         // decommissioned », « model not found » — ce qu'aucune phrase écrite ici
         // ne saurait faire. La clé n'apparaît jamais dans un corps de réponse.
         erreur: `${reponse.status} — ${corps.slice(0, 200)}`,
+        usages: usagesDe(modele),
+      };
+    }
+
+    const { texte } = lireReponseGroq(await reponse.json());
+
+    /*
+      Répondre n'est pas écrire.
+
+      Un modèle à raisonnement rend 200 avec un `content` vide quand son budget
+      part entièrement dans sa réflexion : la requête a réussi, et il ne s'est rien
+      écrit. S'arrêter au statut HTTP, c'est déclarer vivante une chaîne dont pas
+      un maillon ne produit une phrase — précisément la panne du 18 août 2026.
+    */
+    if (!texte) {
+      return {
+        modele,
+        ok: false,
+        latenceMs,
+        erreur: "Réponse vide en 80 jetons : le modèle dépense son budget avant d'écrire.",
         usages: usagesDe(modele),
       };
     }

@@ -62,6 +62,24 @@ describe('MorningBriefService — écriture du message', () => {
     expect(modelesAppeles()).toEqual([MODELES_COURTS[0]]);
   });
 
+  it('borne le raisonnement du modèle, sinon les 80 jetons partent en réflexion', async () => {
+    /*
+      Le budget du brief est de 80 jetons, et les modèles actuels réfléchissent
+      avant d'écrire sur ce même budget : sans ce réglage, mesuré contre le vrai
+      Groq, ils rendent un contenu vide et le brief part en version générique pour
+      tout le monde — sans qu'aucune erreur ne soit levée nulle part. C'est ce qui
+      s'est produit du 18 au 19 août 2026. Le test regarde donc ce qui est envoyé,
+      pas seulement ce qui revient.
+    */
+    fetchMock.mockResolvedValueOnce(reponseOk('Debout, ta série t’attend.'));
+
+    await service.generate('Yannis', sync);
+
+    const corps = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(corps.reasoning_effort).toBeDefined();
+    expect(corps.max_tokens).toBe(80);
+  });
+
   it('bascule sur le gros modèle quand le petit est interdit sur le projet', async () => {
     fetchMock
       .mockResolvedValueOnce(reponseInterdite(MODELES_COURTS[0]))

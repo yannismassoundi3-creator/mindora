@@ -114,18 +114,22 @@ export async function verifierSecours(): Promise<EtatSecours> {
         model: secours.modele,
         messages: [{ role: 'user', content: 'Réponds seulement : ok' }],
         /*
-          Assez large pour qu'un modèle à raisonnement puisse répondre.
+          Ce que ce contrôle prouve, et ce qu'il ne prouve pas.
 
-          Ce contrôle demandait 5 jetons. C'est suffisant pour un modèle qui écrit
-          directement, et strictement insuffisant pour un GPT-OSS ou tout autre
-          modèle qui réfléchit d'abord : ses premiers jetons partent dans le
-          raisonnement, le budget est épuisé avant le premier mot de réponse, et
-          `content` revient vide. Le contrôle accusait alors le fournisseur d'un
-          défaut qui venait de lui-même — le pire diagnostic possible, celui qui
-          envoie corriger une configuration correcte.
+          Il demandait 5 jetons, ce qui condamnait tout modèle réfléchissant avant
+          d'écrire à rendre un contenu vide : le contrôle accusait alors le
+          fournisseur d'un défaut qui venait de lui-même.
 
-          200 jetons de sortie coûtent un dix-millième d'euro. Il n'y avait aucune
-          raison d'être aussi avare.
+          200 jetons ne suffisent pas non plus à le garantir — mesuré le 19 août
+          2026 : un GPT-OSS à qui l'on accorde 300 jetons en dépense 298 en
+          raisonnement, et 498 sur 500. **Ce contrôle établit donc que l'adresse
+          répond et que la clé est acceptée, pas qu'une phrase en sort.** On s'y
+          tient : le modèle du secours vient d'une variable d'environnement, chez
+          un service dont on ne sait rien, et le seul réglage qui bornerait son
+          raisonnement se dit dans un vocabulaire propre à chaque famille — un mot
+          étranger vaut un 400, donc un dernier maillon perdu pour un contrôle.
+          La chaîne payante ne sert que le chat, dont les 1500 jetons absorbent un
+          raisonnement complet : le risque réel est nul là où il compte.
         */
         max_tokens: 200,
         temperature: 0,
