@@ -10,11 +10,13 @@ import {
   baseDeComparaisonConnue,
   confirmerEtat,
   copieDeConflit,
+  empreinteCanonique,
   impositionExigee,
   impositionTerminee,
   keepaliveAcceptable,
   memoriserVersionServeur,
   mettreDeCoteAvantConflit,
+  oublierCopieDeConflit,
   oublierEmpreinte,
   versionServeurConnue,
 } from '../utils/synchro';
@@ -542,7 +544,7 @@ export const api = {
           met la copie locale de côté, on adopte celle du serveur — la plus
           récente — et on laisse la personne trancher, avec un bouton pour revenir.
         */
-        console.warn('[synchro] Conflit entre appareils : la version locale est mise de côté.');
+        const avantAdoption = empreinteCanonique(construireEtatLocal());
         const copieFaite = mettreDeCoteAvantConflit();
 
         // L'empreinte est oubliée avant d'adopter : sans ça, l'état distant qu'on
@@ -550,6 +552,33 @@ export const api = {
         // local, et tout paraîtrait « non sauvegardé » pour toujours.
         oublierEmpreinte();
         await api.adopterEtatDistant();
+
+        /*
+          Un conflit contre soi-même ne se raconte pas à la personne.
+
+          Le 409 dit « la version du serveur a bougé depuis celle sur laquelle tu
+          t'es appuyé ». Il ne dit pas que les deux versions **diffèrent**. Or le
+          cas le plus courant, de loin, est celui où elles sont identiques : deux
+          onglets du même navigateur, ou l'application installée à côté du site,
+          partagent le même stockage local et envoient donc le même contenu. Le
+          premier fait avancer la ligne, le second se fait refuser — et l'écran
+          demandait alors de départager deux versions rigoureusement égales. C'est
+          ce que les utilisateurs ont signalé comme « ça revient souvent ».
+
+          La question honnête n'est pas « le serveur a-t-il bougé ? » mais
+          « quelque chose a-t-il changé ici en adoptant ? ». Si rien n'a changé,
+          on efface la copie mise de côté, on ne dit rien, et le travail continue.
+          Un vrai conflit entre deux appareils, lui, modifie l'écran : il reste
+          signalé, exactement comme avant.
+        */
+        if (empreinteCanonique(construireEtatLocal()) === avantAdoption) {
+          if (copieFaite) oublierCopieDeConflit();
+          console.info('[synchro] Version du serveur adoptée : contenu identique, rien à départager.');
+          signalerEtatSynchro();
+          return true;
+        }
+
+        console.warn('[synchro] Conflit entre appareils : la version locale est mise de côté.');
         if (copieFaite) window.dispatchEvent(new Event('synchroConflit'));
         signalerEtatSynchro();
         return true;

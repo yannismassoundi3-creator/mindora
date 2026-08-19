@@ -340,3 +340,37 @@ export function keepaliveAcceptable(corps: unknown): boolean {
     return false;
   }
 }
+
+/**
+ * La même empreinte, mais insensible à l'ordre des clés.
+ *
+ * Elle sert à une question précise, et à une seule : **après avoir adopté la
+ * version du serveur, quelque chose a-t-il réellement changé ici ?** Si la réponse
+ * est non, le « conflit » que le serveur vient de signaler n'oppose pas deux
+ * versions — il oppose un état à lui-même, et il n'y a rien à faire trancher par
+ * la personne.
+ *
+ * L'ordre des clés doit être neutralisé, sans quoi la comparaison répondrait
+ * toujours « oui » : les colonnes de synchro sont du `jsonb` PostgreSQL, un type
+ * qui **ne conserve pas l'ordre des clés d'un objet**. Un aller-retour par le
+ * serveur suffit donc à réécrire le même contenu dans un autre ordre, et
+ * `JSON.stringify` en tirerait une empreinte différente pour des données
+ * identiques.
+ *
+ * `empreinte` elle-même n'est délibérément pas touchée : sa stabilité repose sur
+ * l'ordre littéral de `construireEtatLocal()`, c'est écrit là-bas, et lui faire
+ * trier ses clés changerait le sens de toutes les confirmations déjà enregistrées.
+ */
+export function empreinteCanonique(valeur: unknown): string {
+  const trier = (v: any): any => {
+    if (Array.isArray(v)) return v.map(trier);
+    if (v && typeof v === 'object') {
+      const range: Record<string, any> = {};
+      for (const cle of Object.keys(v).sort()) range[cle] = trier(v[cle]);
+      return range;
+    }
+    return v;
+  };
+
+  return empreinte(trier(valeur));
+}
