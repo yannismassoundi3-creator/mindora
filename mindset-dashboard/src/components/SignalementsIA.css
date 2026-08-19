@@ -1,0 +1,67 @@
+/*
+  Aucune couleur écrite en dur : l'application a un thème clair où `--primary`
+  vaut du presque noir, et un fond blanc translucide y donnerait des cartes
+  invisibles.
+*/
+
+.signalements {
+  margin-top: 32px;
+}
+
+.signalements-titre {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+  font-size: 1.1rem;
+}
+
+.signalements-intro,
+.signalements-vide {
+  margin: 0 0 14px;
+  color: var(--secondary);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.signalement {
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(128, 128, 128, 0.3);
+  border: 1px solid color-mix(in srgb, var(--secondary) 40%, transparent);
+  background: var(--bg-panel);
+}
+
+.signalement-tete {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 6px;
+  font-size: 0.78rem;
+}
+
+.signalement-qui {
+  font-weight: 700;
+}
+
+.signalement-quand {
+  color: var(--secondary);
+}
+
+.signalement-message {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  /* Le texte du coach peut être long et contenir des retours à la ligne. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.signalement-motif {
+  margin: 8px 0 0;
+  color: var(--secondary);
+  font-size: 0.82rem;
+  font-style: italic;
+}

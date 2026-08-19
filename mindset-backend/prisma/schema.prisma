@@ -53,6 +53,7 @@ model User {
   coup_de_pouce         CoupDePouce?
   relances              RelanceEmail[]
   ouvertures            AppOuverture[]
+  signalements_ia       SignalementIA[]
   /// D'ou vient cette inscription : la valeur du parametre `?s=` du lien suivi.
   ///
   /// Rien ne la captait avant le 17 aout 2026, si bien qu'aucune inscription
@@ -641,4 +642,29 @@ model OfferPrompt {
   user           User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([dernier_palier])
+}
+
+/// Signalement d'une réponse du coach jugée choquante, fausse ou dangereuse.
+///
+/// Apple exige, pour toute application où une IA écrit du texte lu par des gens,
+/// un moyen de signaler ce qu'elle produit — l'absence de ce mécanisme est un
+/// motif de rejet à elle seule. Mais l'intérêt n'est pas d'abord réglementaire :
+/// c'est le seul canal par lequel on apprend qu'un modèle a dérapé. Sans lui, une
+/// mauvaise réponse est vue par une personne, une seule fois, et personne d'autre
+/// ne le saura jamais.
+///
+/// Le texte signalé est copié ici : l'historique du chat vit dans le navigateur et
+/// se remet à zéro chaque jour, donc l'appelant ne pourrait plus le retrouver.
+model SignalementIA {
+  id      String   @id @default(uuid())
+  user_id String
+  user    User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  /// La réponse du coach, telle qu'elle a été lue.
+  message String
+  /// Ce que la personne en dit, si elle a pris la peine de l'écrire.
+  motif   String?
+  traite  Boolean  @default(false)
+  cree_le DateTime @default(now())
+
+  @@index([cree_le])
 }

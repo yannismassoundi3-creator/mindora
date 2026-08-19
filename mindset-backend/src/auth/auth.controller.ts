@@ -1,7 +1,8 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, Res, UseGuards, Req, Get } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, Res, UseGuards, Req, Get, Delete } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
+import { SuppressionCompteService } from './suppression-compte.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -13,7 +14,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService, private readonly suppression: SuppressionCompteService) {}
 
   /**
    * Options du cookie de rafraîchissement.
@@ -201,5 +202,28 @@ export class AuthController {
   async getProfile(@Req() req: Request) {
     const userId = (req.user as any).userId;
     return this.authService.getUserProfile(userId);
+  }
+
+  /**
+   * Supprimer son compte.
+   *
+   * Il n'existait aucun moyen de le faire depuis l'application : la page vie
+   * privée renvoyait vers une adresse e-mail. C'est un droit du RGPD, et un motif
+   * de rejet quasi automatique sur l'App Store depuis 2022.
+   *
+   * Le mot de passe est exigé — pas par formalisme : c'est la seule action du
+   * produit qu'aucune sauvegarde ne rattrape, et une session laissée ouverte sur
+   * un téléphone posé sur une table suffirait sinon.
+   *
+   * La cadence est serrée pour la même raison que la connexion : le champ accepte
+   * un mot de passe, donc il se devine.
+   */
+  @Delete('compte')
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Supprimer définitivement son compte et ses données' })
+  async supprimerCompte(@Req() req: Request, @Body('motDePasse') motDePasse: string) {
+    const userId = (req.user as any).userId;
+    return this.suppression.supprimer(userId, motDePasse);
   }
 }

@@ -6,6 +6,34 @@ import { debutDuJourParis } from '../common/jour-paris';
 export class AdminService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Les réponses du coach que des gens ont signalées.
+   *
+   * Un signalement que personne ne lit ne vaut pas mieux que pas de signalement :
+   * il donne seulement l'illusion d'un garde-fou. D'où cette lecture, et le
+   * prénom de qui a signalé — pour pouvoir répondre à quelqu'un plutôt que de
+   * contempler une statistique.
+   */
+  async getSignalements() {
+    const lignes = await this.prisma.signalementIA.findMany({
+      orderBy: { cree_le: 'desc' },
+      take: 50,
+      include: { user: { select: { first_name: true, email: true } } },
+    });
+
+    return {
+      total: await this.prisma.signalementIA.count(),
+      signalements: lignes.map((l) => ({
+        id: l.id,
+        quand: l.cree_le,
+        prenom: l.user?.first_name ?? '—',
+        email: l.user?.email ?? '—',
+        message: l.message,
+        motif: l.motif,
+      })),
+    };
+  }
+
   async getDashboardStats() {
     const totalUsers = await this.prisma.user.count();
     

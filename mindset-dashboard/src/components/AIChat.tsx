@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, User, Sparkles, Undo2, Wrench, Zap, MessageSquare } from 'lucide-react';
+import { Send, User, Sparkles, Undo2, Wrench, Zap, MessageSquare , Flag } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { playBloopSound } from '../utils/sounds';
 import { AI_COSMETICS } from '../utils/cosmetics';
@@ -172,6 +172,8 @@ export const AIChat: React.FC = () => {
   }, [messages]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  // Les identifiants deja signales : le bouton ne se reclique pas.
+  const [signales, setSignales] = useState<number[]>([]);
   const [isAiAwake, setIsAiAwake] = useState(true);
   const [equippedSkinId, setEquippedSkinId] = useState<string | null>(() => localStorage.getItem('mindset_ai_skin_id'));
   
@@ -534,6 +536,26 @@ export const AIChat: React.FC = () => {
     window.dispatchEvent(new Event('storage'));
 
     return { sauvegarde, illisibles: [] };
+  };
+
+  /**
+   * Signaler une réponse du coach.
+   *
+   * Rien n'est annulé ni retiré de l'écran : la personne a déjà lu le message, le
+   * faire disparaître ne la protégerait de rien et lui donnerait l'impression
+   * d'avoir cassé quelque chose. On accuse réception, et c'est tout.
+   *
+   * L'échec est silencieux, à dessein. Un signalement qui échoue est une gêne
+   * pour nous, pas pour elle ; lui afficher une erreur reviendrait à lui demander
+   * de gérer un problème qui ne la concerne plus.
+   */
+  const signalerMessage = async (id: number, texte: string) => {
+    setSignales((liste) => [...liste, id]);
+    try {
+      await api.post('/ai-coaching/signalement', { message: texte });
+    } catch (e) {
+      console.warn('[signalement] non enregistré', e);
+    }
   };
 
   const handleSend = async (e?: React.FormEvent, directMessage?: string) => {
@@ -960,6 +982,30 @@ export const AIChat: React.FC = () => {
                   </button>
                 )}
                 <span className="message-time">{msg.timestamp}</span>
+                {/*
+                  Signaler une réponse : discret, mais présent sur chacune.
+
+                  Une IA qui écrit finit par écrire quelque chose de choquant, de
+                  faux ou de dangereux. Sans ce bouton, cela arrive une fois, à
+                  une personne, et personne d'autre ne l'apprend jamais —
+                  l'historique du chat vit dans son navigateur et s'y remet à zéro
+                  chaque nuit. La phrase signalée est donc envoyée avec, sinon
+                  elle serait introuvable.
+
+                  Il n'apparaît pas sur la phrase d'ouverture : elle est composée
+                  ici, localement, dans cinq formulations écrites d'avance.
+                */}
+                {msg.sender === 'ai' && !msg.estOuverture && (
+                  <button
+                    className="message-signaler"
+                    onClick={() => signalerMessage(msg.id, msg.text)}
+                    disabled={signales.includes(msg.id)}
+                    title="Signaler cette réponse"
+                  >
+                    <Flag size={12} />
+                    {signales.includes(msg.id) ? 'Signalé, merci' : 'Signaler'}
+                  </button>
+                )}
               </div>
               {msg.sender === 'user' && (
                 <div className="message-avatar user">

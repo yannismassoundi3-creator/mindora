@@ -278,6 +278,26 @@ export class SubscriptionsService {
    * lancée depuis le webhook ferait de surcroît rejouer l'événement par Stripe pendant
    * trois jours.
    */
+  /**
+   * Résilier avant de supprimer un compte — la même opération, l'échec en plus.
+   *
+   * `resilierRecurrents` avale ses erreurs, et c'est correct là où elle sert :
+   * l'accès à vie vient d'être accordé, le refuser parce que Stripe n'a pas
+   * répondu serait pire. Ici l'arbitrage s'inverse. Supprimer un compte dont
+   * l'abonnement continue de tourner prélève 9,99 € par mois à quelqu'un qui n'a
+   * plus aucun moyen de se connecter pour l'arrêter : l'échec doit remonter et
+   * interrompre la suppression.
+   */
+  async resilierPourSuppression(clientStripe: string): Promise<void> {
+    const FACTURABLES = ['active', 'trialing', 'past_due', 'unpaid'];
+    const abos = await this.stripe.subscriptions.list({ customer: clientStripe, status: 'all', limit: 20 });
+    for (const abo of abos.data) {
+      if (!FACTURABLES.includes(abo.status)) continue;
+      await this.stripe.subscriptions.cancel(abo.id);
+      console.log(`[Stripe] Suppression de compte : abonnement ${abo.id} (${abo.status}) résilié.`);
+    }
+  }
+
   private async resilierRecurrents(clientStripe: string) {
     const FACTURABLES = ['active', 'trialing', 'past_due', 'unpaid'];
     try {

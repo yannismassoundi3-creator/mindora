@@ -1,4 +1,4 @@
-import { Controller, Post, Patch, Get, Body, UseGuards, Req } from '@nestjs/common';
+import { BadRequestException, Controller, Post, Patch, Get, Body, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { AiCoachingService } from './ai-coaching.service';
@@ -435,6 +435,42 @@ export class AiCoachingController {
   async getHistory(@Req() req: Request) {
     const userId = (req.user as any)?.userId;
     return this.aiCoachingService.getChatHistory(userId);
+  }
+
+  /**
+   * Signaler une réponse du coach.
+   *
+   * Une IA qui écrit du texte lu par des gens finit par écrire quelque chose de
+   * choquant, de faux ou de dangereux. Sans ce canal, cela arrive **une fois, à
+   * une personne, et personne d'autre ne l'apprend** : le message vit dans son
+   * navigateur, l'historique s'y remet à zéro chaque nuit, et il ne reste rien.
+   * C'est aussi ce qu'Apple exige de toute application où une IA s'adresse au
+   * public — mais l'exigence rejoint ici l'intérêt du produit.
+   *
+   * Le texte signalé est recopié en base pour cette raison précise : le retrouver
+   * autrement serait impossible. La cadence est serrée parce que rien d'utile ne
+   * justifie dix signalements par minute.
+   */
+  @Post('signalement')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Signaler une réponse du coach jugée choquante ou dangereuse' })
+  async signaler(@Req() req: Request, @Body() corps: { message?: string; motif?: string }) {
+    const userId = (req.user as any)?.userId;
+    const message = (corps?.message ?? '').trim();
+
+    // Un signalement vide ne désigne rien : il encombrerait la liste que quelqu'un
+    // doit lire, et c'est cette lisibilité qui fait tout l'intérêt du mécanisme.
+    if (!message) throw new BadRequestException('Aucun message à signaler.');
+
+    await this.prisma.signalementIA.create({
+      data: {
+        user_id: userId,
+        message: message.slice(0, 4000),
+        motif: (corps?.motif ?? '').trim().slice(0, 500) || null,
+      },
+    });
+
+    return { enregistre: true };
   }
 
   /*

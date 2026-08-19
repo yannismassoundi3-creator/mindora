@@ -6,11 +6,16 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { PrismaModule } from '../prisma/prisma.module';
+import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
+import { SuppressionCompteService } from './suppression-compte.service';
 
 @Module({
   imports: [
     PrismaModule,
     PassportModule,
+    // Pour résilier l'abonnement avant d'effacer le compte : un prélèvement
+    // survivant à son titulaire serait pire que pas de suppression du tout.
+    SubscriptionsModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -23,7 +28,7 @@ import { PrismaModule } from '../prisma/prisma.module';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, JwtStrategy, SuppressionCompteService],
   exports: [AuthService],
 })
 export class AuthModule {}

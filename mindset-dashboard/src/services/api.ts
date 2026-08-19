@@ -302,6 +302,39 @@ export const api = {
   },
 
   /**
+   * Une suppression, avec un corps.
+   *
+   * Elle n'existait pas : le client ne savait que lire, écrire et modifier. La
+   * seule route qui en a besoin est la suppression de compte, et elle transporte
+   * un mot de passe — d'où le corps, que `fetch` accepte parfaitement en DELETE
+   * même si la méthode ne l'exige pas.
+   *
+   * Pas de rejeu après un 401 : cette route vit sous `/auth/`, où le
+   * rafraîchissement ne s'applique pas, et une seconde tentative silencieuse sur
+   * une action irréversible serait la dernière chose à souhaiter.
+   */
+  del: async (endpoint: string, data?: any) => {
+    const res = await fetch(`${API_URL}${endpoint}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${localStorage.getItem('mindset_token')}`,
+      },
+      body: data ? JSON.stringify(data) : undefined,
+      credentials: 'include',
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      const error: any = new Error(err.message || 'API Error');
+      error.status = res.status;
+      error.code = err.code;
+      throw error;
+    }
+    return res.json();
+  },
+
+  /**
    * Écrit l'état du serveur par-dessus le local, sans rien demander.
    *
    * C'est le geste destructeur : il n'a le droit de s'exécuter que lorsqu'on sait

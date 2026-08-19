@@ -86,6 +86,19 @@ export class AdminController {
    * pour le secours, l appel est reel : lire un catalogue dans une documentation
    * ne prouve rien sur ce que cette cle-la peut appeler.
    */
+  /**
+   * Ce que le coach a écrit et qu'on lui a reproché.
+   *
+   * Même réserve d'accès que le reste : on y lit des messages nominatifs.
+   */
+  @Get('signalements')
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Réponses du coach signalées par les utilisateurs' })
+  async getSignalements() {
+    return this.adminService.getSignalements();
+  }
+
   @Get('modeles')
   @Roles('ADMIN')
   @Throttle({ default: { limit: 6, ttl: 60_000 } })

@@ -496,3 +496,65 @@ input:checked + .slider:before {
   /* Le champ natif garde le fond clair du système en thème sombre sans ça. */
   color-scheme: dark light;
 }
+
+/*
+  La suppression de compte, visuellement séparée de la purge.
+
+  Les deux vivent dans la même carte rouge, et c'est justement le risque : purger
+  ses données laisse la personne connectée, supprimer son compte efface son
+  adresse et résilie son abonnement. Le trait et l'espace disent qu'on change de
+  nature, pas de degré.
+*/
+.separateur-danger {
+  height: 1px;
+  margin: 20px 0 14px;
+  background: rgba(239, 68, 68, 0.25);
+}
+
+.btn-supprimer-compte {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  color: #ef4444;
+}
+
+.champ-suppression {
+  width: 100%;
+  margin: 14px 0 6px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  background: rgba(0, 0, 0, 0.25);
+  color: inherit;
+  /* 16 px au moins : en dessous, iOS zoome la page à la mise au point du champ. */
+  font-size: 1rem;
+  font-family: inherit;
+}
+
+.erreur-suppression {
+  margin: 6px 0 0;
+  color: #ef4444;
+  font-size: 0.85rem;
+}
+
+.actions-suppression {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+/*
+  « Annuler » d'abord au clavier, mais second à l'œil : il ne doit pas être plus
+  facile à atteindre que le geste demandé, sans quoi on ferme par réflexe la
+  fenêtre qu'on venait d'ouvrir exprès.
+*/
+.btn-annuler-suppression {
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: transparent;
+  color: var(--secondary);
+  font-family: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}

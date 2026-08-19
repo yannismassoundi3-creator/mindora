@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { SuppressionCompteService } from './suppression-compte.service';
 
 /**
  * La session ne doit plus dépendre d'un cookie tiers.
@@ -37,7 +38,12 @@ describe('AuthController — rafraîchissement de session', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
-      providers: [{ provide: AuthService, useValue: authService }],
+      providers: [
+        { provide: AuthService, useValue: authService },
+        // Réclamé par le contrôleur depuis que la suppression de compte existe.
+        // Ces cas-ci ne l'appellent pas : un double vide suffit à monter le module.
+        { provide: SuppressionCompteService, useValue: {} },
+      ],
     })
       .overrideGuard(require('./guards/jwt-auth.guard').JwtAuthGuard)
       .useValue({ canActivate: () => true })

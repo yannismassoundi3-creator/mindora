@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Shield, HardDrive, AlertTriangle, Save, CheckCircle, Database, Palette, FileText, X, Crown, LogOut, Sparkles, Target, Lock } from 'lucide-react';
+import { User, Shield, HardDrive, AlertTriangle, Save, CheckCircle, Database, Palette, FileText, X, Crown, LogOut, Sparkles, Target, Lock, Trash2 } from 'lucide-react';
 import { PricingScreen } from './PricingScreen';
 import { playHoverSound, playClickSound, playToggleSound, playLevelUpSound } from '../utils/sounds';
 import { api } from '../services/api';
@@ -123,6 +123,10 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
 
   const [savedStatus, setSavedStatus] = useState(false);
   const [legalModal, setLegalModal] = useState<'legal' | 'cgu' | 'privacy' | null>(null);
+  const [suppressionOuverte, setSuppressionOuverte] = useState(false);
+  const [motDePasseSuppression, setMotDePasseSuppression] = useState('');
+  const [suppressionEnCours, setSuppressionEnCours] = useState(false);
+  const [erreurSuppression, setErreurSuppression] = useState<string | null>(null);
 
   const points = getSecurePoints();
   // Le niveau se lit sur l'expérience, pas sur les Coins : ceux-ci se dépensent.
@@ -233,6 +237,36 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
     setTimeout(() => setSavedStatus(false), 3000);
   };
 
+  /**
+   * Supprimer le compte, pour de bon.
+   *
+   * Le mot de passe est redemandé ici : c'est la seule action de l'application
+   * qu'aucune sauvegarde ne rattrape, et une session laissée ouverte sur un
+   * téléphone posé sur une table suffirait sinon.
+   *
+   * Le ménage local n'a lieu **qu'après** la réponse du serveur. Effacer d'abord
+   * emporterait le jeton dont l'appel a besoin, et un échec réseau laisserait
+   * quelqu'un déconnecté d'un compte qui existe toujours.
+   */
+  const supprimerLeCompte = async () => {
+    if (suppressionEnCours) return;
+    setSuppressionEnCours(true);
+    setErreurSuppression(null);
+
+    try {
+      await api.del('/auth/compte', { motDePasse: motDePasseSuppression });
+      oublierLaSession();
+      window.location.reload();
+    } catch (e: any) {
+      setErreurSuppression(
+        e?.status === 401
+          ? 'Mot de passe incorrect.'
+          : e?.message || "La suppression n'a pas pu aboutir. Réessaie dans un instant.",
+      );
+      setSuppressionEnCours(false);
+    }
+  };
+
   const handlePurge = () => {
     const confirmDelete = window.confirm("ATTENTION : Voulez-vous vraiment purger tout votre historique et remettre vos points à zéro ?");
     if (confirmDelete) {
@@ -273,9 +307,9 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
           <>
             <h2 className="modal-title">Politique de Confidentialité (Conformité RGPD)</h2>
             <p><strong>1. Collecte et finalité :</strong> Vos données (habitudes, routines, objectifs, historique des scores) sont stockées de manière sécurisée dans le Cloud pour permettre la synchronisation entre vos appareils. L'authentification requiert votre email de manière sécurisée.</p>
-            <p><strong>2. Sous-traitants (IA) :</strong> Vos messages adressés au Coach IA sont envoyés de manière éphémère aux fournisseurs d'intelligence artificielle partenaires (Groq, Google Gemini) pour générer une réponse. Aucune donnée n'est vendue pour l'entraînement de modèles tiers.</p>
+            <p><strong>2. Sous-traitants (IA) :</strong> Vos messages adressés au Coach IA sont envoyés de manière éphémère à <strong>Groq</strong> pour générer une réponse, et à <strong>Baseten</strong> lorsque Groq est saturé. Aucune donnée n'est vendue ni cédée pour l'entraînement de modèles tiers.</p>
             <p><strong>3. Sécurité :</strong> Les mots de passe sont hachés de manière irréversible via Argon2id. Les paiements sont chiffrés de bout en bout et gérés exclusivement par Stripe (nous ne stockons aucune carte bancaire sur nos serveurs).</p>
-            <p><strong>4. Vos droits :</strong> Conformément au RGPD, vous disposez d'un droit d'accès, de rectification, et d'effacement de vos données. Vous pouvez supprimer toutes vos données ou nous contacter via <strong>mindoraappli@gmail.com</strong>.</p>
+            <p><strong>4. Vos droits :</strong> Conformément au RGPD, vous disposez d'un droit d'accès, de rectification, et d'effacement de vos données. <strong>Vous pouvez supprimer votre compte et toutes vos données depuis cet écran</strong> (Zone de Danger → Supprimer mon compte) ; l'abonnement éventuel est résilié au passage. Pour toute autre demande : <strong>mindoraappli@gmail.com</strong>.</p>
           </>
         );
       default:
@@ -699,6 +733,26 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
             >
               <LogOut size={16}/> Se déconnecter
             </button>
+
+            {/*
+              Purger ses données et supprimer son compte ne sont pas deux degrés
+              d'une même chose : le premier vide l'application et laisse la
+              personne connectée, le second efface l'adresse, l'abonnement et tout
+              ce qui s'y rattache. Les présenter sans les distinguer ferait cliquer
+              sur l'un en croyant faire l'autre.
+            */}
+            <div className="separateur-danger" />
+            <p className="danger-text">
+              Supprimer ton compte efface définitivement ton adresse, ta progression et
+              tes conversations avec le coach. Ton abonnement est résilié au passage.
+              Rien n'est récupérable.
+            </p>
+            <button
+              className="btn-purge btn-supprimer-compte"
+              onClick={() => { playClickSound(); setSuppressionOuverte(true); }}
+            >
+              <Trash2 size={16}/> Supprimer mon compte
+            </button>
           </div>
 
           <div className="legal-footer">
@@ -709,6 +763,51 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
 
         </div>
       </div>
+
+      {/*
+        La confirmation, et pourquoi elle demande le mot de passe.
+
+        Une case à cocher ou un « êtes-vous sûr ? » se clique sans lire. Retaper
+        son mot de passe est le seul geste qui oblige à savoir ce qu'on fait, et
+        c'est aussi ce qui protège d'une session laissée ouverte sur un téléphone
+        qui n'est plus dans la bonne poche.
+      */}
+      {suppressionOuverte && (
+        <div className="modal-backdrop" onClick={() => !suppressionEnCours && setSuppressionOuverte(false)}>
+          <div className="modal-content glass-panel" onClick={e => e.stopPropagation()}>
+            <h3 className="card-title text-danger"><AlertTriangle size={18}/> Supprimer ton compte</h3>
+            <p className="danger-text">
+              Tout part : ton adresse, ta progression, tes conversations avec le coach.
+              Ton abonnement est résilié. Cette action ne peut pas être annulée.
+            </p>
+            <input
+              type="password"
+              className="champ-suppression"
+              placeholder="Ton mot de passe"
+              value={motDePasseSuppression}
+              onChange={e => setMotDePasseSuppression(e.target.value)}
+              autoComplete="current-password"
+            />
+            {erreurSuppression && <p className="erreur-suppression">{erreurSuppression}</p>}
+            <div className="actions-suppression">
+              <button
+                className="btn-purge btn-supprimer-compte"
+                onClick={supprimerLeCompte}
+                disabled={suppressionEnCours || !motDePasseSuppression}
+              >
+                {suppressionEnCours ? 'Suppression…' : 'Supprimer définitivement'}
+              </button>
+              <button
+                className="btn-annuler-suppression"
+                onClick={() => setSuppressionOuverte(false)}
+                disabled={suppressionEnCours}
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Legal Modal */}
       {legalModal && (
