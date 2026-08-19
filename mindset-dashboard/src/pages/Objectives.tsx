@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { confirmerValidation } from '../utils/journee';
 import { Target, Flag, Trophy, Plus, CheckCircle2, Circle, Pencil, Trash2, X } from 'lucide-react';
 import { playClickSound, playLevelUpSound } from '../utils/sounds';
 import { AI_COSMETICS } from '../utils/cosmetics';
@@ -198,9 +199,7 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
         
         if (isNowDone) {
           playLevelUpSound();
-          window.dispatchEvent(new CustomEvent('triggerShockwave', { 
-            detail: { x: window.innerWidth / 2, y: window.innerHeight / 2, color: '#3b82f6' } 
-          }));
+          confirmerValidation({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
           awardCoins(5, `objectif-${id}`);
         } else {
           playClickSound();
@@ -235,9 +234,7 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
           newProgress = obj.total;
           isNowDone = true;
           playLevelUpSound();
-          window.dispatchEvent(new CustomEvent('triggerShockwave', { 
-            detail: { x: window.innerWidth / 2, y: window.innerHeight / 2, color: '#3b82f6' } 
-          }));
+          confirmerValidation({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
           awardCoins(5, `objectif-${id}`);
         }
         
@@ -273,9 +270,7 @@ export const Objectives: React.FC<ObjectivesProps> = ({ onOpenChat }) => {
         const isNowDone = !m.done;
         if (isNowDone) {
           playLevelUpSound();
-          window.dispatchEvent(new CustomEvent('triggerShockwave', { 
-            detail: { x: window.innerWidth / 2, y: window.innerHeight / 2, color: '#f59e0b' } 
-          }));
+          confirmerValidation({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
           awardCoins(5, `objectif-${id}`);
         } else {
           playClickSound();

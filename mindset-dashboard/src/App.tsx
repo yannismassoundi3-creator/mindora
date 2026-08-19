@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { confirmerValidation } from './utils/journee';
 import { api, renvoyerProfilEnAttente, estInstallee } from './services/api';
 import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
@@ -13,7 +14,7 @@ import { SkeletonGlow } from './components/SkeletonGlow';
 import { ParticlesBackground } from './components/ParticlesBackground';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { PwaInstallPrompt } from './components/PwaInstallPrompt';
-import { ShockwaveOverlay } from './components/ShockwaveOverlay';
+import { AnneauValidation } from './components/AnneauValidation';
 import { GainFlottant } from './components/GainFlottant';
 import { AiNotification } from './components/AiNotification';
 import { AiExplanationModal } from './components/AiExplanationModal';
@@ -364,9 +365,7 @@ function App() {
 
           if (urlParams.get('success') === 'true') {
             setTimeout(() => {
-              window.dispatchEvent(new CustomEvent('triggerShockwave', { 
-                detail: { x: window.innerWidth / 2, y: window.innerHeight / 2, color: '#3b82f6' } 
-              }));
+              confirmerValidation({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
             }, 500); // Small delay to let the app render
             window.history.replaceState({}, document.title, window.location.pathname);
           }
@@ -604,7 +603,7 @@ function App() {
         )}
         <LevelUpOverlay />
         <RankUpOverlay />
-        <ShockwaveOverlay />
+        <AnneauValidation />
         <GainFlottant />
         <PwaInstallPrompt />
         <EtatSauvegarde />

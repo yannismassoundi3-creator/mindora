@@ -42,6 +42,37 @@ export function annoncerGain(
   window.dispatchEvent(new CustomEvent(EVENEMENT_GAIN, { detail: { ...position, texte, negatif, couleur } }));
 }
 
+export const EVENEMENT_VALIDATION = 'mindset:validation';
+
+/** Ce que la couche graphique reçoit quand quelque chose vient d'être validé. */
+export interface Validation {
+  x: number;
+  y: number;
+  /**
+   * Part de la journée faite **après** ce geste, entre 0 et 1.
+   *
+   * Absente là où elle n'aurait pas de sens : un objectif atteint ou un
+   * abonnement pris ne se rapportent à aucune journée. L'anneau n'est alors pas
+   * dessiné du tout — un anneau posé sur une part inventée serait pire que rien.
+   */
+  part?: number;
+}
+
+/*
+  La marque laissée à l'endroit touché quand une action est validée.
+
+  Remplace l'onde de 600 px qui traversait la page : elle partait deux fois pour
+  une seule tâche, floutait tout son passage au moment où l'interface doit
+  paraître instantanée, et surtout **ne disait rien**. Celle-ci montre la part de
+  la journée désormais faite : un anneau incomplet demande à être fermé, ce
+  qu'une décoration ne fera jamais.
+*/
+export function confirmerValidation(position: { x: number; y: number }, part?: number) {
+  window.dispatchEvent(
+    new CustomEvent(EVENEMENT_VALIDATION, { detail: { ...position, part } as Validation }),
+  );
+}
+
 const NOMS_CRENEAUX: Record<string, string> = {
   morning: 'Matin',
   midday: 'Midi',
@@ -92,6 +123,18 @@ export function lireGroupes(): any[] {
   return Array.isArray(groupes) ? groupes : [];
 }
 
+/**
+ * Les tâches d'un groupe qui concernent aujourd'hui.
+ *
+ * Une tâche du lundi comptée un mardi plafonnerait la journée sous les 100 %
+ * quoi qu'on fasse : on serait puni pour ne pas avoir fait ce qui n'était pas
+ * prévu. Une tâche sans jours déclarés reste quotidienne, donc rien ne change
+ * pour tout ce qui existait avant.
+ *
+ * Le Dashboard en gardait une copie identique. Deux définitions de ce qui compte
+ * dans une journée finissent par diverger, et celle-ci décide du score, du
+ * damier et de la série.
+ */
 export function tachesDuJour(groupe: any): any[] {
   return Array.isArray(groupe?.items) ? groupe.items.filter((i: any) => estPourAujourdhui(i)) : [];
 }

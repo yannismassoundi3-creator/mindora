@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { confirmerValidation } from '../utils/journee';
 import { CheckCircle, Shield, Sparkles, X } from 'lucide-react';
 import { playLevelUpSound } from '../utils/sounds';
 import { api } from '../services/api';
@@ -74,9 +75,7 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
       });
       if (res.checkoutUrl) {
         if (res.checkoutUrl.includes('mock=true')) {
-          window.dispatchEvent(new CustomEvent('triggerShockwave', {
-            detail: { x: window.innerWidth / 2, y: window.innerHeight / 2, color: '#8b5cf6' }
-          }));
+          confirmerValidation({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
           onSubscribe(selectedPlan);
         } else {
           // On note qu'un paiement part, pour aller en vérifier l'issue au prochain

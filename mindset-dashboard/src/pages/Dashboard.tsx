@@ -10,14 +10,14 @@ import { JarvisPopup } from '../components/JarvisPopup';
 import { NotificationsOptIn } from '../components/NotificationsOptIn';
 import { RelanceOffre } from '../components/RelanceOffre';
 import type { JarvisPopupData } from '../components/JarvisPopup';
-import { signalerJournee, annoncerGain, lireEtatDuJour } from '../utils/journee';
+import { signalerJournee, annoncerGain, lireEtatDuJour, confirmerValidation, tachesDuJour } from '../utils/journee';
 import { noterTacheFaite } from '../utils/rythme';
 import { PremiersPas } from '../components/PremiersPas';
 import { CadrageManquant } from '../components/CadrageManquant';
 import { lireObjectif, rafraichirObjectif, EVENEMENT_OBJECTIF } from '../utils/objectif';
 import { api } from '../services/api';
 import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
-import { estPourAujourdhui, libelleJours } from '../utils/recurrence';
+import { libelleJours } from '../utils/recurrence';
 import { RANKS } from '../utils/ranks';
 import { EVENEMENT_XP, ajouterXp, definirXp, lireProgression, xpDuNiveau } from '../utils/progression';
 import { playClickSound, playBloopSound } from '../utils/sounds';
@@ -292,11 +292,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
     
     playClickSound();
     
-    // Shockwave effect
-    window.dispatchEvent(new CustomEvent('triggerShockwave', { 
-      detail: { x: e.clientX, y: e.clientY, color: '#ffffff' } 
-    }));
-
     const updated = nutritionList.map((n: any) => {
       if (n.id === id) {
         if (!n.done) {
@@ -338,13 +333,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   // --- SCORE CALCULATION ---
   // Seules les tâches prévues aujourd'hui entrent dans le score.
   //
-  // Une tâche du lundi comptée un mardi plafonnerait la journée sous les 100 %
-  // quoi qu'on fasse : on serait puni pour ne pas avoir fait ce qui n'était pas
-  // prévu. Une tâche sans jours déclarés reste quotidienne, donc rien ne change
-  // pour tout ce qui existait avant.
-  const tachesDuJour = (group: any) =>
-    Array.isArray(group?.items) ? group.items.filter((i: any) => estPourAujourdhui(i)) : [];
-
   const totalRoutines = Array.isArray(routineGroups) ? routineGroups.reduce((acc: number, group: any) => acc + tachesDuJour(group).length, 0) : 0;
   const doneRoutines = Array.isArray(routineGroups) ? routineGroups.reduce((acc: number, group: any) => acc + tachesDuJour(group).filter((i: any) => i.done).length, 0) : 0;
 
@@ -661,26 +649,31 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
     }, 300);
   };
 
-  const triggerDopamine = (e?: React.MouseEvent) => {
-    let x = window.innerWidth / 2;
-    let y = window.innerHeight / 2;
-    if (e) {
-      x = e.clientX;
-      y = e.clientY;
+  /**
+   * La part de la journée faite, telle que l'anneau la montre.
+   *
+   * Comptée sur les tâches **du jour** avec la même fonction que le score
+   * (`tachesDuJour`) : un anneau qui compterait les tâches du mardi un lundi
+   * n'atteindrait jamais son terme, et la journée pleine ne se fermerait jamais.
+   *
+   * Calculée sur les groupes qu'on s'apprête à enregistrer, pas sur ceux du
+   * stockage : l'écriture n'a pas encore eu lieu quand la marque part.
+   */
+  const partDuJour = (groupes: any[]): number | undefined => {
+    let total = 0;
+    let faites = 0;
+    for (const groupe of Array.isArray(groupes) ? groupes : []) {
+      for (const tache of tachesDuJour(groupe)) {
+        total++;
+        if (tache.done) faites++;
+      }
     }
-    window.dispatchEvent(new CustomEvent('triggerShockwave', { 
-      detail: { x, y, color: '#ec4899' } 
-    }));
+    return total > 0 ? faites / total : undefined;
   };
 
   const toggleRoutine = (e: React.MouseEvent, id: number) => {
     // Haptic feedback
     if ('vibrate' in navigator) navigator.vibrate([15, 10, 15]);
-
-    // Shockwave effect
-    window.dispatchEvent(new CustomEvent('triggerShockwave', { 
-      detail: { x: e.clientX, y: e.clientY, color: '#ffffff' } 
-    }));
 
     let itemWasDone = false;
     let newlyDoneCount = 0;
@@ -705,7 +698,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
       // quand cette personne travaille réellement. Voir `utils/rythme.ts`.
       noterTacheFaite();
       playBloopSound();
-      triggerDopamine(e);
+      // Une seule marque, et elle mesure : l'onde partait deux fois, ici et dans
+      // `triggerDopamine`, pour une seule case cochée.
+      confirmerValidation({ x: e.clientX, y: e.clientY }, partDuJour(newGroups));
       const newPoints = points + 5;
       setPoints(newPoints);
       setSecurePoints(newPoints);

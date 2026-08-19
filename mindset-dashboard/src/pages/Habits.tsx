@@ -3,7 +3,7 @@ import { TrendingUp, Zap, Pencil, Trash2, Plus, Target, BookOpen, Dumbbell, Brai
 import { playLevelUpSound, playClickSound, playBloopSound } from '../utils/sounds';
 import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
 import { ajouterXp } from '../utils/progression';
-import { annoncerGain } from '../utils/journee';
+import { annoncerGain, confirmerValidation } from '../utils/journee';
 import { ajouterNotification } from '../utils/notifications';
 import { noterTacheFaite } from '../utils/rythme';
 import { api } from '../services/api';
@@ -199,21 +199,27 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
     ajouterNotification('info', msg, titre);
   };
 
-  const triggerHabitCompleteEffect = (e: React.MouseEvent, color: string, isLevelUp: boolean) => {
+  /**
+   * La marque laissée à l'endroit touché, et la part d'habitudes tenues du jour.
+   *
+   * **Les coordonnées étaient divisées par la taille de la fenêtre**, alors que la
+   * couche graphique les lit en pixels : l'effet se dessinait donc depuis le coin
+   * supérieur gauche de l'écran, à un demi-pixel du bord, quel que soit le bouton
+   * touché. Personne ne l'a jamais signalé — l'onde d'alors faisait 600 px de
+   * diamètre et un flou plein écran, on la voyait passer sans voir d'où.
+   */
+  const triggerHabitCompleteEffect = (e: React.MouseEvent, _couleurIgnoree: string, isLevelUp: boolean, part?: number) => {
     const rect = (e.target as HTMLElement).getBoundingClientRect();
-    const x = (rect.left + rect.width / 2) / window.innerWidth;
-    const y = (rect.top + rect.height / 2) / window.innerHeight;
-    
+    const x = rect.left + rect.width / 2;
+    const y = rect.top + rect.height / 2;
+
     if (isLevelUp) {
       playLevelUpSound();
     } else {
       playBloopSound();
     }
 
-    // Trigger shockwave effect instead of confetti
-    window.dispatchEvent(new CustomEvent('triggerShockwave', { 
-      detail: { x, y, color } 
-    }));
+    confirmerValidation({ x, y }, part);
   };
 
   const toggleHabitToday = (e: React.MouseEvent, habitId: string) => {
@@ -266,7 +272,15 @@ export const Habits: React.FC<HabitsProps> = ({ onOpenChat }) => {
       // L'heure seule, pour que le coach sache quand cette personne travaille
       // vraiment. Voir `utils/rythme.ts`.
       noterTacheFaite();
-      triggerHabitCompleteEffect(e, habitColor, leveledUp);
+      // La part des habitudes tenues aujourd’hui : l anneau montre le remplissage
+      // de la liste dans laquelle on vient d’agir, pas un compteur d’un autre écran.
+      const tenuesAujourdhui = newHabits.filter((h) => h.history.includes(today)).length;
+      triggerHabitCompleteEffect(
+        e,
+        habitColor,
+        leveledUp,
+        newHabits.length > 0 ? tenuesAujourdhui / newHabits.length : undefined,
+      );
       const newPoints = points + pointsGained;
       setPoints(newPoints);
       setSecurePoints(newPoints);
