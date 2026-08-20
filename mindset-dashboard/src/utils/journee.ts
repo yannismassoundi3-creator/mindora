@@ -1,4 +1,10 @@
 import { estPourAujourdhui } from './recurrence';
+import {
+  ecrireGroupes,
+  lireGroupes,
+  signalerChangementRoutines,
+  signalerJournee,
+} from './jourRoutines';
 import { getSecurePoints, setSecurePoints } from './secureStorage';
 import { ajouterXp } from './progression';
 import { playBloopSound } from './sounds';
@@ -23,7 +29,14 @@ import { api } from '../services/api';
   quel est délibéré, le changer déplacerait les séries de tout le monde.
 */
 
-export const EVENEMENT_JOURNEE = 'mindset:journee';
+/*
+  Les routines elles-mêmes vivent dans `jourRoutines.ts`, avec la date de leurs
+  coches — les deux ne se séparent pas. Repris ici pour que rien n'ait à changer
+  d'import : c'est ce module que les écrans connaissent.
+*/
+export { EVENEMENT_JOURNEE } from './jourRoutines';
+export { lireGroupes, signalerJournee, signalerChangementRoutines };
+
 export const EVENEMENT_TACHE_FAITE = 'mindset:tache-faite';
 export const EVENEMENT_GAIN = 'mindset:gain';
 
@@ -118,11 +131,6 @@ function cleLocale(d: Date): string {
   return `${a}-${m}-${j}`;
 }
 
-export function lireGroupes(): any[] {
-  const groupes = lireJSON<any[]>('mindset_routines', []);
-  return Array.isArray(groupes) ? groupes : [];
-}
-
 /**
  * Les tâches d'un groupe qui concernent aujourd'hui.
  *
@@ -214,24 +222,6 @@ export function lireEtatDuJour(): EtatDuJour {
 }
 
 /*
-  Prévenir les autres écrans.
-
-  `storage` est l'événement que le Dashboard, le chat et les Objectifs écoutent
-  déjà : le lancer met à jour la liste des routines si elle est affichée.
-  `EVENEMENT_JOURNEE` s'y ajoute pour le bandeau, qui doit aussi se rafraîchir
-  quand c'est le Dashboard qui a coché — et lui n'émet pas `storage` en écrivant
-  ses routines, sous peine de se réveiller lui-même en boucle.
-*/
-export function signalerJournee() {
-  window.dispatchEvent(new Event(EVENEMENT_JOURNEE));
-}
-
-export function signalerChangementRoutines() {
-  window.dispatchEvent(new Event('storage'));
-  signalerJournee();
-}
-
-/*
   Cocher une tâche depuis le bandeau.
 
   Reprend pas à pas ce que fait `toggleRoutine` du Dashboard — vibration, onde de
@@ -257,7 +247,10 @@ export function basculerTache(id: number, position: { x: number; y: number }): v
 
   if (!tacheTouchee) return;
 
-  localStorage.setItem('mindset_routines', JSON.stringify(nouveaux));
+  // `ecrireGroupes` et non un `setItem` direct : cocher depuis le bandeau doit
+  // dater les coches, sinon le serveur les tient pour celles de la veille et la
+  // journée bouclée ne compte pour rien.
+  ecrireGroupes(nouveaux);
 
   if ('vibrate' in navigator) navigator.vibrate([15, 10, 15]);
   window.dispatchEvent(

@@ -11,6 +11,7 @@ import { NotificationsOptIn } from '../components/NotificationsOptIn';
 import { RelanceOffre } from '../components/RelanceOffre';
 import type { JarvisPopupData } from '../components/JarvisPopup';
 import { signalerJournee, annoncerGain, lireEtatDuJour, confirmerValidation, tachesDuJour } from '../utils/journee';
+import { appliquerNouveauJour, ecrireGroupes, lireGroupes } from '../utils/jourRoutines';
 import { noterTacheFaite } from '../utils/rythme';
 import { PremiersPas } from '../components/PremiersPas';
 import { CadrageManquant } from '../components/CadrageManquant';
@@ -203,24 +204,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
 
   // --- ROUTINES (persisted) ---
   const [routineGroups, setRoutineGroups] = useState(() => {
-    const saved = localStorage.getItem('mindset_routines');
-    const lastDate = localStorage.getItem('mindset_last_routine_date');
-    const today = getTodayKey();
-    
-    let parsedGroups = null;
-    if (saved) {
-      try { parsedGroups = JSON.parse(saved); } catch {}
-    }
+    /*
+      Le décochage quotidien vit dans `jourRoutines.ts`, et plus ici.
 
-    // Si c'est un nouveau jour, on décoche toutes les routines
-    if (Array.isArray(parsedGroups) && lastDate !== today) {
-      parsedGroups = parsedGroups.map((group: any) => ({
-        ...group,
-        items: Array.isArray(group.items) ? group.items.map((item: any) => ({ ...item, done: false })) : []
-      }));
-    }
+      Il ne se faisait qu'au montage de ce composant : l'application laissée
+      ouverte au passage de minuit ne se décochait jamais, et la première écriture
+      du lendemain datait d'aujourd'hui les coches de la veille. Le même geste est
+      maintenant rejoué au retour dans l'app, à chaque minute et à la descente d'un
+      état venu du serveur.
+    */
+    appliquerNouveauJour();
+    const parsedGroups = lireGroupes();
 
-    if (Array.isArray(parsedGroups) && parsedGroups.length > 0) return parsedGroups;
+    if (parsedGroups.length > 0) return parsedGroups;
 
     // Les trois créneaux, vides.
     //
@@ -239,8 +235,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   });
 
   useEffect(() => {
-    localStorage.setItem('mindset_routines', JSON.stringify(routineGroups));
-    localStorage.setItem('mindset_last_routine_date', getTodayKey());
+    // Les coches et leur date partent ensemble : voir `ecrireGroupes`.
+    ecrireGroupes(routineGroups);
     /*
       Prévenir le bandeau, qui vit dans le Layout et lit `localStorage` de son
       côté. C'est un événement à lui, et surtout pas `storage` : celui-ci
@@ -253,12 +249,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
   // Écouter les changements venant de l'IA (storage)
   useEffect(() => {
     const handleStorage = () => {
-      const saved = localStorage.getItem('mindset_routines');
-      if (saved) {
-        try {
-          setRoutineGroups(JSON.parse(saved));
-        } catch (e) {}
-      }
+      /*
+        Ce qui arrive ici peut venir du serveur, donc d'un autre jour. On le ramène
+        à aujourd'hui avant de l'afficher : sans ça, l'effet ci-dessus redatait
+        d'aujourd'hui des coches de la veille, et les renvoyait au serveur comme
+        une journée déjà faite.
+      */
+      appliquerNouveauJour();
+      if (localStorage.getItem('mindset_routines') === null) return;
+      setRoutineGroups(lireGroupes());
     };
     window.addEventListener('storage', handleStorage);
     return () => window.removeEventListener('storage', handleStorage);

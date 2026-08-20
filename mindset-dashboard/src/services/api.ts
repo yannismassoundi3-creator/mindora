@@ -2,6 +2,7 @@ import { setSecurePoints } from '../utils/secureStorage';
 import { definirXp } from '../utils/progression';
 import { estIOS, estAndroid, estInstallee } from '../utils/plateforme';
 import { nettoyerSemis } from '../utils/semis';
+import { appliquerNouveauJour, signalerChangementRoutines } from '../utils/jourRoutines';
 import { construireEtatLocal } from '../utils/etatLocal';
 import { CLES_CACHE_AFFICHAGE } from '../utils/clesCache';
 import {
@@ -420,6 +421,15 @@ export const api = {
         remontée automatique et referme le sujet pour de bon.
       */
       if (nettoyerSemis()) window.dispatchEvent(new Event('storage'));
+
+      /*
+        L'état qu'on vient d'adopter peut dater d'hier : le serveur ne décoche
+        jamais rien, c'est le navigateur qui le fait à l'ouverture. Il faut donc le
+        ramener à aujourd'hui — et **hors du verrou**, pour la même raison que le
+        ménage ci-dessus : une écriture faite pendant la descente ne déclenche
+        aucune remontée, et ce décochage-là resterait sur cet appareil seul.
+      */
+      if (appliquerNouveauJour()) signalerChangementRoutines();
 
       signalerEtatSynchro();
     }
@@ -1045,8 +1055,28 @@ try {
     }
   };
 
+  /*
+    Le passage d'un jour à l'autre, application ouverte.
+
+    Le décochage quotidien ne se faisait qu'au montage du tableau de bord. Or une
+    application installée n'est pas fermée le soir, elle est mise en veille : au
+    réveil, le composant est toujours monté et la journée d'hier restait affichée,
+    toute cochée. La première écriture venue la datait alors d'aujourd'hui et
+    l'envoyait au serveur comme une journée déjà faite.
+
+    Deux occasions de s'en apercevoir, parce qu'aucune ne suffit seule : le retour
+    dans l'application couvre le téléphone, où l'onglet est masqué pendant la nuit,
+    et la minute couvre l'écran resté allumé, où rien ne se passe jamais.
+  */
+  const verifierLeJour = () => {
+    if (appliquerNouveauJour()) signalerChangementRoutines();
+  };
+  setInterval(verifierLeJour, 60000);
+
   // Force sync when page is hidden/closed to prevent data loss
   window.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') verifierLeJour();
+
     if (localStorage.getItem('mindset_token')) {
       if (document.visibilityState === 'hidden') {
         api.syncStateToCloud();
