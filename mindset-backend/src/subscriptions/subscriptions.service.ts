@@ -43,8 +43,15 @@ export class SubscriptionsService {
         ? process.env.STRIPE_PRICE_MONTHLY || 'price_mock_monthly'
         : process.env.STRIPE_PRICE_LIFETIME || 'price_mock_lifetime';
 
-    try {
-      const session = await this.stripe.checkout.sessions.create({
+    /*
+      La session, avec ou sans le client Stripe déjà connu.
+
+      Séparée en fonction parce qu'elle est appelée deux fois : une fiche client
+      périmée est la panne la plus probable de tout ce chemin, et la seule qu'on
+      puisse réparer sans intervention humaine — voir le rattrapage plus bas.
+    */
+    const creerSession = (avecClient: boolean) =>
+      this.stripe.checkout.sessions.create({
         payment_method_types: ['card'],
         mode: planType === 'lifetime' ? 'payment' : 'subscription',
         /*
@@ -55,28 +62,60 @@ export class SubscriptionsService {
           client tout neuf, donc vide. Le prélèvement mensuel survivrait à l'achat à
           vie, silencieusement. Ça rattache aussi tous ses paiements à une seule fiche.
         */
-        ...(user.stripe_customer_id
+        ...(avecClient && user.stripe_customer_id
           ? { customer: user.stripe_customer_id }
           : { customer_email: user.email }),
-        line_items: [
-          {
-            price: priceId,
-            quantity: 1,
-          },
-        ],
+        line_items: [{ price: priceId, quantity: 1 }],
         ...(planType !== 'lifetime' && {
-          subscription_data: {
-            trial_period_days: 7,
-          },
+          subscription_data: { trial_period_days: 7 },
         }),
         success_url: this.lienRetour('/?success=true', origine),
         cancel_url: this.lienRetour('/?canceled=true', origine),
         client_reference_id: userId,
       });
 
+    try {
+      const session = await creerSession(true);
       return { checkoutUrl: session.url };
     } catch (error: any) {
-      console.error('[Stripe] Create session error:', error);
+      const code = error?.code ?? error?.raw?.code ?? 'INCONNU';
+      const parametre = error?.param ?? error?.raw?.param ?? null;
+      const message = error?.message ?? error?.raw?.message ?? null;
+
+      console.error(`[Stripe] Session refusée (${code}${parametre ? ' sur ' + parametre : ''}) :`, message);
+
+      /*
+        Le rattrapage qui sauve un paiement au lieu de le raconter.
+
+        Une fiche client enregistrée dans un mode Stripe et appelée dans l'autre
+        n'existe pas : Stripe répond `resource_missing`, et **toute personne dont
+        le compte porte cet identifiant ne peut plus jamais payer**. C'est une
+        panne définitive, invisible, qui ne touche que ceux qui ont déjà essayé —
+        c'est-à-dire les plus décidés.
+
+        L'identifiant périmé est effacé et la session repartie sans lui. Rien n'est
+        perdu au passage : le webhook réécrit `stripe_customer_id` depuis la
+        session payée, la fiche se recolle donc toute seule au premier paiement.
+      */
+      const clientPerime =
+        code === 'resource_missing' &&
+        !!user.stripe_customer_id &&
+        (parametre === 'customer' || (message ?? '').includes(user.stripe_customer_id));
+
+      if (clientPerime) {
+        try {
+          await this.prisma.user.update({
+            where: { id: userId },
+            data: { stripe_customer_id: null },
+          });
+          const session = await creerSession(false);
+          await this.tracerEchecPaiement(userId, planType, code, parametre, message, true);
+          console.warn(`[Stripe] Fiche client périmée effacée pour ${userId} : paiement rouvert.`);
+          return { checkoutUrl: session.url };
+        } catch (secondEssai: any) {
+          console.error('[Stripe] Le second essai a échoué lui aussi :', secondEssai?.message);
+        }
+      }
 
       // Une variable STRIPE_PRICE_* oubliée sur l'hébergeur laisse partir l'identifiant
       // de repli « price_mock_… », et Stripe répond « No such price ». Le message
@@ -101,12 +140,38 @@ export class SubscriptionsService {
         return { checkoutUrl: this.lienRetour('/?success=true&mock=true', origine) };
       }
 
+      await this.tracerEchecPaiement(userId, planType, code, parametre, message, false);
+
       // Le message de Stripe reste dans les logs. Le recopier au client exposait la
       // configuration du serveur — « Invalid API Key provided: sk_test_… » s'affichait
       // tel quel — et ne lui apprenait rien d'utile.
       throw new BadRequestException(
         "Le paiement n'a pas pu être ouvert. Ce n'est pas de ton fait : réessaie dans un moment, ou écris-nous à mindoraappli@gmail.com.",
       );
+    }
+  }
+
+  /**
+   * Écrire l'échec, sans jamais empêcher la réponse.
+   *
+   * Une écriture ratée ici ne doit pas se transformer en seconde panne au-dessus
+   * de la première : la personne attend déjà devant un paiement qui n'a pas
+   * abouti. La trace est pour nous, pas pour elle.
+   */
+  private async tracerEchecPaiement(
+    userId: string,
+    formule: string,
+    code: string,
+    parametre: string | null,
+    message: string | null,
+    rattrape: boolean,
+  ) {
+    try {
+      await this.prisma.echecPaiement.create({
+        data: { user_id: userId, formule, code, parametre, message: message?.slice(0, 500) ?? null, rattrape },
+      });
+    } catch (e: any) {
+      console.error('[Stripe] Échec de paiement non tracé :', e?.message);
     }
   }
 

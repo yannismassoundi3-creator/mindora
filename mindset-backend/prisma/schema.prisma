@@ -54,6 +54,7 @@ model User {
   relances              RelanceEmail[]
   ouvertures            AppOuverture[]
   signalements_ia       SignalementIA[]
+  echecs_paiement       EchecPaiement[]
   /// D'ou vient cette inscription : la valeur du parametre `?s=` du lien suivi.
   ///
   /// Rien ne la captait avant le 17 aout 2026, si bien qu'aucune inscription
@@ -667,4 +668,45 @@ model SignalementIA {
   cree_le DateTime @default(now())
 
   @@index([cree_le])
+}
+
+/// Un paiement qui n'a même pas pu s'ouvrir.
+///
+/// Le pire échec du produit : quelqu'un a voulu donner son argent, et l'écran a
+/// répondu « réessaie plus tard ». Constaté sur la capture d'un abonné le 20 août
+/// 2026. La cause vivait dans les journaux Render — c'est-à-dire nulle part, pour
+/// qui n'y a pas accès à l'instant près — et le message montré à la personne ne
+/// permettait pas de distinguer une panne passagère de Stripe d'une variable
+/// oubliée sur le serveur.
+///
+/// Même raisonnement que `CoachEchec` : ce qui échoue sans laisser de trace
+/// n'existe pas, et ne se répare donc jamais.
+model EchecPaiement {
+  id String @id @default(uuid())
+
+  /// Nul si l'échec précède l'identification de la personne.
+  user_id String?
+  user    User?   @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  /// « monthly » ou « lifetime ».
+  formule String
+
+  /// Le code de Stripe (`resource_missing`, `api_key_expired`, `rate_limit`…) ou
+  /// `INCONNU`. C'est lui qui dit s'il faut attendre ou corriger une variable.
+  code String
+
+  /// Le paramètre fautif quand Stripe le nomme — `customer`, `price`…
+  parametre String?
+
+  /// Le message de Stripe, jamais montré à l'utilisateur : il expose la
+  /// configuration du serveur et n'apprend rien à qui voulait payer.
+  message String?
+
+  /// Vrai quand le second essai, sans le client périmé, a abouti : l'échec a
+  /// existé, la personne a quand même pu payer.
+  rattrape Boolean @default(false)
+
+  created_at DateTime @default(now())
+
+  @@index([created_at])
 }

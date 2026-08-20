@@ -46,7 +46,15 @@ describe('SubscriptionsService — création du paiement', () => {
         SubscriptionsService,
         {
           provide: PrismaService,
-          useValue: { user: { findUnique: jest.fn().mockResolvedValue({ id: 'u1', email: 'y@example.com' }) } },
+          useValue: {
+            user: {
+              findUnique: jest.fn().mockResolvedValue({ id: 'u1', email: 'y@example.com' }),
+              update: jest.fn().mockResolvedValue({}),
+            },
+            // Un echec de paiement laisse desormais une trace : sans elle, la cause
+            // ne vit que dans les journaux de l'hebergeur, c'est-a-dire nulle part.
+            echecPaiement: { create: jest.fn().mockResolvedValue({}) },
+          },
         },
       ],
     }).compile();
@@ -479,7 +487,15 @@ describe('SubscriptionsService — adresse de retour', () => {
         SubscriptionsService,
         {
           provide: PrismaService,
-          useValue: { user: { findUnique: jest.fn().mockResolvedValue({ id: 'u1', email: 'y@example.com' }) } },
+          useValue: {
+            user: {
+              findUnique: jest.fn().mockResolvedValue({ id: 'u1', email: 'y@example.com' }),
+              update: jest.fn().mockResolvedValue({}),
+            },
+            // Un echec de paiement laisse desormais une trace : sans elle, la cause
+            // ne vit que dans les journaux de l'hebergeur, c'est-a-dire nulle part.
+            echecPaiement: { create: jest.fn().mockResolvedValue({}) },
+          },
         },
       ],
     }).compile();
@@ -722,5 +738,110 @@ describe('SubscriptionsService — rattachement au client Stripe', () => {
     const args = mockCreerSession.mock.calls[0][0];
     expect(args.customer_email).toBe('y@example.com');
     expect(args.customer).toBeUndefined();
+  });
+});
+
+/**
+ * La fiche client périmée, et le paiement qu'elle condamnait.
+ *
+ * Un identifiant de client enregistré dans un mode Stripe et rappelé dans l'autre
+ * n'existe pas : Stripe répond `resource_missing`, et **la personne ne peut plus
+ * jamais payer**. La panne est définitive, silencieuse, et ne frappe que ceux qui
+ * ont déjà essayé une fois — c'est-à-dire les plus décidés. Constatée sur la
+ * capture d'écran d'un abonné le 20 août 2026.
+ */
+describe('SubscriptionsService — la fiche client périmée', () => {
+  let service: SubscriptionsService;
+  let prisma: any;
+  const envInitial = { ...process.env };
+
+  const COMPTE = { id: 'u1', email: 'y@example.com', stripe_customer_id: 'cus_perime' };
+
+  const refusStripe = () =>
+    Object.assign(new Error('No such customer: cus_perime'), {
+      code: 'resource_missing',
+      param: 'customer',
+    });
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    process.env.STRIPE_SECRET_KEY = 'sk_live_vraie';
+    process.env.STRIPE_PRICE_MONTHLY = 'price_reel';
+
+    prisma = {
+      user: { findUnique: jest.fn().mockResolvedValue(COMPTE), update: jest.fn().mockResolvedValue({}) },
+      echecPaiement: { create: jest.fn().mockResolvedValue({}) },
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [SubscriptionsService, { provide: PrismaService, useValue: prisma }],
+    }).compile();
+
+    service = module.get<SubscriptionsService>(SubscriptionsService);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    process.env = { ...envInitial };
+  });
+
+  it('efface la fiche introuvable et rouvre le paiement', async () => {
+    mockCreerSession
+      .mockRejectedValueOnce(refusStripe())
+      .mockResolvedValueOnce({ url: 'https://checkout.stripe.com/ok' });
+
+    const res = await service.createCheckoutSession('u1', 'monthly');
+
+    expect(res.checkoutUrl).toBe('https://checkout.stripe.com/ok');
+    expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'u1' }, data: { stripe_customer_id: null } });
+
+    // Le second essai part sur l'adresse e-mail : le webhook réécrira la fiche
+    // depuis la session payée, elle se recolle donc toute seule.
+    const second = mockCreerSession.mock.calls[1][0];
+    expect(second.customer).toBeUndefined();
+    expect(second.customer_email).toBe('y@example.com');
+  });
+
+  it('garde la trace de l’échec rattrapé : il a bien eu lieu', async () => {
+    // Un rattrapage silencieux masquerait une configuration Stripe à corriger, et
+    // la panne reviendrait sur chaque nouveau compte touché.
+    mockCreerSession
+      .mockRejectedValueOnce(refusStripe())
+      .mockResolvedValueOnce({ url: 'https://checkout.stripe.com/ok' });
+
+    await service.createCheckoutSession('u1', 'monthly');
+
+    expect(prisma.echecPaiement.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ code: 'resource_missing', parametre: 'customer', rattrape: true }),
+      }),
+    );
+  });
+
+  it('n’efface aucune fiche quand Stripe refuse pour une autre raison', async () => {
+    // Effacer sur n'importe quelle erreur ferait perdre le lien vers l'historique
+    // de paiement d'un client parfaitement valide, sur une panne passagère.
+    mockCreerSession.mockRejectedValue(
+      Object.assign(new Error('Rate limit'), { code: 'rate_limit', param: null }),
+    );
+
+    await expect(service.createCheckoutSession('u1', 'monthly')).rejects.toThrow(BadRequestException);
+
+    expect(prisma.user.update).not.toHaveBeenCalled();
+    expect(mockCreerSession).toHaveBeenCalledTimes(1);
+    expect(prisma.echecPaiement.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ code: 'rate_limit', rattrape: false }) }),
+    );
+  });
+
+  it('ne laisse pas une trace ratée masquer le vrai problème', async () => {
+    // La personne attend déjà devant un paiement qui n'a pas abouti : une seconde
+    // panne posée au-dessus de la première ne lui apprendrait rien de plus.
+    mockCreerSession.mockRejectedValue(Object.assign(new Error('boum'), { code: 'api_error' }));
+    prisma.echecPaiement.create.mockRejectedValue(new Error('base injoignable'));
+
+    await expect(service.createCheckoutSession('u1', 'monthly')).rejects.toThrow(BadRequestException);
   });
 });

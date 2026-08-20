@@ -312,3 +312,51 @@
   50% { transform: scale(1.1); opacity: 0.8; }
   100% { transform: scale(1); opacity: 1; }
 }
+
+/*
+  Le bloc de confiance, juste sous le bouton.
+
+  Un abonné a dit que cette page « ne donnait pas envie d'y mettre sa carte ».
+  Elle énumérait ce qu'on gagne et ne disait rien de ce qu'on risque : ni la date
+  du premier prélèvement, ni qui encaisse, ni comment sortir. Ces trois lignes ne
+  vendent rien — elles répondent aux trois questions qu'on se pose la carte à la
+  main, et c'est pour ça qu'elles sont placées là et pas plus haut.
+*/
+.pricing-confiance {
+  margin: 14px auto 0;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+}
+
+.pricing-confiance p {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--secondary);
+}
+
+/* L'icône ne rétrécit pas et ne descend pas avec la deuxième ligne de texte. */
+.pricing-confiance svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: #10b981;
+}
+
+.pricing-confiance strong {
+  color: var(--primary);
+}
+
+/*
+  Le message d'attente. Il apparaît après six secondes, et il doit se lire comme
+  une explication, pas comme une alerte : rien n'est cassé, le serveur se lève.
+*/
+.pricing-lenteur {
+  color: var(--secondary);
+  font-style: italic;
+}

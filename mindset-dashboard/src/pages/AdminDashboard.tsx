@@ -6,6 +6,7 @@ import { TableauRetention } from '../components/TableauRetention';
 import { EtatSecours } from '../components/EtatSecours';
 import { EtatModeles } from '../components/EtatModeles';
 import { SignalementsIA } from '../components/SignalementsIA';
+import { EchecsPaiement } from '../components/EchecsPaiement';
 import { TourneeEmails } from '../components/TourneeEmails';
 import './AdminDashboard.css';
 
@@ -152,6 +153,8 @@ export const AdminDashboard: React.FC = () => {
         contrôle d'installation. On vient le chercher quand on doute, on ne le
         croise pas en lisant ses chiffres.
       */}
+      <EchecsPaiement />
+
       <SignalementsIA />
 
       <EtatModeles />

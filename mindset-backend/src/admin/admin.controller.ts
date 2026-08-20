@@ -91,6 +91,18 @@ export class AdminController {
    *
    * Même réserve d'accès que le reste : on y lit des messages nominatifs.
    */
+  /**
+   * Les paiements refusés à l'ouverture. Réservé comme le reste : la liste est
+   * nominative, et le message de Stripe décrit la configuration du serveur.
+   */
+  @Get('paiements-echoues')
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Paiements qui n'ont pas pu s'ouvrir" })
+  async getEchecsPaiement() {
+    return this.adminService.getEchecsPaiement();
+  }
+
   @Get('signalements')
   @Roles('ADMIN')
   @ApiBearerAuth()

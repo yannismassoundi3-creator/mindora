@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { confirmerValidation } from '../utils/journee';
-import { CheckCircle, Shield, Sparkles, X } from 'lucide-react';
+import { CheckCircle, Shield, Sparkles, X, Lock, Calendar } from 'lucide-react';
 import { playLevelUpSound } from '../utils/sounds';
-import { api } from '../services/api';
+import { api, API_URL } from '../services/api';
 import { marquerPaiementLance, verifierAbonnement, type Formule } from '../utils/paiement';
 import './PricingScreen.css';
 
@@ -24,6 +24,20 @@ interface PricingScreenProps {
 export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClose, planInitial = 'monthly', dejaAbonne = false }) => {
   const [loading, setLoading] = useState(false);
   const [erreur, setErreur] = useState('');
+  /** Vrai quand l'ouverture du paiement dépasse six secondes. */
+  const [lenteur, setLenteur] = useState(false);
+
+  /*
+    La date du premier prélèvement, calculée et jamais écrite en dur.
+
+    « Dans 7 jours » demande un calcul à qui le lit, et c'est exactement le calcul
+    qu'il redoute avant de donner sa carte. Une date qu'il peut aller vérifier dans
+    son agenda, elle, ne se discute pas.
+  */
+  const finEssai = new Date(Date.now() + 7 * 86400000).toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'long',
+  });
   // Quelqu'un qui a cliqué « Passer à vie » sur la page d'accueil ne doit pas avoir
   // à le rechoisir : on lui reproposerait le mensuel après qu'il a tranché.
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'lifetime'>(planInitial);
@@ -38,6 +52,20 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
    * qu'un seul chemin d'ouverture du Pro dans l'app, quel que soit le maillon qui
    * avait échoué.
    */
+  /*
+    Réveiller le serveur pendant que la personne lit l'offre.
+
+    Il s'endort au bout de quinze minutes sans visite, et son réveil demande une
+    trentaine de secondes. Sans cette requête, ce réveil tombe **au moment du clic
+    sur le paiement** — c'est-à-dire au seul instant du produit où l'on ne peut pas
+    se permettre d'attendre. Ici, il a le temps de lecture de la page pour se
+    remettre debout, et l'échec est sans conséquence : on ne fait rien de la
+    réponse.
+  */
+  useEffect(() => {
+    fetch(`${API_URL}/health`, { cache: 'no-store' }).catch(() => undefined);
+  }, []);
+
   const verifierDejaPaye = async () => {
     setVerification(true);
     setResultat(null);
@@ -62,7 +90,20 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
     e.preventDefault();
     setLoading(true);
     setErreur('');
+    setLenteur(false);
     playLevelUpSound();
+
+    /*
+      Dire l'attente au lieu de la subir.
+
+      L'ouverture du paiement traverse notre serveur puis Stripe, et notre serveur
+      s'endort au bout de quinze minutes sans visite : la première requête peut
+      alors demander une trentaine de secondes. Un bouton figé pendant trente
+      secondes est indiscernable d'un bouton cassé — on reclique, on s'agace, on
+      s'en va. Au bout de six secondes, on explique donc ce qui se passe, sans
+      annuler quoi que ce soit : la requête aboutira, et la redirection avec elle.
+    */
+    const minuteurLenteur = window.setTimeout(() => setLenteur(true), 6000);
 
     try {
       // On dit au serveur où nous ramener. Il vérifie l'adresse contre sa propre liste
@@ -90,7 +131,9 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
       } else {
         setErreur("Le paiement n'a pas pu être ouvert. Réessaie dans un moment.");
       }
+      window.clearTimeout(minuteurLenteur);
     } catch (error: any) {
+      window.clearTimeout(minuteurLenteur);
       // Une alerte du navigateur disparaît d'un clic et ne laisse aucune trace : la
       // personne se retrouve devant le même bouton, sans savoir si elle a payé. Le
       // message reste donc sous le bouton, avec celui du serveur quand il en donne un.
@@ -256,18 +299,36 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
               Ton abonnement mensuel est résilié automatiquement dès que le paiement à vie aboutit.
             </p>
           )}
+          {loading && lenteur && (
+            <p className="secure-text pricing-lenteur" role="status">
+              Le serveur se réveille — encore quelques secondes. Ne quitte pas la page.
+            </p>
+          )}
           {erreur && (
             <p className="secure-text" style={{ color: '#f87171', fontWeight: 600 }} role="alert">
               {erreur}
             </p>
           )}
-          {selectedPlan === 'monthly' ? (
-            <p className="secure-text" style={{ color: '#10b981', fontWeight: 600 }}>
-              <Shield size={14} style={{ marginRight: '4px' }}/> 7 jours 100% gratuits. Annulable à tout moment.
-            </p>
-          ) : (
-            <p className="secure-text"><Shield size={14} style={{ marginRight: '4px' }}/> Paiement unique sécurisé via Stripe</p>
-          )}
+          {/*
+            Ce qui décide quelqu'un à sortir sa carte, ce n'est pas une promesse de
+            plus : c'est de savoir **exactement** ce qui va se passer, et quand. Un
+            abonné a dit que cette page ne donnait pas envie d'y mettre sa carte —
+            elle énumérait ce qu'on gagne et ne disait rien de ce qu'on risque.
+
+            La date est calculée, jamais écrite en dur : « dans 7 jours » demande un
+            calcul à celui qui le lit, et c'est précisément le calcul qu'il redoute.
+          */}
+          <div className="pricing-confiance">
+            {selectedPlan === 'monthly' ? (
+              <>
+                <p><Calendar size={14} /> <strong>Rien n'est prélevé aujourd'hui.</strong> Le premier paiement de 9,99 € tombe le {finEssai}.</p>
+                <p><Shield size={14} /> Annulable en un clic avant cette date — tu ne paies rien.</p>
+              </>
+            ) : (
+              <p><Shield size={14} /> Paiement unique. Aucun prélèvement récurrent, jamais.</p>
+            )}
+            <p><Lock size={14} /> Paiement traité par <strong>Stripe</strong>. Ta carte ne passe jamais par nos serveurs.</p>
+          </div>
 
           {/*
             Rattrapage manuel. Quelqu'un qui a payé mais n'a pas reçu son accès revient

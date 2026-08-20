@@ -34,6 +34,41 @@ export class AdminService {
     };
   }
 
+  /**
+   * Les paiements qui n'ont même pas pu s'ouvrir.
+   *
+   * Le pire échec du produit : quelqu'un a voulu donner son argent et l'écran a
+   * répondu « réessaie plus tard ». Jusqu'ici la cause vivait dans les journaux de
+   * l'hébergeur — c'est-à-dire nulle part, pour qui ne les lit pas à la minute
+   * près. Le code de Stripe est ce qui dit s'il faut attendre ou corriger une
+   * variable ; il est donc rendu tel quel.
+   */
+  async getEchecsPaiement() {
+    const lignes = await this.prisma.echecPaiement.findMany({
+      orderBy: { created_at: 'desc' },
+      take: 30,
+      include: { user: { select: { first_name: true, email: true } } },
+    });
+
+    return {
+      total: await this.prisma.echecPaiement.count(),
+      // Un échec rattrapé compte : il dit qu'une configuration reste à corriger,
+      // même si la personne a fini par payer.
+      rattrapes: await this.prisma.echecPaiement.count({ where: { rattrape: true } }),
+      echecs: lignes.map((l) => ({
+        id: l.id,
+        quand: l.created_at,
+        prenom: l.user?.first_name ?? '—',
+        email: l.user?.email ?? '—',
+        formule: l.formule,
+        code: l.code,
+        parametre: l.parametre,
+        message: l.message,
+        rattrape: l.rattrape,
+      })),
+    };
+  }
+
   async getDashboardStats() {
     const totalUsers = await this.prisma.user.count();
     
