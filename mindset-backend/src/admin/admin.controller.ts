@@ -103,7 +103,19 @@ export class AdminController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Portée des notifications et des relances' })
   async getJourDeux() {
-    return this.adminService.getJourDeux();
+    /*
+      La portée des mécanismes et leur effet, dans la même réponse.
+
+      Ils vivent sur deux services parce qu'ils lisent deux choses — des envois
+      d'un côté, des retours de l'autre — mais ils répondent à une seule question,
+      et les séparer à l'écran laisserait lire « 40 messages partis » sans jamais
+      voir que personne n'est revenu.
+    */
+    const [portee, effetAccueil] = await Promise.all([
+      this.adminService.getJourDeux(),
+      this.retentionService.effetAccueil(),
+    ]);
+    return { ...portee, effetAccueil };
   }
 
   @Get('paiements-echoues')

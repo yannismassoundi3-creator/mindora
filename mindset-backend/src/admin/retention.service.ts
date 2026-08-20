@@ -693,6 +693,115 @@ export class RetentionService {
   }
 
   /**
+   * L'instant où l'accueil à l'inscription est parti en production.
+   *
+   * Écrit en dur, et c'est voulu : c'est une date d'événement, pas un réglage.
+   * Une variable d'environnement se change par mégarde, et déplacerait la
+   * frontière entre les deux groupes — la mesure dirait alors autre chose sans
+   * que personne ne l'ait décidé.
+   *
+   * Déploiement Render du commit `4e143ca`, vérifié sur `/health`.
+   */
+  static readonly ACCUEIL_DEPUIS = new Date('2026-08-20T21:57:45.000Z');
+
+  /**
+   * L'accueil a-t-il décollé le jour 2 ?
+   *
+   * On vient d'expédier deux mécanismes censés ramener les gens le lendemain — le
+   * brief du matin par e-mail, puis l'accueil à l'inscription — et **rien ne
+   * disait s'ils servent**. Le panneau savait compter les messages partis, jamais
+   * les gens revenus après les avoir lus. Sans cette mesure, la question « faut-il
+   * continuer » se tranche à l'impression.
+   *
+   * **La coupure se fait sur la date d'inscription, pas sur « a reçu l'e-mail ».**
+   * Comparer ceux qui l'ont reçu à ceux qui ne l'ont pas reçu comparerait aussi
+   * les adresses valides aux adresses mortes, les boîtes ouvertes aux boîtes
+   * abandonnées : le groupe témoin serait fait de gens différents, pas seulement
+   * de gens non accueillis. La date, elle, ne trie personne.
+   *
+   * **Ce que cette mesure ne peut pas faire**, et qu'il faut lire avec elle : à
+   * quelques dizaines de comptes, elle donne une direction, jamais une preuve. Et
+   * si la provenance du trafic change en même temps, elle mesure les deux à la
+   * fois. C'est pour ça que `comptes` est rendu à côté de chaque taux — un taux
+   * sur quatre personnes ne veut rien dire, et doit se voir tout de suite.
+   */
+  async effetAccueil() {
+    const maintenant = new Date();
+    const cleMax = RetentionService.cleJour(maintenant);
+
+    /*
+      Trente jours de recul, pas toute la base.
+
+      Le groupe témoin doit ressembler au groupe accueilli sur tout le reste :
+      même produit, même façon d'arriver. Les inscrits d'il y a trois mois ont
+      connu une application différente, et les mêler ferait attribuer à l'accueil
+      ce qui revient à trois semaines de corrections.
+    */
+    const comptes = await this.prisma.user.findMany({
+      where: {
+        deleted_at: null,
+        created_at: { gte: new Date(maintenant.getTime() - 30 * RetentionService.JOUR_MS) },
+      },
+      select: {
+        created_at: true,
+        sync_data: { select: { daily_scores: true } },
+        relances: { where: { motif: 'bienvenue' }, select: { envoye_le: true } },
+      },
+    });
+
+    const groupe = (nom: 'avant' | 'apres') => ({ nom, comptes: 0, mesurables: 0, revenus: 0 });
+    const avant = groupe('avant');
+    const apres = groupe('apres');
+    let accueillis = 0;
+
+    for (const compte of comptes) {
+      const cible = compte.created_at >= RetentionService.ACCUEIL_DEPUIS ? apres : avant;
+      cible.comptes++;
+
+      if (cible === apres && compte.relances.length > 0) accueillis++;
+
+      /*
+        Un compte de quelques heures n'a pas encore eu son lendemain.
+
+        Le compter comme « pas revenu » ferait tomber le taux du groupe récent à
+        chaque nouvelle inscription — l'accueil paraîtrait nuire d'autant plus
+        qu'il amène du monde. C'est la faute classique de ce genre de mesure, et
+        elle produit un chiffre parfaitement plausible.
+      */
+      if (maintenant.getTime() - compte.created_at.getTime() < RetentionService.JOUR_MS) continue;
+      cible.mesurables++;
+
+      // Même définition du retour que les cohortes : une clé de jour postérieure
+      // au jour d'inscription et au plus tard le lendemain. Deux définitions du
+      // même mot dans un seul panneau, et les deux chiffres cessent d'être
+      // comparables sans que rien ne le signale.
+      const jours = RetentionService.joursActifs(compte.sync_data?.daily_scores, cleMax);
+      const jourInscription = RetentionService.cleJour(compte.created_at);
+      const lendemain = RetentionService.cleJour(
+        new Date(compte.created_at.getTime() + RetentionService.JOUR_MS),
+      );
+      if (jours.some((j) => j > jourInscription && j <= lendemain)) cible.revenus++;
+    }
+
+    const taux = (g: { mesurables: number; revenus: number }) =>
+      g.mesurables === 0 ? null : Math.round((g.revenus / g.mesurables) * 1000) / 10;
+
+    return {
+      depuis: RetentionService.ACCUEIL_DEPUIS,
+      avant: { ...avant, tauxJ1: taux(avant) },
+      apres: { ...apres, tauxJ1: taux(apres) },
+      /*
+        Combien, parmi les inscrits depuis, portent vraiment la trace de l'envoi.
+
+        C'est la sonde qui distingue « l'accueil ne sert à rien » de « l'accueil
+        n'est jamais parti ». Les deux donnent le même taux, et sans ce chiffre on
+        conclurait la première en étant dans la seconde.
+      */
+      accueillis,
+    };
+  }
+
+  /**
    * Les inscrits regroupés par semaine d'arrivée.
    *
    * Un taux global mélange ceux qui sont arrivés avant les correctifs et ceux qui

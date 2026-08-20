@@ -30,7 +30,31 @@ interface Etat {
     parCreneau: { creneau: string; envoyes: number }[];
     dernier: string | null;
   };
+  effetAccueil: {
+    depuis: string;
+    avant: Groupe;
+    apres: Groupe;
+    /** Combien, parmi les inscrits depuis, portent la trace d'un envoi réussi. */
+    accueillis: number;
+  };
 }
+
+interface Groupe {
+  comptes: number;
+  /** Ceux qui ont déjà eu leur lendemain. Les autres n'ont pas d'avis à donner. */
+  mesurables: number;
+  revenus: number;
+  tauxJ1: number | null;
+}
+
+/**
+ * En deçà, on lit du bruit.
+ *
+ * Un taux sur trois personnes bascule de 33 points quand une seule change d'avis.
+ * L'afficher sans le dire, c'est fabriquer une décision à partir d'une pièce
+ * lancée — et ici la décision est « faut-il continuer ».
+ */
+const MINIMUM_LISIBLE = 10;
 
 /** Les codes bruts de la base, dits en français. */
 const LIBELLES: Record<string, string> = {
@@ -188,6 +212,78 @@ export const JourDeux: React.FC = () => {
           </p>
         </>
       )}
+
+      {/*
+        La seule partie de cet écran qui parle de résultat.
+
+        Tout ce qui précède compte ce qui est parti. Un mécanisme qui part sans
+        rien changer part quand même : sans ces deux taux, on continuerait à
+        empiler des leviers en croyant qu'ils servent.
+      */}
+      <h3 className="jour2-sous">Retour le lendemain, avant / après l’accueil</h3>
+      <EffetAccueil effet={etat.effetAccueil} />
     </section>
+  );
+};
+
+const EffetAccueil: React.FC<{ effet: Etat['effetAccueil'] }> = ({ effet }) => {
+  const { avant, apres, accueillis, depuis } = effet;
+
+  const dit = (g: Groupe) =>
+    g.tauxJ1 === null ? '—' : `${g.tauxJ1} %`;
+
+  return (
+    <>
+      <ul className="jour2-liste">
+        <li>
+          <span>avant le {new Date(depuis).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}</span>
+          <strong>
+            {dit(avant)}{' '}
+            <span className="jour2-sur">sur {avant.mesurables}</span>
+          </strong>
+        </li>
+        <li>
+          <span>depuis</span>
+          <strong>
+            {dit(apres)} <span className="jour2-sur">sur {apres.mesurables}</span>
+          </strong>
+        </li>
+      </ul>
+
+      {/*
+        Trois états, et il faut les distinguer : rien à lire, trop peu pour
+        conclure, ou un chiffre utilisable. Les confondre transforme une attente
+        en verdict.
+      */}
+      {apres.mesurables === 0 ? (
+        <p className="jour2-detail">
+          Pas encore lisible : aucun inscrit d’après n’a eu son lendemain. Il en
+          faut {MINIMUM_LISIBLE} pour que la comparaison veuille dire quelque chose.
+        </p>
+      ) : apres.mesurables < MINIMUM_LISIBLE ? (
+        <p className="jour2-detail">
+          Trop peu pour conclure — {apres.mesurables} compte(s) mesurable(s) sur
+          les {MINIMUM_LISIBLE} nécessaires. Un taux sur si peu de monde bascule
+          d’une personne à l’autre.
+        </p>
+      ) : (
+        <p className="jour2-detail">
+          Direction, pas preuve : à cette échelle, une différence de moins de dix
+          points ne se distingue pas du hasard. Et si la provenance du trafic a
+          changé entre les deux périodes, ces deux taux la mesurent aussi.
+        </p>
+      )}
+
+      {/*
+        La sonde qui sépare « ça ne sert à rien » de « ce n'est jamais parti ».
+        Les deux donnent le même taux.
+      */}
+      {apres.comptes > accueillis && (
+        <p className="jour2-detail jour2-alerte">
+          {accueillis} accueil(s) réellement partis sur {apres.comptes} inscrit(s)
+          depuis. L’écart n’est pas un effet à mesurer, c’est un envoi à réparer.
+        </p>
+      )}
+    </>
   );
 };

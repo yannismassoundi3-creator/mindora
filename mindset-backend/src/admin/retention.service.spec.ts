@@ -593,4 +593,121 @@ describe('RetentionService', () => {
       expect(stats.coach.sansReponseDetail).toEqual([]);
     });
   });
+  /*
+    L'effet de l'accueil sur le jour 2.
+
+    Deux mécanismes censés ramener les gens le lendemain ont été expédiés en
+    vingt-quatre heures, sans aucun retour d'information. Ce qui se vérifie ici
+    est ce qui rend la mesure utilisable pour décider : qu'un compte de quelques
+    heures ne compte pas comme un échec, que le jour de l'inscription ne passe pas
+    pour un retour, et qu'un envoi qui n'est jamais parti ne se lise pas comme un
+    envoi sans effet.
+  */
+  describe("effet de l'accueil", () => {
+    const APRES = new Date(RetentionService.ACCUEIL_DEPUIS.getTime() + 60_000);
+    const AVANT = new Date(RetentionService.ACCUEIL_DEPUIS.getTime() - 60_000);
+
+    /** Un compte tel que le rend la requête de `effetAccueil`. */
+    const inscrit = (opts: {
+      quand: Date;
+      joursActifs?: Date[];
+      accueilli?: boolean;
+    }) => {
+      const daily_scores: Record<string, number> = {};
+      for (const d of opts.joursActifs ?? []) daily_scores[cle(d)] = 50;
+      return {
+        created_at: opts.quand,
+        sync_data: { daily_scores },
+        relances: opts.accueilli ? [{ envoye_le: opts.quand }] : [],
+      };
+    };
+
+    const mesurer = async (comptes: any[]) => {
+      prisma.user.findMany.mockResolvedValue(comptes);
+      return service.effetAccueil();
+    };
+
+    /** Un instant vieux de `jours`, mais du bon côté de la coupure. */
+    const vieuxDe = (jours: number) => ilYA(jours);
+
+    it('sépare les deux groupes sur la date d’inscription', async () => {
+      const bilan = await mesurer([
+        inscrit({ quand: AVANT }),
+        inscrit({ quand: AVANT }),
+        inscrit({ quand: APRES }),
+      ]);
+
+      expect(bilan.avant.comptes).toBe(2);
+      expect(bilan.apres.comptes).toBe(1);
+    });
+
+    it('ne compte pas comme un échec un compte qui n’a pas encore eu son lendemain', async () => {
+      /*
+        La faute classique de ce genre de mesure, et la raison d'être de ce test :
+        compter les inscrits de la nuit comme « pas revenus » ferait baisser le
+        taux du groupe récent à chaque nouvelle inscription. L'accueil paraîtrait
+        nuire d'autant plus qu'il amène du monde — et le chiffre serait
+        parfaitement plausible.
+      */
+      const bilan = await mesurer([inscrit({ quand: new Date() })]);
+
+      expect(bilan.apres.comptes).toBe(1);
+      expect(bilan.apres.mesurables).toBe(0);
+      // Pas zéro pour cent : rien du tout. Un taux calculé sur personne est un
+      // mensonge d'apparence normale.
+      expect(bilan.apres.tauxJ1).toBeNull();
+    });
+
+    it('ne prend pas le jour de l’inscription pour un retour', async () => {
+      const jour = vieuxDe(10);
+      const bilan = await mesurer([inscrit({ quand: jour, joursActifs: [jour] })]);
+
+      expect(bilan.avant.mesurables).toBe(1);
+      expect(bilan.avant.revenus).toBe(0);
+      expect(bilan.avant.tauxJ1).toBe(0);
+    });
+
+    it('compte le retour du lendemain, et pas celui de la semaine suivante', async () => {
+      const jour = vieuxDe(10);
+      const lendemain = vieuxDe(9);
+      const bienPlusTard = vieuxDe(3);
+
+      const bilan = await mesurer([
+        inscrit({ quand: jour, joursActifs: [jour, lendemain] }),
+        inscrit({ quand: jour, joursActifs: [jour, bienPlusTard] }),
+      ]);
+
+      expect(bilan.avant.revenus).toBe(1);
+      expect(bilan.avant.tauxJ1).toBe(50);
+    });
+
+    it('dit combien ont vraiment reçu l’accueil', async () => {
+      /*
+        La sonde qui distingue « l'accueil ne sert à rien » de « l'accueil n'est
+        jamais parti ». Les deux produisent exactement le même taux ; sans ce
+        chiffre on conclurait la première en étant dans la seconde, et on
+        démonterait un mécanisme qui n'a jamais tourné.
+      */
+      const bilan = await mesurer([
+        inscrit({ quand: APRES, accueilli: true }),
+        inscrit({ quand: APRES, accueilli: false }),
+        // Un compte d'avant ne porte pas de trace, et ne doit pas être compté ici.
+        inscrit({ quand: AVANT, accueilli: true }),
+      ]);
+
+      expect(bilan.apres.comptes).toBe(2);
+      expect(bilan.accueillis).toBe(1);
+    });
+
+    it('ne regarde que le dernier mois', async () => {
+      // Les inscrits d'il y a trois mois ont connu une autre application :
+      // les mêler ferait attribuer à l'accueil trois semaines de corrections.
+      await mesurer([]);
+
+      const requete = prisma.user.findMany.mock.calls[0][0];
+      const plancher = requete.where.created_at.gte.getTime();
+      expect(Math.abs(plancher - (Date.now() - 30 * JOUR))).toBeLessThan(5000);
+      expect(requete.where.deleted_at).toBeNull();
+    });
+  });
 });

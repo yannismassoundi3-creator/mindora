@@ -96,3 +96,15 @@
 .jour2-liste li:last-child {
   border-bottom: none;
 }
+
+/* L'effectif, à côté du taux et jamais séparé de lui.
+
+   « 33 % » et « 33 % sur 3 » ne disent pas la même chose, et c'est le second qui
+   est vrai. Sur quelques dizaines de comptes, un taux affiché seul est une
+   décision prise à pile ou face avec l'air d'une mesure. */
+.jour2-sur {
+  color: var(--text-secondary, #94a3b8);
+  font-weight: 400;
+  font-size: 0.8em;
+  margin-left: 4px;
+}
