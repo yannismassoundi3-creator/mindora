@@ -69,6 +69,44 @@ export class AdminService {
     };
   }
 
+  /**
+   * Ce qui doit ramener les gens le lendemain — et qui n'était mesuré nulle part.
+   *
+   * Deux tiers des comptes qui agissent n'agissent qu'un seul jour. Le produit a
+   * exactement deux mécanismes pour créer un deuxième jour : la notification du
+   * matin et la relance par e-mail. **Aucun des deux n'apparaissait dans ce
+   * panneau**, donc personne ne pouvait savoir combien de personnes ils touchent
+   * réellement — ni si l'un des deux ne fait plus rien depuis des jours.
+   *
+   * La distinction qui compte : « joignables » n'est pas « ont accepté ». Une
+   * permission accordée sur un iPhone qui n'a pas installé l'app ne produit aucun
+   * abonnement, et le brief du matin n'atteindra jamais cette personne.
+   */
+  async getJourDeux() {
+    const [comptes, abonnesPush, permissions, relances, briefs] = await Promise.all([
+      this.prisma.user.count({ where: { deleted_at: null } }),
+      // Des appareils, pas des personnes : un même compte peut en avoir plusieurs.
+      this.prisma.pushSubscription.findMany({ select: { user_id: true } }),
+      this.prisma.pushPermission.groupBy({ by: ['etat'], _count: { _all: true } }),
+      this.prisma.relanceEmail.groupBy({ by: ['motif'], _count: { _all: true } }),
+      this.prisma.relanceEmail.aggregate({ _max: { envoye_le: true } }),
+    ]);
+
+    return {
+      comptes,
+      /*
+        Le seul chiffre qui décide si la notification du matin sert à quelque
+        chose. Compté en personnes joignables, pas en appareils enregistrés.
+      */
+      joignablesParPush: new Set(abonnesPush.map((p) => p.user_id)).size,
+      permissions: permissions.map((p) => ({ etat: p.etat, comptes: p._count._all })),
+      relances: {
+        parMotif: relances.map((r) => ({ motif: r.motif, envoyees: r._count._all })),
+        derniere: briefs._max.envoye_le,
+      },
+    };
+  }
+
   async getDashboardStats() {
     const totalUsers = await this.prisma.user.count();
     

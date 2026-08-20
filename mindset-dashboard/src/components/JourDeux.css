@@ -1,0 +1,98 @@
+/*
+  Aucune couleur en dur : le thème clair existe, et un blanc translucide y donne
+  des cartes invisibles.
+*/
+
+.jour2 {
+  margin-top: 32px;
+}
+
+.jour2-titre {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+  font-size: 1.1rem;
+}
+
+.jour2-intro,
+.jour2-vide,
+.jour2-detail {
+  color: var(--secondary);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.jour2-intro {
+  margin: 0 0 14px;
+}
+
+.jour2-detail {
+  font-size: 0.78rem;
+}
+
+.jour2-alerte {
+  color: #f59e0b;
+  font-weight: 600;
+}
+
+.jour2-chiffres {
+  display: grid;
+  /* Deux colonnes quand la place existe, une seule sur téléphone : côte à côte à
+     320 px, les deux nombres deviendraient illisibles. */
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.jour2-carte {
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(128, 128, 128, 0.3);
+  border: 1px solid color-mix(in srgb, var(--secondary) 40%, transparent);
+  background: var(--bg-panel);
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  /* Un enfant de grille refuse de descendre sous la largeur de son contenu : sans
+     ceci, un libellé long élargirait la piste et déborderait la page. */
+  min-width: 0;
+}
+
+.jour2-nombre {
+  font-size: 1.9rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.jour2-libelle {
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--secondary);
+  min-width: 0;
+}
+
+.jour2-sous {
+  margin: 18px 0 8px;
+  font-size: 0.92rem;
+}
+
+.jour2-liste {
+  list-style: none;
+  margin: 0 0 6px;
+  padding: 0;
+}
+
+.jour2-liste li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.18);
+  font-size: 0.85rem;
+}
+
+.jour2-liste li:last-child {
+  border-bottom: none;
+}

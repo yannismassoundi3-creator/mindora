@@ -95,6 +95,17 @@ export class AdminController {
    * Les paiements refusés à l'ouverture. Réservé comme le reste : la liste est
    * nominative, et le message de Stripe décrit la configuration du serveur.
    */
+  /**
+   * Les deux mécanismes censés créer un deuxième jour, et leur portée réelle.
+   */
+  @Get('jour-deux')
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Portée des notifications et des relances' })
+  async getJourDeux() {
+    return this.adminService.getJourDeux();
+  }
+
   @Get('paiements-echoues')
   @Roles('ADMIN')
   @ApiBearerAuth()
