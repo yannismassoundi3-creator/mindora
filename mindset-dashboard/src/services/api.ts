@@ -389,6 +389,18 @@ export const api = {
           if (data.settings.encryption !== undefined) localStorage.setItem('mindset_sec_encryption', data.settings.encryption.toString());
           if (data.settings.biometric !== undefined) localStorage.setItem('mindset_sec_biometric', data.settings.biometric.toString());
           if (data.settings.localHistory !== undefined) localStorage.setItem('mindset_sec_local', data.settings.localHistory.toString());
+          /*
+            La personnalisation. Une chaîne vide veut dire « rien de posé de ce
+            côté-là » et ne doit donc rien écraser ici — même convention que pour
+            l'apparence du coach, juste au-dessus.
+
+            Le thème et les particules s'appliquent tout seuls : les deux écoutent
+            `storage`, que la descente émet en repartant.
+          */
+          if (data.settings.aiName) localStorage.setItem('mindset_ai_name', data.settings.aiName);
+          if (data.settings.appThemeId) localStorage.setItem('mindset_app_theme_id', data.settings.appThemeId);
+          if (data.settings.textColor) localStorage.setItem('mindset_text_color', data.settings.textColor);
+          if (data.settings.particles !== undefined) localStorage.setItem('mindset_particles', data.settings.particles.toString());
         }
         
         /*

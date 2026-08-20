@@ -49,17 +49,41 @@ export const CLES_SYNCHRONISEES = [
 ] as const;
 
 /**
- * Les signatures des compteurs, copiées avec eux mais jamais comptées.
+ * Ce qui est copié avec l'état sans jamais compter comme du travail à sauver.
  *
- * Elles voyagent avec leur valeur, sinon un solde restauré arriverait sans preuve.
+ * Deux familles : les signatures des compteurs, et la personnalisation. Aucune des
+ * deux ne dit ce que la personne a fait — les compter parmi ce qui « vaut la peine
+ * d'être sauvé » ferait proposer de récupérer une version vide.
+ *
+ * Les signatures voyagent avec leur valeur, sinon un solde restauré arriverait sans preuve.
  * Le contrôle anti-triche tolère une signature absente — il resigne la valeur — et
  * c'est bien pourquoi il faut les emporter : restaurer une valeur en laissant en
  * place la signature de l'autre version, elle, déclencherait la remise à zéro.
- *
- * Elles ne disent en revanche rien de ce que la personne a fait : les compter parmi
- * ce qui « vaut la peine d'être sauvé » proposerait de récupérer une version vide.
  */
-export const CLES_ACCOMPAGNANTES = ['mindset_points_signature', 'mindset_xp_signature'] as const;
+export const CLES_ACCOMPAGNANTES = [
+  'mindset_points_signature',
+  'mindset_xp_signature',
+  /*
+    La personnalisation, qui ne voyageait pas du tout.
+
+    Le nom qu'on donne à son coach, le thème équipé, la couleur choisie : tout cela
+    vivait dans le seul navigateur qui l'avait posé. Sur un second appareil — ou
+    après une réinstallation, où iOS rend un stockage vierge — le coach reprenait le
+    nom « Coach IA » et l'application son thème d'origine, **définitivement** :
+    l'inscription ne se rejoue pas, et plus rien ne redemandait ce nom. Ces quatre
+    valeurs partent maintenant dans `settings`, qui est déjà synchronisé.
+
+    Rangées ici et non au-dessus pour la même raison que les signatures : elles
+    voyagent, elles ne comptent pas. `mindset_app_theme_id` est écrit d'office au
+    premier affichage — le compter parmi ce qui « vaut la peine d'être sauvé » ferait
+    proposer de récupérer une version qui ne contient rien d'autre qu'un thème par
+    défaut.
+  */
+  'mindset_ai_name',
+  'mindset_app_theme_id',
+  'mindset_text_color',
+  'mindset_particles',
+] as const;
 
 /**
  * Les listes qu'on n'arrive pas à relire, sous leur nom lisible.
@@ -159,6 +183,17 @@ export function construireEtatLocal(): Record<string, any> {
       encryption: localStorage.getItem('mindset_sec_encryption') !== 'false',
       biometric: localStorage.getItem('mindset_sec_biometric') === 'true',
       localHistory: localStorage.getItem('mindset_sec_local') !== 'false',
+      /*
+        Rangées dans `settings`, qui est déjà synchronisé, plutôt que dans quatre
+        colonnes neuves : aucune migration, et ces réglages sont exactement de la
+        même nature que les trois du dessus. Ajoutées **à la fin** du littéral —
+        l'ordre décide de l'empreinte, et le réordonner ferait croire à un
+        changement permanent.
+      */
+      aiName: localStorage.getItem('mindset_ai_name') || '',
+      appThemeId: localStorage.getItem('mindset_app_theme_id') || '',
+      textColor: localStorage.getItem('mindset_text_color') || '',
+      particles: localStorage.getItem('mindset_particles') !== 'false',
     },
   };
 }
@@ -195,11 +230,19 @@ export function purgerScoresAnciens(): number {
     return 0;
   }
 
-  // Même convention de clé que le reste de l'application : `AAAA-MM-JJ`, ce qui se
-  // compare directement en chaîne sans repasser par un objet `Date` — et sans
-  // rejouer le décalage de fuseau que cette convention existe pour éviter.
+  /*
+    Même convention de clé que les scores eux-mêmes : `AAAA-MM-JJ` **en UTC**, ce
+    qui se compare directement en chaîne sans repasser par un objet `Date`.
+
+    `toLocaleDateString('sv-SE')` rendait bien ce format, mais dans le fuseau de
+    l'appareil : la borne ne parlait donc pas du même calendrier que les clés
+    qu'elle filtre. Sans conséquence à quatre cents jours de distance — et c'est
+    précisément ce qui en fait un piège, puisque rien ne l'aurait signalé le jour
+    où la même ligne aurait été recopiée quelque part où la journée compte.
+  */
   const limite = new Date(Date.now() - JOURS_DE_SCORE_CONSERVES * 86400000)
-    .toLocaleDateString('sv-SE');
+    .toISOString()
+    .slice(0, 10);
 
   const gardees = Object.keys(scores).filter((jour) => jour >= limite);
   const retirees = Object.keys(scores).length - gardees.length;
