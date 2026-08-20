@@ -204,6 +204,13 @@ describe("MorningBriefService — quand la journée est vide", () => {
 
   const inviteAvec = (sync: any) => service.buildPrompt('Yannis', sync);
 
+  /** La clé de jour telle que le client l'écrit : `YYYY-MM-DD` en UTC. */
+  const jour = (recul: number) => {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() - recul);
+    return d.toISOString().slice(0, 10);
+  };
+
   // L'angle tourne avec la date : se contenter de vérifier l'absence des angles
   // exigeants laisserait passer le bug un jour sur deux, selon l'angle tiré. On
   // exige donc la présence de l'interdiction, qui ne dépend d'aucune date.
@@ -243,12 +250,45 @@ describe("MorningBriefService — quand la journée est vide", () => {
     expect(invite).not.toContain('AUCUNE tâche');
   });
 
-  it('félicite sans rien réclamer quand tout est coché', () => {
+  it('félicite sans rien réclamer quand tout est coché aujourd’hui', () => {
     const invite = inviteAvec({
       routines: [{ items: [{ title: 'Méditer 10 minutes', done: true }] }],
+      last_routine_date: jour(0),
     });
 
     expect(invite).toContain('Tout est terminé');
     expect(invite).toContain('félicite');
+  });
+
+  /*
+    La félicitation partie un matin à 10 h 50 : « Tu as terminé tous tes exercices »,
+    une heure avant que l'app, ouverte, montre les six tâches intactes.
+
+    Les cases ne sont décochées que par le client, à l'ouverture. Tant que personne
+    n'ouvre l'app, la base garde la soirée de la veille — toute cochée — et le brief
+    la lisait comme la journée du jour. Rien n'échouait : la donnée était vieille
+    d'un jour et parfaitement plausible.
+  */
+  it('ne félicite pas pour les cases de la veille', () => {
+    const invite = inviteAvec({
+      routines: [{ items: [{ title: 'Squats (4×12)', done: true }, { title: 'Pompes (3×15)', done: true }] }],
+      last_routine_date: jour(1),
+    });
+
+    expect(invite).not.toContain('Tout est terminé');
+    expect(invite).not.toContain('DÉJÀ FAIT');
+    expect(invite).toContain('RESTE À FAIRE');
+    expect(invite).toContain('Squats (4×12)');
+  });
+
+  it('traite une date de routines absente comme périmée', () => {
+    // C'est aussi ce que fait le client, dont le test est `lastDate !== today` :
+    // sans date, il décoche. Le serveur doit conclure ce que l'écran montrera.
+    const invite = inviteAvec({
+      routines: [{ items: [{ title: 'Méditer 10 minutes', done: true }] }],
+    });
+
+    expect(invite).not.toContain('Tout est terminé');
+    expect(invite).toContain('RESTE À FAIRE');
   });
 });

@@ -10,7 +10,7 @@ import * as cron from 'node-cron';
 import * as webpush from 'web-push';
 import { lienApp } from '../common/origines';
 import { titreProgression } from './jauge';
-import { separerTaches } from './taches';
+import { tachesDuJour } from './taches';
 
 /** Décompte d'une tournée de briefs, identique dans le log et dans la réponse HTTP. */
 export interface ResumeTournee {
@@ -450,6 +450,7 @@ export class PushService implements OnModuleInit {
     const situation = this.coupDePouce.situation({
       dailyScores: user.sync_data?.daily_scores as Record<string, number> | null,
       routines: user.sync_data?.routines,
+      jourDesRoutines: user.sync_data?.last_routine_date,
       objectifs: user.sync_data?.micro_objectives,
       dernierCoupDePouce: null,
       derniereSynchro: user.sync_data?.updated_at ?? null,
@@ -505,6 +506,7 @@ export class PushService implements OnModuleInit {
       const situation = this.coupDePouce.situation({
         dailyScores: user.sync_data?.daily_scores as Record<string, number> | null,
         routines: user.sync_data?.routines,
+        jourDesRoutines: user.sync_data?.last_routine_date,
         objectifs: user.sync_data?.micro_objectives,
         dernierCoupDePouce: user.coup_de_pouce?.dernier_envoi ?? null,
         derniereSynchro: user.sync_data?.updated_at ?? null,
@@ -592,6 +594,7 @@ export class PushService implements OnModuleInit {
     const situation = this.coupDePouce.situation({
       dailyScores: user.sync_data?.daily_scores as Record<string, number> | null,
       routines: user.sync_data?.routines,
+      jourDesRoutines: user.sync_data?.last_routine_date,
       objectifs: user.sync_data?.micro_objectives,
       dernierCoupDePouce: null,
       derniereSynchro: user.sync_data?.updated_at ?? null,
@@ -681,7 +684,7 @@ export class PushService implements OnModuleInit {
         qu'à ceux qui échouaient, ce qui est l'inverse de ce qu'on demande à un
         coach.
       */
-      const taches = separerTaches((user.sync_data as any)?.routines);
+      const taches = tachesDuJour(user.sync_data);
       const avaitQuelqueChose = taches.restantes.length + taches.faites.length > 0;
       const journeePleine = avaitQuelqueChose && taches.restantes.length === 0;
 
@@ -1148,13 +1151,15 @@ export class PushService implements OnModuleInit {
           const donnees = (user as any).sync_data;
           const scores = (donnees?.daily_scores as Record<string, number>) || {};
 
+          // Les coches datées : voir `tachesDuJour`. Sans elle, celui qui n'a pas ouvert
+          // l'app de la journée arrivait ici avec les cases de la veille encore cochées.
+          const taches = tachesDuJour(donnees);
+
           // Une jauge vide n'a de sens que face à quelque chose qu'on n'a pas fait.
           // Quelqu'un dont la journée est vide n'a pas échoué : il n'a rien à cocher,
           // et lui montrer « 0 % » le lui reproche. Même distinction que dans le brief
           // du matin, qui l'avait déjà payée une fois.
-          const aDesTaches = Array.isArray(donnees?.routines)
-            ? donnees.routines.some((r: any) => Array.isArray(r?.items) && r.items.length > 0)
-            : false;
+          const aDesTaches = taches.restantes.length + taches.faites.length > 0;
 
           /*
             Ce qu'il reste, plutôt que ce que dit le score.
@@ -1170,7 +1175,7 @@ export class PushService implements OnModuleInit {
             le score est calculé par le client, et 100 % n'y garantit pas qu'il ne
             reste rien à cocher.
           */
-          const restantes = separerTaches(donnees?.routines).restantes.length;
+          const restantes = taches.restantes.length;
           const toutEstFait = avecProgression && aDesTaches && restantes === 0;
 
           await this.sendNotification(user.id, {

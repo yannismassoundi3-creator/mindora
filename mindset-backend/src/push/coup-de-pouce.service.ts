@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { lireReponseGroq } from '../common/groq';
 import { chaineCourte, appelerMaillon, MaillonCourt } from '../common/chaine-courte';
-import { separerTaches } from './taches';
+import { cochesDuJour, separerTaches } from './taches';
 import { MODELES_COURTS } from '../common/modeles';
 
 /**
@@ -51,6 +51,13 @@ export interface Situation {
 export interface EtatCompte {
   dailyScores: Record<string, number> | null | undefined;
   routines: unknown;
+  /**
+   * Le jour auquel se rapportent les coches des routines (`last_routine_date`).
+   * Obligatoire, et non optionnel : un appelant qui l'oublie doit s'en apercevoir à
+   * la compilation, pas six mois plus tard sur le téléphone de quelqu'un. Voir
+   * `cochesDuJour` dans `taches.ts`.
+   */
+  jourDesRoutines: string | null | undefined;
   objectifs: unknown;
   /** Dernier coup de pouce envoyé à cette personne, s'il y en a eu un. */
   dernierCoupDePouce: Date | null;
@@ -129,7 +136,9 @@ export class CoupDePouceService {
 
     const serie = CoupDePouceService.serie(etat.dailyScores);
     const joursSansRien = CoupDePouceService.joursSansRien(etat.dailyScores);
-    const routines = separerTaches(etat.routines);
+    // Les coches de routine ne valent que pour leur jour ; celles d'un objectif ne
+    // s'effacent pas la nuit. D'où deux lectures différentes de la même donnée.
+    const routines = separerTaches(etat.routines, cochesDuJour(etat.jourDesRoutines, maintenant));
     const objectifs = separerTaches(etat.objectifs);
     const restantes = [...routines.restantes, ...objectifs.restantes];
     const faites = routines.faites;

@@ -490,10 +490,18 @@ describe('PushService — tournée des briefs du matin', () => {
     const jour = (n: number) =>
       new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
 
-    const avecRoutines = (id: string, routines: any, scores: Record<string, number> = {}) => ({
+    // `jourDesRoutines` par défaut à aujourd'hui : les coches valent pour la journée
+    // en cours, ce qu'écrit le client à chaque ouverture. Le dernier test le déplace
+    // à hier — l'état d'un compte qui n'a pas ouvert l'app depuis la veille.
+    const avecRoutines = (
+      id: string,
+      routines: any,
+      scores: Record<string, number> = {},
+      jourDesRoutines = jour(0),
+    ) => ({
       id,
       push_subscriptions: [{ id: 's1' }],
-      sync_data: { daily_scores: scores, routines },
+      sync_data: { daily_scores: scores, routines, last_routine_date: jourDesRoutines },
     });
 
     const charge = () => JSON.parse((webpush.sendNotification as jest.Mock).mock.calls[0][1]);
@@ -537,6 +545,25 @@ describe('PushService — tournée des briefs du matin', () => {
       await service.checkStreaksAndWarn(20);
 
       expect(charge().body).toContain('5 jours');
+    });
+
+    it("ne félicite pas à 20 h pour les cases cochées la veille", async () => {
+      /*
+        Le décochage quotidien n'a jamais lieu sur le serveur : c'est le client qui
+        efface les cases à l'ouverture. Quelqu'un qui a tout bouclé hier soir et
+        n'a pas rouvert l'app arrive donc ici avec une journée entièrement cochée,
+        et recevait « Journée pleine » un soir où il n'avait rien fait — la même
+        donnée périmée qui, au matin, félicitait pour des exercices pas commencés.
+      */
+      morningBrief.computeStreak.mockReturnValue(3);
+      prisma.user.findMany.mockResolvedValue([
+        avecRoutines('u1', [{ items: [{ title: 'Sport', done: true }] }], { [jour(1)]: 100 }, jour(1)),
+      ]);
+
+      await service.checkStreaksAndWarn(20);
+
+      expect(charge().body).not.toContain('Journée pleine');
+      expect(charge().body).toContain("Rien de coché aujourd'hui");
     });
 
     it('ne félicite pas une journée vide', async () => {
@@ -773,6 +800,7 @@ describe('PushService — coup de pouce affiché', () => {
     const situation = coupDePouce.situation({
       dailyScores: { [cle(0)]: 40 },
       routines: [],
+      jourDesRoutines: cle(0),
       objectifs: [],
       dernierCoupDePouce: null,
       derniereSynchro: new Date(),
@@ -787,6 +815,7 @@ describe('PushService — coup de pouce affiché', () => {
     const etat = {
       dailyScores: { [cle(3)]: 50, [cle(4)]: 50, [cle(5)]: 50 },
       routines: [],
+      jourDesRoutines: cle(0),
       objectifs: [],
       derniereSynchro: new Date(),
     };

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { lireReponseGroq } from '../common/groq';
 import { chaineCourte, appelerMaillon, MaillonCourt } from '../common/chaine-courte';
-import { separerTaches } from './taches';
+import { separerTaches, tachesDuJour } from './taches';
 import { MODELES_COURTS } from '../common/modeles';
 
 /**
@@ -65,7 +65,10 @@ export class MorningBriefService {
     return streak;
   }
 
-  /** Voir `taches.ts` : le tri est partagé avec le coup de pouce. */
+  /**
+   * Le tri nu, sans date : réservé aux objectifs, qui ne se décochent pas chaque
+   * nuit. Pour les routines, passer par `tachesDuJour`. Voir `taches.ts`.
+   */
   private splitTasks(value: any): { restantes: string[]; faites: string[] } {
     return separerTaches(value);
   }
@@ -115,7 +118,12 @@ export class MorningBriefService {
 
   buildPrompt(prenom: string, sync: any): string {
     const streak = this.computeStreak(sync?.daily_scores);
-    const routines = this.splitTasks(sync?.routines);
+    // Les routines passent par `tachesDuJour`, jamais par le tri nu : une coche de
+    // routine ne vaut que pour le jour où elle a été posée, et c'est le client qui les
+    // efface à l'ouverture suivante. Lire la base sans cette date, c'est féliciter au
+    // réveil quelqu'un dont la journée n'a pas commencé. Les objectifs, eux, ne se
+    // décochent pas la nuit : un objectif atteint le reste.
+    const routines = tachesDuJour(sync);
     const objectifs = this.splitTasks(sync?.micro_objectives);
 
     const riens = routines.restantes.length === 0 && routines.faites.length === 0;

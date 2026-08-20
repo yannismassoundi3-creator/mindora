@@ -41,6 +41,10 @@ describe('CoupDePouceService', () => {
   const etat = (o: Partial<Parameters<CoupDePouceService['situation']>[0]> = {}) => ({
     dailyScores: null,
     routines: null,
+    // Par défaut, les coches sont celles d'aujourd'hui : c'est l'état d'un compte
+    // dont l'app a été ouverte ce matin. Les cas où elles datent d'un autre jour
+    // sont testés à part — c'est de là qu'est venue la fausse félicitation.
+    jourDesRoutines: cle(0),
     objectifs: null,
     dernierCoupDePouce: null,
     derniereSynchro: new Date(),
@@ -118,6 +122,19 @@ describe('CoupDePouceService', () => {
       );
       expect(situation?.raison).toBe('aFinir');
       expect(situation?.restantes).toContain('Courir 20 min');
+    });
+
+    it('ne tient pas pour cochées les cases de la veille', () => {
+      // Mêmes données que le jour de pause ci-dessus, à un détail près : les coches
+      // datent d'hier. Le client les effacera à la prochaine ouverture, la journée
+      // est donc entière devant. Les lire comme faites, c'est se taire au moment où
+      // il y avait quelque chose à dire — et, au matin, féliciter pour rien.
+      const situation = service.situation(
+        etat({ dailyScores: scores(1, 2, 3), routines: taches([], ['Sport']), jourDesRoutines: cle(1) }),
+      );
+      expect(situation?.raison).toBe('aFinir');
+      expect(situation?.restantes).toContain('Sport');
+      expect(situation?.faites).toEqual([]);
     });
 
     it('reconnaît une série en cours à prolonger', () => {
