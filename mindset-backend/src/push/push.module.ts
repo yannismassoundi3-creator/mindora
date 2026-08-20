@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PushService } from './push.service';
+import { BriefEmailService } from './brief-email.service';
 import { MorningBriefService } from './morning-brief.service';
 import { WeeklyReviewService } from './weekly-review.service';
 import { CoupDePouceService } from './coup-de-pouce.service';
@@ -13,6 +14,7 @@ import { PrismaModule } from '../prisma/prisma.module';
   imports: [PrismaModule],
   providers: [
     PushService,
+    BriefEmailService,
     MorningBriefService,
     WeeklyReviewService,
     CoupDePouceService,

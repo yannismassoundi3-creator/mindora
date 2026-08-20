@@ -1,4 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
+import {
+  signatureRetrait,
+  verifierSignatureRetrait,
+  lienRetrait as construireLienRetrait,
+} from '../common/retrait';
 import * as crypto from 'crypto';
 import * as cron from 'node-cron';
 import { PrismaService } from '../prisma/prisma.service';
@@ -146,24 +151,21 @@ export class RelanceEmailService {
     return compte.dejaEnvoyes.includes('decroche') ? null : 'decroche';
   }
 
-  /**
-   * Jeton de retrait, lié à un compte et invérifiable sans le secret du serveur.
-   *
-   * Sans signature, le lien se réduirait à un identifiant en clair dans une URL :
-   * n'importe qui pourrait désabonner n'importe qui en changeant un caractère.
-   */
+  /*
+    Le jeton et sa vérification vivent désormais dans `common/retrait.ts`.
+
+    Le brief du matin par e-mail a besoin du même lien de retrait. Deux façons de
+    signer la même chose, c'est la garantie qu'un jour l'une change : les liens
+    déjà partis dans des boîtes cessent alors de fonctionner, et on ne l'apprend
+    qu'au premier signalement pour spam. Ces deux méthodes restent exposées ici
+    parce que le contrôleur les appelle, mais elles ne décident plus de rien.
+  */
   static signature(userId: string): string {
-    const secret = process.env.JWT_SECRET || process.env.JWT_REFRESH_SECRET || 'disciplix';
-    return crypto.createHmac('sha256', secret).update(`retrait:${userId}`).digest('hex').slice(0, 32);
+    return signatureRetrait(userId);
   }
 
   static verifierSignature(userId: string, signature: string): boolean {
-    const attendue = RelanceEmailService.signature(userId);
-    // Comparaison à temps constant : une comparaison ordinaire s'arrête au premier
-    // caractère faux et laisse deviner la signature octet par octet.
-    const a = Buffer.from(attendue);
-    const b = Buffer.from(signature ?? '');
-    return a.length === b.length && crypto.timingSafeEqual(a, b);
+    return verifierSignatureRetrait(userId, signature);
   }
 
   /**
@@ -174,9 +176,7 @@ export class RelanceEmailService {
    * précisément quelqu'un qui ne se reconnectera pas.
    */
   private lienRetrait(userId: string): string {
-    return lienApi(
-      `/emails/retrait?u=${encodeURIComponent(userId)}&s=${RelanceEmailService.signature(userId)}`,
-    );
+    return construireLienRetrait(userId);
   }
 
   /*

@@ -25,6 +25,11 @@ interface Etat {
   joignablesParPush: number;
   permissions: { etat: string; comptes: number }[];
   relances: { parMotif: { motif: string; envoyees: number }[]; derniere: string | null };
+  briefsEmail: {
+    creneauxActifs: string[];
+    parCreneau: { creneau: string; envoyes: number }[];
+    dernier: string | null;
+  };
 }
 
 /** Les codes bruts de la base, dits en français. */
@@ -101,6 +106,44 @@ export const JourDeux: React.FC = () => {
             </li>
           ))}
         </ul>
+      )}
+
+      <h3 className="jour2-sous">Brief porté par e-mail</h3>
+      {/*
+        Le brief ne partait que par notification, donc à 12 % des comptes. Il part
+        désormais par e-mail à ceux que la notification n'atteint pas — et ce
+        décompte est le seul endroit où l'on peut s'en apercevoir : un canal qui
+        cesse de fonctionner ne lève aucune erreur, il ne fait rien tous les matins.
+      */}
+      <p className="jour2-detail">
+        Créneaux allumés :{' '}
+        <strong>{etat.briefsEmail?.creneauxActifs?.join(', ') || 'aucun'}</strong> — les autres
+        attendent que le domaine ait fait ses preuves.
+      </p>
+      {!etat.briefsEmail?.parCreneau?.length ? (
+        <p className="jour2-vide">Aucun brief encore parti par e-mail.</p>
+      ) : (
+        <>
+          <ul className="jour2-liste">
+            {etat.briefsEmail.parCreneau.map((b) => (
+              <li key={b.creneau}>
+                <span>{b.creneau}</span>
+                <strong>{b.envoyes}</strong>
+              </li>
+            ))}
+          </ul>
+          <p className="jour2-detail">
+            Dernier parti le{' '}
+            {etat.briefsEmail.dernier
+              ? new Date(etat.briefsEmail.dernier).toLocaleString('fr-FR', {
+                  day: 'numeric',
+                  month: 'long',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })
+              : '—'}
+          </p>
+        </>
       )}
 
       <h3 className="jour2-sous">Relances par e-mail</h3>

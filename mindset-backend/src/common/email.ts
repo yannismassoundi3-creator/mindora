@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import { lienApp } from './origines';
 
 /**
  * L'envoi d'un e-mail par l'API REST de Brevo.
@@ -125,6 +126,20 @@ export function gabarit(options: {
   return `
     <div style="font-family: Arial, Helvetica, sans-serif; background-color: #f4f4f5; padding: 32px 16px;">
       <div style="background-color: #ffffff; padding: 32px; border-radius: 12px; max-width: 520px; margin: 0 auto;">
+        <!--
+          Le logo, et le nom en toutes lettres à côté.
+
+          La plupart des clients de messagerie bloquent les images distantes par
+          défaut : un en-tête dont l'identité repose uniquement sur une image y
+          devient un rectangle vide, et le message paraît venir de personne. Le
+          nom est donc du texte, et l'image ne fait que l'accompagner. C'est aussi
+          pour ça que l’attribut alt porte le nom plutôt que le mot « logo ».
+        -->
+        <div style="margin: 0 0 24px;">
+          <img src="${lienApp('/icon-192.png')}" width="36" height="36" alt="Disciplix"
+               style="vertical-align: middle; border-radius: 8px; border: 0;" />
+          <span style="vertical-align: middle; margin-left: 10px; color: #111827; font-size: 17px; font-weight: bold;">Disciplix</span>
+        </div>
         <h2 style="color: #111827; font-size: 20px; margin: 0 0 16px;">${options.titre}</h2>
         <div style="color: #374151; font-size: 15px; line-height: 1.6;">${options.corps}</div>
         ${

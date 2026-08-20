@@ -55,6 +55,7 @@ model User {
   ouvertures            AppOuverture[]
   signalements_ia       SignalementIA[]
   echecs_paiement       EchecPaiement[]
+  briefs_email          BriefEmail[]
   /// D'ou vient cette inscription : la valeur du parametre `?s=` du lien suivi.
   ///
   /// Rien ne la captait avant le 17 aout 2026, si bien qu'aucune inscription
@@ -708,5 +709,32 @@ model EchecPaiement {
 
   created_at DateTime @default(now())
 
+  @@index([created_at])
+}
+
+/// Un brief déjà parti par e-mail, pour ne pas l'envoyer deux fois.
+///
+/// La tournée passe toutes les demi-heures, et un déclenchement manuel depuis le
+/// panneau d'administration peut la rejouer dans le même créneau. Une notification
+/// envoyée deux fois se remarque à peine ; **un e-mail envoyé deux fois se signale
+/// comme indésirable**, et c'est le domaine entier qui paie — codes de connexion
+/// compris.
+///
+/// La clé porte le jour et le créneau : c'est ce qui permet d'en envoyer un le
+/// matin et un le soir sans que le second croie que le premier suffit.
+model BriefEmail {
+  id      String @id @default(uuid())
+  user_id String
+  user    User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  /// « matin », « midi » ou « soir ».
+  creneau String
+  /// Le jour local d'envoi, en `YYYY-MM-DD` : deux briefs du même créneau ne
+  /// peuvent pas partir le même jour, mais celui de demain n'est pas bloqué.
+  jour String
+
+  created_at DateTime @default(now())
+
+  @@unique([user_id, creneau, jour])
   @@index([created_at])
 }

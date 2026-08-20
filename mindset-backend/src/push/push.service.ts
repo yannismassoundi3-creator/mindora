@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { BriefEmailService } from './brief-email.service';
 import { MorningBriefService } from './morning-brief.service';
 import { WeeklyReviewService } from './weekly-review.service';
 import { CoupDePouceService } from './coup-de-pouce.service';
@@ -19,6 +20,8 @@ export interface ResumeTournee {
   dormantsIgnores: number;
   echecs: number;
   comptesExamines: number;
+  /** Briefs partis par e-mail, faute d'appareil joignable par notification. */
+  parEmail: number;
 }
 
 /**
@@ -119,6 +122,7 @@ export class PushService implements OnModuleInit {
     // Les rappels que le coach a promis. Le seul envoi de ce fichier dont
     // l heure est choisie par la personne et non par nous.
     private rappels: RappelService,
+    private readonly briefEmail: BriefEmailService,
   ) {
     const vapidSubject = process.env.VAPID_SUBJECT || 'mailto:coach@disciplix.app';
     const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
@@ -1049,12 +1053,53 @@ export class PushService implements OnModuleInit {
     let generiques = 0;
     let ignores = 0;
     let echecs = 0;
+    let parEmail = 0;
 
     for (const user of users) {
-      if (!user.push_subscriptions?.length) continue;
+      /*
+        Le compte dormant est écarté avant le choix du canal, et non après.
 
+        Cette vérification venait après le filtre des abonnements : quelqu'un de
+        dormant et sans appareil joignable sortait donc par la première porte,
+        sans être compté nulle part. Maintenant que l'absence d'appareil ouvre une
+        seconde voie, l'ordre décide de qui reçoit un e-mail — et personne ne doit
+        en recevoir un pour avoir cessé de venir. La relance existe pour ça.
+      */
       if (!this.morningBrief.isActive(user.sync_data?.updated_at)) {
         ignores++;
+        continue;
+      }
+
+      /*
+        Sans appareil joignable, le brief part par e-mail.
+
+        C'est la moitié du produit qui se rejoue ici : 6 personnes sur 52 étaient
+        joignables par notification le 20 août 2026, et le brief du matin est le
+        seul mécanisme conçu pour créer un deuxième jour.
+
+        **Rien ne part si le modèle n'a rien écrit.** Une notification générique
+        vaut mieux que pas de notification — elle passe, on la lit, on l'oublie.
+        Un e-mail générique quotidien, en revanche, c'est le même texte tous les
+        matins dans la même boîte : le signalement pour indésirable est mérité, et
+        il coûterait le domaine entier.
+      */
+      if (!user.push_subscriptions?.length) {
+        if (!BriefEmailService.creneauActif('matin')) continue;
+
+        if (personnalises + generiques + parEmail > 0) {
+          await new Promise((r) => setTimeout(r, PushService.INTERVALLE_ENTRE_BRIEFS_MS));
+        }
+
+        try {
+          const texte = await this.morningBrief.generate(user.first_name, user.sync_data);
+          if (texte && (await this.briefEmail.envoyer(user, 'matin', texte))) parEmail++;
+        } catch (e) {
+          echecs++;
+          this.logger.error(
+            `Brief du matin par e-mail échoué pour ${user.id} : ${(e as any)?.message}`,
+            (e as any)?.stack,
+          );
+        }
         continue;
       }
 
@@ -1085,11 +1130,18 @@ export class PushService implements OnModuleInit {
 
     this.logger.log(
       `Briefs du matin : ${personnalises} personnalisé(s), ${generiques} générique(s), ` +
-        `${ignores} compte(s) dormant(s) ignoré(s), ${echecs} échec(s)`,
+        `${parEmail} par e-mail, ${ignores} compte(s) dormant(s) ignoré(s), ${echecs} échec(s)`,
     );
 
     // Renvoyé pour que le suivi de tournée expose le même décompte que le log.
-    return { personnalises, generiques, dormantsIgnores: ignores, echecs, comptesExamines: users.length };
+    return {
+      personnalises,
+      generiques,
+      parEmail,
+      dormantsIgnores: ignores,
+      echecs,
+      comptesExamines: users.length,
+    };
   }
 
   /**

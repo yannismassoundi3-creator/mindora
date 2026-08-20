@@ -3,6 +3,7 @@ import { Logger } from '@nestjs/common';
 import * as webpush from 'web-push';
 import { PushService } from './push.service';
 import { MorningBriefService } from './morning-brief.service';
+import { BriefEmailService } from './brief-email.service';
 import { WeeklyReviewService } from './weekly-review.service';
 import { CoupDePouceService } from './coup-de-pouce.service';
 import { BilanHebdoService } from './bilan-hebdo.service';
@@ -33,6 +34,7 @@ describe('PushService — tournée des briefs du matin', () => {
   let prisma: any;
   let morningBrief: { isActive: jest.Mock; generate: jest.Mock; computeStreak: jest.Mock };
   let bilanHebdo: { lecture: jest.Mock };
+  let briefEmail: { envoyer: jest.Mock };
   const frontendUrlInitiale = process.env.FRONTEND_URL;
 
   const compteActif = (id: string) => ({
@@ -64,6 +66,9 @@ describe('PushService — tournée des briefs du matin', () => {
       },
     };
     bilanHebdo = { lecture: jest.fn().mockResolvedValue(null) };
+    // Le brief part aussi par e-mail depuis le 20 août 2026, à ceux que la
+    // notification n'atteint pas. Vrai par défaut : un envoi accepté se compte.
+    briefEmail = { envoyer: jest.fn().mockResolvedValue(true) };
     morningBrief = {
       isActive: jest.fn().mockReturnValue(true),
       generate: jest.fn().mockResolvedValue(null),
@@ -87,6 +92,13 @@ describe('PushService — tournée des briefs du matin', () => {
         PushService,
         { provide: PrismaService, useValue: prisma },
         { provide: MorningBriefService, useValue: morningBrief },
+        /*
+          Le brief part aussi par e-mail depuis le 20 aout 2026, a ceux que la
+          notification n atteint pas. Ces cas-ci verifient le chemin des
+          notifications : le double rend faux, donc aucun e-mail ne part et les
+          decomptes restent ceux d avant.
+        */
+        { provide: BriefEmailService, useValue: briefEmail },
         // Le bilan hebdomadaire ne concerne aucun de ces tests, mais le service en
         // dépend depuis qu'il ne raconte plus la même chose à tout le monde.
         { provide: WeeklyReviewService, useValue: new WeeklyReviewService() },
@@ -195,6 +207,66 @@ describe('PushService — tournée des briefs du matin', () => {
         dormantsIgnores: 0,
         echecs: 0,
       });
+    });
+
+    it('écrit par e-mail à qui la notification n’atteint pas', async () => {
+      /*
+        Six personnes sur cinquante-deux étaient joignables par notification le
+        20 août 2026. Le brief du matin est le seul mécanisme du produit conçu
+        pour créer un deuxième jour : sans ce chemin, il ne parlait qu'à 12 % des
+        comptes.
+      */
+      prisma.user.findMany.mockResolvedValue([{ ...compteActif('u1'), push_subscriptions: [] }]);
+      morningBrief.generate.mockResolvedValue('Ta série tient depuis 4 jours.');
+
+      const resume = await service.sendMorningBriefs('cron');
+
+      expect(briefEmail.envoyer).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'u1' }),
+        'matin',
+        'Ta série tient depuis 4 jours.',
+      );
+      expect(resume.parEmail).toBe(1);
+    });
+
+    it('n’écrit pas à quelqu’un que la notification atteint déjà', async () => {
+      // Le même message deux fois par deux canaux n'est pas une insistance :
+      // c'est le plus court chemin vers un signalement pour indésirable, qui
+      // punit le domaine entier, codes de connexion compris.
+      prisma.user.findMany.mockResolvedValue([compteActif('u1')]);
+      morningBrief.generate.mockResolvedValue('Ta série tient depuis 4 jours.');
+
+      await service.sendMorningBriefs('cron');
+
+      expect(briefEmail.envoyer).not.toHaveBeenCalled();
+    });
+
+    it('n’envoie aucun e-mail générique quand le modèle n’a rien écrit', async () => {
+      /*
+        Une notification générique vaut mieux que pas de notification : elle
+        passe, on la lit, on l'oublie. Un e-mail générique quotidien, c'est le
+        même texte tous les matins dans la même boîte — le signalement pour
+        indésirable serait mérité.
+      */
+      prisma.user.findMany.mockResolvedValue([{ ...compteActif('u1'), push_subscriptions: [] }]);
+      morningBrief.generate.mockResolvedValue(null);
+
+      const resume = await service.sendMorningBriefs('cron');
+
+      expect(briefEmail.envoyer).not.toHaveBeenCalled();
+      expect(resume.parEmail).toBe(0);
+    });
+
+    it('n’écrit pas par e-mail à un compte dormant', async () => {
+      // Il reçoit déjà la relance prévue pour ça. Un message quotidien en plus
+      // abîmerait la réputation d'un domaine qui n'en a pas encore.
+      prisma.user.findMany.mockResolvedValue([{ ...compteActif('u1'), push_subscriptions: [] }]);
+      morningBrief.isActive.mockReturnValue(false);
+
+      const resume = await service.sendMorningBriefs('cron');
+
+      expect(briefEmail.envoyer).not.toHaveBeenCalled();
+      expect(resume.dormantsIgnores).toBe(1);
     });
 
     it('ignore les comptes dormants sans payer un appel IA', async () => {

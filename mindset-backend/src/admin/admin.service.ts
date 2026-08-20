@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { BriefEmailService } from '../push/brief-email.service';
 import { debutDuJourParis } from '../common/jour-paris';
 
 @Injectable()
@@ -83,13 +84,18 @@ export class AdminService {
    * abonnement, et le brief du matin n'atteindra jamais cette personne.
    */
   async getJourDeux() {
-    const [comptes, abonnesPush, permissions, relances, briefs] = await Promise.all([
+    const [comptes, abonnesPush, permissions, relances, briefs, briefsEmail, dernierBriefEmail] = await Promise.all([
       this.prisma.user.count({ where: { deleted_at: null } }),
       // Des appareils, pas des personnes : un même compte peut en avoir plusieurs.
       this.prisma.pushSubscription.findMany({ select: { user_id: true } }),
       this.prisma.pushPermission.groupBy({ by: ['etat'], _count: { _all: true } }),
       this.prisma.relanceEmail.groupBy({ by: ['motif'], _count: { _all: true } }),
       this.prisma.relanceEmail.aggregate({ _max: { envoye_le: true } }),
+      // Le brief porté par e-mail à ceux que la notification n'atteint pas. Sans
+      // ce décompte, on ne saurait pas s'il part — et un canal qui ne part pas ne
+      // lève aucune erreur : il ne fait rien, tous les matins.
+      this.prisma.briefEmail.groupBy({ by: ['creneau'], _count: { _all: true } }),
+      this.prisma.briefEmail.aggregate({ _max: { created_at: true } }),
     ]);
 
     return {
@@ -103,6 +109,14 @@ export class AdminService {
       relances: {
         parMotif: relances.map((r) => ({ motif: r.motif, envoyees: r._count._all })),
         derniere: briefs._max.envoye_le,
+      },
+      briefsEmail: {
+        /* Les créneaux réellement allumés, lus depuis la même variable que le
+           service : afficher « soir » à côté d'un zéro alors que le créneau est
+           éteint ferait chercher une panne là où il n'y a qu'un réglage. */
+        creneauxActifs: BriefEmailService.creneauxActifs(),
+        parCreneau: briefsEmail.map((b) => ({ creneau: b.creneau, envoyes: b._count._all })),
+        dernier: dernierBriefEmail._max.created_at,
       },
     };
   }
