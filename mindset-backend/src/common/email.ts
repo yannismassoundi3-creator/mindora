@@ -57,7 +57,7 @@ export async function envoyerEmail({
     logger.warn(`BREVO_API_KEY absente : « ${sujet} » non envoyé à ${destinataire}.`);
     return false;
   }
-  const expediteur = process.env.BREVO_SENDER_EMAIL || 'mindoraappli@gmail.com';
+  const expediteur = process.env.BREVO_SENDER_EMAIL || 'coach@disciplix.app';
 
   /*
     Le retrait est annoncé deux fois : dans le pied de page, pour la personne, et

@@ -120,7 +120,7 @@ export class PushService implements OnModuleInit {
     // l heure est choisie par la personne et non par nous.
     private rappels: RappelService,
   ) {
-    const vapidSubject = process.env.VAPID_SUBJECT || 'mailto:mindoraappli@gmail.com';
+    const vapidSubject = process.env.VAPID_SUBJECT || 'mailto:coach@disciplix.app';
     const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
     const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
 

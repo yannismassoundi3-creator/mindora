@@ -146,7 +146,7 @@ export class SubscriptionsService {
       // configuration du serveur — « Invalid API Key provided: sk_test_… » s'affichait
       // tel quel — et ne lui apprenait rien d'utile.
       throw new BadRequestException(
-        "Le paiement n'a pas pu être ouvert. Ce n'est pas de ton fait : réessaie dans un moment, ou écris-nous à mindoraappli@gmail.com.",
+        "Le paiement n'a pas pu être ouvert. Ce n'est pas de ton fait : réessaie dans un moment, ou écris-nous à coach@disciplix.app.",
       );
     }
   }

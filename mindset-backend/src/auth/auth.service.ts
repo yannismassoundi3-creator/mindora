@@ -240,7 +240,7 @@ export class AuthService {
   async send2FAEmail(email: string, code: string) {
     try {
       const apiKey = this.configService.get<string>('BREVO_API_KEY');
-      const senderEmail = this.configService.get<string>('BREVO_SENDER_EMAIL') || 'mindoraappli@gmail.com';
+      const senderEmail = this.configService.get<string>('BREVO_SENDER_EMAIL') || 'coach@disciplix.app';
       
       if (!apiKey) return;
 
@@ -534,7 +534,7 @@ export class AuthService {
   async sendPasswordResetEmail(email: string, rawToken: string) {
     try {
       const apiKey = this.configService.get<string>('BREVO_API_KEY');
-      const senderEmail = this.configService.get<string>('BREVO_SENDER_EMAIL') || 'mindoraappli@gmail.com';
+      const senderEmail = this.configService.get<string>('BREVO_SENDER_EMAIL') || 'coach@disciplix.app';
       // Passe par l'aide partagée : une `FRONTEND_URL` fausse (le cas sur Render
       // au 13 août 2026) envoyait ce lien sur une page « Not Found ». Or c'est le
       // seul lien de l'application que personne ne peut contourner — quelqu'un qui

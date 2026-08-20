@@ -286,7 +286,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
             <h2 className="modal-title">Mentions Légales</h2>
             <p><strong>Éditeur de l'Application :</strong> Yannis (Statut Auto-Entrepreneur - En cours d'immatriculation)</p>
             <p><strong>Directeur de la publication :</strong> Yannis</p>
-            <p><strong>Contact :</strong> mindoraappli@gmail.com</p>
+            <p><strong>Contact :</strong> coach@disciplix.app</p>
             <p><strong>Hébergement :</strong> L'application est hébergée sur des serveurs sécurisés (Vercel et Render). Conformément à l'Article 6 de la Loi n°2004-575 du 21 juin 2004 pour la confiance dans l'économie numérique, les utilisateurs sont informés de l'identité des intervenants.</p>
             <p><strong>Propriété intellectuelle :</strong> Disciplix et tous ses éléments (code, interface, charte graphique, algorithmes locaux) sont la propriété exclusive de son éditeur. Toute reproduction, modification ou distribution est interdite.</p>
           </>
@@ -309,7 +309,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNameChange }) => {
             <p><strong>1. Collecte et finalité :</strong> Vos données (habitudes, routines, objectifs, historique des scores) sont stockées de manière sécurisée dans le Cloud pour permettre la synchronisation entre vos appareils. L'authentification requiert votre email de manière sécurisée.</p>
             <p><strong>2. Sous-traitants (IA) :</strong> Vos messages adressés au Coach IA sont envoyés de manière éphémère à <strong>Groq</strong> pour générer une réponse, et à <strong>Baseten</strong> lorsque Groq est saturé. Aucune donnée n'est vendue ni cédée pour l'entraînement de modèles tiers.</p>
             <p><strong>3. Sécurité :</strong> Les mots de passe sont hachés de manière irréversible via Argon2id. Les paiements sont chiffrés de bout en bout et gérés exclusivement par Stripe (nous ne stockons aucune carte bancaire sur nos serveurs).</p>
-            <p><strong>4. Vos droits :</strong> Conformément au RGPD, vous disposez d'un droit d'accès, de rectification, et d'effacement de vos données. <strong>Vous pouvez supprimer votre compte et toutes vos données depuis cet écran</strong> (Zone de Danger → Supprimer mon compte) ; l'abonnement éventuel est résilié au passage. Pour toute autre demande : <strong>mindoraappli@gmail.com</strong>.</p>
+            <p><strong>4. Vos droits :</strong> Conformément au RGPD, vous disposez d'un droit d'accès, de rectification, et d'effacement de vos données. <strong>Vous pouvez supprimer votre compte et toutes vos données depuis cet écran</strong> (Zone de Danger → Supprimer mon compte) ; l'abonnement éventuel est résilié au passage. Pour toute autre demande : <strong>coach@disciplix.app</strong>.</p>
           </>
         );
       default:
