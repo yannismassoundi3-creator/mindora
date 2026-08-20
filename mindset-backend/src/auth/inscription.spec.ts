@@ -37,7 +37,15 @@ describe('Inscription', () => {
       user: {
         findUnique: jest.fn().mockResolvedValue(null),
         create: jest.fn().mockImplementation(({ data }: any) =>
-          Promise.resolve({ id: 'u1', email: data.email, first_name: data.first_name, relances_email: true }),
+          // `created_at` en fait partie : Prisma rend la ligne entière, et
+          // l'accueil s'en sert pour choisir sa formulation.
+          Promise.resolve({
+            id: 'u1',
+            email: data.email,
+            first_name: data.first_name,
+            relances_email: true,
+            created_at: new Date(),
+          }),
         ),
       },
       relanceEmail: {

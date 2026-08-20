@@ -66,7 +66,13 @@ export class AuthService {
       throw new ConflictException('Cet email est déjà utilisé.');
     }
 
-    let user: { id: string; email: string; first_name: string | null; relances_email: boolean };
+    let user: {
+      id: string;
+      email: string;
+      first_name: string | null;
+      relances_email: boolean;
+      created_at: Date;
+    };
     try {
       const passwordHash = await argon2.hash(dto.password);
 

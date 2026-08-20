@@ -86,6 +86,41 @@ export class RelanceEmailController {
     return this.relances.tournee(simulation === 'true');
   }
 
+  /**
+   * Accueillir ceux qui étaient déjà inscrits avant que l'accueil existe.
+   *
+   * Séparée de la tournée, et jamais planifiée : celle de 11 h ne rattrape que les
+   * comptes de moins de deux jours, exprès, pour que son travail quotidien reste
+   * minuscule. Cette route-ci s'attaque à l'arriéré, et un arriéré ne se vide pas
+   * tout seul pendant qu'on dort.
+   *
+   * **Elle part par lots, et ce n'est pas de la timidité.** Le domaine d'envoi a
+   * été créé le 20 août 2026 : il n'a aucun historique. Une cinquantaine de
+   * messages d'un seul geste depuis un domaine neuf est le profil exact d'un
+   * expéditeur compromis — et la sanction n'emporterait pas que ces messages, mais
+   * les codes de connexion partis de la même adresse.
+   */
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiResponse({ status: 403, description: 'Réservé aux comptes ADMIN.' })
+  @Post('bienvenue/rattrapage')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Envoyer l’accueil à ceux qui ne l’ont jamais reçu, par lots',
+    description:
+      "Avec ?simulation=true, rien n'est envoyé ni écrit : la réponse dit seulement " +
+      'qui recevrait le message. ?max=N règle la taille du lot (10 par défaut, 50 au ' +
+      "plus). La réponse porte le nombre de comptes restant à accueillir : c'est lui " +
+      'qui dit combien de fois il faut encore appeler.',
+  })
+  async rattraperBienvenue(@Query('simulation') simulation?: string, @Query('max') max?: string) {
+    // Même convention que la tournée : tout ce qui n'est pas exactement « true »
+    // envoie pour de bon. Un mode d'essai qu'on croit actif alors qu'on vient
+    // d'écrire à dix personnes est pire que pas de mode d'essai du tout.
+    return this.relances.rattrapageBienvenue({ simulation: simulation === 'true', max: Number(max) });
+  }
+
   private static enveloppe(contenu: string): string {
     return `<!doctype html><html lang="fr"><head><meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1">

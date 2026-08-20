@@ -22,8 +22,13 @@ describe('bienvenue', () => {
     email: 'nouveau@example.com',
     first_name: 'Laura',
     relances_email: true,
+    created_at: new Date(),
     ...extra,
   });
+
+  /** Un compte inscrit bien avant que l'accueil existe : le cas du rattrapage. */
+  const ancien = (jours = 20) =>
+    compte({ created_at: new Date(Date.now() - jours * 86_400_000) });
 
   beforeEach(() => {
     prisma = {
@@ -98,6 +103,38 @@ describe('bienvenue', () => {
       expect(envoi().subject).toBeTruthy();
       expect(envoi().htmlContent).toContain('toi, bienvenue');
       expect(envoi().htmlContent).not.toContain('null');
+    });
+  });
+
+  describe("l'accueil rattrapé", () => {
+    it('n’annonce pas la création d’un compte vieux de trois semaines', async () => {
+      // C'est le point de tout le rattrapage : un message qui décrit un état faux
+      // se lit comme un envoi automatique déréglé, et c'est ce qui fait cliquer
+      // sur « indésirable ».
+      await envoyerBienvenue(prisma as PrismaService, ancien());
+
+      const corps = envoi();
+      expect(corps.subject).toBe('Je ne t’avais jamais écrit');
+      expect(corps.htmlContent).not.toContain('Ton compte est créé');
+      expect(corps.htmlContent).toContain('en retard');
+    });
+
+    it('demande la même chose que l’accueil du jour même', async () => {
+      // L'ouverture change, la demande non : parler au coach reste la seule action
+      // qui prédise un retour, qu'on écrive le jour de l'inscription ou trois
+      // semaines après.
+      await envoyerBienvenue(prisma as PrismaService, ancien());
+
+      expect(envoi().htmlContent).toContain('vue=chat');
+      expect(envoi().htmlContent).toContain('parler une fois');
+    });
+
+    it('bascule sur l’âge du compte, pas sur un drapeau de l’appelant', async () => {
+      // Deux chemins mènent à cet envoi. Un drapeau qu'on se transmet finit
+      // oublié sur l'un des deux ; l'âge, lui, répond pareil à tout le monde.
+      await envoyerBienvenue(prisma as PrismaService, compte({ created_at: new Date(Date.now() - 86_400_000) }));
+
+      expect(envoi().subject).toBe('Ton compte est prêt');
     });
   });
 

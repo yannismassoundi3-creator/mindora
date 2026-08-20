@@ -148,3 +148,26 @@
   color: var(--text-secondary, #94a3b8);
   white-space: nowrap;
 }
+
+/* Le choix de la taille du lot, pour le rattrapage des accueils.
+
+   Volontairement au-dessus des boutons et non à côté : c'est la seule décision à
+   prendre avant de cliquer, et un réglage posé après le geste ne sert à rien. */
+.rattrapage-lot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-size: 0.85rem;
+  color: var(--text-secondary, #94a3b8);
+}
+
+.rattrapage-lot select {
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--text-primary, #e2e8f0);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}

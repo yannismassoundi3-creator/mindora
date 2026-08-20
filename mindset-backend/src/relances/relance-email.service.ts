@@ -74,6 +74,19 @@ export class RelanceEmailService {
   static readonly MAX_PAR_TOURNEE = 50;
 
   /**
+   * Le lot d'accueils rattrapés que déclenche un clic, quand on n'en demande pas.
+   *
+   * Dix, et non « tous » : le défaut est ce qui part quand personne n'a réfléchi,
+   * et sur un domaine sans historique la prudence doit être gratuite. Celui qui
+   * veut aller plus vite le dit — `?max=50` — et c'est alors une décision, pas un
+   * effet de bord.
+   */
+  static readonly LOT_BIENVENUE_PAR_DEFAUT = 10;
+
+  /** Au-delà, aucun geste unique ne peut aller : la borne n'est pas négociable. */
+  static readonly LOT_BIENVENUE_MAX = 50;
+
+  /**
    * Les statuts qui valent « a pris l'abonnement ».
    *
    * Recopiés de `AiQuotaService.PAID_STATUSES` plutôt qu'importés, comme le fait
@@ -510,6 +523,104 @@ export class RelanceEmailService {
     // laisser traîner les adresses de tout le monde.
     if (!simulation) return { ...bilan, destinataires: undefined };
     return bilan;
+  }
+
+  /**
+   * L'accueil des comptes créés avant que l'accueil existe.
+   *
+   * Cinquante-deux personnes se sont inscrites sans jamais recevoir un mot. Ce
+   * n'est pas la tournée de 11 h qui peut le réparer : elle se borne à deux jours
+   * d'ancienneté, exprès, pour que le rattrapage quotidien reste minuscule. D'où
+   * une passe séparée, déclenchée à la main, et qui ne part jamais toute seule.
+   *
+   * **Elle est paginée, et c'est le cœur du sujet.** Le domaine `disciplix.app` a
+   * été créé le 20 août 2026 : il n'a aucun historique d'envoi. Cinquante messages
+   * d'un seul geste depuis un domaine neuf est le profil exact d'un expéditeur
+   * compromis, et la sanction ne frapperait pas que ces cinquante messages — elle
+   * emporterait les codes de connexion, sans lesquels plus personne n'entre.
+   *
+   * Les plus récents d'abord : si l'on s'arrête après un lot, ceux qui sont servis
+   * sont ceux dont l'inscription est la plus fraîche, donc ceux qui se souviennent
+   * encore d'avoir créé un compte.
+   */
+  async rattrapageBienvenue(options: { simulation?: boolean; max?: number } = {}): Promise<{
+    simulation: boolean;
+    aAccueillir: number;
+    envoyes: number;
+    echecs: number;
+    restants: number;
+    destinataires?: Array<{ email: string; inscritIlYA: number }>;
+  }> {
+    const simulation = options.simulation === true;
+    const max = RelanceEmailService.lotValide(options.max);
+    const maintenant = new Date();
+
+    const critere = {
+      deleted_at: null,
+      relances_email: true,
+      relances: { none: { motif: MOTIF_BIENVENUE } },
+    };
+
+    // Le total sert au décompte de ce qui restera : sans lui, on ne saurait pas
+    // combien de fois il faut encore cliquer, et un rattrapage à moitié fait
+    // ressemble à un rattrapage fini.
+    const aAccueillir = await this.prisma.user.count({ where: critere });
+
+    const lot = await this.prisma.user.findMany({
+      where: critere,
+      orderBy: { created_at: 'desc' },
+      take: max,
+      select: { id: true, email: true, first_name: true, created_at: true, relances_email: true },
+    });
+
+    let envoyes = 0;
+    let echecs = 0;
+    const destinataires: Array<{ email: string; inscritIlYA: number }> = [];
+
+    for (const compte of lot) {
+      const inscritIlYA = Math.floor((maintenant.getTime() - compte.created_at.getTime()) / 86_400_000);
+
+      if (simulation) {
+        envoyes++;
+        destinataires.push({ email: compte.email, inscritIlYA });
+        continue;
+      }
+
+      // Exactement l'envoi de l'inscription : c'est lui qui décide de l'ouverture
+      // d'après l'âge du compte, et lui qui refuse d'écrire deux fois.
+      if (await envoyerBienvenue(this.prisma, compte)) envoyes++;
+      else echecs++;
+    }
+
+    if (!simulation) {
+      this.logger.log(`Rattrapage bienvenue : ${envoyes} envoyé(s), ${echecs} échec(s), ${aAccueillir - envoyes} restant(s)`);
+    }
+
+    return {
+      simulation,
+      aAccueillir,
+      envoyes,
+      echecs,
+      // En simulation, rien n'est parti : ce qui « resterait » se compte comme si
+      // le lot affiché avait été envoyé, sans quoi le chiffre ne décrirait pas la
+      // tournée réelle que le bouton d'à côté déclenche.
+      restants: aAccueillir - envoyes,
+      ...(simulation ? { destinataires } : {}),
+    };
+  }
+
+  /**
+   * La taille d'un lot, bornée des deux côtés.
+   *
+   * Elle vient d'une adresse d'API : `?max=5000` est une frappe, pas une intention,
+   * et elle ne doit pas pouvoir devenir un envoi de masse. Une valeur illisible
+   * retombe sur le défaut plutôt que de lever — refuser la requête n'aiderait
+   * personne, et on veut que le geste aboutisse sur un lot prudent.
+   */
+  static lotValide(brut: unknown): number {
+    const n = Math.floor(Number(brut));
+    if (!Number.isFinite(n) || n < 1) return RelanceEmailService.LOT_BIENVENUE_PAR_DEFAUT;
+    return Math.min(n, RelanceEmailService.LOT_BIENVENUE_MAX);
   }
 
   /** Retire quelqu'un des relances. Idempotent : un second clic ne doit pas échouer. */

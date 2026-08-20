@@ -38,8 +38,31 @@ const logger = new Logger('Bienvenue');
  */
 export const MOTIF_BIENVENUE = 'bienvenue';
 
-/** Le contenu, isolé pour être lisible dans un test sans passer par la base. */
-export function contenuBienvenue(prenom: string, userId: string) {
+/**
+ * Au-delà, l'accueil n'est plus un accueil : c'est un mot d'excuse.
+ *
+ * Deux jours, la même valeur que `JOURS_AVANT_JAMAIS_OUVERT` — mais les deux
+ * répondent à des questions différentes et n'ont aucune raison de rester égales :
+ * l'une dit à partir de quand on peut reprocher une absence, celle-ci dit à partir
+ * de quand « ton compte est prêt » sonne faux.
+ *
+ * Ça compte parce que le rattrapage des comptes déjà inscrits passe par ici. Un
+ * message qui annonce la création d'un compte vieux de trois semaines se lit comme
+ * un envoi automatique déréglé, et c'est ce qui fait cliquer sur « indésirable ».
+ */
+export const JOURS_AVANT_ACCUEIL_TARDIF = 2;
+
+/**
+ * Le contenu, isolé pour être lisible dans un test sans passer par la base.
+ *
+ * Deux ouvertures, une seule demande. `tardif` ne change pas ce qu'on attend de la
+ * personne — parler au coach, la seule action qui prédise un retour — il change la
+ * raison pour laquelle ce message arrive aujourd'hui. Quelqu'un qui s'est inscrit
+ * il y a trois semaines a droit à cette explication : sans elle, un e-mail qui
+ * tombe sans raison depuis un produit qu'on avait oublié est un signalement pour
+ * indésirable qui attend.
+ */
+export function contenuBienvenue(prenom: string, userId: string, tardif = false) {
   const retrait = lienRetrait(userId);
   // Même destination que les notifications push : la vue du coach quand la session
   // est encore ouverte, l'écran de connexion sinon.
@@ -52,33 +75,75 @@ export function contenuBienvenue(prenom: string, userId: string) {
     c'est une promesse vide : personne n'ouvre un e-mail pour être accueilli. Ce
     qui se passe vraiment, c'est que le compte existe.
   */
-  const sujet = 'Ton compte est prêt';
+  const sujet = tardif ? 'Je ne t’avais jamais écrit' : 'Ton compte est prêt';
 
-  const corps =
-    "<p>Ton compte est créé. Le produit tient en une phrase : tu dis à ton coach qui tu " +
-    "veux devenir, il te donne quoi faire aujourd'hui, tu le fais. Demain, on recommence.</p>" +
-    "<p>Une seule chose à faire maintenant : parle-lui une fois. Raconte-lui où tu en es, " +
-    "même mal dit. Tant qu'il ne sait rien de toi, il ne peut te donner que des généralités " +
-    "— c'est ce premier message qui transforme l'app en quelque chose qui te connaît.</p>" +
-    "<p>Si tu ne sais pas par où commencer, ou si quelque chose ne marche pas : réponds à " +
-    "cet e-mail. Je le lis.</p>";
+  if (tardif) {
+    /*
+      Le message de rattrapage, pour ceux qui étaient déjà inscrits le jour où
+      l'accueil a été écrit.
+
+      Il dit la vérité sur son propre retard, et c'est le seul moyen de le rendre
+      recevable — l'alternative serait d'annoncer à quelqu'un que son compte de
+      trois semaines vient d'être créé. Il finit par une question ouverte plutôt
+      que par une relance : une réponse, même « je ne reviendrai pas », vaut mieux
+      qu'un signalement, et une conversation dans les deux sens est le meilleur
+      signal de réputation qu'un domaine neuf puisse recevoir.
+    */
+    return {
+      sujet,
+      html: gabarit({
+        titre: `${prenom}, je te dois un mot.`,
+        corps:
+          "<p>Tu as créé ton compte il y a quelque temps, et tu n'as jamais rien reçu de moi. " +
+          "Ce n'était pas un choix : le message d'accueil n'existait pas encore. Le voici, en retard.</p>" +
+          '<p>Disciplix tient en une phrase : tu dis à ton coach qui tu veux devenir, il te donne ' +
+          "quoi faire aujourd'hui, tu le fais. Demain, on recommence.</p>" +
+          '<p>Si tu veux lui laisser une chance, commence par lui parler une fois. Raconte-lui où ' +
+          "tu en es, même mal dit — tant qu'il ne sait rien de toi, il ne peut te donner que des " +
+          'généralités.</p>' +
+          '<p>Et si tu ne comptes pas revenir, dis-le-moi en répondant à cet e-mail. Savoir ce qui ' +
+          "n'allait pas m'est plus utile qu'un compte de plus.</p>",
+        bouton: { texte: 'Reprendre avec mon coach', lien: app },
+        lienRetrait: retrait,
+      }),
+      texte:
+        `${prenom}, je te dois un mot.\n\n` +
+        "Tu as créé ton compte il y a quelque temps, et tu n'as jamais rien reçu de moi. Ce " +
+        "n'était pas un choix : le message d'accueil n'existait pas encore. Le voici, en retard.\n\n" +
+        'Disciplix tient en une phrase : tu dis à ton coach qui tu veux devenir, il te donne quoi ' +
+        "faire aujourd'hui, tu le fais. Demain, on recommence.\n\n" +
+        'Si tu veux lui laisser une chance, commence par lui parler une fois. Raconte-lui où tu ' +
+        "en es, même mal dit — tant qu'il ne sait rien de toi, il ne peut te donner que des " +
+        'généralités.\n\n' +
+        'Et si tu ne comptes pas revenir, dis-le-moi en répondant à cet e-mail. Savoir ce qui ' +
+        `n'allait pas m'est plus utile qu'un compte de plus.\n\n${app}\n\nNe plus recevoir ces messages : ${retrait}\n`,
+      lienRetrait: retrait,
+    };
+  }
 
   return {
     sujet,
     html: gabarit({
       titre: `${prenom}, bienvenue.`,
-      corps,
+      corps:
+        '<p>Ton compte est créé. Le produit tient en une phrase : tu dis à ton coach qui tu ' +
+        "veux devenir, il te donne quoi faire aujourd'hui, tu le fais. Demain, on recommence.</p>" +
+        '<p>Une seule chose à faire maintenant : parle-lui une fois. Raconte-lui où tu en es, ' +
+        "même mal dit. Tant qu'il ne sait rien de toi, il ne peut te donner que des généralités " +
+        "— c'est ce premier message qui transforme l'app en quelque chose qui te connaît.</p>" +
+        '<p>Si tu ne sais pas par où commencer, ou si quelque chose ne marche pas : réponds à ' +
+        'cet e-mail. Je le lis.</p>',
       bouton: { texte: 'Parler à mon coach', lien: app },
       lienRetrait: retrait,
     }),
     texte:
       `${prenom}, bienvenue.\n\n` +
-      "Ton compte est créé. Le produit tient en une phrase : tu dis à ton coach qui tu veux " +
+      'Ton compte est créé. Le produit tient en une phrase : tu dis à ton coach qui tu veux ' +
       "devenir, il te donne quoi faire aujourd'hui, tu le fais. Demain, on recommence.\n\n" +
-      "Une seule chose à faire maintenant : parle-lui une fois. Raconte-lui où tu en es, même " +
+      'Une seule chose à faire maintenant : parle-lui une fois. Raconte-lui où tu en es, même ' +
       "mal dit. Tant qu'il ne sait rien de toi, il ne peut te donner que des généralités — " +
       "c'est ce premier message qui transforme l'app en quelque chose qui te connaît.\n\n" +
-      "Si tu ne sais pas par où commencer, ou si quelque chose ne marche pas : réponds à cet " +
+      'Si tu ne sais pas par où commencer, ou si quelque chose ne marche pas : réponds à cet ' +
       `e-mail. Je le lis.\n\n${app}\n\nNe plus recevoir ces messages : ${retrait}\n`,
     lienRetrait: retrait,
   };
@@ -99,7 +164,13 @@ export function contenuBienvenue(prenom: string, userId: string) {
  */
 export async function envoyerBienvenue(
   prisma: PrismaService,
-  compte: { id: string; email: string; first_name?: string | null; relances_email?: boolean },
+  compte: {
+    id: string;
+    email: string;
+    first_name?: string | null;
+    relances_email?: boolean;
+    created_at: Date;
+  },
 ): Promise<boolean> {
   try {
     // Quelqu'un qui s'est retiré n'a pas fait d'exception pour l'accueil. Le cas ne
@@ -113,9 +184,28 @@ export async function envoyerBienvenue(
     });
     if (deja) return false;
 
+    /*
+      L'ouverture se déduit de l'âge du compte, elle n'est pas passée par l'appelant.
+
+      Deux chemins mènent ici — l'inscription et le rattrapage — et un drapeau
+      qu'on se transmet finit toujours par être oublié sur l'un des deux. L'âge,
+      lui, est une propriété du compte : il donne la même réponse quel que soit
+      celui qui appelle.
+
+      Le test `instanceof` n'est pas une politesse envers TypeScript : une date
+      absente ferait lever `.getTime()`, le `catch` plus bas avalerait l'erreur, et
+      **personne ne recevrait rien** — une panne muette pour une question de
+      formulation. Sans date, on écrit l'accueil du jour même : c'est le seul
+      chemin où le cas peut survenir, celui de l'inscription.
+    */
+    const tardif =
+      compte.created_at instanceof Date &&
+      Date.now() - compte.created_at.getTime() > JOURS_AVANT_ACCUEIL_TARDIF * 86_400_000;
+
     const { sujet, html, texte, lienRetrait: retrait } = contenuBienvenue(
       compte.first_name || 'toi',
       compte.id,
+      tardif,
     );
     const parti = await envoyerEmail({
       destinataire: compte.email,
@@ -131,7 +221,7 @@ export async function envoyerBienvenue(
     }
 
     await prisma.relanceEmail.create({ data: { user_id: compte.id, motif: MOTIF_BIENVENUE } });
-    logger.log(`Bienvenue envoyée à ${compte.id}`);
+    logger.log(`Bienvenue envoyée à ${compte.id}${tardif ? ' (rattrapage)' : ''}`);
     return true;
   } catch (e) {
     // Y compris la contrainte d'unicité, si deux appels se croisent : deux

@@ -9,6 +9,7 @@ import { SignalementsIA } from '../components/SignalementsIA';
 import { EchecsPaiement } from '../components/EchecsPaiement';
 import { JourDeux } from '../components/JourDeux';
 import { TourneeEmails } from '../components/TourneeEmails';
+import { RattrapageBienvenue } from '../components/RattrapageBienvenue';
 import './AdminDashboard.css';
 
 interface AdminStats {
@@ -170,6 +171,12 @@ export const AdminDashboard: React.FC = () => {
         remercier quelqu'un sans attendre 11h.
       */}
       <TourneeEmails />
+
+      {/*
+        L'arriéré d'accueils, juste après la tournée : même table, même règle d'unicité,
+        et le seul écran du panneau qui envoie à des gens qui n'attendent rien.
+      */}
+      <RattrapageBienvenue />
     </div>
   );
 };

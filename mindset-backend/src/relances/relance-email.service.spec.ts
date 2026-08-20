@@ -65,7 +65,12 @@ describe('RelanceEmailService', () => {
 
   beforeEach(async () => {
     prisma = {
-      user: { findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn().mockResolvedValue({}) },
+      user: {
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
+        update: jest.fn().mockResolvedValue({}),
+        count: jest.fn().mockResolvedValue(0),
+      },
       relanceEmail: {
         create: jest.fn().mockResolvedValue({}),
         // Aucune bienvenue déjà écrite : c'est `envoyerBienvenue` qui la cherche.
@@ -448,6 +453,18 @@ describe('RelanceEmailService', () => {
       expect(prisma.relanceEmail.create).not.toHaveBeenCalled();
     });
 
+    it('ne dit rien du lot déclenché à la main', async () => {
+      // La tournée quotidienne se borne à deux jours d'ancienneté ; l'arriéré des
+      // comptes plus anciens ne doit jamais partir tout seul à 11 h.
+      await avec([], [], []);
+
+      const requete = prisma.user.findMany.mock.calls.find(
+        (appel: any) => appel[0]?.where?.relances?.none?.motif === 'bienvenue',
+      );
+      expect(requete[0].where.created_at).toBeDefined();
+      expect(requete[0].take).toBeUndefined();
+    });
+
     it('dit qui serait accueilli sans rien envoyer, en simulation', async () => {
       // Construit avant l'appel : `tournee()` date l'ancienneté par rapport à
       // l'instant où elle démarre, et un compte fabriqué à l'intérieur du mock
@@ -464,6 +481,142 @@ describe('RelanceEmailService', () => {
       expect(bilan.destinataires).toEqual([
         { email: 'neuf@example.com', motif: 'bienvenue', inscritIlYA: 1 },
       ]);
+    });
+  });
+  /*
+    Le rattrapage des comptes déjà inscrits, déclenché à la main.
+
+    Cinquante-deux personnes s'étaient inscrites avant que l'accueil existe. Ce
+    qui se vérifie ici n'est pas qu'elles reçoivent quelque chose — c'est qu'elles
+    le reçoivent **par lots**. Le domaine d'envoi a été créé le 20 août 2026 : il
+    n'a aucun historique, et une cinquantaine de messages d'un seul geste est le
+    profil exact d'un expéditeur compromis. La sanction n'emporterait pas que ces
+    messages, mais les codes de connexion partis de la même adresse.
+  */
+  describe('le rattrapage des déjà-inscrits', () => {
+    /** Un compte tel que le rend la requête du rattrapage. */
+    const attente = (jours: number, email = 'ancien@example.com') => ({
+      id: `r-${Math.random()}`,
+      email,
+      first_name: 'Laura',
+      created_at: ilYA(jours),
+      relances_email: true,
+    });
+
+    const avecArriere = (comptes: any[], total = comptes.length) => {
+      prisma.user.count.mockResolvedValue(total);
+      prisma.user.findMany.mockImplementation(({ take }: any) =>
+        Promise.resolve(comptes.slice(0, take)),
+      );
+    };
+
+    it('n’envoie que le lot par défaut, même quand la file est longue', async () => {
+      const file = Array.from({ length: 52 }, (_, i) => attente(20, `a${i}@example.com`));
+      avecArriere(file);
+
+      const bilan = await service.rattrapageBienvenue();
+
+      expect(bilan.envoyes).toBe(RelanceEmailService.LOT_BIENVENUE_PAR_DEFAUT);
+      expect(bilan.aAccueillir).toBe(52);
+      // Le nombre de fois qu'il reste à cliquer. Sans lui, un rattrapage à moitié
+      // fait ressemble à un rattrapage fini.
+      expect(bilan.restants).toBe(42);
+    });
+
+    it('accepte un lot plus grand, mais jamais au-delà du plafond', async () => {
+      const file = Array.from({ length: 200 }, (_, i) => attente(20, `a${i}@example.com`));
+      avecArriere(file);
+
+      const bilan = await service.rattrapageBienvenue({ max: 5000 });
+
+      expect(bilan.envoyes).toBe(RelanceEmailService.LOT_BIENVENUE_MAX);
+    });
+
+    it('retombe sur le défaut quand la taille demandée est illisible', async () => {
+      // `?max=` vide ou mal tapé arrive en `NaN`. Refuser la requête n'aiderait
+      // personne : on veut que le geste aboutisse, sur un lot prudent.
+      expect(RelanceEmailService.lotValide(NaN)).toBe(RelanceEmailService.LOT_BIENVENUE_PAR_DEFAUT);
+      expect(RelanceEmailService.lotValide(0)).toBe(RelanceEmailService.LOT_BIENVENUE_PAR_DEFAUT);
+      expect(RelanceEmailService.lotValide(-3)).toBe(RelanceEmailService.LOT_BIENVENUE_PAR_DEFAUT);
+      expect(RelanceEmailService.lotValide('7')).toBe(7);
+    });
+
+    it('sert les inscriptions les plus fraîches d’abord', async () => {
+      // Si l'on s'arrête après un lot, ceux qui sont servis sont ceux qui se
+      // souviennent encore d'avoir créé un compte.
+      avecArriere([attente(3)]);
+
+      await service.rattrapageBienvenue();
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: { created_at: 'desc' } }),
+      );
+    });
+
+    it('ne connaît aucune borne d’ancienneté', async () => {
+      // C'est toute la différence avec la tournée : elle se tait passé 30 jours,
+      // celle-ci doit atteindre le premier inscrit du produit.
+      avecArriere([attente(300)]);
+
+      const bilan = await service.rattrapageBienvenue();
+
+      expect(bilan.envoyes).toBe(1);
+      expect(prisma.user.findMany.mock.calls[0][0].where.created_at).toBeUndefined();
+    });
+
+    it('ne s’adresse qu’à ceux qui n’ont jamais reçu l’accueil et n’ont pas dit stop', async () => {
+      avecArriere([]);
+
+      await service.rattrapageBienvenue();
+
+      const critere = prisma.user.findMany.mock.calls[0][0].where;
+      expect(critere.deleted_at).toBeNull();
+      expect(critere.relances_email).toBe(true);
+      expect(critere.relances).toEqual({ none: { motif: 'bienvenue' } });
+    });
+
+    it('dit qui recevrait quoi sans rien envoyer', async () => {
+      // Un envoi est irréversible et sort du produit : la liste doit pouvoir se
+      // lire avant, pas se deviner d'après le code.
+      avecArriere([attente(20, 'laura@example.com')], 52);
+
+      const bilan = await service.rattrapageBienvenue({ simulation: true });
+
+      expect(global.fetch).not.toHaveBeenCalled();
+      expect(prisma.relanceEmail.create).not.toHaveBeenCalled();
+      expect(bilan.destinataires).toEqual([{ email: 'laura@example.com', inscritIlYA: 20 }]);
+      // Le décompte décrit la tournée réelle que le bouton d'à côté déclenche,
+      // pas une tournée idéale qui n'aura jamais lieu.
+      expect(bilan.restants).toBe(51);
+    });
+
+    it('ne sort pas les adresses quand l’envoi est réel', async () => {
+      avecArriere([attente(20)]);
+
+      const bilan = await service.rattrapageBienvenue();
+
+      expect(bilan.destinataires).toBeUndefined();
+    });
+
+    it('compte les échecs sans les inscrire en base', async () => {
+      (global.fetch as any).mockResolvedValue({ ok: false, text: async () => 'refus' });
+      jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      avecArriere([attente(20)]);
+
+      const bilan = await service.rattrapageBienvenue();
+
+      expect(bilan.echecs).toBe(1);
+      expect(bilan.envoyes).toBe(0);
+      expect(prisma.relanceEmail.create).not.toHaveBeenCalled();
+    });
+
+    it('écrit le message de retard, pas celui du jour même', async () => {
+      avecArriere([attente(20)]);
+
+      await service.rattrapageBienvenue();
+
+      const corps = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
+      expect(corps.subject).toBe('Je ne t’avais jamais écrit');
     });
   });
 });
