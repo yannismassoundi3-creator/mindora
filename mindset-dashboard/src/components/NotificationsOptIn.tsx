@@ -199,7 +199,7 @@ export const NotificationsOptIn: React.FC = () => {
 
       {etat === 'a_demander' && (
         <>
-          <h3>Ton brief du matin, chaque jour à 10h</h3>
+          <h3>Ton brief du matin, à l'heure que tu choisis</h3>
           <p>
             Ton coach t'écrit un message personnalisé à partir de ta série en cours et
             de ce qu'il te reste à faire. Sans notification, tu ne le recevras jamais.
@@ -223,17 +223,26 @@ export const NotificationsOptIn: React.FC = () => {
 
       {etat === 'ios_a_installer' && (
         <>
-          <h3>Sur iPhone, installe l'app pour recevoir tes rappels</h3>
+          <h3>Ton coach ne peut pas t'écrire sur cet iPhone</h3>
           {/* Ce n'est pas un choix de notre part : iOS ne délivre les notifications
-              web qu'aux applications ajoutées à l'écran d'accueil. */}
+              web qu'aux applications ajoutées à l'écran d'accueil. Le dire évite que
+              la contrainte passe pour une négligence de l'application. */}
+          <p>
+            iOS ne délivre les notifications qu'aux applications posées sur l'écran
+            d'accueil. Trois gestes, une fois pour toutes — et tu récupères Disciplix
+            en plein écran, sans la barre du navigateur.
+          </p>
           <ol className="push-optin-etapes">
             <li>Appuie sur <strong>Partager</strong> 📤 en bas de l'écran.</li>
             <li>Choisis <strong>Sur l'écran d'accueil</strong> ➕.</li>
             <li>Rouvre Disciplix depuis ta nouvelle icône.</li>
           </ol>
           <div className="push-optin-actions">
-            <button className="push-optin-btn secondaire" onClick={reporter}>J'ai compris</button>
+            <button className="push-optin-btn secondaire" onClick={reporter}>Plus tard</button>
           </div>
+          {/* « J'ai compris » disait qu'on avait compris, pas qu'on avait fait. Et il
+              masquait la carte trois jours, comme un refus. « Plus tard » décrit ce
+              que le bouton fait vraiment. */}
         </>
       )}
 
