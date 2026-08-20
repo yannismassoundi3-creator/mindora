@@ -155,6 +155,65 @@ describe('RelanceEmailService', () => {
     });
   });
 
+  /*
+    Deux messages en quelques heures, et pourquoi c'était possible.
+
+    « Une fois par motif » ne borne rien dans le temps : les motifs comptent à
+    part. Depuis que l'accueil part à l'inscription, quelqu'un pouvait le recevoir
+    le soir et lire « tu n'as pas encore commencé » le lendemain à 11 h. Vu d'une
+    boîte mail, ce ne sont pas deux intentions — c'est une machine.
+  */
+  describe('le silence dû après un message', () => {
+    const avecDernier = (jours: number | null, opts: Parameters<typeof compte>[0]) => {
+      const c: any = compte(opts);
+      c.relances = (opts.dejaEnvoyes ?? []).map((motif) => ({
+        motif,
+        envoye_le: jours === null ? null : ilYA(jours),
+      }));
+      return c;
+    };
+
+    it('se tait quand on vient d’écrire à cette personne', async () => {
+      // Le cas exact du 20 août 2026 : accueil le soir, cron le lendemain matin.
+      const bilan = await avec([avecDernier(0, { inscritIlYA: 4, dejaEnvoyes: ['bienvenue'] })]);
+
+      expect(bilan.envoyes).toBe(0);
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('reprend la parole une fois la semaine passée', async () => {
+      const bilan = await avec([
+        avecDernier(RelanceEmailService.JOURS_DE_SILENCE_APRES_UN_MESSAGE + 1, {
+          inscritIlYA: 12,
+          dejaEnvoyes: ['bienvenue'],
+        }),
+      ]);
+
+      expect(bilan.parMotif).toEqual({ jamais_ouvert: 1 });
+    });
+
+    it('ne remercie pas moins vite un abonné qui vient d’être accueilli', async () => {
+      // Le seul message dont le retard coûte plus cher que la répétition : un
+      // merci qui arrive six jours après le paiement n'est plus un merci.
+      const bilan = await avec([], [abonne()]);
+
+      expect(bilan.parMotif).toEqual({ merci_abonnement: 1 });
+    });
+
+    it('lit la date la plus récente, pas la dernière ligne rendue', () => {
+      // Prisma rend l'ordre d'insertion, qui n'est l'ordre chronologique que par
+      // accident : prendre `relances[relances.length - 1]` marcherait presque
+      // toujours, et se tromperait sans jamais le dire.
+      const vieux = ilYA(30);
+      const recent = ilYA(1);
+      expect(
+        RelanceEmailService.dernierMessage([{ envoye_le: recent }, { envoye_le: vieux }]),
+      ).toBe(recent);
+      expect(RelanceEmailService.dernierMessage([])).toBeNull();
+      expect(RelanceEmailService.dernierMessage([{ envoye_le: null }])).toBeNull();
+    });
+  });
+
   describe('ce qui est écrit en base', () => {
     it('n’inscrit rien quand Brevo a refusé', async () => {
       /*
@@ -561,7 +620,9 @@ describe('RelanceEmailService', () => {
       const bilan = await service.rattrapageBienvenue();
 
       expect(bilan.envoyes).toBe(1);
-      expect(prisma.user.findMany.mock.calls[0][0].where.created_at).toBeUndefined();
+      for (const branche of prisma.user.findMany.mock.calls[0][0].where.AND) {
+        expect(branche.created_at).toBeUndefined();
+      }
     });
 
     it('ne s’adresse qu’à ceux qui n’ont jamais reçu l’accueil et n’ont pas dit stop', async () => {
@@ -569,10 +630,29 @@ describe('RelanceEmailService', () => {
 
       await service.rattrapageBienvenue();
 
-      const critere = prisma.user.findMany.mock.calls[0][0].where;
-      expect(critere.deleted_at).toBeNull();
-      expect(critere.relances_email).toBe(true);
-      expect(critere.relances).toEqual({ none: { motif: 'bienvenue' } });
+      const [jamaisAccueilli, silence] = prisma.user.findMany.mock.calls[0][0].where.AND;
+      expect(jamaisAccueilli.deleted_at).toBeNull();
+      expect(jamaisAccueilli.relances_email).toBe(true);
+      expect(jamaisAccueilli.relances).toEqual({ none: { motif: 'bienvenue' } });
+      // Et personne à qui l'on vient d'écrire pour un autre motif.
+      expect(silence.relances.none.envoye_le.gte).toBeInstanceOf(Date);
+    });
+
+    it('diffère ceux qui ont reçu un autre message cette semaine', async () => {
+      // Beaucoup de ces comptes ont eu une relance il y a deux jours : c'est même
+      // la raison d'être de la tournée. Leur envoyer l'accueil maintenant ferait
+      // deux messages en quelques jours depuis un domaine sans historique.
+      prisma.user.count.mockImplementation(({ where }: any) =>
+        Promise.resolve(where.AND ? 30 : 52),
+      );
+      prisma.user.findMany.mockResolvedValue([]);
+
+      const bilan = await service.rattrapageBienvenue({ simulation: true });
+
+      expect(bilan.aAccueillir).toBe(52);
+      // Le chiffre qui explique un arriéré qui ne descend plus : ils ne sont pas
+      // perdus, ils attendent que le silence revienne.
+      expect(bilan.differes).toBe(22);
     });
 
     it('dit qui recevrait quoi sans rien envoyer', async () => {

@@ -74,6 +74,22 @@ export class RelanceEmailService {
   static readonly MAX_PAR_TOURNEE = 50;
 
   /**
+   * Jamais deux messages à la même personne dans la même semaine.
+   *
+   * La règle « une fois par motif » ne bornait rien dans le temps : chaque motif
+   * compte à part, si bien qu'un accueil le soir et un « tu n'as pas encore
+   * commencé » le lendemain matin étaient parfaitement conformes. Vu d'une boîte
+   * mail, ce sont deux messages en quelques heures depuis un expéditeur qu'on ne
+   * connaît pas.
+   *
+   * **Le remerciement d'abonnement n'y est pas soumis** : il répond à un geste
+   * qu'on vient de recevoir, et un merci qui arrive six jours plus tard n'est plus
+   * un merci. C'est le seul message du produit dont le retard coûte plus cher que
+   * la répétition.
+   */
+  static readonly JOURS_DE_SILENCE_APRES_UN_MESSAGE = 7;
+
+  /**
    * Le lot d'accueils rattrapés que déclenche un clic, quand on n'en demande pas.
    *
    * Dix, et non « tous » : le défaut est ce qui part quand personne n'a réfléchi,
@@ -140,18 +156,57 @@ export class RelanceEmailService {
   }
 
   /**
+   * La date du dernier message parti, ou `null` si on n'a jamais rien écrit.
+   *
+   * Les lignes ne sont pas triées : c'est un maximum qu'on cherche, pas la
+   * dernière du tableau. Prisma rend l'ordre d'insertion, qui n'est l'ordre
+   * chronologique que par accident.
+   */
+  static dernierMessage(lignes: Array<{ envoye_le?: Date | null }>): Date | null {
+    let dernier: Date | null = null;
+    for (const ligne of lignes) {
+      if (!(ligne.envoye_le instanceof Date)) continue;
+      if (!dernier || ligne.envoye_le > dernier) dernier = ligne.envoye_le;
+    }
+    return dernier;
+  }
+
+  /**
    * Ce qu'il faut envoyer à cette personne aujourd'hui, ou `null` s'il n'y a rien à dire.
    *
    * Isolée de la base et de l'envoi pour être décidable sur un cas précis : c'est la
    * seule partie où une erreur se voit dans un test plutôt que dans une boîte mail.
    */
   static motifPour(
-    compte: { created_at: Date; dailyScores: unknown; dejaEnvoyes: MotifRelance[] },
+    compte: {
+      created_at: Date;
+      dailyScores: unknown;
+      dejaEnvoyes: MotifRelance[];
+      dernierMessage?: Date | null;
+    },
     maintenant: Date,
   ): MotifRelance | null {
     const jours = (depuis: Date) => Math.floor((maintenant.getTime() - depuis.getTime()) / 86_400_000);
     const age = jours(compte.created_at);
     if (age > RelanceEmailService.JOURS_MAX) return null;
+
+    /*
+      Le silence dû à quelqu'un qui vient de recevoir un message.
+
+      « Une fois par motif » ne borne rien dans le temps : les motifs sont
+      indépendants, et rien n'empêchait un accueil le soir et un « tu n'as pas
+      encore commencé » le lendemain à 11 h. Deux messages en quelques heures,
+      depuis un domaine sans historique, ne se lisent pas comme deux intentions
+      différentes — ils se lisent comme une machine, et c'est le clic sur
+      « indésirable » qui suit.
+
+      Ce n'est devenu possible qu'avec l'accueil : jusque-là, le seul chemin
+      d'envoi était cette tournée, qui ne parle qu'une fois par jour.
+    */
+    if (compte.dernierMessage) {
+      const silence = maintenant.getTime() - compte.dernierMessage.getTime();
+      if (silence < RelanceEmailService.JOURS_DE_SILENCE_APRES_UN_MESSAGE * 86_400_000) return null;
+    }
 
     const dernier = RelanceEmailService.dernierJourActif(compte.dailyScores);
 
@@ -343,7 +398,10 @@ export class RelanceEmailService {
         first_name: true,
         created_at: true,
         sync_data: { select: { daily_scores: true } },
-        relances: { select: { motif: true } },
+        // `envoye_le` autant que `motif` : le premier dit quoi ne pas répéter, le
+        // second dit quand se taire. Sans lui, deux messages pouvaient se suivre à
+        // quelques heures — voir `JOURS_DE_SILENCE_APRES_UN_MESSAGE`.
+        relances: { select: { motif: true, envoye_le: true } },
       },
     });
 
@@ -483,6 +541,7 @@ export class RelanceEmailService {
           created_at: compte.created_at,
           dailyScores: compte.sync_data?.daily_scores,
           dejaEnvoyes: compte.relances.map((r) => r.motif as MotifRelance),
+          dernierMessage: RelanceEmailService.dernierMessage(compte.relances),
         },
         maintenant,
       );
@@ -546,6 +605,7 @@ export class RelanceEmailService {
   async rattrapageBienvenue(options: { simulation?: boolean; max?: number } = {}): Promise<{
     simulation: boolean;
     aAccueillir: number;
+    differes: number;
     envoyes: number;
     echecs: number;
     restants: number;
@@ -555,16 +615,47 @@ export class RelanceEmailService {
     const max = RelanceEmailService.lotValide(options.max);
     const maintenant = new Date();
 
-    const critere = {
+    const jamaisAccueilli = {
       deleted_at: null,
       relances_email: true,
       relances: { none: { motif: MOTIF_BIENVENUE } },
     };
 
-    // Le total sert au décompte de ce qui restera : sans lui, on ne saurait pas
-    // combien de fois il faut encore cliquer, et un rattrapage à moitié fait
-    // ressemble à un rattrapage fini.
-    const aAccueillir = await this.prisma.user.count({ where: critere });
+    /*
+      Ceux qui viennent de recevoir autre chose attendent leur tour.
+
+      Beaucoup de ces comptes ont déjà reçu une relance cette semaine — c'est même
+      la raison d'être de la tournée de 11 h. Leur envoyer l'accueil aujourd'hui
+      ferait deux messages en quelques jours depuis un domaine sans historique.
+      Ils ne sont pas perdus : ils repassent dans la file dès que le silence est
+      revenu, et `differes` dit combien ils sont pour qu'un arriéré qui ne descend
+      plus s'explique tout seul.
+    */
+    const critere = {
+      AND: [
+        jamaisAccueilli,
+        {
+          relances: {
+            none: {
+              envoye_le: {
+                gte: new Date(
+                  maintenant.getTime() -
+                    RelanceEmailService.JOURS_DE_SILENCE_APRES_UN_MESSAGE * 86_400_000,
+                ),
+              },
+            },
+          },
+        },
+      ],
+    };
+
+    // Deux totaux, parce qu'ils répondent à deux questions : combien de personnes
+    // n'ont jamais été accueillies, et combien peuvent l'être maintenant. N'en
+    // afficher qu'un ferait passer une attente pour un envoi manquant.
+    const [aAccueillir, joignables] = await Promise.all([
+      this.prisma.user.count({ where: jamaisAccueilli }),
+      this.prisma.user.count({ where: critere }),
+    ]);
 
     const lot = await this.prisma.user.findMany({
       where: critere,
@@ -599,6 +690,9 @@ export class RelanceEmailService {
     return {
       simulation,
       aAccueillir,
+      // Ceux qui attendent que le silence revienne. Sans ce chiffre, un arriéré
+      // qui cesse de descendre passerait pour une panne.
+      differes: aAccueillir - joignables,
       envoyes,
       echecs,
       // En simulation, rien n'est parti : ce qui « resterait » se compte comme si

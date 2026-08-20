@@ -21,6 +21,8 @@ import './EtatSecours.css';
 interface Bilan {
   simulation: boolean;
   aAccueillir: number;
+  /** Ceux qui ont reçu un autre message cette semaine et attendent leur tour. */
+  differes: number;
   envoyes: number;
   echecs: number;
   restants: number;
@@ -108,6 +110,19 @@ export const RattrapageBienvenue: React.FC = () => {
             {bilan.restants > 0
               ? `${bilan.restants} compte(s) restent à accueillir après ce lot.`
               : 'Plus personne n’attend son accueil.'}
+            {/*
+              Sans cette phrase, un arriéré qui cesse de descendre passe pour une
+              panne : les boutons répondent « 0 envoyé » alors qu'il reste du
+              monde, et rien n'explique pourquoi.
+            */}
+            {bilan.differes > 0 && (
+              <>
+                {' '}
+                Dont {bilan.differes} qui ont reçu un autre message cette semaine —
+                ils repasseront d’eux-mêmes : on n’écrit pas deux fois à la même
+                personne en si peu de temps.
+              </>
+            )}
           </p>
 
           {bilan.destinataires && bilan.destinataires.length > 0 && (
