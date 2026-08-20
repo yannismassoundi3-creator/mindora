@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { lireReponseGroq } from '../common/groq';
 import { chaineCourte, appelerMaillon, MaillonCourt } from '../common/chaine-courte';
-import { cochesDuJour, separerTaches } from './taches';
+import { objectifsDeLaSemaine, tachesDuJour } from './taches';
 import { MODELES_COURTS } from '../common/modeles';
 
 /**
@@ -136,10 +136,14 @@ export class CoupDePouceService {
 
     const serie = CoupDePouceService.serie(etat.dailyScores);
     const joursSansRien = CoupDePouceService.joursSansRien(etat.dailyScores);
-    // Les coches de routine ne valent que pour leur jour ; celles d'un objectif ne
-    // s'effacent pas la nuit. D'où deux lectures différentes de la même donnée.
-    const routines = separerTaches(etat.routines, cochesDuJour(etat.jourDesRoutines, maintenant));
-    const objectifs = separerTaches(etat.objectifs);
+    // Chaque liste est lue à sa propre échéance : les routines au jour (récurrence
+    // comprise — une tâche du mardi n'est pas sur l'écran d'un dimanche), les
+    // objectifs à la semaine. Voir `taches.ts`.
+    const routines = tachesDuJour(
+      { routines: etat.routines, last_routine_date: etat.jourDesRoutines },
+      maintenant,
+    );
+    const objectifs = objectifsDeLaSemaine(etat.objectifs, maintenant);
     const restantes = [...routines.restantes, ...objectifs.restantes];
     const faites = routines.faites;
 

@@ -1,3 +1,5 @@
+import { estPourAujourdhui, jourDeSemaine } from './recurrence';
+
 /**
  * Ce qui reste à faire, et ce qui est déjà fait.
  *
@@ -9,6 +11,12 @@
  * Une seule définition, partagée par le brief du matin et le coup de pouce : deux
  * copies finiraient par diverger, et l'une des deux se remettrait à réclamer du
  * travail déjà fait sans que rien ne le signale.
+ *
+ * **Le fil rouge de ce fichier : une coche n'est vraie qu'à une date.** Le client
+ * décoche les routines chaque nuit et remet les objectifs à zéro chaque lundi ;
+ * le serveur, lui, ne remet jamais rien. Lire ces listes sans regarder de quel
+ * jour ni de quelle semaine elles parlent ne produit pas d'erreur — ça produit
+ * une réponse plausible et fausse, ce qui est bien pire.
  */
 export interface TachesTriees {
   restantes: string[];
@@ -24,6 +32,22 @@ export interface TachesTriees {
  */
 export function jourDuClient(maintenant = new Date()): string {
   return maintenant.toISOString().slice(0, 10);
+}
+
+/**
+ * Le lundi de la semaine, en UTC — le repère qui identifie une semaine.
+ *
+ * Même définition que `cleSemaine` dans `utils/semaine.ts` du client, y compris le
+ * choix du lundi plutôt que d'un numéro de semaine ISO : un numéro préfixé de
+ * l'année civile change au 1er janvier, donc en plein milieu d'une semaine, une
+ * fois par an. Un lundi n'a pas d'année à lui.
+ */
+export function semaineDuClient(jour: string | Date = new Date()): string {
+  const d = typeof jour === 'string' ? new Date(`${jour}T00:00:00Z`) : new Date(jour);
+  if (Number.isNaN(d.getTime())) return '';
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+  d.setUTCHours(0, 0, 0, 0);
+  return d.toISOString().slice(0, 10);
 }
 
 /**
@@ -46,12 +70,12 @@ export function cochesDuJour(jour: unknown, maintenant = new Date()): boolean {
   return typeof jour === 'string' && jour.slice(0, 10) === jourDuClient(maintenant);
 }
 
-/**
- * @param cochesValides `false` quand les coches datent d'un autre jour : tout
- * repasse alors en « à faire », dans l'ordre où l'app les affiche. Les objectifs,
- * eux, ne se décochent pas la nuit et gardent le défaut.
- */
-export function separerTaches(valeur: unknown, cochesValides = true): TachesTriees {
+/** Le tri commun. `garder` écarte ce qui ne concerne pas la période, `faite` décide du camp. */
+function trier(
+  valeur: unknown,
+  garder: (el: any) => boolean,
+  faite: (el: any) => boolean,
+): TachesTriees {
   const restantes: string[] = [];
   const faites: string[] = [];
   if (!Array.isArray(valeur)) return { restantes, faites };
@@ -61,21 +85,85 @@ export function separerTaches(valeur: unknown, cochesValides = true): TachesTrie
     for (const el of elements) {
       const titre = el?.title || el?.name;
       if (typeof titre !== 'string' || !titre.trim()) continue;
-      (cochesValides && el?.done ? faites : restantes).push(titre);
+      if (!garder(el)) continue;
+      (faite(el) ? faites : restantes).push(titre);
     }
   }
   return { restantes, faites };
 }
 
 /**
+ * Le tri nu : tout est retenu, une coche vaut une coche.
+ *
+ * Réservé à ce qui n'a ni jour ni semaine — les objectifs long terme, ou un appel
+ * qui a déjà daté ses données. Les routines passent par `tachesDuJour`, les
+ * objectifs de semaine par `objectifsDeLaSemaine`.
+ */
+export function separerTaches(valeur: unknown): TachesTriees {
+  return trier(valeur, () => true, (el) => !!el?.done);
+}
+
+/**
+ * A-t-elle des routines, quel que soit le jour où elles tombent ?
+ *
+ * Sert à distinguer les deux journées vides, que la récurrence rend très
+ * différentes : celle d'un compte qui n'a encore rien défini — où il faut inviter
+ * à décider quelque chose — et le jour sans séance de quelqu'un dont le programme
+ * dit précisément que c'est repos. Les confondre revient à annoncer « ta journée
+ * est vide » quatre matins sur sept à quelqu'un qui suit exactement le plan qu'on
+ * lui a donné.
+ */
+export function aDesRoutines(
+  sync: { routines?: unknown } | null | undefined,
+): boolean {
+  const toutes = separerTaches(sync?.routines);
+  return toutes.restantes.length + toutes.faites.length > 0;
+}
+
+/**
  * Les routines du jour, telles que l'app les montrera.
  *
- * C'est le seul point d'entrée à utiliser pour une notification : il ne peut pas
- * oublier la date, là où `separerTaches` seul le pouvait — et le faisait partout.
+ * Deux filtres, et il faut les deux : la **récurrence** (une tâche du mardi n'est
+ * pas sur l'écran d'un dimanche) et la **date des coches** (celles de la veille ne
+ * valent plus rien). C'est le seul point d'entrée à utiliser pour une notification
+ * qui parle de routines.
  */
 export function tachesDuJour(
   sync: { routines?: unknown; last_routine_date?: string | null } | null | undefined,
   maintenant = new Date(),
 ): TachesTriees {
-  return separerTaches(sync?.routines, cochesDuJour(sync?.last_routine_date, maintenant));
+  const jour = jourDeSemaine(maintenant);
+  const coches = cochesDuJour(sync?.last_routine_date, maintenant);
+  return trier(
+    sync?.routines,
+    (el) => estPourAujourdhui(el, jour),
+    (el) => coches && !!el?.done,
+  );
+}
+
+/**
+ * Les objectifs de la semaine en cours.
+ *
+ * Même piège que les routines, d'un cran plus lent : les micro-objectifs sont
+ * remis à zéro chaque lundi, et là encore par le client seul (`Layout.tsx`). Un
+ * objectif bouclé vendredi reste donc `done` en base jusqu'à la prochaine
+ * ouverture — le lundi matin, le coach ne voyait plus aucun objectif en cours à
+ * citer, alors que la semaine venait de les rendre tous.
+ *
+ * `awardedDate` porte le jour du dernier avancement, et c'est lui qui tranche. En
+ * son absence on garde la coche : ne pas mentionner un objectif est un petit
+ * défaut, réclamer un objectif que la personne vient de finir en est un grand.
+ */
+export function objectifsDeLaSemaine(valeur: unknown, maintenant = new Date()): TachesTriees {
+  const semaine = semaineDuClient(maintenant);
+  return trier(
+    valeur,
+    () => true,
+    (el) => {
+      if (!el?.done) return false;
+      const date = typeof el?.awardedDate === 'string' ? el.awardedDate.slice(0, 10) : '';
+      if (!date) return true;
+      return semaineDuClient(date) === semaine;
+    },
+  );
 }

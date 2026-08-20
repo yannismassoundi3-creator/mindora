@@ -9,6 +9,7 @@ import { BilanHebdoService } from './bilan-hebdo.service';
 import { AnalyseHabitudesService } from './analyse-habitudes.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RappelService } from '../ai-coaching/rappel.service';
+import { jourDeSemaine } from './recurrence';
 
 jest.mock('web-push', () => ({
   setVapidDetails: jest.fn(),
@@ -564,6 +565,36 @@ describe('PushService — tournée des briefs du matin', () => {
 
       expect(charge().body).not.toContain('Journée pleine');
       expect(charge().body).toContain("Rien de coché aujourd'hui");
+    });
+
+    /*
+      Le jour de repos, qui n'existait pas tant que le serveur lisait les sept jours
+      de chaque tâche. Quelqu'un qui suit un programme lundi-mercredi-vendredi a
+      quatre soirs par semaine sans rien à cocher : « ta journée est vide, dis-moi ce
+      que tu veux accomplir » contredirait le plan que le coach lui a donné, et
+      « tout est coché » serait faux — il n'y avait rien à cocher.
+    */
+    const NOMS_JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+    const unAutreJour = () => NOMS_JOURS[(jourDeSemaine() + 3) % 7];
+
+    it("se tait à 18 h le jour où le programme ne prévoit rien", async () => {
+      prisma.user.findMany.mockResolvedValue([
+        avecRoutines('u1', [{ items: [{ title: 'Squats', jours: [unAutreJour()] }] }]),
+      ]);
+
+      await service.sendBulkReminders('Check-in de 18h 🎯', 'Il te reste la soirée pour finir.', true);
+
+      expect(webpush.sendNotification).not.toHaveBeenCalled();
+    });
+
+    it("garde le message de celui qui n'a rien défini du tout", async () => {
+      // Journée vide et jour de repos ne se ressemblent qu'en surface : ici, il n'y a
+      // pas de programme, et l'inviter à en définir un est exactement ce qu'il faut.
+      prisma.user.findMany.mockResolvedValue([avecRoutines('u1', [])]);
+
+      await service.sendBulkReminders('Check-in de 18h 🎯', 'Il te reste la soirée pour finir.', true);
+
+      expect(charge().body).toContain('Ta journée est vide');
     });
 
     it('ne félicite pas une journée vide', async () => {

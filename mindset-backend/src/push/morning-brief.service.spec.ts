@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { MorningBriefService } from './morning-brief.service';
 import { MODELES_COURTS } from '../common/modeles';
+import { jourDeSemaine } from './recurrence';
 
 /**
  * Toute la personnalisation du réveil tenait à un seul identifiant de modèle. S'il
@@ -279,6 +280,38 @@ describe("MorningBriefService — quand la journée est vide", () => {
     expect(invite).not.toContain('DÉJÀ FAIT');
     expect(invite).toContain('RESTE À FAIRE');
     expect(invite).toContain('Squats (4×12)');
+  });
+
+  /*
+    Un jour sans séance n'est pas une journée vide.
+
+    Le coach est invité à poser un champ `jours` sur la plupart des tâches qu'il
+    propose — c'est dans son invite. Quelqu'un qui suit un programme lundi,
+    mercredi, vendredi a donc quatre matins par semaine sans rien à cocher : lui
+    annoncer « ta journée est vide, dis-moi ce que tu veux faire » revient à donner
+    tort au plan qu'on lui a soi-même donné.
+  */
+  const NOMS_JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+  const unAutreJour = () => NOMS_JOURS[(jourDeSemaine() + 3) % 7];
+
+  it("parle de repos, et non de vide, quand le programme ne prévoit rien aujourd'hui", () => {
+    const invite = inviteAvec({
+      routines: [{ items: [{ title: 'Squats (4×12)', jours: [unAutreJour()] }] }],
+      last_routine_date: jour(0),
+    });
+
+    expect(invite).toContain('jour sans séance');
+    expect(invite).not.toContain('Aucune tâche planifiée');
+    expect(invite).not.toContain('AUCUNE tâche');
+    // Et surtout : pas de tâche citée, puisqu'elle n'est pas au programme du jour.
+    expect(invite).not.toContain('Squats');
+  });
+
+  it('garde le vide pour un compte qui n’a vraiment rien défini', () => {
+    const invite = inviteAvec({ routines: [], last_routine_date: jour(0) });
+
+    expect(invite).toContain('Aucune tâche planifiée');
+    expect(invite).not.toContain('jour sans séance');
   });
 
   it('traite une date de routines absente comme périmée', () => {

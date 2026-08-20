@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { lireReponseGroq } from '../common/groq';
 import { chaineCourte, appelerMaillon, MaillonCourt } from '../common/chaine-courte';
-import { separerTaches, tachesDuJour } from './taches';
+import { aDesRoutines, objectifsDeLaSemaine, tachesDuJour } from './taches';
 import { MODELES_COURTS } from '../common/modeles';
 
 /**
@@ -66,19 +66,11 @@ export class MorningBriefService {
   }
 
   /**
-   * Le tri nu, sans date : réservé aux objectifs, qui ne se décochent pas chaque
-   * nuit. Pour les routines, passer par `tachesDuJour`. Voir `taches.ts`.
-   */
-  private splitTasks(value: any): { restantes: string[]; faites: string[] } {
-    return separerTaches(value);
-  }
-
-  /**
    * L'angle tourne avec le jour de l'année. Sans ça le modèle reprend toujours la
    * même construction (« prénom, jour N, tâches ») et le message redevient un
    * automatisme au bout d'une semaine — le défaut qu'on cherchait justement à corriger.
    */
-  private angleDuJour(etat: 'rien' | 'reste' | 'toutFait'): string {
+  private angleDuJour(etat: 'rien' | 'repos' | 'reste' | 'toutFait'): string {
     // Journée déjà bouclée : réclamer quoi que ce soit serait absurde. On félicite
     // et on projette, sans jamais redemander une tâche cochée.
     if (etat === 'toutFait') {
@@ -105,6 +97,20 @@ export class MorningBriefService {
       return angles[jour % angles.length];
     }
 
+    // Un jour sans séance, et non une journée vide. La différence n'existait pas
+    // tant que le serveur ignorait la récurrence : il voyait les sept jours de
+    // chaque tâche. Maintenant qu'il lit le programme comme l'écran l'affiche, un
+    // mardi sans rien peut être exactement ce qui était prévu — l'annoncer comme un
+    // vide à combler donnerait tort au plan que le coach a lui-même établi.
+    if (etat === 'repos') {
+      const angles = [
+        "Son programme ne prévoit rien aujourd'hui : dis-le comme une journée de repos assumée, ne réclame aucune tâche et appuie-toi sur sa série.",
+        "Jour sans séance à son programme. N'invente rien à faire : rappelle-lui ce qu'il vise cette semaine, ou ce que le repos prépare.",
+      ];
+      const jour = Math.floor(Date.now() / 86400000);
+      return angles[jour % angles.length];
+    }
+
     const angles = [
       "Appuie-toi sur sa série en cours et sur ce qu'il risque de perdre en s'arrêtant.",
       "Cite une tâche précise encore à faire et rends-la facile à commencer maintenant.",
@@ -118,17 +124,26 @@ export class MorningBriefService {
 
   buildPrompt(prenom: string, sync: any): string {
     const streak = this.computeStreak(sync?.daily_scores);
-    // Les routines passent par `tachesDuJour`, jamais par le tri nu : une coche de
-    // routine ne vaut que pour le jour où elle a été posée, et c'est le client qui les
-    // efface à l'ouverture suivante. Lire la base sans cette date, c'est féliciter au
-    // réveil quelqu'un dont la journée n'a pas commencé. Les objectifs, eux, ne se
-    // décochent pas la nuit : un objectif atteint le reste.
+    // Les deux listes sont datées, chacune à son rythme : les routines se décochent
+    // chaque nuit, les objectifs chaque lundi, et dans les deux cas c'est le client
+    // qui le fait — jamais le serveur. Lire la base sans regarder de quand elle parle,
+    // c'est féliciter au réveil quelqu'un dont la journée n'a pas commencé. Voir
+    // `taches.ts`.
     const routines = tachesDuJour(sync);
-    const objectifs = this.splitTasks(sync?.micro_objectives);
+    const objectifs = objectifsDeLaSemaine(sync?.micro_objectives);
 
     const riens = routines.restantes.length === 0 && routines.faites.length === 0;
     const toutEstFait = !riens && routines.restantes.length === 0;
-    const etat: 'rien' | 'reste' | 'toutFait' = riens ? 'rien' : toutEstFait ? 'toutFait' : 'reste';
+    // Rien aujourd'hui, mais un programme ailleurs dans la semaine : c'est un jour
+    // de repos, pas une journée vide. Voir `aDesRoutines`.
+    const repos = riens && aDesRoutines(sync);
+    const etat: 'rien' | 'repos' | 'reste' | 'toutFait' = repos
+      ? 'repos'
+      : riens
+        ? 'rien'
+        : toutEstFait
+          ? 'toutFait'
+          : 'reste';
 
     return [
       `Prénom : ${prenom || 'champion'}`,
@@ -138,7 +153,9 @@ export class MorningBriefService {
         ? `Tout est terminé pour aujourd'hui.`
         : routines.restantes.length
           ? `RESTE À FAIRE aujourd'hui : ${routines.restantes.slice(0, 3).join(', ')}`
-          : `Aucune tâche planifiée aujourd'hui`,
+          : repos
+            ? `Rien n'est prévu à son programme aujourd'hui : c'est un jour sans séance, pas une journée vide.`
+            : `Aucune tâche planifiée aujourd'hui`,
       objectifs.restantes.length ? `Objectifs de la semaine en cours : ${objectifs.restantes.slice(0, 2).join(', ')}` : '',
       '',
       `Angle imposé aujourd'hui : ${this.angleDuJour(etat)}`,

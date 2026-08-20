@@ -10,7 +10,7 @@ import * as cron from 'node-cron';
 import * as webpush from 'web-push';
 import { lienApp } from '../common/origines';
 import { titreProgression } from './jauge';
-import { tachesDuJour } from './taches';
+import { aDesRoutines, tachesDuJour } from './taches';
 
 /** Décompte d'une tournée de briefs, identique dans le log et dans la réponse HTTP. */
 export interface ResumeTournee {
@@ -1160,6 +1160,19 @@ export class PushService implements OnModuleInit {
           // et lui montrer « 0 % » le lui reproche. Même distinction que dans le brief
           // du matin, qui l'avait déjà payée une fois.
           const aDesTaches = taches.restantes.length + taches.faites.length > 0;
+
+          /*
+            Le jour sans séance ne reçoit rien.
+
+            « Ta journée est vide, dis-moi ce que tu veux accomplir » est la bonne
+            phrase pour un compte qui n'a encore rien défini. Adressée à quelqu'un
+            dont le programme dit « repos le mardi », elle contredit le plan que le
+            coach lui a donné lui-même — et « tout est coché » serait tout aussi
+            faux, puisqu'il n'y avait rien à cocher. Il n'y a rien à dire ce soir-là,
+            et se taire est une réponse. La distinction n'existait pas tant que le
+            serveur ignorait la récurrence.
+          */
+          if (avecProgression && !aDesTaches && aDesRoutines(donnees)) continue;
 
           /*
             Ce qu'il reste, plutôt que ce que dit le score.
