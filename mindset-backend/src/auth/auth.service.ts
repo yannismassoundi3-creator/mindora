@@ -7,6 +7,7 @@ import * as crypto from 'crypto';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { lienApp } from '../common/origines';
+import { envoyerBienvenue } from '../relances/bienvenue';
 
 @Injectable()
 export class AuthService {
@@ -65,10 +66,11 @@ export class AuthService {
       throw new ConflictException('Cet email est déjà utilisé.');
     }
 
+    let user: { id: string; email: string; first_name: string | null; relances_email: boolean };
     try {
       const passwordHash = await argon2.hash(dto.password);
 
-      const user = await this.prisma.user.create({
+      user = await this.prisma.user.create({
         data: {
           first_name: dto.first_name,
           last_name: dto.last_name,
@@ -77,14 +79,30 @@ export class AuthService {
           source: AuthService.provenanceNettoyee(dto.source),
         },
       });
-
-      return {
-        message: 'Compte créé avec succès.',
-        user_id: user.id,
-      };
     } catch (error) {
       throw new InternalServerErrorException('Erreur lors de la création du compte.');
     }
+
+    /*
+      Le message de bienvenue, hors du `try` ci-dessus et à dessein.
+
+      Ce `catch` transforme n'importe quelle erreur en 500 : un envoi d'e-mail
+      placé à l'intérieur ferait échouer une inscription parfaitement réussie
+      parce que Brevo a hoqueté. Le compte existe déjà en base à ce point — le
+      rendre à la personne prime sur tout le reste.
+
+      `envoyerBienvenue` ne lève jamais et rend un booléen. Il est attendu plutôt
+      que lâché en arrière-plan pour que l'échec soit journalisé dans la requête
+      qui l'a causé, et non dans un rejet orphelin quelques millisecondes plus
+      tard. L'appel à Brevo porte sa propre échéance (voir `common/email.ts`) :
+      l'inscription ne peut donc pas rester suspendue à un serveur muet.
+    */
+    await envoyerBienvenue(this.prisma, user);
+
+    return {
+      message: 'Compte créé avec succès.',
+      user_id: user.id,
+    };
   }
 
   /**

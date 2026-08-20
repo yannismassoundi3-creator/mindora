@@ -107,7 +107,12 @@ model AppOuverture {
 model RelanceEmail {
   id        String   @id @default(uuid())
   user_id   String
-  /// jamais_ouvert | decroche
+  /// bienvenue | jamais_ouvert | decroche | merci_abonnement
+  ///
+  /// La table ne porte pas que des relances : `bienvenue` part a l'inscription et
+  /// `merci_abonnement` repond a un paiement. Ils sont ici pour la contrainte
+  /// d'unicite ci-dessous, qui est la seule garantie qu'un message de cycle de vie
+  /// ne parte pas deux fois — un test dans le code ne survit pas a deux instances.
   motif     String
   envoye_le DateTime @default(now())
   user      User     @relation(fields: [user_id], references: [id], onDelete: Cascade)

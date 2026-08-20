@@ -8,10 +8,10 @@ import { lienApp } from './origines';
  * passe par cette API. Le SMTP n'est donc pas une porte de secours, c'est un
  * reliquat — ne pas y revenir en croyant reprendre un chemin existant.
  *
- * Ce module ne sert que le courrier de cycle de vie (les relances). Les deux envois
- * d'`auth.service.ts` — code de connexion, lien de réinitialisation — gardent leur
- * propre appel : ils sont vérifiés en production et n'ont aucune raison de dépendre
- * d'un code qui bouge pour d'autres motifs.
+ * Ce module sert le courrier de cycle de vie : l'accueil, les relances, le brief du
+ * matin. Les deux envois d'`auth.service.ts` — code de connexion, lien de
+ * réinitialisation — gardent leur propre appel : ils sont vérifiés en production et
+ * n'ont aucune raison de dépendre d'un code qui bouge pour d'autres motifs.
  */
 const logger = new Logger('Email');
 
@@ -77,6 +77,17 @@ export async function envoyerEmail({
   try {
     const reponse = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
+      /*
+        Une échéance, parce qu'un appel sortant sans borne n'échoue pas : il attend.
+
+        `fetch` n'a pas de délai par défaut. Un serveur qui accepte la connexion
+        puis ne répond plus laisse la promesse en suspens pendant des minutes —
+        dans une tournée, c'est le reste de la liste qui ne part jamais ; à
+        l'inscription, c'est le formulaire qui tourne alors que le compte est déjà
+        créé. Dix secondes : au-delà, Brevo ne répondra plus, et le message
+        redeviendra un échec franc, qu'on sait traiter.
+      */
+      signal: AbortSignal.timeout(10_000),
       headers: {
         accept: 'application/json',
         'api-key': apiKey,

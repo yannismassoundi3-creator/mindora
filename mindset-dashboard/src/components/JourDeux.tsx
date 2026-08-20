@@ -41,9 +41,21 @@ const LIBELLES: Record<string, string> = {
   reporte: 'ont repoussé la question',
   jamais_ouvert: 'jamais entrés dans l’app',
   decroche: 'ont décroché',
+  merci_abonnement: 'ont été remerciés',
+  bienvenue: 'ont reçu l’accueil',
 };
 
 const dire = (code: string) => LIBELLES[code] ?? code;
+
+/*
+  Les motifs que seule la tournée de 11 h peut produire.
+
+  `bienvenue` partage la même table mais part à l'inscription, et `merci_abonnement`
+  répond à un paiement : tous deux se rempliraient tout seuls. Compter la ligne
+  totale reviendrait à masquer un cron mort derrière des messages qu'il n'a pas
+  envoyés — l'alerte ci-dessous ne se déclencherait plus jamais.
+*/
+const MOTIFS_DE_LA_TOURNEE = ['jamais_ouvert', 'decroche'];
 
 export const JourDeux: React.FC = () => {
   const [etat, setEtat] = useState<Etat | null>(null);
@@ -147,7 +159,7 @@ export const JourDeux: React.FC = () => {
       )}
 
       <h3 className="jour2-sous">Relances par e-mail</h3>
-      {etat.relances.parMotif.length === 0 ? (
+      {etat.relances.parMotif.filter((r) => MOTIFS_DE_LA_TOURNEE.includes(r.motif)).length === 0 ? (
         /* Une tournée qui n'a jamais rien envoyé ne lève aucune erreur : elle se
            contente de ne rien faire, tous les jours, à onze heures. */
         <p className="jour2-vide jour2-alerte">

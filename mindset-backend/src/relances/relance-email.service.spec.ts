@@ -37,14 +37,21 @@ describe('RelanceEmailService', () => {
   /**
    * Les deux populations de la tournée, distinguées sur la requête.
    *
-   * `tournee()` interroge la base deux fois : ceux qui s'éloignent, puis les
-   * abonnés à remercier. Un mock qui rend la même liste aux deux ferait remercier
-   * tout le monde, et les tests de relance mesureraient alors le mauvais motif.
+   * `tournee()` interroge la base trois fois : les accueils manqués, les abonnés
+   * à remercier, puis ceux qui s'éloignent. Un mock qui rend la même liste aux
+   * trois ferait remercier et accueillir tout le monde, et les tests de relance
+   * mesureraient alors le mauvais motif.
+   *
+   * Chaque requête se reconnaît à sa clause, jamais à son rang d'appel : le jour
+   * où l'ordre change dans le service, un mock indexé sur l'ordre continue de
+   * répondre — à côté.
    */
-  const avec = async (comptes: any[], abonnes: any[] = []) => {
-    prisma.user.findMany.mockImplementation(({ where }: any) =>
-      Promise.resolve(where?.subscription ? abonnes : comptes),
-    );
+  const avec = async (comptes: any[], abonnes: any[] = [], accueils: any[] = []) => {
+    prisma.user.findMany.mockImplementation(({ where }: any) => {
+      if (where?.relances?.none?.motif === 'bienvenue') return Promise.resolve(accueils);
+      if (where?.subscription) return Promise.resolve(abonnes);
+      return Promise.resolve(comptes);
+    });
     return service.tournee();
   };
 
@@ -59,7 +66,11 @@ describe('RelanceEmailService', () => {
   beforeEach(async () => {
     prisma = {
       user: { findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn().mockResolvedValue({}) },
-      relanceEmail: { create: jest.fn().mockResolvedValue({}) },
+      relanceEmail: {
+        create: jest.fn().mockResolvedValue({}),
+        // Aucune bienvenue déjà écrite : c'est `envoyerBienvenue` qui la cherche.
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
     };
     process.env.BREVO_API_KEY = 'cle-de-test';
     global.fetch = jest.fn().mockResolvedValue({ ok: true, text: async () => '' }) as any;
@@ -189,9 +200,10 @@ describe('RelanceEmailService', () => {
         compte({ inscritIlYA: 12, joursActifs: [12, 8], email: 'parti@example.com' }),
         compte({ inscritIlYA: 12, joursActifs: [12, 1], email: 'actif@example.com' }),
       ];
-      prisma.user.findMany.mockImplementation(({ where }: any) =>
-        Promise.resolve(where?.subscription ? [] : eloignes),
-      );
+      prisma.user.findMany.mockImplementation(({ where }: any) => {
+        if (where?.relances?.none?.motif === 'bienvenue') return Promise.resolve([]);
+        return Promise.resolve(where?.subscription ? [] : eloignes);
+      });
 
       const bilan = await service.tournee(true);
 
@@ -359,6 +371,99 @@ describe('RelanceEmailService', () => {
       expect(bilan.echecs).toBe(1);
       expect(bilan.envoyes).toBe(0);
       expect(prisma.relanceEmail.create).not.toHaveBeenCalled();
+    });
+  });
+
+  /*
+    Le filet de l'accueil.
+
+    Le message de bienvenue part à l'inscription, pas d'ici. Mais quand Brevo
+    refuse à cet instant-là, rien n'est écrit et rien ne le signale : il n'existe
+    aucun écran où l'absence d'un e-mail se voit. La tournée repasse donc sur les
+    comptes tout neufs qui n'ont pas leur trace.
+  */
+  describe('les bienvenues manquées', () => {
+    /** Un compte tel que le rend la requête de rattrapage. */
+    const neuf = (opts: { email?: string; inscritIlYA?: number } = {}) => ({
+      id: `n-${Math.random()}`,
+      email: opts.email ?? 'neuf@example.com',
+      first_name: 'Laura',
+      created_at: ilYA(opts.inscritIlYA ?? 0),
+      relances_email: true,
+    });
+
+    it('rattrape l’accueil que l’inscription n’a pas réussi à envoyer', async () => {
+      const bilan = await avec([], [], [neuf()]);
+
+      expect(bilan.parMotif).toEqual({ bienvenue: 1 });
+      expect(prisma.relanceEmail.create).toHaveBeenCalledWith({
+        data: { user_id: expect.any(String), motif: 'bienvenue' },
+      });
+    });
+
+    it('ne cherche que les comptes plus jeunes que la première relance', async () => {
+      // Passé ce délai, « ton compte est prêt » ne décrit plus rien, et c'est
+      // `jamais_ouvert` qui a les bons mots. La borne garantit aussi que le
+      // rattrapage n'a jamais plus de deux jours d'arriéré, quel que soit le
+      // nombre de comptes en base.
+      await avec([], [], []);
+
+      const requete = prisma.user.findMany.mock.calls.find(
+        (appel: any) => appel[0]?.where?.relances?.none?.motif === 'bienvenue',
+      );
+      expect(requete).toBeDefined();
+      const plancher = requete[0].where.created_at.gte.getTime();
+      const attendu = Date.now() - RelanceEmailService.JOURS_AVANT_JAMAIS_OUVERT * JOUR;
+      expect(Math.abs(plancher - attendu)).toBeLessThan(5000);
+      expect(requete[0].where.relances_email).toBe(true);
+    });
+
+    it('n’écrit qu’une fois à quelqu’un qui mériterait aussi une relance', async () => {
+      // Le même compte peut apparaître dans les deux requêtes : inscrit il y a
+      // deux jours, jamais revenu, et sans accueil. Deux e-mails dans la même
+      // minute, dont l'un dit bonjour et l'autre reproche une absence.
+      const dormant = compte({ inscritIlYA: 2 });
+      const bilan = await avec([dormant], [], [{ ...dormant, relances_email: true }]);
+
+      expect(bilan.envoyes).toBe(1);
+      expect(bilan.parMotif).toEqual({ bienvenue: 1 });
+    });
+
+    it('ne compte pas deux fois les comptes déjà examinés', async () => {
+      // Ils figurent déjà dans la requête des 30 jours : les rajouter ferait dire
+      // à la tournée qu'elle a regardé plus de monde qu'il n'y en a.
+      const dormant = compte({ inscritIlYA: 1 });
+      const bilan = await avec([dormant], [], [{ ...dormant, relances_email: true }]);
+
+      expect(bilan.examines).toBe(1);
+    });
+
+    it('ne cache pas un échec de rattrapage', async () => {
+      (global.fetch as any).mockResolvedValue({ ok: false, text: async () => 'refus' });
+
+      const bilan = await avec([], [], [neuf()]);
+
+      expect(bilan.echecs).toBe(1);
+      expect(bilan.envoyes).toBe(0);
+      expect(prisma.relanceEmail.create).not.toHaveBeenCalled();
+    });
+
+    it('dit qui serait accueilli sans rien envoyer, en simulation', async () => {
+      // Construit avant l'appel : `tournee()` date l'ancienneté par rapport à
+      // l'instant où elle démarre, et un compte fabriqué à l'intérieur du mock
+      // naîtrait après lui.
+      const attendu = neuf({ email: 'neuf@example.com', inscritIlYA: 1 });
+      prisma.user.findMany.mockImplementation(({ where }: any) =>
+        Promise.resolve(where?.relances?.none?.motif === 'bienvenue' ? [attendu] : []),
+      );
+
+      const bilan = await service.tournee(true);
+
+      expect(global.fetch).not.toHaveBeenCalled();
+      expect(prisma.relanceEmail.create).not.toHaveBeenCalled();
+      expect(bilan.destinataires).toEqual([
+        { email: 'neuf@example.com', motif: 'bienvenue', inscritIlYA: 1 },
+      ]);
     });
   });
 });

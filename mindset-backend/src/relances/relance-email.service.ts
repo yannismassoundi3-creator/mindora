@@ -9,16 +9,23 @@ import * as cron from 'node-cron';
 import { PrismaService } from '../prisma/prisma.service';
 import { envoyerEmail, gabarit } from '../common/email';
 import { lienApi, lienApp } from '../common/origines';
+import { MOTIF_BIENVENUE, envoyerBienvenue } from './bienvenue';
 
 /**
  * Les raisons d'écrire à quelqu'un. Sert aussi de clé d'unicité en base.
  *
- * Les deux premières reprennent contact avec quelqu'un qui s'éloigne. La troisième
- * fait l'inverse : elle répond à un geste qu'on vient de recevoir. Elles partagent
- * le même mécanisme parce qu'elles partagent la même exigence — une fois, jamais
- * deux, et retirable d'un clic.
+ * Les deux premières reprennent contact avec quelqu'un qui s'éloigne. Les deux
+ * autres font l'inverse : elles répondent à un geste qu'on vient de recevoir —
+ * une inscription, un abonnement. Elles partagent le même mécanisme parce
+ * qu'elles partagent la même exigence — une fois, jamais deux, et retirable d'un
+ * clic.
+ *
+ * `bienvenue` n'est pas envoyé par la tournée : il part à l'inscription même
+ * (`AuthService.register`). Il figure ici parce qu'il occupe la même table, donc
+ * la même contrainte d'unicité, et parce que la tournée le rattrape quand le
+ * premier envoi a échoué.
  */
-export type MotifRelance = 'jamais_ouvert' | 'decroche' | 'merci_abonnement';
+export type MotifRelance = 'jamais_ouvert' | 'decroche' | 'merci_abonnement' | 'bienvenue';
 
 /**
  * Reprendre contact par e-mail avec ceux qui ne reviennent pas.
@@ -340,7 +347,61 @@ export class RelanceEmailService {
     };
 
     /*
-      Les remerciements, en premier et sur leur propre requête.
+      Les bienvenues manquées, avant tout le reste.
+
+      Le message d'accueil part normalement à la seconde de l'inscription. Quand
+      Brevo refuse ou ne répond pas, rien n'est écrit en base — c'est la règle du
+      module — et personne ne le saurait : il n'existe aucun écran où l'absence
+      d'un e-mail se voit. Cette passe est le filet.
+
+      Bornée aux comptes plus jeunes que le premier motif de relance : au-delà,
+      « ton compte est prêt » ne décrit plus rien, et c'est `jamais_ouvert` qui a
+      les bons mots. Le rattrapage n'a donc jamais plus de deux jours d'arriéré à
+      combler, quel que soit le nombre de comptes en base.
+    */
+    const bienvenuesManquees = await this.prisma.user.findMany({
+      where: {
+        deleted_at: null,
+        relances_email: true,
+        created_at: {
+          gte: new Date(maintenant.getTime() - RelanceEmailService.JOURS_AVANT_JAMAIS_OUVERT * 86_400_000),
+        },
+        relances: { none: { motif: MOTIF_BIENVENUE } },
+      },
+      select: { id: true, email: true, first_name: true, created_at: true, relances_email: true },
+    });
+
+    // Ces comptes figurent aussi dans `comptes` : ils ne sont pas rajoutés au
+    // total examiné, ils y sont déjà.
+    const accueillis = new Set<string>();
+
+    for (const compte of bienvenuesManquees) {
+      if (bilan.envoyes >= RelanceEmailService.MAX_PAR_TOURNEE) break;
+      const motif: MotifRelance = 'bienvenue';
+      const inscritIlYA = Math.floor((maintenant.getTime() - compte.created_at.getTime()) / 86_400_000);
+
+      if (simulation) {
+        bilan.envoyes++;
+        bilan.parMotif[motif] = (bilan.parMotif[motif] ?? 0) + 1;
+        bilan.destinataires.push({ email: compte.email, motif, inscritIlYA });
+        accueillis.add(compte.id);
+        continue;
+      }
+
+      // L'envoi et la trace sont ceux de l'inscription, à l'identique : deux
+      // chemins qui composent le même message finiraient par en composer deux.
+      const parti = await envoyerBienvenue(this.prisma, compte);
+      if (!parti) {
+        bilan.echecs++;
+        continue;
+      }
+      bilan.envoyes++;
+      bilan.parMotif[motif] = (bilan.parMotif[motif] ?? 0) + 1;
+      accueillis.add(compte.id);
+    }
+
+    /*
+      Les remerciements, sur leur propre requête.
 
       Ils ne peuvent pas passer par `motifPour` ni par la requête ci-dessus, et
       c'est structurel : celle-là cherche des gens qui s'éloignent, bornés à 30
@@ -398,7 +459,7 @@ export class RelanceEmailService {
 
     // Personne ne reçoit deux e-mails dans la même tournée : un merci suivi d'un
     // « tu n'es jamais revenu » le même jour se contredirait tout seul.
-    const dejaEcrit = new Set(aRemercier.map((c) => c.id));
+    const dejaEcrit = new Set([...accueillis, ...aRemercier.map((c) => c.id)]);
 
     for (const compte of comptes) {
       if (bilan.envoyes >= RelanceEmailService.MAX_PAR_TOURNEE) break;

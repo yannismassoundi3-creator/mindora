@@ -25,6 +25,7 @@ interface Bilan {
 }
 
 const LIBELLES_MOTIF: Record<string, string> = {
+  bienvenue: 'accueil rattrapé',
   merci_abonnement: 'merci à un abonné',
   jamais_ouvert: 'jamais ouvert',
   decroche: 'a décroché',
