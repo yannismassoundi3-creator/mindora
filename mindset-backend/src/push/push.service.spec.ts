@@ -209,6 +209,22 @@ describe('PushService — tournée des briefs du matin', () => {
       });
     });
 
+    it('n’envoie aucun e-mail sur un déclenchement manuel', async () => {
+      /*
+        Sans créneau, la tournée sert tout le monde : c’est le bouton du panneau
+        d’administration, et c’est le comportement attendu quand on veut voir une
+        tournée partir. Une notification à contretemps se remarque à peine ;
+        quarante-six e-mails d’un seul geste, hors de l’heure choisie par chacun et
+        depuis un domaine sans historique, c’est le signalement garanti.
+      */
+      prisma.user.findMany.mockResolvedValue([{ ...compteActif('u1'), push_subscriptions: [] }]);
+      morningBrief.generate.mockResolvedValue('Ta série tient depuis 4 jours.');
+
+      const resume = await service.sendMorningBriefs('manuel');
+
+      expect(briefEmail.envoyer).not.toHaveBeenCalled();
+      expect(resume.parEmail).toBe(0);
+    });
     it('écrit par e-mail à qui la notification n’atteint pas', async () => {
       /*
         Six personnes sur cinquante-deux étaient joignables par notification le
@@ -219,7 +235,9 @@ describe('PushService — tournée des briefs du matin', () => {
       prisma.user.findMany.mockResolvedValue([{ ...compteActif('u1'), push_subscriptions: [] }]);
       morningBrief.generate.mockResolvedValue('Ta série tient depuis 4 jours.');
 
-      const resume = await service.sendMorningBriefs('cron');
+      // Le creneau est une demi-heure « HH:MM », celle de l heure de reveil par
+      // defaut : c est elle que porte un compte qui n a rien regle.
+      const resume = await service.sendMorningBriefs('cron', PushService.REVEIL_PAR_DEFAUT);
 
       expect(briefEmail.envoyer).toHaveBeenCalledWith(
         expect.objectContaining({ id: 'u1' }),

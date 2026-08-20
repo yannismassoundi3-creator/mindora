@@ -1084,6 +1084,20 @@ export class PushService implements OnModuleInit {
         il coûterait le domaine entier.
       */
       if (!user.push_subscriptions?.length) {
+        /*
+          L'e-mail ne part que sur une tournée planifiée.
+
+          Sans créneau, la tournée sert **tout le monde** : c'est le déclencheur
+          manuel du panneau d'administration, et c'est le comportement attendu
+          quand on veut voir une tournée partir. Une notification envoyée à
+          contretemps se remarque à peine ; quarante-six e-mails d'un seul geste,
+          hors de l'heure choisie par chacun et depuis un domaine sans historique,
+          c'est le signalement pour indésirable garanti.
+
+          Pour vérifier ce chemin, `sendMorningBriefTo` l'emprunte sur une seule
+          personne — voir plus bas.
+        */
+        if (!creneau) continue;
         if (!BriefEmailService.creneauActif('matin')) continue;
 
         if (personnalises + generiques + parEmail > 0) {
@@ -1157,6 +1171,31 @@ export class PushService implements OnModuleInit {
 
     const texte = await this.morningBrief.generate(user.first_name, user.sync_data);
     const body = texte ?? "Tes objectifs t'attendent, c'est l'heure de commencer ta journée.";
+
+    /*
+      Le test d'une seule personne emprunte le vrai chemin.
+
+      Quelqu'un sans appareil joignable recevait ici un diagnostic — « aucun
+      abonnement, autorise les notifications » — alors que le produit sait
+      désormais lui écrire. Tester le brief sur soi doit exercer le chemin qu'on
+      recevra réellement, sinon le test ne prouve rien de ce qui part le matin.
+    */
+    const abonnements = await this.prisma.pushSubscription.count({ where: { user_id: user.id } });
+    if (abonnements === 0 && texte) {
+      const parEmail = await this.briefEmail.envoyer(user, 'matin', texte);
+      return {
+        envoye: parEmail,
+        personnalise: true,
+        message: body,
+        abonnements: 0,
+        appareilsAtteints: 0,
+        canal: 'email',
+        ...(!parEmail && {
+          diagnostic:
+            "Aucun appareil joignable, et l'e-mail n'est pas parti : créneau éteint, brief déjà envoyé aujourd'hui, ou retrait demandé.",
+        }),
+      };
+    }
 
     const envoi = await this.sendNotification(user.id, {
       title: texte ? '🎯 Ton brief du jour' : 'Réveil ! ☀️',
