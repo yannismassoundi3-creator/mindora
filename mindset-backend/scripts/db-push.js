@@ -148,10 +148,36 @@ function main() {
     );
   }
 
-  // --skip-generate : « prisma generate » est l'étape suivante du build, la faire deux
-  // fois ne sert qu'à rallonger le déploiement.
-  const args = ['db', 'push', '--skip-generate'];
-  if (autorise) args.push('--accept-data-loss');
+  /*
+    Le drapeau part **toujours**, et ce n'est pas un retour en arrière.
+
+    Il fallait le lire deux fois pour s'en convaincre, donc : `--accept-data-loss` ne
+    veut pas dire « détruis ». Il veut dire « ne me demande pas confirmation ». Or la
+    confirmation, c'est tout ce qui précède dans ce fichier : on a calculé le SQL, on
+    l'a lu, et on n'a rien trouvé de destructeur. Arrivé ici, la question a déjà été
+    posée et tranchée.
+
+    Sans lui, Prisma refusait de pousser pour des avertissements qui ne perdent
+    aucune donnée — et le déploiement du 21 août 2026 est tombé exactement là-dessus :
+
+      « A unique constraint covering the columns [google_sub] on the table User will
+        be added. If there are existing duplicate values, this will fail. »
+
+    La colonne était créée dans la même passe, donc vide partout : la contrainte ne
+    pouvait rien casser. Et même dans le cas contraire, **l'échec de cet ordre est
+    sûr** — la contrainte n'est pas créée, rien n'est effacé, le build s'arrête en
+    rouge. C'est un risque d'échec, pas un risque de perte.
+
+    Le garde-fou reste entier : il tient à la liste `ORDRES_DESTRUCTEURS` ci-dessus,
+    pas à ce drapeau. Une colonne supprimée, une table effacée, un type rétréci, un
+    champ rendu obligatoire — tout cela arrête encore le déploiement avant d'arriver
+    ici. C'était le défaut du script : il savait conclure, et il ne s'appuyait pas sur
+    sa propre conclusion.
+
+    --skip-generate : « prisma generate » est l'étape suivante du build, la faire deux
+    fois ne sert qu'à rallonger le déploiement.
+  */
+  const args = ['db', 'push', '--skip-generate', '--accept-data-loss'];
 
   try {
     console.log(prisma(args));
