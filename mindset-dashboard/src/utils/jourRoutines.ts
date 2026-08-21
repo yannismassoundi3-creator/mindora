@@ -81,9 +81,13 @@ export function appliquerNouveauJour(): boolean {
     (g: any) => Array.isArray(g?.items) && g.items.some((i: any) => i?.done),
   );
 
+  // Les repas se décochent au même instant que les routines, et sous la même
+  // date. Voir `decocherRepas` : rien ne les remettait à zéro.
+  const repasChanges = decocherRepas();
+
   if (!aDesCoches) {
     localStorage.setItem('mindset_last_routine_date', jour);
-    return false;
+    return repasChanges;
   }
 
   ecrireGroupes(
@@ -93,6 +97,44 @@ export function appliquerNouveauJour(): boolean {
     })),
   );
   return true;
+}
+
+/**
+ * Décoche les repas de la veille. Rend `true` si quelque chose a bougé.
+ *
+ * **Rien ne les remettait jamais à zéro.** Les routines se décochent chaque nuit
+ * depuis toujours ; l'alimentation, non. Un repas coché une fois le restait pour
+ * la vie du compte — si bien qu'à partir du deuxième jour l'onglet n'affichait
+ * plus que des cases vertes, ne demandait plus rien, et devenait une décoration.
+ * C'est la raison pour laquelle personne n'y retournait, et elle n'a rien à voir
+ * avec le contenu des repas.
+ *
+ * Même famille que les pannes du 20 août : l'état affiché était parfaitement
+ * plausible, simplement vieux d'un jour ou de trois semaines.
+ *
+ * **Volontairement sans date propre.** Une seconde clé pourrait diverger de celle
+ * des routines, et les deux listes se décocheraient alors à deux instants
+ * différents — impossible à expliquer à quelqu'un qui regarde son écran. Un seul
+ * jour, une seule remise à zéro.
+ */
+function decocherRepas(): boolean {
+  try {
+    const brut = localStorage.getItem('mindset_nutrition');
+    if (!brut) return false;
+
+    const repas = JSON.parse(brut);
+    if (!Array.isArray(repas) || !repas.some((r: any) => r?.done)) return false;
+
+    localStorage.setItem(
+      'mindset_nutrition',
+      JSON.stringify(repas.map((r: any) => ({ ...r, done: false }))),
+    );
+    return true;
+  } catch {
+    // Une liste illisible n'est pas une liste à réécrire : on la laisse telle
+    // quelle plutôt que de remplacer les repas de quelqu'un par un tableau vide.
+    return false;
+  }
 }
 
 /*

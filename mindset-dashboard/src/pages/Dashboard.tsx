@@ -22,6 +22,7 @@ import { libelleJours } from '../utils/recurrence';
 import { RANKS } from '../utils/ranks';
 import { EVENEMENT_XP, ajouterXp, definirXp, lireProgression, xpDuNiveau } from '../utils/progression';
 import { playClickSound, playBloopSound } from '../utils/sounds';
+import { messageJourneeBouclee } from '../utils/journeeBouclee';
 import './Dashboard.css';
 
 // --- HELPERS ---
@@ -1053,12 +1054,32 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
 
                   </div>
                   <div className="today-score-text">
-                    {mentalScore >= 100 && (
-                      <div className="victory-message">
-                        <h4 className="gradient-text">Bravo Champion 🔥</h4>
-                        <p>Tu as accompli toutes tes routines. Repose-toi bien.</p>
-                      </div>
-                    )}
+                    {mentalScore >= 100 && (() => {
+                      /*
+                        Ses chiffres, pas un compliment.
+
+                        « Bravo Champion — repose-toi bien » fermait la journée sur
+                        un écran qui connaît déjà sa série, ses jours tenus et sa
+                        moyenne. Le coach du produit s'interdit ce genre de phrase :
+                        l'application se contredisait dans sa propre voix. Et c'est
+                        le moment où quelqu'un accepte le mieux une raison de
+                        revenir — le mur du produit étant le jour 2, il se joue ici.
+                      */
+                      const tenus = weeklyData.filter((j) => j.score > 0);
+                      const message = messageJourneeBouclee({
+                        serie: calculateStreak(),
+                        joursTenus: tenus.length,
+                        moyenne: tenus.length
+                          ? Math.round(tenus.reduce((somme, j) => somme + j.score, 0) / tenus.length)
+                          : 0,
+                      });
+                      return (
+                        <div className="victory-message">
+                          <h4 className="gradient-text">{message.titre}</h4>
+                          <p>{message.corps}</p>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               )}
@@ -1507,6 +1528,31 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
             </div>
 
             <div style={{ display: activeRightTab === 'nutrition' ? 'flex' : 'none', flexDirection: 'column' }}>
+              {/*
+                Ce qui reste à tenir aujourd'hui, dit en une ligne.
+
+                L'onglet ne demandait rien : une liste de repas sans état du jour
+                se lit comme un document, pas comme une journée à tenir. Depuis que
+                les repas se décochent chaque nuit (`decocherRepas`), il y a
+                quelque chose à afficher — et c'est ce compteur qui donne au geste
+                de cocher un sens autre que décoratif.
+              */}
+              {nutritionList.length > 0 && (() => {
+                const tenus = nutritionList.filter((n: any) => n?.done).length;
+                const total = nutritionList.length;
+                return (
+                  <div className="nutrition-etat">
+                    <span className="nutrition-etat__compte">{tenus}<span className="nutrition-etat__sur">/{total}</span></span>
+                    <span className="nutrition-etat__texte">
+                      {tenus === total
+                        ? 'Tenu sur toute la journée. Ça se rejoue demain.'
+                        : tenus === 0
+                          ? "Rien de coché aujourd'hui. Commence par le prochain repas."
+                          : `Il en reste ${total - tenus} à tenir aujourd'hui.`}
+                    </span>
+                  </div>
+                );
+              })()}
               <div className="routine-list" style={{ paddingRight: '4px', paddingBottom: '10px' }}>
                 {nutritionList.length === 0 ? (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '200px', color: 'var(--secondary)' }}>
