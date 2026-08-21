@@ -2,6 +2,15 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 /**
+ * Un journal hors instance, parce que le nettoyage des balises est statique.
+ *
+ * `extraire` l'est depuis toujours — elle ne touche ni à la base ni au reste du
+ * service — et la rendre soudain dépendante d'une instance pour pouvoir
+ * journaliser aurait obligé tous ses appels à changer.
+ */
+const logger = new Logger('RappelMarqueurs');
+
+/**
  * Les rappels que le coach promet — et qui doivent vraiment arriver.
  *
  * Constaté sur un vrai utilisateur le 18 août 2026 : il écrit « commence le 1er
@@ -96,7 +105,46 @@ export class RappelService {
       .replace(/\n{3,}/g, '\n\n')
       .trim();
 
-    return { texte, rappels };
+    return { texte: RappelService.nettoyerResidus(texte), rappels };
+  }
+
+  /**
+   * Toute balise qui n'a pas été comprise, retirée avant l'affichage.
+   *
+   * **Le commentaire d'`extraire` promettait un texte « toujours débarrassé des
+   * marqueurs ». C'était vrai des balises bien formées, et d'elles seules.** Une
+   * balise que `MARQUEUR` ne reconnaît pas ne s'efface pas : elle s'affiche. Vu
+   * deux fois sur deux réponses au banc d'essai du 21 août 2026, sur des rappels
+   * que personne n'avait demandés — `<RAPPEL 2026-08-22T09:00:>` avec un
+   * deux-points de trop, et une balise ouvrante sans fermante.
+   *
+   * Un `<RAPPEL …>` en clair dans une bulle de conversation est ce qui coûte le
+   * plus cher de tout ce fichier : la personne ne voit pas une balise, elle voit
+   * que le produit est en train de se démonter sous ses yeux.
+   *
+   * **On retire la balise, jamais le texte autour.** Effacer aussi ce qui suit
+   * une balise ouvrante orpheline supprimerait des phrases que le modèle a écrites
+   * pour être lues — une balise mal placée ferait alors disparaître la moitié du
+   * message, ce qui est pire que le mal soigné.
+   *
+   * Rien n'est programmé pour autant : seule une balise reconnue écrit une ligne.
+   * Le nettoyage cache le symptôme, il ne répare pas le rappel — d'où
+   * l'avertissement, qui est la seule façon de savoir si le modèle continue.
+   */
+  private static readonly RESIDUS = /<\/?\s*(?:RAPPEL|ANNULE_RAPPEL)\b[^>]*>/gi;
+
+  static nettoyerResidus(texte: string): string {
+    if (!RappelService.RESIDUS.test(texte)) return texte;
+    // `test` sur une expression `g` déplace `lastIndex` : sans cette remise à
+    // zéro, le `replace` qui suit repartirait du milieu et laisserait passer la
+    // première balise — exactement celle qu'on vient de détecter.
+    RappelService.RESIDUS.lastIndex = 0;
+
+    logger.warn('Balise de rappel mal formée retirée de la réponse du coach.');
+    return texte
+      .replace(RappelService.RESIDUS, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
   }
 
   /**
@@ -119,7 +167,7 @@ export class RappelService {
       .replace(/\n{3,}/g, '\n\n')
       .trim();
 
-    return { texte, numeros };
+    return { texte: RappelService.nettoyerResidus(texte), numeros };
   }
 
   /**

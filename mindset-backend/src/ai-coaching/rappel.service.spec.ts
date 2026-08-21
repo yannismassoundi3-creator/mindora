@@ -123,4 +123,52 @@ describe('RappelService', () => {
       expect(rappels).toHaveLength(0);
     });
   });
+
+  /*
+    Les deux formes reellement produites par le modele, relevees au banc d essai du
+    21 aout 2026 sur deux reponses sur deux -- et sur des rappels que personne
+    n avait demandes. Aucune n est reconnue par MARQUEUR, donc aucune ne s effacait :
+    la balise s affichait telle quelle dans la bulle de conversation.
+
+    Une balise en clair a l ecran est ce qui coute le plus cher ici. La personne ne
+    voit pas une balise, elle voit un produit qui se demonte devant elle.
+  */
+  describe('une balise mal formee', () => {
+    it('ne s affiche jamais, meme avec un deux-points en trop', () => {
+      const { texte, rappels } = RappelService.extraire(
+        'Fais tes squats.<RAPPEL 2026-08-22T09:00:>Envoie ton tableau.</RAPPEL>',
+      );
+
+      expect(texte).not.toContain('<RAPPEL');
+      expect(texte).not.toContain('</RAPPEL>');
+      // Rien n est programme : seule une balise reconnue ecrit une ligne. Le
+      // nettoyage cache le symptome, il ne repare pas le rappel.
+      expect(rappels).toHaveLength(0);
+      // Le texte du modele reste lisible : on retire la balise, jamais les mots.
+      expect(texte).toContain('Fais tes squats.');
+      expect(texte).toContain('Envoie ton tableau.');
+    });
+
+    it('ne s affiche pas non plus sans balise fermante', () => {
+      const { texte } = RappelService.extraire(
+        'Lis 10 pages.<RAPPEL 2026-08-22T09:00:>Envoie ton resume.',
+      );
+
+      expect(texte).not.toContain('<RAPPEL');
+      expect(texte).toContain('Lis 10 pages.');
+    });
+
+    it('laisse intacte une balise bien formee', () => {
+      // Le filet ne doit pas manger ce qui marche : une balise valide est lue par
+      // MARQUEUR et disparait par ce chemin-la, en programmant vraiment un rappel.
+      const demain = new Date(Date.now() + 86400000);
+      const jour = demain.toISOString().slice(0, 10);
+      const { texte, rappels } = RappelService.extraire(
+        `Fais tes squats.<RAPPEL ${jour}T23:30>Series de squats.</RAPPEL>`,
+      );
+
+      expect(rappels).toHaveLength(1);
+      expect(texte).toBe('Fais tes squats.');
+    });
+  });
 });

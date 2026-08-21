@@ -440,6 +440,21 @@ describe('AiCoachingService — chat', () => {
       expect(consigne(0)).toContain(EXTRAIT_SCHEMA);
     });
 
+    it('joint le schéma quand la demande porte sur un apprentissage', async () => {
+      /*
+        « Donne moi toute les notion à apprendre » — capture d'un vrai échange du
+        21 août 2026. Aucun mot d'apprentissage n'était dans MOTS_PLAN : le schéma
+        n'était pas joint, et le coach répondait une action du jour à quelqu'un qui
+        demandait un parcours, alors que l'application sait le fabriquer et
+        l'installer chez lui.
+      */
+      fetchMock.mockResolvedValueOnce(reponseOk('Voici le parcours. <PLAN>{}</PLAN>'));
+
+      await service.chatWithAi('u1', 'Donne moi toute les notion à apprendre');
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(consigne(0)).toContain(EXTRAIT_SCHEMA);
+    });
     it("ne laisse jamais le mot de code s'afficher dans la conversation", async () => {
       fetchMock.mockResolvedValue(reponseOk('BESOIN_SCHEMA_PLAN'));
 
