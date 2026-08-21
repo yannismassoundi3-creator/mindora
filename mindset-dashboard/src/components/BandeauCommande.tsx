@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Circle, CheckCircle2, Sparkles } from 'lucide-react';
 import { lireEtatDuJour, basculerTache, EVENEMENT_JOURNEE } from '../utils/journee';
 import type { EtatDuJour } from '../utils/journee';
+import { enJeuAujourdhui } from '../utils/enJeu';
 import './BandeauCommande.css';
 
 /*
@@ -203,12 +204,28 @@ export const BandeauCommande: React.FC<BandeauCommandeProps> = ({
         quelqu'un qui en a déjà coché une aujourd'hui, c'est lui annoncer comme à
         faire ce qu'il vient de faire.
       */}
-      {serie <= 1 && seriePerdue > 1 && (
+      {serie <= 1 && seriePerdue > 1 ? (
         <p className="bandeau-alerte">
           {serie === 0
             ? `Série de ${seriePerdue} jours perdue — la première tâche cochée en relance une.`
             : `Série de ${seriePerdue} jours perdue. La nouvelle a démarré aujourd’hui.`}
         </p>
+      ) : (
+        /*
+          Ce qui se joue, une fois seulement, et jamais en même temps que l'alerte.
+
+          Les trois chiffres du haut décrivent le passé : un score, une série, un
+          décompte. Aucun ne demande rien. Cette ligne dit ce qui reste devant —
+          et surtout, quand la série est en jeu, elle dit la vérité utile : il
+          suffit d'une tâche, pas de la journée entière. Voir `enJeuAujourdhui`.
+
+          La série perdue prime : elle explique un chiffre qui vient de tomber, et
+          deux phrases empilées sous un bandeau déjà dense n'en laissent lire
+          aucune.
+        */
+        enJeuAujourdhui({ serie, faites, total }) && (
+          <p className="bandeau-enjeu">{enJeuAujourdhui({ serie, faites, total })}</p>
+        )
       )}
     </section>
   );

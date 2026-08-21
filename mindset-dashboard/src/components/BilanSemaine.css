@@ -284,3 +284,59 @@ body.theme-monochrome-light .bilan__levier-cote--sans strong {
   sur deux lignes). La règle que j'avais posée par précaution dégradait la mise
   en page pour rien — trois chiffres sur deux colonnes laissent un orphelin.
 */
+
+/*
+  L'amorce du verrou : sa propre phrase, lisible, avant ce qui est caché.
+
+  Elle est en couleur de texte principal alors que le reste du bloc est en
+  secondaire — c'est la seule ligne du bloc qui parle de lui, et elle doit se lire
+  avant l'explication de l'offre.
+*/
+.bilan__verrou-amorce {
+  margin: 0 0 10px;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--text-primary, #e2e8f0);
+  max-width: 100%;
+}
+
+.bilan__verrou-amorce strong {
+  font-weight: 600;
+}
+
+/*
+  Les lignes masquées.
+
+  Des barres, et non du texte flouté : une phrase fabriquée puis brouillée
+  laisserait croire qu'une analyse est déjà écrite sur la personne et qu'on la lui
+  cache. La barre dit « il y a quelque chose ici » sans rien affirmer de son
+  contenu — c'est la seule forme honnête de cet écran.
+*/
+.bilan__verrou-masque {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 0 0 12px;
+}
+
+.bilan__verrou-masque span {
+  display: block;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.14),
+    rgba(255, 255, 255, 0.06) 70%,
+    rgba(255, 255, 255, 0.03)
+  );
+}
+
+/* Les thèmes clairs inversent le contraste : des barres blanches y disparaissent. */
+body.theme-monochrome-light .bilan__verrou-masque span {
+  background: linear-gradient(
+    90deg,
+    rgba(15, 23, 42, 0.16),
+    rgba(15, 23, 42, 0.07) 70%,
+    rgba(15, 23, 42, 0.03)
+  );
+}

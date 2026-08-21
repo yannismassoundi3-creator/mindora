@@ -352,3 +352,24 @@
     font-size: 0.7rem;
   }
 }
+
+/*
+  Ce qui se joue aujourd'hui.
+
+  Même gabarit que `.bandeau-alerte` — les deux occupent la même place et ne
+  s'affichent jamais ensemble — mais dans le ton neutre du bandeau : ce n'est pas
+  une alerte, c'est un enjeu. Un rouge ici ferait lire « problème » à quelqu'un
+  dont la journée se passe bien.
+*/
+.bandeau-enjeu {
+  flex-basis: 100%;
+  margin: 0;
+  padding-top: 9px;
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  font-size: 0.75rem;
+  color: var(--secondary, #94a3b8);
+  /* La ligne passe sous les mesures quand le bandeau se replie sur téléphone :
+     sans ce plafond ses enfants dépassent leur parent, la largeur étant alors
+     l'axe croisé et non l'axe principal. Piège déjà payé sur `.dashboard-header`. */
+  max-width: 100%;
+}

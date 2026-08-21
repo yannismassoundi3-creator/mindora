@@ -235,22 +235,58 @@ export const BilanSemaine: React.FC = () => {
         </div>
       )}
 
-      {!abonne && (
-        <div className="bilan__verrou">
-          <p className="bilan__verrou-titre">
-            <Lock size={13} /> Ce que ton coach en lit
-          </p>
-          <p className="bilan__verrou-texte">
-            Ton coach croise tes habitudes avec le score de tes journées sur quatre
-            semaines, et te dit laquelle revient dans tes meilleures. Puis il lit ta
-            semaine : ce qui a tenu, ce qui a lâché, la seule chose à changer.
-            C'est réservé aux abonnés.
-          </p>
-          <button type="button" className="bilan__verrou-action" onClick={voirOffre}>
-            Voir l'offre
-          </button>
-        </div>
-      )}
+      {!abonne && (() => {
+        /*
+          Le cadenas est posé à côté de ses propres chiffres, jamais devant une
+          description.
+
+          Le bloc annonçait ce que le coach ferait, en trois lignes abstraites que
+          n'importe quelle application pourrait écrire. Il commence maintenant par
+          **une phrase vraie sur cette personne**, tirée de la liste affichée juste
+          au-dessus : l'habitude qu'elle a le mieux tenue, avec son chiffre. Elle
+          est lisible, elle lui appartient, et elle prouve qu'il y a quelque chose
+          de réel derrière le verrou.
+
+          **Aucun appel au modèle ici**, et c'est délibéré : pour un compte gratuit
+          le serveur ne génère pas la lecture — verrouillé doit vouloir dire « on
+          ne paie rien non plus ».
+
+          Les barres qui suivent sont des barres, pas du faux texte flouté. Une
+          phrase inventée puis brouillée laisserait croire qu'une analyse est déjà
+          écrite sur lui et qu'on la lui cache. Elle ne l'est pas.
+        */
+        const meilleure = habitudes.find((h) => h.joursTenus > 0) ?? null;
+
+        return (
+          <div className="bilan__verrou">
+            <p className="bilan__verrou-titre">
+              <Lock size={13} /> Ce que ton coach en lit
+            </p>
+
+            {meilleure && (
+              <p className="bilan__verrou-amorce">
+                <strong>{meilleure.titre}</strong> est ce que tu as le plus tenu cette
+                semaine — {meilleure.joursTenus} jours sur 7.
+              </p>
+            )}
+
+            <div className="bilan__verrou-masque" aria-hidden="true">
+              <span style={{ width: '92%' }} />
+              <span style={{ width: '78%' }} />
+              <span style={{ width: '54%' }} />
+            </div>
+
+            <p className="bilan__verrou-texte">
+              La suite croise tes habitudes avec le score de tes journées sur quatre
+              semaines : laquelle revient dans tes meilleures, ce qui a lâché cette
+              semaine, et la seule chose à changer.
+            </p>
+            <button type="button" className="bilan__verrou-action" onClick={voirOffre}>
+              Voir l'offre
+            </button>
+          </div>
+        );
+      })()}
     </section>
   );
 };
