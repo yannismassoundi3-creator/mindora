@@ -64,7 +64,6 @@
   line-height: 1.35;
 }
 
-@media (hover: hover) {
 /*
   Deux classes, et le conteneur en plus pour le survol : `body.theme-monochrome-dark
   button` impose un rayon et un halo en `!important` à tous les boutons, et
@@ -80,7 +79,6 @@
   color: var(--secondary);
   cursor: pointer;
   line-height: 0;
-}
 }
 
 @media (hover: hover) {

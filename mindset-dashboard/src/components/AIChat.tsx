@@ -9,6 +9,7 @@ import { normaliserJours } from '../utils/recurrence';
 import { extrairePlan, reparerJson } from '../utils/extractionPlan';
 import { listesIllisibles, reparerListe, type ListeIllisible } from '../utils/etatLocal';
 import { composerOuverture } from '../utils/ouverture';
+import { nouveautes } from '../utils/fusionPlan';
 import { SuggestionsCoach } from './SuggestionsCoach';
 import { ajouterNotification } from '../utils/notifications';
 import './AIChat.css';
@@ -395,7 +396,15 @@ export const AIChat: React.FC = () => {
         existingHabits = Array.isArray(parsed) ? parsed : [];
       } catch {}
       
-      const newEntries = habitsList.map((h: any) => {
+      /*
+        Ce que le coach propose, moins ce qui existe déjà.
+
+        Demander deux fois « ajoute-moi de la lecture » créait deux habitudes
+        « Lecture » — comptées deux fois dans le score du jour et listées deux
+        fois dans le bilan de la semaine. Vu sur un vrai écran le 21 août 2026.
+        L'existant gagne : lui seul porte son historique et son XP.
+      */
+      const newEntries = nouveautes(existingHabits, habitsList as any[], (h: any) => h?.name ?? h?.title).map((h: any) => {
         const colors = ['#3b82f6', '#ec4899', '#8b5cf6', '#10b981', '#fcd34d', '#ef4444'];
         const randomColor = colors[Math.floor(Math.random() * colors.length)];
         return {
@@ -441,8 +450,12 @@ export const AIChat: React.FC = () => {
         
         if (r.tasks && Array.isArray(r.tasks)) {
           if (!targetRoutine.items) targetRoutine.items = [];
-          r.tasks.forEach((t: any, idx: number) => {
-            const taskTitle = t.title || t.name || t.description || t.task || t.tache || 'Nouvelle tâche';
+          // Même règle que les habitudes : une tâche déjà dans cette routine n'y
+          // rentre pas deux fois. Un doublon se coche deux fois pour boucler la
+          // journée, et gonfle le nombre de tâches faites.
+          const titreTache = (t: any) => t?.title ?? t?.name ?? t?.description ?? t?.task ?? t?.tache;
+          nouveautes(targetRoutine.items, r.tasks as any[], titreTache).forEach((t: any, idx: number) => {
+            const taskTitle = titreTache(t) || 'Nouvelle tâche';
             targetRoutine.items.push({
               id: Date.now() + Math.floor(Math.random() * 100000) + idx,
               title: taskTitle,
@@ -468,7 +481,10 @@ export const AIChat: React.FC = () => {
         existingNutrition = Array.isArray(saved) ? saved : [];
       } catch {}
 
-      const newEntries = nutritionList.map((n: any, idx: number) => {
+      // Deux « Petit-déjeuner » dans la liste des repas, c'est le même défaut :
+      // on ne sait plus lequel est le bon, et cocher l'un laisse l'autre ouvert.
+      const nutritionAAjouter = nouveautes(existingNutrition, nutritionList as any[], (n: any) => n?.meal ?? n?.title);
+      const newEntries = nutritionAAjouter.map((n: any, idx: number) => {
         const title = n.meal || n.title || 'Repas / Objectif';
         const details = n.details || n.description || 'À définir';
         return {
@@ -490,8 +506,11 @@ export const AIChat: React.FC = () => {
         existingMicro = Array.isArray(saved) ? saved : [];
       } catch {}
       
-      const newEntries = objectivesList.map((o: any, idx: number) => {
-        const objTitle = o.title || o.name || o.description || o.objectif || o.objective || o.goal || 'Nouvel Objectif';
+      // Un micro-objectif en double se remet à zéro le lundi comme les autres :
+      // la personne verrait deux fois la même semaine à accomplir.
+      const titreObjectif = (o: any) => o?.title ?? o?.name ?? o?.description ?? o?.objectif ?? o?.objective ?? o?.goal;
+      const newEntries = nouveautes(existingMicro, objectivesList as any[], titreObjectif).map((o: any, idx: number) => {
+        const objTitle = titreObjectif(o) || 'Nouvel Objectif';
         return {
           id: Date.now() + Math.floor(Math.random() * 100000) + idx,
           title: objTitle,

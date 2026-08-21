@@ -1,4 +1,16 @@
-@media (hover: hover) {
+/*
+  ⚠️ Cette règle de base ne doit JAMAIS retourner dans un @media (hover: hover).
+
+  Elle y était, et sur iPhone — où le survol n'existe pas — le bouton perdait
+  tout : pas de pastille, pas d'écart entre l'icône et le texte, et le style par
+  défaut des thèmes reprenait la main. C'est-à-dire un rectangle blanc pleine
+  largeur au milieu d'un écran sombre, sur le seul bouton du produit qui demande
+  à quelqu'un de parler de l'app autour de lui.
+
+  La règle : dans un bloc de survol, uniquement des sélecteurs `:hover`. Le reste
+  appartient à tout le monde, écrans tactiles compris. Constaté le 21 août 2026,
+  et le même défaut existait sur la croix de fermeture de `ProActif.css`.
+*/
 /*
   Deux pièges connus de ce projet sont traités ici, et il ne faut pas les défaire.
 
@@ -28,7 +40,6 @@
   font-weight: 600;
   cursor: pointer;
   transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
-}
 }
 
 @media (hover: hover) {
