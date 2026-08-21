@@ -61,6 +61,25 @@ export const BoutonGoogle: React.FC<Props> = ({ onSession, onErreur, source, des
   const [clientId, setClientId] = useState<string | null>(null);
   const conteneur = useRef<HTMLDivElement>(null);
 
+  /*
+    Les deux fonctions passent par des refs, et ce n'est pas une coquetterie.
+
+    L'écran de connexion les écrit en ligne dans son JSX : elles sont donc
+    recréées à chaque rendu, et un effet qui en dépend se rejoue à chaque frappe
+    dans le formulaire. Google le signalait lui-même dans la console —
+    « initialize() is called multiple times ... only the last initialized instance
+    will be used » — ce qui veut dire un bouton redessiné en boucle et, à terme,
+    un rappel branché sur une instance qui n'est plus la bonne.
+
+    La ref garde la dernière version des fonctions sans faire partie des
+    dépendances : l'initialisation n'a lieu qu'une fois, et le rappel appelle
+    toujours le code à jour.
+  */
+  const surSession = useRef(onSession);
+  const surErreur = useRef(onErreur);
+  surSession.current = onSession;
+  surErreur.current = onErreur;
+
   // Dans une webview embarquée, on ne demande même pas la configuration : ni script
   // tiers chargé, ni requête inutile.
   const integre = navigateurIntegre();
@@ -99,10 +118,10 @@ export const BoutonGoogle: React.FC<Props> = ({ onSession, onErreur, source, des
               credential: reponse?.credential,
               source: source ?? undefined,
             });
-            if (session?.access_token) onSession(session);
-            else onErreur('Connexion Google incomplète. Réessaie.');
+            if (session?.access_token) surSession.current(session);
+            else surErreur.current('Connexion Google incomplète. Réessaie.');
           } catch (e: any) {
-            onErreur(e?.message || 'Connexion Google impossible. Réessaie.');
+            surErreur.current(e?.message || 'Connexion Google impossible. Réessaie.');
           }
         },
       });
@@ -134,7 +153,7 @@ export const BoutonGoogle: React.FC<Props> = ({ onSession, onErreur, source, des
     return () => {
       annule = true;
     };
-  }, [clientId, source, onSession, onErreur]);
+  }, [clientId, source]);
 
   if (integre || !clientId) return null;
 
