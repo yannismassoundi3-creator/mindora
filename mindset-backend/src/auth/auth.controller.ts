@@ -1,5 +1,5 @@
 import { Controller, Post, Body, HttpCode, HttpStatus, Res, UseGuards, Req, Get, Delete } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiExcludeEndpoint } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { SuppressionCompteService } from './suppression-compte.service';
@@ -10,6 +10,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { Verify2faDto } from './dto/verify-2fa.dto';
 import { Response, Request } from 'express';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { identifiantClientGoogle } from './google';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -80,6 +81,54 @@ export class AuthController {
   @ApiResponse({ status: 409, description: 'Email ou Téléphone déjà utilisé.' })
   async register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
+  }
+
+  /**
+   * Connexion ou inscription par Google, en un seul appel.
+   *
+   * Une seule route pour les deux : le navigateur ne sait pas si le compte existe,
+   * et l'obliger à demander d'abord ajouterait un aller-retour et un cas d'erreur
+   * pour rien. C'est le serveur qui tranche, lui seul le sait.
+   *
+   * Le plafond est plus large que celui du mot de passe (5/min) : il n'y a rien à
+   * deviner par force ici — le jeton est signé par Google. Il reste posé parce
+   * qu'une route qui crée des comptes sans plafond est une invitation.
+   */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
+  @Post('google')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Connexion ou inscription avec un compte Google' })
+  async google(
+    @Body() body: { credential?: string; source?: string },
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const { accessToken, refreshToken, ...reste } = await this.authService.connexionGoogle(
+      body?.credential || '',
+      body?.source,
+    );
+
+    this.setRefreshTokenCookie(response, refreshToken);
+
+    // Exactement la forme de `verify-2fa` : le front range la session par le même
+    // chemin, et il n'y a pas deux façons d'ouvrir une session dans ce produit.
+    return { access_token: accessToken, refresh_token: refreshToken, ...reste };
+  }
+
+  /**
+   * Ce que le navigateur doit savoir avant de dessiner l'écran de connexion.
+   *
+   * **L'identifiant client Google est public par nature** — il voyage dans chaque
+   * requête d'autorisation. Le rendre ici plutôt que de le figer dans le bundle
+   * évite d'avoir à reconstruire le front pour le changer, et surtout évite le cas
+   * où le front propose un bouton que le serveur n'a pas de quoi honorer : sans
+   * variable côté serveur, `disponible` est faux et le bouton ne s'affiche pas.
+   * Un bouton qui échoue coûte plus cher qu'un bouton absent.
+   */
+  @Get('google/config')
+  @ApiExcludeEndpoint()
+  configGoogle() {
+    const clientId = identifiantClientGoogle();
+    return { disponible: !!clientId, clientId: clientId ?? null };
   }
 
   @Throttle({ default: { limit: 5, ttl: 60000 } })

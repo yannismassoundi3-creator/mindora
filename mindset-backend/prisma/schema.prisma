@@ -10,7 +10,15 @@ datasource db {
 model User {
   id                    String               @id @default(uuid())
   email                 String               @unique
-  password_hash         String
+  /// Absent pour un compte ouvert avec Google : il n'y a alors aucun mot de passe
+  /// à vérifier, et en inventer un que personne ne connaît reviendrait à créer une
+  /// porte dont on aurait perdu la clé. Tout code qui compare un mot de passe doit
+  /// donc traiter l'absence **avant** l'appel à argon2 — voir `AuthService.login`.
+  password_hash         String?
+  /// L'identifiant Google du compte (`sub`), stable et opaque. On ne se repose pas
+  /// sur l'adresse seule : quelqu'un peut changer l'e-mail de son compte Google, et
+  /// deux comptes Google ne partagent jamais un `sub`.
+  google_sub            String?              @unique
   first_name            String
   last_name             String
   role                  Role                 @default(USER)

@@ -3,6 +3,7 @@ import { api, memoriserSession } from '../services/api';
 import './AuthScreen.css';
 import { Brain, ArrowRight, Eye, EyeOff, ShieldCheck, KeyRound } from 'lucide-react';
 import { lireProvenance } from '../utils/provenance';
+import { BoutonGoogle } from './BoutonGoogle';
 
 /**
  * Note le questionnaire d'inscription comme fait, ou pas, d'après le serveur.
@@ -344,6 +345,38 @@ export const AuthScreen = ({ onComplete }: { onComplete: () => void }) => {
       </p>
 
       {error && <div className="auth-error">{error}</div>}
+
+      {/*
+        Google avant le formulaire, et pas en dessous.
+
+        Ce qui est proposé en second se lit comme un repli. Le geste le plus court
+        — un appui, aucun mot de passe à inventer ni à retenir — passe donc en
+        premier. Le composant ne s'affiche pas du tout dans le navigateur intégré
+        d'Instagram ou de TikTok, où Google refuse de s'authentifier : voir
+        `BoutonGoogle`.
+      */}
+      <BoutonGoogle
+        desactive={loading}
+        source={lireProvenance()}
+        onErreur={setError}
+        onSession={async (session: any) => {
+          /*
+            Exactement le même rangement que la connexion classique.
+
+            Deux façons d'ouvrir une session finissent toujours par diverger sur un
+            détail — l'état nuage non redescendu, le prénom absent de l'accueil —
+            et le défaut n'apparaît que sur le chemin le moins emprunté.
+          */
+          memoriserSession(session);
+          localStorage.setItem('mindset_user_name', session.user?.first_name || 'User');
+          await api.downloadCloudState();
+          // Un compte tout neuf n'a pas de profil : le questionnaire doit s'ouvrir,
+          // comme après une inscription par e-mail.
+          if (session.nouveau) localStorage.removeItem('hasCompletedOnboarding');
+          else memoriserOnboarding(session.has_ai_profile);
+          onComplete();
+        }}
+      />
 
       <form onSubmit={handleSubmit} className="auth-form">
         {!isLogin && (

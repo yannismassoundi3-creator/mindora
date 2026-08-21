@@ -225,6 +225,9 @@ describe('AuthService — prolongation de session', () => {
         email: 'yannis@example.com',
         role: 'USER',
         first_name: 'Yannis',
+        // Un compte a mot de passe en a un : sans ce champ, le garde qui oriente
+        // les comptes Google vers leur bouton se declencherait ici.
+        password_hash: 'argon2-de-test',
         created_at: new Date(Date.now() - 3 * 86400000),
         ai_profile: null,
       });
@@ -244,6 +247,7 @@ describe('AuthService — prolongation de session', () => {
         email: 'yannis@example.com',
         role: 'ADMIN',
         first_name: 'Yannis',
+        password_hash: 'argon2-de-test',
         created_at: new Date(),
         ai_profile: null,
       });

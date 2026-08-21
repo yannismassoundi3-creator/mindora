@@ -8,6 +8,7 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { lienApp } from '../common/origines';
 import { envoyerBienvenue } from '../relances/bienvenue';
+import { verifierJetonGoogle, identifiantClientGoogle } from './google';
 
 @Injectable()
 export class AuthService {
@@ -152,7 +153,22 @@ export class AuthService {
       include: { ai_profile: true }
     });
 
-    if (!user || !await argon2.verify(user.password_hash, dto.password)) {
+    /*
+      L'absence de mot de passe se teste avant argon2, jamais après.
+
+      Un compte ouvert avec Google n'en a aucun. Passer `null` à `argon2.verify`
+      lève, et l'exception remonterait en 500 : la personne verrait une panne
+      serveur là où il faut lui dire d'utiliser le bouton Google. Le message est
+      volontairement explicite ici — c'est une aide, pas une fuite : il faut déjà
+      connaître le mot de passe... qui n'existe pas.
+    */
+    if (user && !user.password_hash) {
+      throw new UnauthorizedException(
+        'Ce compte a été créé avec Google. Utilise le bouton « Continuer avec Google ».',
+      );
+    }
+
+    if (!user || !await argon2.verify(user.password_hash!, dto.password)) {
       throw new UnauthorizedException('Identifiants invalides.');
     }
 
@@ -427,6 +443,88 @@ export class AuthService {
       ...tokens,
       has_ai_profile
     };
+  }
+
+  /**
+   * Connexion — ou inscription — par Google, en un seul geste.
+   *
+   * Le formulaire demandait quatre champs et un mot de passe à inventer, puis à
+   * retenir. C'est le mur qui se dresse **entre le clic payé et la première vue du
+   * produit**, le même que celui qui a fait retirer le code à six chiffres de la
+   * première connexion le 16 août 2026.
+   *
+   * ## Trois chemins, et le deuxième est le seul dangereux
+   *
+   * 1. **Le `sub` est connu** → c'est lui, on ouvre la session. Rien d'autre.
+   * 2. **L'adresse est connue mais pas le `sub`** → quelqu'un qui s'était inscrit
+   *    par e-mail appuie sur Google pour la première fois. **On rattache, on ne
+   *    crée pas.** Créer un second compte lui rendrait un écran vide : série
+   *    perdue, habitudes disparues, historique effacé — et de son point de vue
+   *    c'est l'application qui a supprimé ses données. C'est le bug qui coûte un
+   *    utilisateur définitivement, et il ne se voit pas en développement, où l'on
+   *    n'a pas d'ancien compte.
+   * 3. **Ni l'un ni l'autre** → création, sans mot de passe.
+   *
+   * Le rattachement n'est sûr que parce que `verifierJetonGoogle` refuse une
+   * adresse non vérifiée chez Google : sans ce contrôle, ouvrir un compte Google
+   * portant l'adresse d'un tiers donnerait accès au compte Disciplix de ce tiers.
+   *
+   * ## Ce que ça règle au passage
+   *
+   * `email_verifie_le` est posée d'office : Google a déjà prouvé que la boîte
+   * existe et appartient à la personne, ce qui est exactement la question à
+   * laquelle le code à six chiffres répond. Ces comptes n'en verront jamais.
+   */
+  async connexionGoogle(jeton: string, source?: string) {
+    const identite = await verifierJetonGoogle(jeton);
+    if (!identite) {
+      throw new UnauthorizedException('Connexion Google refusée. Réessaie.');
+    }
+
+    const existant = await this.prisma.user.findFirst({
+      where: { OR: [{ google_sub: identite.sub }, { email: identite.email }] },
+      include: { ai_profile: true },
+    });
+
+    if (existant) {
+      // Le rattachement est écrit une seule fois, au premier passage par Google.
+      if (!existant.google_sub) {
+        await this.prisma.user.update({
+          where: { id: existant.id },
+          data: {
+            google_sub: identite.sub,
+            email_verifie_le: existant.email_verifie_le ?? new Date(),
+          },
+        });
+        this.logger.log(`Compte ${existant.id} rattaché à Google.`);
+      }
+
+      const jetons = await this.generateTokens(existant.id, existant.role, existant.first_name);
+      return { ...jetons, has_ai_profile: !!existant.ai_profile, nouveau: false };
+    }
+
+    const cree = await this.prisma.user.create({
+      data: {
+        email: identite.email,
+        first_name: identite.prenom,
+        last_name: identite.nom,
+        google_sub: identite.sub,
+        email_verifie_le: new Date(),
+        source: AuthService.provenanceNettoyee(source),
+      },
+    });
+
+    /*
+      L'accueil part comme pour une inscription ordinaire, et hors de tout `try`
+      qui ferait échouer la création — même raisonnement que `register`. Il vaut
+      moins comme preuve d'adresse ici (Google l'a déjà prouvée) que comme premier
+      message : il pousse vers la seule action qui prédise un retour, parler au
+      coach une fois.
+    */
+    await envoyerBienvenue(this.prisma, cree);
+
+    const jetons = await this.generateTokens(cree.id, cree.role, cree.first_name);
+    return { ...jetons, has_ai_profile: false, nouveau: true };
   }
 
   async generateTokens(userId: string, role: string, firstName: string) {

@@ -1,0 +1,59 @@
+/*
+  Le bouton est dessiné par Google, dans un iframe qu'on ne peut pas restyler.
+
+  On ne l'habille donc pas — on lui fait de la place et on l'aligne. Toute
+  tentative de le repeindre échouerait en silence, et il n'y a rien à gagner à
+  s'écarter d'un bouton que tout le monde reconnaît au premier regard.
+*/
+.bouton-google {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 6px;
+}
+
+.bouton-google > div {
+  display: flex;
+  justify-content: center;
+  min-height: 44px;
+  /* Le bouton de Google mesure ce qu'il veut : ce plafond l'empêche de dépasser la
+     carte de connexion sur un écran étroit. */
+  max-width: 100%;
+}
+
+/* Pendant qu'une soumission classique est en cours, le bouton reste visible mais
+   ne doit pas ouvrir une seconde session en parallèle. */
+.bouton-google--attente {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/*
+  Le séparateur : un trait de chaque côté du mot.
+
+  En pseudo-éléments plutôt qu'en bordure sur le parent, sinon le trait passe
+  derrière le mot au lieu de s'arrêter à ses côtés.
+*/
+.bouton-google__separateur {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--secondary, #94a3b8);
+}
+
+.bouton-google__separateur::before,
+.bouton-google__separateur::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+body.theme-monochrome-light .bouton-google__separateur::before,
+body.theme-monochrome-light .bouton-google__separateur::after {
+  background: rgba(15, 23, 42, 0.14);
+}
