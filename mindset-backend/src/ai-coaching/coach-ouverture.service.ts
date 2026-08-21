@@ -74,7 +74,16 @@ export class CoachOuvertureService {
 
     const profil = await this.memoire.chargerProfil(userId).catch(() => null);
 
-    const enCache = this.cacheValide(profil);
+    /*
+      La signature est calculée avant le cache, pas après.
+
+      C'est elle qui décide si la phrase retenue parle encore d'aujourd'hui. Elle
+      se lit dans `contexte`, que le navigateur vient d'envoyer — donc l'état réel
+      de la personne à cette seconde, et non ce que la base croit savoir d'elle.
+    */
+    const signature = CoachOuvertureService.signature(contexte);
+
+    const enCache = this.cacheValide(profil, signature);
     if (enCache) return enCache;
 
     const apiKey = process.env.GROQ_API_KEY;
@@ -90,7 +99,11 @@ export class CoachOuvertureService {
       await this.prisma.aIProfile
         .update({
           where: { user_id: userId },
-          data: { ouverture_texte: texte, ouverture_genere_le: new Date() },
+          data: {
+            ouverture_texte: texte,
+            ouverture_genere_le: new Date(),
+            ouverture_signature: signature,
+          },
         })
         .catch((e) => this.logger.warn(`Ouverture non mise en cache pour ${userId} : ${e?.message}`));
     }
@@ -98,11 +111,56 @@ export class CoachOuvertureService {
     return texte;
   }
 
-  /** La phrase retenue, si elle est encore d'actualité. */
-  private cacheValide(profil: any): string | null {
+  /**
+   * En dessous, on garde la phrase même si les faits ont bougé.
+   *
+   * Uniquement contre le pathologique : un écran qui se remonte en boucle, deux
+   * onglets ouverts côte à côte. Deux minutes de décalage ne se voient pas ; sans
+   * ce plancher, une poignée de secondes suffirait à enchaîner les appels.
+   */
+  private static readonly PLANCHER_MS = 2 * 60 * 1000;
+
+  /**
+   * Les faits sur lesquels la phrase est écrite, réduits à une empreinte courte.
+   *
+   * **Le jour, le moment de la journée, l'état des tâches.** Ce sont exactement
+   * les trois choses dont la phrase parle : dès que l'une bouge, ce qui a été
+   * écrit cesse d'être vrai. Le titre des tâches n'y entre pas — renommer
+   * « Squats » en « Squats (4×12) » ne change rien à ce qu'il y a à dire.
+   */
+  static signature(contexte: any): string {
+    const { cas, faites, total } = CoachOuvertureService.lireEtatDuJour(contexte);
+    const moment = CoachOuvertureService.momentDeLaJournee();
+    return `${moment.jour}|${moment.phrase}|${cas}|${faites}/${total}`;
+  }
+
+  /**
+   * La phrase retenue, si elle est encore vraie.
+   *
+   * **Un âge ne dit pas si une phrase est encore juste**, et c'est tout le défaut
+   * qu'on répare ici. Constaté sur une capture d'un vrai utilisateur le 21 août
+   * 2026 : « Il est 11 h 38 et tu n'as encore rien coché aujourd'hui » affiché à
+   * 15 h 07, à quelqu'un dont le tableau de bord annonçait « Journée bouclée,
+   * 6 tâches faites ». La phrase avait trois heures et demie — bien à l'intérieur
+   * des six heures de fraîcheur — et elle était fausse sur les deux points
+   * qu'elle avançait.
+   *
+   * C'est le miroir exact du défaut de synchro du 20 août : là-bas une donnée
+   * fraîche n'était pas une donnée d'aujourd'hui, ici un cache jeune n'est pas un
+   * cache encore valable. **La bonne question n'est pas « depuis quand ? » mais
+   * « est-ce toujours vrai ? »**
+   *
+   * Une signature absente vaut périmée : les lignes écrites avant ce correctif
+   * sont régénérées une fois, ce qui coûte un appel par personne et une seule.
+   */
+  private cacheValide(profil: any, signature: string): string | null {
     if (!profil?.ouverture_texte || !profil?.ouverture_genere_le) return null;
+
     const age = Date.now() - new Date(profil.ouverture_genere_le).getTime();
-    return age < CoachOuvertureService.FRAICHEUR_MS ? profil.ouverture_texte : null;
+    if (age >= CoachOuvertureService.FRAICHEUR_MS) return null;
+    if (age < CoachOuvertureService.PLANCHER_MS) return profil.ouverture_texte;
+
+    return profil.ouverture_signature === signature ? profil.ouverture_texte : null;
   }
 
   private async engendrer(
@@ -120,7 +178,17 @@ export class CoachOuvertureService {
     const moment = CoachOuvertureService.momentDeLaJournee();
 
     const donnees = [
-      `Moment : ${moment.phrase} (il est ${moment.heure}, on est ${moment.jour}).`,
+      /*
+        Le moment, jamais l'heure à la minute.
+
+        La phrase est mise en cache : une heure exacte y devient fausse par le
+        simple passage du temps, et elle est la seule chose qu'on puisse
+        contredire d'un coup d'œil à l'écran. « Il est 11 h 38 » lu à 15 h 07 ne
+        se discute pas — vu sur une capture d'un vrai utilisateur le 21 août 2026.
+        Le moment de la journée, lui, reste vrai plusieurs heures, et il entre
+        dans la signature du cache : quand il change, la phrase est réécrite.
+      */
+      `Moment : ${moment.phrase}, on est ${moment.jour}.`,
       etat.resume,
       this.memoire.formatProfil(profil),
       this.memoire.formatMemoire(profil),
@@ -168,7 +236,7 @@ export class CoachOuvertureService {
         Il montre aussi le bon registre pour une journée entamée mais pas finie :
         l'heure sert à dire ce qui reste devant, jamais à juger ce qui est passé.
       */
-      reste: `Exemple de ton : « Il est 19 h, et ta séance de sport n'est pas encore faite. Tu as encore la soirée : dix minutes suffisent à ne pas casser la série. »`,
+      reste: `Exemple de ton : « Ta séance de sport n'est pas encore faite, et la journée avance. Dix minutes suffisent à ne pas casser la série. »`,
       // Tout est fait. Ne rien redemander — c'est le moment de reconnaître.
       fini: `Exemple de ton : « Tout est coché, et c'est le quatrième jour d'affilée. C'est exactement comme ça qu'on devient la personne dont tu m'as parlé. »`,
     };
@@ -196,6 +264,15 @@ export class CoachOuvertureService {
       `- Ne mets jamais un reproche et un compliment dans le même message : l'un annule l'autre, et il ne reste qu'une impression de langue de bois.`,
       `- Si sa tendance montre un décrochage ou des jours à zéro, c'est par là que tu ouvres, avec le chiffre, sans l'adoucir — mais sans le lui reprocher. Une reprise commence par un constat, pas par un encouragement ni par un procès.`,
       `- Pas de conditionnel mou : ni « tu pourrais », ni « peut-être », ni « si tu veux ». Tu affirmes, tu demandes.`,
+      /*
+        L'heure exacte est interdite parce que la phrase est conservée.
+
+        Un modèle qui écrit « il est 11 h 38 » fabrique la seule affirmation que
+        la personne peut démentir d'un coup d'œil à son téléphone — et elle la
+        démentira, puisque la phrase lui sera resservie plus tard dans la journée.
+        Le moment de la journée dit la même chose et reste vrai.
+      */
+      `- N'écris JAMAIS une heure précise (« il est 11 h 38 », « à 14 h »). Cette phrase sera relue plus tard dans la journée : dis « la matinée », « l'après-midi », « la soirée », jamais l'heure qu'il est.`,
       `- Aucun compliment qui ne s'appuie sur un fait présent dans les données. « Bravo » tout seul est interdit.`,
       `- N'INVENTE RIEN. Aucune tâche, aucune durée, aucun chiffre, aucun rendez-vous qui ne soit dans les données ci-dessous. Si tu n'as pas de tâche précise à citer, n'en cite aucune.`,
       `- Pas de « Bonjour, je suis... », pas de « Comment puis-je t'aider ? », pas d'emoji, pas de liste, pas de titre.`,
@@ -213,7 +290,7 @@ export class CoachOuvertureService {
    * qui n'a jamais rien planifié est le plus sûr moyen de lui montrer qu'on ne le
    * suit pas.
    */
-  static lireEtatDuJour(contexte: any): { cas: CasDuJour; resume: string } {
+  static lireEtatDuJour(contexte: any): { cas: CasDuJour; resume: string; faites: number; total: number } {
     const routines = Array.isArray(contexte?.routines) ? contexte.routines.slice(0, 20) : [];
     const taches: { titre: string; faite: boolean }[] = [];
 
@@ -225,7 +302,12 @@ export class CoachOuvertureService {
     }
 
     if (!taches.length) {
-      return { cas: 'vide', resume: `Sa journée : rien de planifié, il n'a encore aucune tâche dans l'application.` };
+      return {
+        cas: 'vide',
+        resume: `Sa journée : rien de planifié, il n'a encore aucune tâche dans l'application.`,
+        faites: 0,
+        total: 0,
+      };
     }
 
     const restantes = taches.filter((t) => !t.faite);
@@ -237,6 +319,8 @@ export class CoachOuvertureService {
           `Sa journée : les ${taches.length} tâches prévues sont TOUTES FAITES.`,
           `Ce qu'il a fait : ${faites.map((t) => t.titre).filter(Boolean).join(', ')}`,
         ].join('\n'),
+        faites: faites.length,
+        total: taches.length,
       };
     }
 
@@ -267,6 +351,8 @@ export class CoachOuvertureService {
           .filter(Boolean)
           .join(', ')}`,
       ].join('\n'),
+      faites: faites.length,
+      total: taches.length,
     };
   }
 

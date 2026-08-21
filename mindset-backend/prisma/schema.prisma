@@ -200,6 +200,10 @@ model AIProfile {
   /// quelques heures, sinon elle parlerait du matin a quelqu'un qui ouvre le soir.
   ouverture_texte     String?
   ouverture_genere_le DateTime?
+  // Les faits sur lesquels la phrase en cache a été écrite. Un âge ne dit pas si
+  // elle est encore vraie : quelqu'un qui coche ses six tâches rend fausse en une
+  // minute une phrase parfaitement fraîche. Voir `CoachOuvertureService`.
+  ouverture_signature String?
   /// La lecture de la semaine ecoulee, ecrite par le coach pour les abonnes.
   ///
   /// Mise en cache pour la meme raison que l'ouverture, en plus fort : c'est un

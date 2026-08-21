@@ -127,12 +127,67 @@ describe('CoachOuvertureService', () => {
       prisma.aIProfile.findUnique.mockResolvedValue({
         ouverture_texte: 'Déjà dite ce matin.',
         ouverture_genere_le: new Date(Date.now() - 3600 * 1000),
+        // Les mêmes faits qu'à l'écriture : rien n'a bougé, la phrase tient.
+        ouverture_signature: CoachOuvertureService.signature({ routines: [] }),
       });
 
       const texte = await service.ouverture('u1', { routines: [] });
 
       expect(texte).toBe('Déjà dite ce matin.');
       expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    /*
+      Le défaut réel, sur une capture d'un vrai utilisateur le 21 août 2026 :
+      « Il est 11 h 38 et tu n'as encore rien coché aujourd'hui », affiché à
+      15 h 07 à quelqu'un dont le tableau de bord annonçait « Journée bouclée,
+      6 tâches faites ». Trois heures et demie d'âge, donc parfaitement dans les
+      six heures de fraîcheur, et fausse sur les deux points qu'elle avançait.
+
+      Un âge ne dit pas si une phrase est encore vraie.
+    */
+    it('régénère quand la journée a changé sous la phrase', async () => {
+      const rienDeFait = { routines: [{ items: [{ title: 'Squats', done: false }] }] };
+      const toutEstFait = { routines: [{ items: [{ title: 'Squats', done: true }] }] };
+
+      prisma.aIProfile.findUnique.mockResolvedValue({
+        ouverture_texte: "Tu n'as encore rien coché aujourd'hui.",
+        ouverture_genere_le: new Date(Date.now() - 3 * 3600 * 1000),
+        ouverture_signature: CoachOuvertureService.signature(rienDeFait),
+      });
+      fetchMock.mockResolvedValue(reponseOk('Tout est coché, et ça se voit.'));
+
+      const texte = await service.ouverture('u1', toutEstFait);
+
+      expect(texte).toBe('Tout est coché, et ça se voit.');
+      expect(fetchMock).toHaveBeenCalled();
+    });
+
+    it('garde la phrase quelques minutes malgré un changement', async () => {
+      // Un écran qui se remonte en boucle, deux onglets côte à côte : deux minutes
+      // de décalage ne se voient pas, une rafale d'appels se paie.
+      prisma.aIProfile.findUnique.mockResolvedValue({
+        ouverture_texte: 'Écrite il y a dix secondes.',
+        ouverture_genere_le: new Date(Date.now() - 10 * 1000),
+        ouverture_signature: 'autre-chose',
+      });
+
+      const texte = await service.ouverture('u1', { routines: [] });
+
+      expect(texte).toBe('Écrite il y a dix secondes.');
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('régénère une phrase écrite avant que la signature existe', async () => {
+      // Les lignes d'avant le correctif : on ne sait pas de quoi elles parlent,
+      // donc on ne peut pas affirmer qu'elles sont encore vraies.
+      prisma.aIProfile.findUnique.mockResolvedValue({
+        ouverture_texte: 'Ancienne phrase sans signature.',
+        ouverture_genere_le: new Date(Date.now() - 3600 * 1000),
+      });
+      fetchMock.mockResolvedValue(reponseOk('Phrase neuve.'));
+
+      expect(await service.ouverture('u1', { routines: [] })).toBe('Phrase neuve.');
     });
 
     /*
@@ -325,7 +380,13 @@ describe('CoachOuvertureService', () => {
       expect(consigne()).toContain('Jarvis');
     });
 
-    it('transmet le profil et l\'heure', async () => {
+    it('transmet le profil et le moment, jamais l\'heure exacte', async () => {
+      /*
+        L'heure à la minute est la seule affirmation qu'un lecteur peut démentir
+        d'un coup d'œil à son téléphone — et il la démentira, puisque la phrase
+        lui sera resservie plus tard dans la journée. Le moment dit la même chose
+        et reste vrai plusieurs heures.
+      */
       prisma.aIProfile.findUnique.mockResolvedValue({
         objectives: ['Devenir constant'],
         ouverture_texte: null,
@@ -334,7 +395,11 @@ describe('CoachOuvertureService', () => {
       await service.ouverture('u1', {});
 
       expect(donnees()).toContain('Devenir constant');
-      expect(donnees()).toMatch(/il est \d{2}[:h]\d{2}/);
+      expect(donnees()).toMatch(/Moment : .+, on est /);
+      expect(donnees()).not.toMatch(/il est \d{1,2}[:h]\d{2}/);
+      // Et la consigne l'interdit explicitement, sans quoi le modèle écrirait
+      // l'heure qu'il croit connaître.
+      expect(consigne()).toContain("N'écris JAMAIS une heure précise");
     });
   });
 });
