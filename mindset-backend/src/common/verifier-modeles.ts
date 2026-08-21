@@ -1,4 +1,4 @@
-import { MODELES_CHAT, MODELES_COURTS, tousLesModeles } from './modeles';
+import { JETONS_TEXTE_COURT, MODELES_CHAT, MODELES_COURTS, tousLesModeles } from './modeles';
 import { corpsGroq, lireReponseGroq } from './groq';
 
 /**
@@ -96,8 +96,13 @@ async function tester(apiKey: string, modele: string): Promise<EtatModele> {
             avant d'écrire et épuisaient les 80 jetons dans leur raisonnement.
             **Un contrôle plus indulgent que la production ne contrôle rien** — il
             met un tampon sur la panne qu'il était censé trouver.
+
+            La valeur est désormais la même constante que les appels de
+            production, et non un nombre recopié : le 21 août 2026 le budget est
+            passé de 80 à 200, et un contrôle resté à 80 aurait déclaré morts des
+            modèles qui écrivent — la même faute exactement, dans l'autre sens.
           */
-          jetons: 80,
+          jetons: JETONS_TEXTE_COURT,
         }),
       ),
       signal: controleur.signal,

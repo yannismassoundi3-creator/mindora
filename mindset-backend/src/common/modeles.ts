@@ -56,6 +56,36 @@ export const MODELES_CHAT = [
  */
 export const MODELES_COURTS = ['openai/gpt-oss-20b', 'openai/gpt-oss-120b'];
 
+/**
+ * Le budget d'une notification : brief du matin, coup de pouce, et le contrôle.
+ *
+ * **80 jetons étranglaient le modèle sans que rien ne le dise.** Mesuré contre le
+ * vrai Groq le 21 août 2026, sur l'invite exacte du brief, 14 appels par budget :
+ *
+ * - à **80** : 4 textes utilisables. 4 réponses vides, 6 refusées pour troncature.
+ * - à **200** : 12 textes utilisables. 2 vides, aucune troncature.
+ *
+ * La raison est visible dans `usage.completion_tokens_details` : le raisonnement
+ * consomme entre 13 et 78 jetons selon l'humeur du modèle, sur le même budget que
+ * la réponse. À 80, un raisonnement bavard ne laisse rien pour écrire — et
+ * `reasoning_effort: low`, déjà envoyé, réduit cette dépense sans la borner.
+ *
+ * **Ce n'est pas le budget qui tenait la longueur, c'est l'invite.** La crainte
+ * légitime était qu'un budget large produise des phrases coupées à
+ * `PLAFOND_CARACTERES` : sur les douze textes obtenus à 200, le plus long faisait
+ * 113 caractères, aucun n'a été coupé. La consigne « maximum 140 caractères » fait
+ * ce travail toute seule.
+ *
+ * **Le coût ne suit pas le plafond**, il suit les jetons réellement écrits — une
+ * soixantaine dans les deux cas. Seuls les raisonnements emballés coûtent
+ * davantage, et ils étaient jusqu'ici payés pour ne rien rendre.
+ *
+ * Une seule constante pour les trois appels : le 19 août, un contrôle réglé à 200
+ * quand la production en accordait 80 a certifié verts des modèles muets. Deux
+ * budgets qui doivent rester égaux ne le restent que s'ils n'existent qu'une fois.
+ */
+export const JETONS_TEXTE_COURT = 200;
+
 /** Tous les identifiants distincts, pour le contrôle d'exploitation. */
 export function tousLesModeles(): string[] {
   return [...new Set([...MODELES_CHAT, ...MODELES_COURTS])];

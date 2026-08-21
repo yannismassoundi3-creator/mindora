@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { lireReponseGroq } from '../common/groq';
 import { chaineCourte, appelerMaillon, MaillonCourt } from '../common/chaine-courte';
 import { objectifsDeLaSemaine, tachesDuJour } from './taches';
-import { MODELES_COURTS } from '../common/modeles';
+import { JETONS_TEXTE_COURT, MODELES_COURTS } from '../common/modeles';
 
 /**
  * Le coup de pouce : un message du coach en pleine journée, quand il a quelque
@@ -317,7 +317,7 @@ export class CoupDePouceService {
             { role: 'user', content: invite },
           ],
           temperature: 0.8,
-          jetons: 80,
+          jetons: JETONS_TEXTE_COURT,
         },
         controleur.signal,
       );

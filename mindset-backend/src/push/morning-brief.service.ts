@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { lireReponseGroq } from '../common/groq';
 import { chaineCourte, appelerMaillon, MaillonCourt } from '../common/chaine-courte';
 import { aDesRoutines, objectifsDeLaSemaine, tachesDuJour } from './taches';
-import { MODELES_COURTS } from '../common/modeles';
+import { JETONS_TEXTE_COURT, MODELES_COURTS } from '../common/modeles';
 
 /**
  * Rédige le message du matin avec l'IA, à partir de la situation réelle de la personne.
@@ -228,7 +228,7 @@ export class MorningBriefService {
             { role: 'user', content: invite },
           ],
           temperature: 0.7,
-          jetons: 80,
+          jetons: JETONS_TEXTE_COURT,
         },
         controleur.signal,
       );

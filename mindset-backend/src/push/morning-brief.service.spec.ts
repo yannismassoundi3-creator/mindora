@@ -1,6 +1,6 @@
 import { Logger } from '@nestjs/common';
 import { MorningBriefService } from './morning-brief.service';
-import { MODELES_COURTS } from '../common/modeles';
+import { JETONS_TEXTE_COURT, MODELES_COURTS } from '../common/modeles';
 import { jourDeSemaine } from './recurrence';
 
 /**
@@ -91,14 +91,21 @@ describe('MorningBriefService — écriture du message', () => {
     delete process.env.SECOURS_API_URL;
   });
 
-  it('borne le raisonnement du modèle, sinon les 80 jetons partent en réflexion', async () => {
+  it('borne le raisonnement du modèle, et lui laisse de quoi écrire après', async () => {
     /*
-      Le budget du brief est de 80 jetons, et les modèles actuels réfléchissent
-      avant d'écrire sur ce même budget : sans ce réglage, mesuré contre le vrai
-      Groq, ils rendent un contenu vide et le brief part en version générique pour
-      tout le monde — sans qu'aucune erreur ne soit levée nulle part. C'est ce qui
-      s'est produit du 18 au 19 août 2026. Le test regarde donc ce qui est envoyé,
-      pas seulement ce qui revient.
+      Les modèles actuels réfléchissent avant d'écrire, sur le même budget que
+      leur réponse. Il faut donc les deux garde-fous, et aucun ne remplace
+      l'autre : le réglage réduit la dépense de réflexion, le budget décide de ce
+      qui reste pour écrire une fois cette dépense faite.
+
+      Sans le réglage, mesuré contre le vrai Groq, ils rendent un contenu vide et
+      le brief part en version générique pour tout le monde, sans qu'aucune erreur
+      ne soit levée — ce qui s'est produit du 18 au 19 août 2026.
+
+      Avec le réglage mais à 80 jetons, mesuré le 21 août sur 14 appels : 4 textes
+      utilisables seulement, le raisonnement consommant de 13 à 78 jetons selon
+      l'humeur du modèle. À 200 : 12 sur 14. Le test regarde donc ce qui est
+      envoyé, pas seulement ce qui revient.
     */
     fetchMock.mockResolvedValueOnce(reponseOk('Debout, ta série t’attend.'));
 
@@ -106,7 +113,7 @@ describe('MorningBriefService — écriture du message', () => {
 
     const corps = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(corps.reasoning_effort).toBeDefined();
-    expect(corps.max_tokens).toBe(80);
+    expect(corps.max_tokens).toBe(JETONS_TEXTE_COURT);
   });
 
   it('bascule sur le gros modèle quand le petit est interdit sur le projet', async () => {
