@@ -198,7 +198,17 @@ export class MorningBriefService {
       return texte;
     }
 
-    // Toute la chaîne a renoncé : l'appelant enverra le message générique.
+    /*
+      Toute la chaîne a renoncé, et ce que ça coûte dépend de l'appelant.
+
+      Sur la voie de la notification, il enverra le message générique — banal mais
+      entier. Sur celle de l'e-mail, ouverte le 20 août 2026, **il n'enverra
+      rien** : un e-mail générique quotidien est le plus court chemin vers un
+      signalement pour indésirable. Cette ligne est donc, pour une partie des
+      comptes, la seule trace qu'une personne est repartie les mains vides — d'où
+      le compteur `sansTexte` de la tournée, qui la rend visible sans avoir à
+      lire les logs.
+    */
     this.logger.warn("Aucun modèle n'a pu écrire le message du matin");
     return null;
   }
@@ -230,7 +240,24 @@ export class MorningBriefService {
 
       const data = await reponse.json();
       const { texte, tronque } = lireReponseGroq(data);
-      if (!texte) return null;
+      /*
+        Répondre n'est pas écrire, et ce cas-là ne laissait aucune trace.
+
+        Un modèle à raisonnement rend un 200 parfaitement formé avec un contenu
+        vide quand sa réflexion a mangé les 80 jetons du budget — c'est le mode
+        d'échec le plus courant de cette chaîne, et le seul des quatre à sortir
+        d'ici sans un mot. Les logs du 21 août 2026 le montrent en creux : dix
+        « aucun modèle n'a pu écrire » pour trois avertissements de maillon, donc
+        une majorité de renoncements dont on ne pouvait pas nommer la cause.
+
+        Le même écart avait déjà coûté cher le 19 août sur `GET /admin/modeles`,
+        qui certifiait verts des modèles muets en production parce qu'il ne
+        regardait que le statut HTTP.
+      */
+      if (!texte) {
+        this.logger.warn(`${modele} a répondu 200 sans écrire une ligne pour le message du matin`);
+        return null;
+      }
 
       // Le modèle ajoute parfois des guillemets ; une notification tronquée est illisible.
       const propre = texte.replace(/^["'«»\s]+|["'«»\s]+$/g, '');

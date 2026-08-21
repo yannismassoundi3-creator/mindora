@@ -269,10 +269,36 @@ describe('PushService — tournée des briefs du matin', () => {
       prisma.user.findMany.mockResolvedValue([{ ...compteActif('u1'), push_subscriptions: [] }]);
       morningBrief.generate.mockResolvedValue(null);
 
-      const resume = await service.sendMorningBriefs('cron');
+      // Avec le créneau, sans quoi la voie de l'e-mail n'est même pas empruntée :
+      // le test réussissait alors sans rien prouver de la règle qu'il garde.
+      const resume = await service.sendMorningBriefs('cron', PushService.REVEIL_PAR_DEFAUT);
 
       expect(briefEmail.envoyer).not.toHaveBeenCalled();
       expect(resume.parEmail).toBe(0);
+      /*
+        Ne rien envoyer est le bon geste ; ne pas le compter ne l'est pas.
+
+        Cette personne est la seule d'une tournée à repartir les mains vides — qui
+        a un appareil retombe sur le générique. Sans ce compteur, son silence
+        s'écrit `0 échec(s)`, exactement comme une tournée où tout le monde a été
+        servi. Constaté le 21 août 2026 : 17 e-mails partis, 8 personnes sans
+        rien, et un bilan qui annonçait zéro échec.
+      */
+      expect(resume.sansTexte).toBe(1);
+      expect(resume.echecs).toBe(0);
+    });
+
+    it('ne compte pas comme « sans texte » quelqu’un que l’e-mail a servi', async () => {
+      // Le compteur doit désigner un silence subi, pas s'allumer sur toute la
+      // voie de l'e-mail : gonflé, il ferait démonter un canal qui fonctionne.
+      prisma.user.findMany.mockResolvedValue([{ ...compteActif('u1'), push_subscriptions: [] }]);
+      morningBrief.generate.mockResolvedValue('Ta série tient depuis 4 jours.');
+      briefEmail.envoyer.mockResolvedValue(true);
+
+      const resume = await service.sendMorningBriefs('cron', PushService.REVEIL_PAR_DEFAUT);
+
+      expect(resume.parEmail).toBe(1);
+      expect(resume.sansTexte).toBe(0);
     });
 
     it('n’écrit pas par e-mail à un compte dormant', async () => {
@@ -285,6 +311,9 @@ describe('PushService — tournée des briefs du matin', () => {
 
       expect(briefEmail.envoyer).not.toHaveBeenCalled();
       expect(resume.dormantsIgnores).toBe(1);
+      // Un dormant est écarté avant tout appel au modèle : son silence est décidé,
+      // pas subi, et le confondre avec l'autre rendrait le compteur illisible.
+      expect(resume.sansTexte).toBe(0);
     });
 
     it('ignore les comptes dormants sans payer un appel IA', async () => {

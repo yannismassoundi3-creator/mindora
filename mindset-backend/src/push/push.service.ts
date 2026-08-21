@@ -22,6 +22,22 @@ export interface ResumeTournee {
   comptesExamines: number;
   /** Briefs partis par e-mail, faute d'appareil joignable par notification. */
   parEmail: number;
+  /**
+   * Ceux qui n'ont rien reçu parce qu'aucun modèle n'a écrit leur message.
+   *
+   * Ce sont les seules personnes d'une tournée à repartir les mains vides, et
+   * elles n'étaient comptées nulle part. Qui a un appareil retombe sur le message
+   * générique ; sur la voie de l'e-mail, **rien ne part sans texte** — choix
+   * délibéré, un e-mail générique quotidien étant le plus court chemin vers un
+   * signalement pour indésirable. Mais le silence choisi et le silence subi
+   * s'écrivaient de la même façon dans le bilan : `0 échec(s)`.
+   *
+   * Mesuré le 21 août 2026 sur la tournée de 10 h : 17 e-mails partis, **8
+   * personnes sans rien**, et une ligne de bilan qui annonçait zéro échec. Sans ce
+   * compteur, la question « le canal e-mail sert-il ? » se tranche sur 17 quand la
+   * vraie réponse est 17 sur 25.
+   */
+  sansTexte: number;
 }
 
 /**
@@ -1054,6 +1070,7 @@ export class PushService implements OnModuleInit {
     let ignores = 0;
     let echecs = 0;
     let parEmail = 0;
+    let sansTexte = 0;
 
     for (const user of users) {
       /*
@@ -1106,7 +1123,17 @@ export class PushService implements OnModuleInit {
 
         try {
           const texte = await this.morningBrief.generate(user.first_name, user.sync_data);
-          if (texte && (await this.briefEmail.envoyer(user, 'matin', texte))) parEmail++;
+          /*
+            Le silence sans texte est compté, il n'est plus déduit.
+
+            Ici, et nulle part ailleurs dans la tournée, quelqu'un peut repartir
+            les mains vides : la voie de la notification retombe sur le message
+            générique, celle-ci ne le fait pas — délibérément. Ne rien compter
+            revenait à écrire le même `0 échec(s)` pour « tout le monde a été
+            servi » et pour « un tiers de la voie e-mail n'a rien reçu ».
+          */
+          if (!texte) sansTexte++;
+          else if (await this.briefEmail.envoyer(user, 'matin', texte)) parEmail++;
         } catch (e) {
           echecs++;
           this.logger.error(
@@ -1144,7 +1171,8 @@ export class PushService implements OnModuleInit {
 
     this.logger.log(
       `Briefs du matin : ${personnalises} personnalisé(s), ${generiques} générique(s), ` +
-        `${parEmail} par e-mail, ${ignores} compte(s) dormant(s) ignoré(s), ${echecs} échec(s)`,
+        `${parEmail} par e-mail, ${sansTexte} sans texte (rien envoyé), ` +
+        `${ignores} compte(s) dormant(s) ignoré(s), ${echecs} échec(s)`,
     );
 
     // Renvoyé pour que le suivi de tournée expose le même décompte que le log.
@@ -1152,6 +1180,7 @@ export class PushService implements OnModuleInit {
       personnalises,
       generiques,
       parEmail,
+      sansTexte,
       dormantsIgnores: ignores,
       echecs,
       comptesExamines: users.length,
