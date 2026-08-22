@@ -93,16 +93,45 @@ export function suggestionsDuMoment(): string[] {
   return propositions;
 }
 
-interface Props {
-  onChoisir: (texte: string) => void;
+/**
+ * Les trois premières, juste après le questionnaire.
+ *
+ * Elles remplacent le message que l'app envoyait autrefois au nom de la personne.
+ * La différence n'est pas la longueur du chemin — un geste dans les deux cas —
+ * c'est **qui décide** : le plan ne s'écrit dans son application que si elle a
+ * demandé un plan.
+ *
+ * Les trois ne sont pas trois formulations du même souhait, ce sont trois ambitions
+ * différentes : tout de suite et en entier, une seule habitude, ou une seule étape.
+ * Quelqu'un qui vient de déclarer quinze minutes par jour ne veut pas forcément d'un
+ * programme complet, et rien jusqu'ici ne lui laissait le dire.
+ *
+ * Le vocabulaire reste choisi : « plan », « habitude » et « étape » sont tous les
+ * trois dans `MOTS_PLAN` côté serveur. Sans ça, la réponse arriverait en prose là
+ * où la personne attend un plan appliqué dans l'app.
+ */
+export function suggestionsPremierContact(): string[] {
+  return [
+    'Construis-moi mon plan complet, je te fais confiance',
+    'Commence petit : une seule habitude pour cette semaine',
+    'Donne-moi juste une première étape à faire maintenant',
+  ];
 }
 
-export const SuggestionsCoach: React.FC<Props> = ({ onChoisir }) => {
-  const propositions = suggestionsDuMoment();
+interface Props {
+  onChoisir: (texte: string) => void;
+  /** Vrai au tout premier écran après le questionnaire. */
+  premierContact?: boolean;
+}
+
+export const SuggestionsCoach: React.FC<Props> = ({ onChoisir, premierContact }) => {
+  const propositions = premierContact ? suggestionsPremierContact() : suggestionsDuMoment();
 
   return (
     <div className="suggestions-coach">
-      <p className="suggestions-coach-intro">Tu peux lui demander :</p>
+      <p className="suggestions-coach-intro">
+        {premierContact ? 'Réponds-lui, ou choisis :' : 'Tu peux lui demander :'}
+      </p>
       <div className="suggestions-coach-liste">
         {propositions.map((texte) => (
           <button

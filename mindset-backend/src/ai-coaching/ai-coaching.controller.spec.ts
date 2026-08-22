@@ -502,22 +502,30 @@ describe('AiCoachingController — messages de découverte', () => {
     });
   });
 
-  describe("le plan d'inscription", () => {
-    const planAuto = {
-      prompt: MESSAGES_AUTOMATIQUES_INSCRIPTION[0],
-    } as any;
+  describe('le premier message', () => {
+    /*
+      Ce que la gratuité protège a changé de nature le 23 août 2026.
 
-    it('ne touche ni aux coins ni au quota mensuel', async () => {
+      Elle visait auparavant une phrase précise — celle que la fin du questionnaire
+      envoyait au nom de la personne — et devait donc être défendue contre son propre
+      texte : fixe, lisible dans le code du navigateur, il suffisait de le renvoyer en
+      boucle pour obtenir une IA gratuite et illimitée.
+
+      Le coach demande maintenant avant de construire, cette phrase n'est plus envoyée,
+      et c'est **le premier message quel qu'il soit** qui est offert. La borne « zéro
+      message en base » ne se rejoue pas : c'est ce que vérifie le second test.
+    */
+    it('ne touche ni aux coins ni au quota mensuel, quel que soit son texte', async () => {
       coins.estEnDecouverte.mockResolvedValue(false);
       coins.estPremierMessage.mockResolvedValue(true);
 
-      await controller.chat(requete, planAuto);
+      await controller.chat(requete, message);
 
       expect(coins.spend).not.toHaveBeenCalled();
       expect(quota.consumeAiCredit).not.toHaveBeenCalled();
     });
 
-    it("vaut aussi pour l'ancienne formulation, encore en base", async () => {
+    it('vaut aussi pour les anciennes phrases du questionnaire, encore en base', async () => {
       coins.estEnDecouverte.mockResolvedValue(false);
       coins.estPremierMessage.mockResolvedValue(true);
 
@@ -528,26 +536,16 @@ describe('AiCoachingController — messages de découverte', () => {
       expect(quota.consumeAiCredit).not.toHaveBeenCalled();
     });
 
-    it('est facturé si ce n’est pas le tout premier message', async () => {
-      /*
-        Le texte est fixe et lisible dans le code du navigateur : sans cette
-        borne, le renvoyer en boucle donnerait une IA gratuite et illimitée à qui
-        l'aurait remarqué.
-      */
+    it('est facturé dès le deuxième', async () => {
       coins.estEnDecouverte.mockResolvedValue(false);
       coins.estPremierMessage.mockResolvedValue(false);
 
-      await controller.chat(requete, planAuto);
+      await controller.chat(requete, message);
 
       expect(coins.spend).toHaveBeenCalledWith('u1');
       expect(quota.consumeAiCredit).toHaveBeenCalledWith('u1', 'chat');
     });
 
-    it("ne va pas compter en base pour un message ordinaire", async () => {
-      await controller.chat(requete, message);
-
-      expect(coins.estPremierMessage).not.toHaveBeenCalled();
-    });
   });
 
   // Un abonné ne paie jamais : inutile d'aller compter ses messages en base.

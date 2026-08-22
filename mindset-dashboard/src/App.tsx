@@ -391,9 +391,12 @@ function App() {
     localStorage.setItem('hasCompletedOnboarding', 'true');
     // On atterrit dans la conversation et non sur le tableau de bord : le
     // questionnaire vient de poser six questions, la première chose qui doit
-    // arriver ensuite est une réponse. Le message d'ouverture a été déposé par
-    // `Onboarding` dans `mindset_pending_chat_msg` ; le chat le trouve en se
-    // montant et l'envoie. Voir le commentaire qui l'accompagne là-bas.
+    // arriver ensuite est une réponse.
+    //
+    // Depuis le 23 août 2026, cette réponse est une **question** : le chat lit le
+    // marqueur posé par `Onboarding`, ouvre sur `composerPremierContact` et attend.
+    // Rien ne part plus au nom de la personne, et rien ne s'écrit dans son app
+    // avant qu'elle l'ait demandé. Voir le commentaire qui l'accompagne là-bas.
     setCurrentView('chat');
     // Plus de mur de paiement dès la fin de l'inscription : on laisse la personne
     // se servir de l'app. L'offre arrive quand elle a épuisé ses messages IA,

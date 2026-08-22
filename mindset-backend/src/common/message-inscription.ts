@@ -19,6 +19,18 @@
  * La comparaison est exacte, jamais par mots-clés : une correspondance
  * approximative exclurait de vrais messages, et on retomberait sur la même panne
  * dans l'autre sens — un chiffre faux, d'apparence normale.
+ *
+ * ## Le mécanisme s'est arrêté le 23 août 2026
+ *
+ * La fin du questionnaire n'envoie plus rien au nom de la personne : le coach pose
+ * une question et attend. **Aucune ligne neuve ne portera donc plus ces textes**, et
+ * le compteur « plans automatiques » du tableau du jour descendra à zéro — ce n'est
+ * pas une panne, c'est la fin de ce qu'il comptait.
+ *
+ * Cette liste, elle, ne bouge pas. Les lignes déjà en base gardent ces phrases pour
+ * toujours ; la vider ferait recompter d'un coup, comme des conversations, tous les
+ * questionnaires antérieurs — et le taux « inscrits ayant parlé au coach » des
+ * semaines passées remonterait tout seul, sans que rien ne l'explique.
  */
 export const MESSAGES_AUTOMATIQUES_INSCRIPTION: readonly string[] = [
   // Depuis le 16 août 2026 : le plan s'ouvre sur une action faisable tout de suite.

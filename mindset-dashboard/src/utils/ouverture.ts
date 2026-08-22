@@ -33,6 +33,54 @@ function mentionSerie(serie: number): string {
   return serie >= 2 ? ` Tu tiens depuis ${serie} jours, ne casse pas ça maintenant.` : '';
 }
 
+/**
+ * Le marqueur posé par le questionnaire, lu une fois par le chat au montage.
+ *
+ * Il ne dit pas « cette personne est nouvelle » — le chat le devinerait — mais
+ * « elle sort du questionnaire à l'instant », ce qui n'est vrai qu'une fois et ne
+ * se déduit d'aucun état.
+ */
+export const CLE_PREMIER_CONTACT = 'mindset_premier_contact';
+
+/** Le temps que la personne s'est donné, tel qu'elle l'a choisi au questionnaire. */
+export const CLE_MINUTES_PAR_JOUR = 'mindset_minutes_par_jour';
+
+/** « 60 » → « 1 heure ». Les quatre valeurs du questionnaire, et rien d'autre. */
+function formaterBudget(minutes: number): string {
+  if (minutes >= 120) return '2 heures ou plus';
+  if (minutes >= 60) return '1 heure';
+  return `${minutes} minutes`;
+}
+
+/**
+ * La première phrase du coach, juste après le questionnaire.
+ *
+ * Elle **demande au lieu de donner**, et c'est tout son objet. Jusqu'au 23 août
+ * 2026, la fin du questionnaire envoyait un message au nom de la personne pour
+ * réclamer son plan : elle répondait à six questions et recevait, sans avoir rien
+ * tapé, un programme complet déjà inscrit dans son application. Le plan était juste,
+ * et il arrivait quand même comme une décision prise sans elle.
+ *
+ * Ce qui est repris ici n'est pas la rapidité — la conversation s'ouvre toujours
+ * dans la foulée, et les propositions dessous partent d'un seul geste — c'est le
+ * consentement : rien ne s'écrit dans son app avant qu'elle l'ait demandé.
+ *
+ * Elle nomme l'objectif et le budget déclarés parce qu'une question posée par
+ * quelqu'un qui vient d'écouter ne se lit pas comme un formulaire de plus.
+ */
+export function composerPremierContact(nomUtilisateur?: string): string {
+  const objectif = lireObjectif();
+  const brut = Number(localStorage.getItem(CLE_MINUTES_PAR_JOUR));
+  const budget = Number.isFinite(brut) && brut > 0 ? ` et ${formaterBudget(brut)} par jour` : '';
+  const prenom = (nomUtilisateur || '').trim();
+
+  if (objectif) {
+    return `C'est noté${prenom ? `, ${prenom}` : ''} : ${enMinuscule(objectif)}${budget}. Je peux te construire ton plan tout de suite — mais je préfère te demander d'abord : par quoi tu veux commencer ?`;
+  }
+
+  return `${prenom ? `${prenom}, j` : 'J'}'ai tes réponses. Avant de te construire quoi que ce soit : par quoi tu veux commencer ?`;
+}
+
 export function composerOuverture(nomUtilisateur?: string): string {
   const { faites, total, prochaine, serie } = lireEtatDuJour();
   const objectif = lireObjectif();

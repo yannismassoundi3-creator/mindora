@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowRight, Loader2, Sparkles } from 'lucide-react';
 import './Onboarding.css';
+import { CLE_MINUTES_PAR_JOUR, CLE_PREMIER_CONTACT } from '../utils/ouverture';
+import { CLE_OBJECTIF } from '../utils/objectif';
 import { api, CLE_PROFIL_EN_ATTENTE } from '../services/api';
 
 interface OnboardingProps {
@@ -109,35 +111,42 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
 
         Mesuré le 16 août 2026 : sur 25 comptes ayant fait quelque chose dans l'app,
         5 seulement avaient jamais écrit au coach. Or le coach est la seule chose que
-        l'abonnement fait payer — personne n'achète ce qu'il n'a pas essayé, et le
-        taux d'abonnés ne peut pas dépasser celui des gens qui l'ont vu fonctionner.
+        l'abonnement fait payer — personne n'achète ce qu'il n'a pas essayé. La cause
+        était dans l'enchaînement : on posait six questions, puis on déposait la
+        personne devant un tableau de bord vide. Elle venait de raconter sa vie à
+        quelqu'un qui ne lui a jamais répondu. On atterrit donc toujours dans la
+        conversation, et c'est `App.handleOnboardingComplete` qui s'en charge.
 
-        La cause était dans l'enchaînement : on posait six questions, puis on déposait
-        la personne devant un tableau de bord vide, avec un bouton parmi d'autres pour
-        aller parler. Elle venait de raconter sa vie à quelqu'un qui ne lui a jamais
-        répondu. Le premier message part donc tout seul, et c'est le coach qui rend le
-        plan — ce que le parcours promettait depuis le début.
+        **Ce qui change le 23 août 2026, c'est qui parle en premier.**
 
-        Il est écrit à la première personne parce qu'il est envoyé en son nom, et il
-        nomme routines, habitudes et objectifs parce que c'est ce vocabulaire qui fait
-        joindre le schéma du plan côté serveur (`MOTS_PLAN`).
+        Jusqu'ici, un message partait d'ici au nom de la personne pour réclamer son
+        plan. Elle répondait à six questions et recevait, sans avoir tapé une lettre,
+        un programme complet déjà inscrit dans son application — routines, habitudes
+        et objectifs compris. Le plan était bon, et il arrivait quand même comme une
+        décision prise sans elle.
 
-        **Il réclame une première action avant le plan**, et c'est le point le plus
-        important de la phrase. Un plan complet rendu à quelqu'un qui vient de
-        s'inscrire est une liste de choses à faire demain : rien n'est fait le jour
-        même, aucun premier succès n'a lieu, et sans premier succès il n'y a pas de
-        jour 2. Une action de moins de cinq minutes se fait dans la foulée — c'est la
-        seule marche que la personne puisse franchir tant qu'elle est encore là.
+        Le coach demande maintenant avant de construire : sa phrase d'ouverture est
+        une question (`composerPremierContact`), et les propositions posées dessous
+        envoient un vrai message d'un seul geste. On ne perd donc pas le mouvement —
+        on perd l'écriture d'office dans l'app de quelqu'un qui n'a rien demandé.
 
-        Toute modification de ce texte doit être **ajoutée** à
-        `MESSAGES_AUTOMATIQUES_INSCRIPTION` côté serveur, et jamais y remplacer
-        l'ancienne : c'est cette liste qui empêche de recompter ces envois comme des
-        conversations, et les lignes déjà en base gardent la formulation d'alors.
+        Le marqueur ci-dessous est la seule chose que le chat ne saurait pas deviner :
+        « cette personne sort du questionnaire à l'instant » n'est vrai qu'une fois.
+
+        `MESSAGES_AUTOMATIQUES_INSCRIPTION`, côté serveur, ne disparaît pas pour
+        autant : les lignes déjà en base portent ces phrases pour toujours, et c'est
+        cette liste qui les empêche d'être recomptées comme des conversations.
       */
-      localStorage.setItem(
-        'mindset_pending_chat_msg',
-        "Je viens de terminer mon inscription. Donne-moi d'abord UNE première action que je peux faire maintenant, en moins de 5 minutes. Ensuite seulement, mon plan complet : mes routines, mes habitudes et mes objectifs.",
-      );
+      localStorage.setItem(CLE_PREMIER_CONTACT, '1');
+
+      // De quoi composer la question sans attendre le réseau. L'objectif est relu du
+      // serveur au démarrage suivant ; ici il n'y est pas encore, et une première
+      // phrase incapable de nommer ce qu'on vient de lui dire n'aurait aucune raison
+      // d'être posée.
+      if (answers.goal) localStorage.setItem(CLE_OBJECTIF, answers.goal);
+      if (answers.minutesParJour) {
+        localStorage.setItem(CLE_MINUTES_PAR_JOUR, String(answers.minutesParJour));
+      }
 
       onComplete();
     };

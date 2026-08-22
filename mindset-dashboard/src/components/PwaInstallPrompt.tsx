@@ -1,6 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './PwaInstallPrompt.css';
 import { estIOS, estIPad, estInstallee, estNavigateurIntegre, lienSortieAndroid, navigateurIOS } from '../utils/plateforme';
+import { EVENEMENT_PLAN, aUnPlan } from '../utils/premierPlan';
+
+/** Un « pas maintenant » se redemande, mais pas au prochain écran. */
+const CLE_REPORT = 'mindset_install_reporte_le';
+const DELAI_REPORT_MS = 7 * 24 * 3600 * 1000;
 
 /*
   Faire installer l'application.
@@ -20,6 +25,15 @@ import { estIOS, estIPad, estInstallee, estNavigateurIntegre, lienSortieAndroid,
 */
 export const PwaInstallPrompt: React.FC = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  /*
+    La même invite que `deferredPrompt`, mais lisible depuis les écouteurs.
+
+    Ceux-ci sont posés une fois, au montage : leur fermeture garde donc la valeur du
+    premier rendu, où l'invite est toujours nulle. Sans cette référence, la carte
+    s'afficherait sur Android sans que son bouton ait de quoi installer quoi que ce
+    soit — un bouton qui ne fait rien, ce qui est pire que pas de carte.
+  */
+  const invite = useRef<any>(null);
   const [showPrompt, setShowPrompt] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
@@ -38,27 +52,57 @@ export const PwaInstallPrompt: React.FC = () => {
     setNavigateur(navigateurIOS());
     setSortieAndroid(lienSortieAndroid());
 
-    // Sur iOS aucun événement n'annonce la possibilité d'installer : c'est à nous
-    // de proposer. Le délai laisse la personne voir l'app avant qu'on lui demande
-    // quelque chose.
-    if (surIOS) {
-      const t = setTimeout(() => setShowPrompt(true), 3000);
-      return () => clearTimeout(t);
-    }
+    // Un refus récent se respecte. Sans cette borne, la carte revenait à chaque
+    // chargement de page : on ne demande pas, on harcèle.
+    const reporte = Number(localStorage.getItem(CLE_REPORT) || 0);
+    if (reporte > 0 && Date.now() - reporte < DELAI_REPORT_MS) return;
 
-    // Android / Chrome
+    /*
+      On propose quand la personne a un plan, jamais avant.
+
+      La carte partait sur une minuterie de trois secondes après l'arrivée : elle
+      couvrait donc le tout premier écran d'un compte encore vide, et demandait
+      d'installer une application dont on n'avait rien vu. Sur iPhone c'est
+      pourtant la demande qui compte le plus — iOS ne délivre aucune notification
+      web hors application posée sur l'écran d'accueil — et une demande faite trop
+      tôt ne se rejoue pas : elle se refuse une fois, pour de bon.
+
+      Deux déclencheurs, et il faut les deux : l'événement pour l'instant précis où
+      le plan tombe, la lecture du stockage pour toutes les visites suivantes de
+      quelqu'un qui n'a pas encore installé.
+    */
+    const proposer = () => {
+      if (!aUnPlan()) return;
+      // Sur Android, rien à proposer tant que le navigateur n'a pas remis son
+      // invite : le bouton n'aurait rien à déclencher.
+      if (!surIOS && !invite.current) return;
+      setShowPrompt(true);
+    };
+
     const handleBeforeInstallPrompt = (e: any) => {
-      e.preventDefault(); // Prevent automatic prompt
+      // On garde la main sur le moment. L'invite spontanée de Chrome arrive quand
+      // il l'a décidé, c'est-à-dire n'importe quand.
+      e.preventDefault();
+      invite.current = e;
       setDeferredPrompt(e);
-      setShowPrompt(true); // Show our custom prompt
+      proposer();
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener(EVENEMENT_PLAN, proposer);
+    proposer();
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener(EVENEMENT_PLAN, proposer);
     };
   }, []);
+
+  /** Fermer, c'est « pas maintenant » — et on s'en souvient une semaine. */
+  const reporter = () => {
+    localStorage.setItem(CLE_REPORT, String(Date.now()));
+    setShowPrompt(false);
+  };
 
   const handleInstallClick = async () => {
     if (deferredPrompt) {
@@ -93,7 +137,7 @@ export const PwaInstallPrompt: React.FC = () => {
   return (
     <div className="pwa-install-overlay fade-in">
       <div className="pwa-install-card">
-        <button className="close-prompt-btn" onClick={() => setShowPrompt(false)}>×</button>
+        <button className="close-prompt-btn" onClick={reporter} aria-label="Pas maintenant">×</button>
         <div className="pwa-app-icon">
           {/* /pwa-192x192.png n'a jamais existé dans public/ : la carte censée
               convaincre d'installer l'application affichait une image cassée. */}

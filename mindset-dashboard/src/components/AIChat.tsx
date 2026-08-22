@@ -6,10 +6,11 @@ import { AI_COSMETICS } from '../utils/cosmetics';
 import { getSecurePoints } from '../utils/secureStorage';
 import { sauvegarderPlanPrecedent, planPrecedentDisponible, restaurerPlanPrecedent } from '../utils/planPrecedent';
 import { normaliserJours } from '../utils/recurrence';
-import { extrairePlan, reparerJson } from '../utils/extractionPlan';
+import { extrairePlan, reparerJson, retirerObjetsDePlan } from '../utils/extractionPlan';
 import { listesIllisibles, reparerListe, type ListeIllisible } from '../utils/etatLocal';
-import { composerOuverture } from '../utils/ouverture';
+import { CLE_PREMIER_CONTACT, composerOuverture, composerPremierContact } from '../utils/ouverture';
 import { nouveautes } from '../utils/fusionPlan';
+import { signalerPlanApplique } from '../utils/premierPlan';
 import { SuggestionsCoach } from './SuggestionsCoach';
 import { ajouterNotification } from '../utils/notifications';
 import './AIChat.css';
@@ -58,6 +59,17 @@ interface Message {
 export const AIChat: React.FC = () => {
   const aiName = localStorage.getItem('mindset_ai_name') || 'Coach IA';
 
+  /*
+    « Cette personne sort du questionnaire à l'instant. »
+
+    Lu une seule fois, au montage, et gardé pour la durée de l'écran : le marqueur
+    est effacé dès le premier envoi, et la question d'ouverture ne doit pas changer
+    de forme sous les yeux de quelqu'un qui est en train d'y répondre.
+  */
+  const [premierContact] = useState(
+    () => localStorage.getItem(CLE_PREMIER_CONTACT) === '1',
+  );
+
   const [messages, setMessages] = useState<Message[]>(() => {
     /*
       La première phrase n'est plus « Bonjour, je suis X. Comment je peux t'aider
@@ -75,7 +87,9 @@ export const AIChat: React.FC = () => {
     */
     const defaultMessage = {
       id: 1,
-      text: composerOuverture(localStorage.getItem('mindset_user_name') || ''),
+      text: premierContact
+        ? composerPremierContact(localStorage.getItem('mindset_user_name') || '')
+        : composerOuverture(localStorage.getItem('mindset_user_name') || ''),
       sender: 'ai' as const,
       estOuverture: true,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -108,8 +122,25 @@ export const AIChat: React.FC = () => {
       if (match.includes('"newHabits"') || match.includes('"newRoutines"') || match.includes('"replace')) return '';
       return match;
     });
-    // Match any block starting with { and containing our keywords, up to the last }
-    cleaned = cleaned.replace(/\{[\s\S]*?"(newHabits|newRoutines|newNutrition|newObjectives|newMacroObjectives|replaceRoutines|replaceHabits)"[\s\S]*?\}/g, '');
+    /*
+      Les objets de plan, retirés entiers — ou pas du tout.
+
+      L'expression employée ici cherchait `{ … "newHabits" … }` sans gourmandise :
+      sur un vrai plan elle s'arrêtait à la première accolade fermante venue, celle
+      d'une routine imbriquée, emportait le début du bloc et **laissait la fin à
+      l'écran**. Capture d'un vrai compte le 22 août 2026, sur le premier message
+      reçu après le questionnaire :
+
+          <PLAN> , , ], "newMicroObjectives": [ { "title": "Créer prototype MVP", …
+
+      Sa liste de champs était en plus incomplète — `newMicroObjectives` n'y figurait
+      pas — si bien que le morceau qui survivait était justement celui qu'on voyait.
+
+      Une expression régulière ne sait pas compter les accolades ; `retirerObjetsDePlan`,
+      si. Et il applique la règle qui manquait : un objet qu'on ne sait pas délimiter
+      en entier ne se coupe pas en deux.
+    */
+    cleaned = retirerObjetsDePlan(cleaned);
     
     cleaned = cleaned.replace(/Voici le.*?JSON.*?:/ig, '').trim();
     cleaned = cleaned.replace(/Voici .*?plan.*?:/ig, '').trim();
@@ -120,9 +151,26 @@ export const AIChat: React.FC = () => {
     // Fetch persistent history from backend
     api.get('/ai-coaching/history').then((data: any) => {
       if (Array.isArray(data) && data.length > 0) {
+        /*
+          Le bloc technique se retire ici aussi, et c'est nouveau.
+
+          La base garde la réponse du coach **entière**, balise `<PLAN>` comprise :
+          il le faut, c'est elle qui porte le plan à appliquer. L'envoi en direct la
+          retirait avant l'affichage ; cette relecture-ci, non — elle ne passait que
+          le nettoyage de dernier recours, qui coupait le JSON au lieu de l'enlever.
+
+          Conséquence, invisible tant qu'on ne rouvre pas l'app : le premier message
+          du coach était propre à la seconde où il arrivait, et redevenait un mur
+          d'accolades au rechargement suivant. Pour un nouvel inscrit, c'était la
+          seule chose que son coach lui avait jamais dite.
+
+          On extrait sans rien appliquer : le plan a déjà été posé à l'aller, le
+          rejouer créerait des doublons — c'est exactement ce que `fusionPlan`
+          répare par ailleurs.
+        */
         const cleanedData = data.map((m: any) => ({
           ...m,
-          text: cleanMessageText(m.text)
+          text: cleanMessageText(extrairePlan(m.text).texte)
         }));
         setMessages(cleanedData);
       }
@@ -145,6 +193,17 @@ export const AIChat: React.FC = () => {
     épuisé, ce qui ne doit surtout pas se lire comme une panne.
   */
   useEffect(() => {
+    /*
+      Sauf juste après le questionnaire : là, on sait déjà quoi dire.
+
+      La version du modèle remplace la phrase locale quand elle arrive. Elle
+      écraserait donc la question posée par `composerPremierContact` — par une
+      phrase composée pour quelqu'un qui a une journée derrière lui, alors que ce
+      compte n'a pas encore une seule routine. On économise au passage un appel à
+      Groq au moment précis où la personne attend devant son écran.
+    */
+    if (premierContact) return;
+
     let vivant = true;
 
     api
@@ -554,6 +613,16 @@ export const AIChat: React.FC = () => {
       // Force API sync if needed
     window.dispatchEvent(new Event('storage'));
 
+    /*
+      Le plan est écrit : à partir d'ici, l'application a quelque chose à montrer.
+
+      C'est le seul instant du parcours où demander d'installer l'app se défend —
+      la personne vient de voir le produit faire son travail, et elle est devant son
+      écran. `PwaInstallPrompt` écoute. Émis après l'écriture dans le stockage, sans
+      quoi `aUnPlan()` lirait l'état d'avant et conclurait qu'il n'y a rien.
+    */
+    signalerPlanApplique();
+
     return { sauvegarde, illisibles: [] };
   };
 
@@ -609,6 +678,9 @@ export const AIChat: React.FC = () => {
 
     const currentInput = directMessage || inputValue;
     if (!currentInput.trim()) return;
+
+    // Elle a parlé : le premier contact a eu lieu, et il n'aura pas lieu deux fois.
+    localStorage.removeItem(CLE_PREMIER_CONTACT);
 
     playBloopSound();
 
@@ -1063,7 +1135,10 @@ export const AIChat: React.FC = () => {
         du décor — et il volerait la place de la réponse sur un téléphone.
       */}
       {messages.length === 1 && messages[0].estOuverture && !isTyping && (
-        <SuggestionsCoach onChoisir={(texte) => handleSend(undefined, texte)} />
+        <SuggestionsCoach
+          premierContact={premierContact}
+          onChoisir={(texte) => handleSend(undefined, texte)}
+        />
       )}
 
       <div className="chat-input-area glass-panel">

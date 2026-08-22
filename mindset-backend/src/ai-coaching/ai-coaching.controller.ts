@@ -11,7 +11,6 @@ import { WeeklyReviewService } from '../push/weekly-review.service';
 import { BilanHebdoService } from '../push/bilan-hebdo.service';
 import { AnalyseHabitudesService } from '../push/analyse-habitudes.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { estMessageAutomatique } from '../common/message-inscription';
 import { ChatDto } from './dto/chat.dto';
 import { ObjectifDto } from './dto/objectif.dto';
 import { CadrageDto } from './dto/cadrage.dto';
@@ -120,23 +119,26 @@ export class AiCoachingController {
     const decouverte = abonne ? false : await this.coins.estEnDecouverte(userId);
 
     /*
-      Le plan réclamé automatiquement à la fin du questionnaire ne se facture pas.
+      La première chose qu'on dit à son coach ne se facture pas.
 
-      Il part au nom de la personne sans qu'elle l'écrive, pour qu'elle reçoive son
-      plan sans avoir à le demander. Le décompter de son quota mensuel revenait à
-      lui prendre un de ses dix messages gratuits avant qu'elle ait tapé la moindre
-      lettre — et ces messages-là sont exactement ceux qui décident si elle
-      s'abonne.
+      Jusqu'au 23 août 2026, cette gratuité visait une phrase précise : celle que la
+      fin du questionnaire envoyait au nom de la personne pour réclamer son plan. La
+      condition portait donc sur son texte exact, et devait être bornée par « et c'est
+      son tout premier message » — sans quoi renvoyer cette phrase en boucle offrait
+      une IA gratuite et illimitée à qui l'aurait repérée dans le code du navigateur.
 
-      La condition de premier message n'est pas décorative : le texte est fixe et
-      lisible dans le code du navigateur. Sans elle, le renvoyer en boucle donnerait
-      une IA gratuite et illimitée à qui l'aurait remarqué. `estMessageAutomatique`
-      est testé d'abord, donc le comptage en base ne part que pour cette phrase-là.
+      Le coach demande maintenant avant de construire, et cette phrase n'est plus
+      envoyée par personne. Ce qu'il fallait garder n'était pas le texte, c'était
+      l'intention : le premier message décide de tout le reste, et le facturer revient
+      à prélever un des dix messages du mois avant d'avoir montré quoi que ce soit.
+
+      La borne devient plus sûre en devenant plus simple. « Zéro message en base » ne
+      se rejoue pas, quelle que soit la phrase envoyée — là où une comparaison de
+      texte devait être défendue contre elle-même.
     */
-    const planDInscription =
-      estMessageAutomatique(body.prompt) && (await this.coins.estPremierMessage(userId));
+    const premierEchange = await this.coins.estPremierMessage(userId);
 
-    const gratuit = abonne || decouverte || planDInscription;
+    const gratuit = abonne || decouverte || premierEchange;
 
     const debit = gratuit ? null : await this.coins.spend(userId);
 
@@ -161,9 +163,9 @@ export class AiCoachingController {
       d'un message précédent, bien réel, qui serait ainsi offert deux fois.
     */
     try {
-      // Le plan d'inscription ne touche pas non plus au quota mensuel : ce serait
+      // Le premier message ne touche pas non plus au quota mensuel : ce serait
       // reprendre d'une main ce que la ligne ci-dessus vient d'accorder.
-      if (!planDInscription) await this.aiQuota.consumeAiCredit(userId, 'chat');
+      if (!premierEchange) await this.aiQuota.consumeAiCredit(userId, 'chat');
     } catch (e) {
       if (!gratuit) {
         await this.coins

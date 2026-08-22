@@ -68,6 +68,76 @@ export function reparerJson(brut: string): string {
 }
 
 /**
+ * Index de l'accolade fermante qui referme celle de `debut`, ou -1.
+ *
+ * Les accolades qui vivent **à l'intérieur d'une chaîne** ne comptent pas :
+ * « Squats {3x15} » est un titre d'exercice, pas un niveau d'imbrication.
+ */
+function finDeLObjet(texte: string, debut: number): number {
+  let profondeur = 0;
+  let dansUneChaine = false;
+  let echappe = false;
+
+  for (let i = debut; i < texte.length; i++) {
+    const c = texte[i];
+
+    if (dansUneChaine) {
+      if (echappe) echappe = false;
+      else if (c === '\\') echappe = true;
+      else if (c === '"') dansUneChaine = false;
+      continue;
+    }
+
+    if (c === '"') dansUneChaine = true;
+    else if (c === '{') profondeur++;
+    else if (c === '}' && --profondeur === 0) return i;
+  }
+
+  return -1;
+}
+
+/**
+ * Retire les objets JSON de plan : entiers, ou pas du tout.
+ *
+ * Le nettoyage de dernier recours du chat cherchait `{ … "newHabits" … }` avec une
+ * expression non gourmande. Sur un vrai plan, elle s'arrêtait donc à la **première**
+ * accolade fermante venue — celle d'une routine imbriquée — et emportait le début du
+ * bloc en laissant la fin à l'écran. Ce qu'on lisait alors, capture à l'appui le
+ * 22 août 2026 : `<PLAN> , , ], "newMicroObjectives": [ { "title": …`
+ *
+ * Une expression régulière ne sait pas compter les accolades ; ce parcours, si. Et
+ * il applique la règle qui manquait : **un objet qu'on ne sait pas délimiter en
+ * entier ne se coupe pas en deux.** Ce qui n'est pas un plan est rendu intact — du
+ * JSON peut légitimement apparaître dans une réponse qui parle de code.
+ */
+export function retirerObjetsDePlan(texte: string): string {
+  let sortie = '';
+  let i = 0;
+
+  while (i < texte.length) {
+    if (texte[i] !== '{') {
+      sortie += texte[i++];
+      continue;
+    }
+
+    const fin = finDeLObjet(texte, i);
+
+    // Accolade jamais refermée : la réponse a été coupée en plein plan. Le reste ne
+    // sera jamais lu par un humain — on le retire au lieu de l'afficher.
+    if (fin === -1) {
+      if (!CHAMPS_DE_PLAN.test(texte.slice(i))) sortie += texte.slice(i);
+      break;
+    }
+
+    const candidat = texte.slice(i, fin + 1);
+    if (!CHAMPS_DE_PLAN.test(candidat)) sortie += candidat;
+    i = fin + 1;
+  }
+
+  return sortie;
+}
+
+/**
  * Extrait le plan d'une réponse du coach.
  *
  * Trois chemins, du plus sûr au plus tolérant : les deux balises, l'ouverture seule,
