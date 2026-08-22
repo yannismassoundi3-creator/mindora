@@ -25,6 +25,24 @@ import './BoutonGoogle.css';
  * `GET /auth/google/config` dit si l'identifiant client existe côté serveur. Sans
  * lui, rien ne s'affiche non plus — proposer une porte qu'on ne peut pas ouvrir
  * est la pire des trois issues.
+ *
+ * ## ⚠️ Ce bouton dépend d'un en-tête HTTP, et rien ne le dit à l'écran
+ *
+ * `vercel.json` doit servir **`Cross-Origin-Opener-Policy: same-origin-allow-popups`**.
+ * Avec `same-origin` — la valeur la plus stricte, et celle qui y était — le
+ * navigateur coupe le lien `window.opener` de toute fenêtre ouverte vers un autre
+ * domaine. Or c'est précisément par ce lien que la page `accounts.google.com/gsi/transform`
+ * rend le jeton à l'application. Sans lui, **la fenêtre de Google reste blanche
+ * indéfiniment** : aucune erreur, aucun rappel, rien dans la console de la page
+ * principale. C'est ce qui s'est passé du 21 au 22 août 2026.
+ *
+ * `same-origin-allow-popups` garde la protection qui compte — un site tiers qui
+ * nous ouvre en fenêtre surgissante n'obtient aucune poignée sur la nôtre — et ne
+ * relâche que le cas où c'est **nous** qui ouvrons la fenêtre. C'est la valeur que
+ * Google documente pour ce flux.
+ *
+ * Un durcissement de cet en-tête casse donc la connexion Google sans le moindre
+ * signe. Le seul symptôme visible est une fenêtre blanche chez l'utilisateur.
  */
 
 /** Ce que Google dépose dans `window` une fois son script chargé. */
