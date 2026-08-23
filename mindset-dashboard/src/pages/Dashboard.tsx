@@ -981,7 +981,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
         {aAssezDHistorique && (
         <div className="dashboard-left-col">
           {/* Main Chart Section */}
-          <section className="glass-panel chart-section glass-panel-interactive pulse-glow" style={{ transition: 'transform 0.3s ease, opacity 0.3s ease, background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, color 0.3s ease', cursor: 'pointer' }}>
+          <section className="glass-panel chart-section glass-panel-interactive" style={{ transition: 'transform 0.3s ease, opacity 0.3s ease, background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, color 0.3s ease', cursor: 'pointer' }}>
             <div className="section-header">
               <div>
                 <h3>Évolution Mentale</h3>
@@ -995,6 +995,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
                 <button className={`chart-tab ${activeChartTab === 'today' ? 'active' : ''}`} onClick={() => { playClickSound(); setActiveChartTab('today'); }}>Aujourd'hui</button>
                 <button className={`chart-tab ${activeChartTab === 'week' ? 'active' : ''}`} onClick={() => { playClickSound(); setActiveChartTab('week'); }}>Semaine</button>
                 <button className={`chart-tab ${activeChartTab === 'trend' ? 'active' : ''}`} onClick={() => { playClickSound(); setActiveChartTab('trend'); }}>Mois</button>
+                <button className={`chart-tab ${activeChartTab === 'year' ? 'active' : ''}`} onClick={() => { playClickSound(); setActiveChartTab('year'); }}>Année</button>
               </div>
             </div>
   
@@ -1143,41 +1144,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
                   </div>
                 )
               )}
-            </div>
-          </section>
-
-          {/*
-            Juste sous le graphique de la semaine : c'est là qu'on vient regarder
-            ce qu'on a fait, donc là qu'on peut avoir envie de le montrer. Le
-            composant ne rend rien tant que la semaine n'a pas de quoi être
-            montrée — proposer de publier une semaine vide serait demander à
-            quelqu'un d'afficher son échec.
-          */}
-          <PartageSemaine />
-
-          {/*
-            Ce que le coach a remarqué, juste après le graphique de la semaine.
-
-            C'est l'endroit où l'on vient regarder ses chiffres : c'est donc là
-            qu'une phrase qui les interprète a le plus de sens. La carte ne rend
-            rien tant qu'aucun motif ne tient — il faut de l'historique et des
-            seuils franchis — et c'est voulu : une remarque servie à tout le monde
-            tous les jours n'est plus une remarque.
-          */}
-          <CarteObservation onOuvrirChat={onOpenChat} />
-
-          {/*
-            Le bilan de la semaine, juste après.
-
-            Les chiffres sont à tout le monde ; la lecture qu'en fait le coach est
-            l'avantage de l'abonnement, et c'est ici qu'on peut le montrer sans le
-            donner : un cadenas posé à côté de ses propres chiffres se comprend,
-            un cadenas devant un écran vide ne vend rien.
-          */}
-          <BilanSemaine />
-
-          {/* Heatmap Section */}
-          <section className="heatmap-section glass-panel glass-panel-interactive pulse-glow fade-in delay-2" style={{ transition: 'transform 0.3s ease, opacity 0.3s ease, background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, color 0.3s ease', cursor: 'pointer' }}>
+              {/* Le damier de l'année, quatrième onglet du panneau. */}
+              {activeChartTab === 'year' && (
+                <div className="heatmap-section">
             <div className="section-header-flex" style={{ marginBottom: '6px' }}>
               <h3 className="section-title" style={{ fontSize: '1.2rem', margin: 0 }}>
                 <Calendar size={18} /> {estAbonne ? 'Ton année' : `Tes ${JOURS_LIBRES} derniers jours`}
@@ -1360,7 +1329,41 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
                 </>
               );
             })()}
+                </div>
+              )}
+            </div>
           </section>
+
+          {/*
+            Juste sous le graphique de la semaine : c'est là qu'on vient regarder
+            ce qu'on a fait, donc là qu'on peut avoir envie de le montrer. Le
+            composant ne rend rien tant que la semaine n'a pas de quoi être
+            montrée — proposer de publier une semaine vide serait demander à
+            quelqu'un d'afficher son échec.
+          */}
+          <PartageSemaine />
+
+          {/*
+            Ce que le coach a remarqué, juste après le graphique de la semaine.
+
+            C'est l'endroit où l'on vient regarder ses chiffres : c'est donc là
+            qu'une phrase qui les interprète a le plus de sens. La carte ne rend
+            rien tant qu'aucun motif ne tient — il faut de l'historique et des
+            seuils franchis — et c'est voulu : une remarque servie à tout le monde
+            tous les jours n'est plus une remarque.
+          */}
+          <CarteObservation onOuvrirChat={onOpenChat} />
+
+          {/*
+            Le bilan de la semaine, juste après.
+
+            Les chiffres sont à tout le monde ; la lecture qu'en fait le coach est
+            l'avantage de l'abonnement, et c'est ici qu'on peut le montrer sans le
+            donner : un cadenas posé à côté de ses propres chiffres se comprend,
+            un cadenas devant un écran vide ne vend rien.
+          */}
+          <BilanSemaine />
+
         </div>
         )}
 

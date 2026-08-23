@@ -270,11 +270,11 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, setView })
                 Pro
               </button>
             )}
-            <button className="coin-balance-btn glass-panel-interactive pulse-glow" onClick={() => { playClickSound(); setView('inventory'); }} style={{ background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 255, 255, 0.2)', padding: '4px 8px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--primary)', cursor: 'pointer' }}>
+            <button className="coin-balance-btn glass-panel-interactive" onClick={() => { playClickSound(); setView('inventory'); }} style={{ background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 255, 255, 0.2)', padding: '4px 8px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--primary)', cursor: 'pointer' }}>
               <div className="liquid-glass-orb" style={{ width: '12px', height: '12px', background: 'var(--primary)' }}></div>
               <span className="hide-on-mobile" style={{ fontSize: '0.8rem' }}>Mes Objets</span>
             </button>
-            <button className="coin-balance-btn glass-panel-interactive pulse-glow" onClick={() => { playClickSound(); setView('shop'); }} style={{ background: 'rgba(251, 191, 36, 0.1)', border: '1px solid rgba(251, 191, 36, 0.3)', padding: '4px 8px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '4px', color: '#fbbf24', fontWeight: 'bold', fontSize: '0.8rem', cursor: 'pointer' }}>
+            <button className="coin-balance-btn glass-panel-interactive" onClick={() => { playClickSound(); setView('shop'); }} style={{ background: 'rgba(251, 191, 36, 0.1)', border: '1px solid rgba(251, 191, 36, 0.3)', padding: '4px 8px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '4px', color: '#fbbf24', fontWeight: 'bold', fontSize: '0.8rem', cursor: 'pointer' }}>
               <Coins size={14} color="#fbbf24" />
               {points}
             </button>
