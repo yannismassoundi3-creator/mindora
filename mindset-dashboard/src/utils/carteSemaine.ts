@@ -142,7 +142,7 @@ export async function dessinerCarteSemaine(bilan: BilanSemaine, prenom?: string)
   // vient.
   ctx.fillStyle = '#e2e8f0';
   ctx.font = '700 40px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
-  ctx.fillText('Mindora', COTE / 2, 990);
+  ctx.fillText('Disciplix', COTE / 2, 990);
   ctx.fillStyle = '#64748b';
   ctx.font = '500 26px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
   ctx.fillText('disciplix-ai.vercel.app', COTE / 2, 1030);
@@ -164,7 +164,7 @@ export type ResultatPartage = 'partage' | 'telecharge' | 'annule' | 'echec';
  * publier à la main est le geste normal sur un ordinateur.
  */
 export async function partagerCarte(blob: Blob, texte: string): Promise<ResultatPartage> {
-  const fichier = new File([blob], 'ma-semaine-mindora.png', { type: 'image/png' });
+  const fichier = new File([blob], 'ma-semaine-disciplix.png', { type: 'image/png' });
 
   if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [fichier] })) {
     try {
@@ -182,7 +182,7 @@ export async function partagerCarte(blob: Blob, texte: string): Promise<Resultat
     const url = URL.createObjectURL(blob);
     const lien = document.createElement('a');
     lien.href = url;
-    lien.download = 'ma-semaine-mindora.png';
+    lien.download = 'ma-semaine-disciplix.png';
     lien.click();
     // Révoqué plus tard : sur Safari, révoquer aussitôt annule le téléchargement.
     setTimeout(() => URL.revokeObjectURL(url), 10000);

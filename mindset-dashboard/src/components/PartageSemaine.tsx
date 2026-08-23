@@ -70,7 +70,7 @@ export const PartageSemaine: React.FC = () => {
         bilan,
         localStorage.getItem('mindset_user_name') || undefined,
       );
-      const texte = `${bilan.joursActifs} jours tenus cette semaine, ${bilan.moyenne} % de discipline. Suivi avec Mindora.`;
+      const texte = `${bilan.joursActifs} jours tenus cette semaine, ${bilan.moyenne} % de discipline. Suivi avec Disciplix.`;
       const resultat = await partagerCarte(blob, texte);
       if (resultat === 'partage') setEtat('fait');
       else if (resultat === 'telecharge') setEtat('telecharge');
