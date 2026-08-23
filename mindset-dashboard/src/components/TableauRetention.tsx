@@ -102,6 +102,12 @@ interface Retention {
    */
   coach: {
     messagesTapes: number;
+    /**
+     * Ceux qu'une personne a réellement écrits, le plan réclamé automatiquement à
+     * la fin du questionnaire exclu. L'écart entre les deux est ce qui distingue
+     * « le coach s'est tu » de « le plan d'inscription n'est jamais arrivé ».
+     */
+    messagesEcrits: number;
     reponsesRecues: number;
     sansReponse: number;
     comptesTouches: number;
@@ -114,6 +120,8 @@ interface Retention {
       prenom: string;
       email: string;
       tapes: number;
+      /** Parmi `tapes`, ceux qu'elle a écrits. `0` = elle n'a jamais parlé au coach. */
+      ecrits: number;
       recues: number;
       manques: number;
       abonne: boolean;
@@ -524,7 +532,8 @@ export const TableauRetention: React.FC = () => {
               <span className="retention-carte__libelle">Messages tapés</span>
               <span className="retention-carte__valeur">{coach.messagesTapes}</span>
               <span className="retention-carte__base">
-                tout ce que les gens ont écrit au coach, depuis le début
+                dont <strong>{coach.messagesEcrits}</strong> réellement écrits par quelqu'un ·
+                le reste est le plan que le questionnaire réclamait au nom de la personne
               </span>
             </div>
 
@@ -571,6 +580,7 @@ export const TableauRetention: React.FC = () => {
                   <tr>
                     <th>Personne</th>
                     <th>Tapés</th>
+                    <th>Écrits</th>
                     <th>Reçus</th>
                     <th>Sans réponse</th>
                   </tr>
@@ -588,6 +598,17 @@ export const TableauRetention: React.FC = () => {
                         <span className="retention-personne__email">{c.email}</span>
                       </td>
                       <td>{c.tapes}</td>
+                      {/*
+                        « 0 écrit » se dit, il ne se laisse pas lire comme un zéro
+                        parmi d'autres : cette personne n'a jamais parlé au coach, et
+                        ce qu'elle a vu n'est pas un silence dans une conversation
+                        mais un tableau de bord vide au sortir du questionnaire. La
+                        réparation n'est pas la même, et sans ce mot on va chercher
+                        une panne du modèle là où il n'y a jamais eu d'échange.
+                      */}
+                      <td title={c.ecrits === 0 ? "N'a jamais écrit au coach" : undefined}>
+                        {c.ecrits === 0 ? '— aucun' : c.ecrits}
+                      </td>
                       <td>{c.recues}</td>
                       <td><strong>{c.manques}</strong></td>
                     </tr>

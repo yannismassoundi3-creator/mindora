@@ -617,6 +617,24 @@ export class RetentionService {
       */
       coach: {
         messagesTapes,
+        /*
+          Parmi eux, ceux que quelqu'un a réellement écrits.
+
+          `messagesTapes` compte toutes les lignes `user`, et jusqu'au 23 août 2026
+          la fin du questionnaire en déposait une au nom de la personne pour
+          réclamer son plan. Les deux populations se lisaient donc dans le même
+          nombre, alors qu'un silence ne veut pas dire la même chose de part et
+          d'autre : sur un message écrit, quelqu'un a parlé au coach et n'a rien
+          reçu ; sur un plan automatique, quelqu'un a répondu à six questions et
+          s'est retrouvé devant un tableau de bord vide sans avoir rien demandé.
+          Deux déceptions, deux réparations, un seul chiffre — c'est exactement le
+          genre de total qui se laisse lire sans rien apprendre.
+
+          Le filtre est celui qui sert déjà à l'entonnoir (`FILTRE_MESSAGES_ECRITS`),
+          par comparaison exacte de texte : aucune approximation, donc aucun vrai
+          message écarté par erreur.
+        */
+        messagesEcrits: comptes.reduce((total, c) => total + c._count.chat_messages, 0),
         reponsesRecues,
         sansReponse: Math.max(0, messagesTapes - reponsesRecues),
         // Combien de personnes en ont fait les frais, au moins une fois. Un même
@@ -654,6 +672,19 @@ export class RetentionService {
               prenom: c.first_name,
               email: c.email,
               tapes,
+              /*
+                Combien de ces lignes la personne a écrites elle-même.
+
+                C'est ce qui rend la ligne actionnable au lieu d'être seulement
+                inquiétante. `ecrits: 0` avec `manques: 1` ne se lit plus « son
+                message est resté sans réponse » mais « son plan d'inscription n'est
+                jamais arrivé » — elle n'a rien tapé du tout, et ce qu'elle a vu,
+                c'est un tableau de bord vide au sortir du questionnaire.
+
+                Sans ce nombre, les deux cas sont indiscernables et on va chercher
+                une panne du coach là où il n'y a jamais eu de conversation.
+              */
+              ecrits: c._count.chat_messages,
               recues,
               manques: tapes - recues,
               abonne: !!c.subscription && ['ACTIVE', 'TRIALING'].includes(c.subscription.status),

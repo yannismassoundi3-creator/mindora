@@ -553,6 +553,48 @@ describe('RetentionService', () => {
       );
     });
 
+    it("distingue le coach qui se tait du plan d'inscription jamais arrivé", async () => {
+      /*
+        Deux comptes, un silence chacun, et deux pannes qui n'ont rien à voir.
+
+        `bavard` a écrit trois messages et n'a reçu que deux réponses : le coach
+        s'est tu au milieu d'une conversation. `muet` n'a jamais tapé une lettre —
+        sa seule ligne `user` est le plan que la fin du questionnaire réclamait en
+        son nom, et il a échoué : ce qu'il a vu, c'est un tableau de bord vide au
+        sortir des six questions.
+
+        Les deux affichaient `manques: 1` et rien d'autre. On allait donc chercher
+        une panne du modèle chez quelqu'un qui n'avait jamais eu de conversation.
+      */
+      const bavard = {
+        ...compte({ inscritIlYA: 5, joursActifs: [1], messages: 3 }),
+        id: 'u-bavard',
+      };
+      const muet = { ...compte({ inscritIlYA: 5, joursActifs: [1], messages: 0 }), id: 'u-muet' };
+
+      prisma.chatMessage.groupBy.mockResolvedValue([
+        ligne('u-bavard', 'user', 3),
+        ligne('u-bavard', 'ai', 2),
+        ligne('u-muet', 'user', 1),
+      ]);
+
+      const stats = await avec([bavard, muet]);
+
+      expect(stats.coach.messagesTapes).toBe(4);
+      // Le total qui compte pour juger l'usage réel du coach : la ligne automatique
+      // de `muet` n'en fait pas partie.
+      expect(stats.coach.messagesEcrits).toBe(3);
+
+      const detail = stats.coach.sansReponseDetail;
+      expect(detail).toHaveLength(2);
+      expect(detail.find((c: any) => c.tapes === 3)).toEqual(
+        expect.objectContaining({ ecrits: 3, manques: 1 }),
+      );
+      expect(detail.find((c: any) => c.tapes === 1)).toEqual(
+        expect.objectContaining({ ecrits: 0, manques: 1 }),
+      );
+    });
+
     it('dit à partir de quand les causes sont mesurées', async () => {
       /*
         Le décompte des silences se déduit des messages et couvre donc toute
