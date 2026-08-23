@@ -1,9 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { confirmerValidation } from './utils/journee';
-import { api, renvoyerProfilEnAttente, estInstallee } from './services/api';
+import {
+  api,
+  renvoyerProfilEnAttente,
+  estInstallee,
+  CLE_QUESTIONNAIRE_EN_COURS,
+} from './services/api';
 import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
-import { Onboarding } from './components/Onboarding';
+import { Onboarding, questionnaireEnCours } from './components/Onboarding';
 import { AIChat } from './components/AIChat';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { AuthScreen } from './components/AuthScreen';
@@ -221,8 +226,26 @@ function App() {
   const VUES_OUVRABLES = ['dashboard', 'chat', 'objectives', 'habits', 'profile', 'shop', 'inventory'] as const;
   const vueDemandee = VUES_OUVRABLES.find((v) => v === urlParams.get('vue'));
 
+  /*
+    Un questionnaire commencé rouvre sur lui-même.
+
+    Sinon on retombait sur l'écran de bienvenue, et reprendre demandait deux clics
+    et une page de vente à quelqu'un qui était au milieu de ses six questions.
+    Garder ses réponses ne suffit pas : il faut aussi qu'il les retrouve devant lui.
+
+    Le serveur reste seul juge de « lui a-t-on déjà posé les questions » — s'il
+    répond qu'il a le profil, la reprise est effacée et l'écran change (voir le
+    branchement `has_ai_profile === true`). Ce choix-ci ne fait que décider par
+    quoi on ouvre en attendant sa réponse.
+  */
   const [currentView, setCurrentView] = useState<'auth' | 'onboarding' | 'welcome' | 'dashboard' | 'chat' | 'objectives' | 'habits' | 'profile' | 'shop' | 'inventory'>(
-    (isAuthIntent && !hasToken) ? 'auth' : (hasToken && hasCompletedOnboarding ? (vueDemandee ?? 'dashboard') : 'welcome')
+    (isAuthIntent && !hasToken)
+      ? 'auth'
+      : hasToken && hasCompletedOnboarding
+        ? (vueDemandee ?? 'dashboard')
+        : hasToken && questionnaireEnCours()
+          ? 'onboarding'
+          : 'welcome'
   );
 
   const [isLocked, setIsLocked] = useState(() => !!localStorage.getItem('mindset_biometric_id'));
@@ -344,6 +367,19 @@ function App() {
             }
           } else if (user.has_ai_profile === true) {
             localStorage.setItem('hasCompletedOnboarding', 'true');
+            /*
+              Le serveur a le profil : un questionnaire resté en cours sur cet
+              appareil n'a plus d'objet, et il faut le dire ici.
+
+              Le cas existe pour de vrai — commencé sur le téléphone, terminé sur
+              l'ordinateur : le profil est en base, la reprise dort sur le
+              téléphone. Tant qu'on rouvrait sur l'écran de bienvenue, celui-ci
+              relisait `hasCompletedOnboarding` et menait au tableau de bord ; en
+              ouvrant désormais directement sur le questionnaire, plus rien ne
+              rattraperait la personne et on lui referait répondre à tout.
+            */
+            localStorage.removeItem(CLE_QUESTIONNAIRE_EN_COURS);
+            setCurrentView((vue) => (vue === 'onboarding' ? (vueDemandee ?? 'dashboard') : vue));
           }
 
           // Le solde qui autorise l'IA vit en base, et un compte neuf l'ouvre à 50.

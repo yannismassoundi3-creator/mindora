@@ -3,7 +3,7 @@ import { ArrowRight, Loader2, Sparkles } from 'lucide-react';
 import './Onboarding.css';
 import { CLE_MINUTES_PAR_JOUR, CLE_PREMIER_CONTACT } from '../utils/ouverture';
 import { CLE_OBJECTIF } from '../utils/objectif';
-import { api, CLE_PROFIL_EN_ATTENTE } from '../services/api';
+import { api, CLE_PROFIL_EN_ATTENTE, CLE_QUESTIONNAIRE_EN_COURS } from '../services/api';
 
 interface OnboardingProps {
   onComplete: () => void;
@@ -18,8 +18,72 @@ interface OnboardingProps {
  */
 const ETAPE_ENREGISTREMENT = 8;
 
+/**
+ * Un questionnaire vierge, et la forme de référence des réponses.
+ *
+ * Sert aussi de socle à la reprise : voir `lireReprise`.
+ */
+const REPONSES_VIDES = {
+  job: '',
+  consistency: '',
+  goal: '',
+  minutesParJour: 0,
+  niveau: '',
+  situation: '',
+  aiName: '',
+};
+
+type Reponses = typeof REPONSES_VIDES;
+
+/**
+ * Reprend le questionnaire là où il s'est arrêté.
+ *
+ * `step` et `answers` ne vivaient que dans l'état React. Fermer l'onglet à la
+ * quatrième question jetait les trois premières, et l'on repartait de zéro au
+ * retour — sur un téléphone, où l'application passe en arrière-plan à chaque
+ * notification reçue, c'est un accident de tous les jours et non un cas limite.
+ *
+ * Ce que ça coûtait, mesuré le 23 août 2026 sur 63 comptes : 58 ont ouvert une
+ * session, 38 ont fini le questionnaire. **Vingt personnes ont répondu à des
+ * questions pour rien**, et quinze utilisent l'application sans profil — donc avec
+ * un coach sans contexte, ce qui est la pire version du produit.
+ *
+ * Les réponses gardées sont fusionnées avec `REPONSES_VIDES`, jamais reprises
+ * telles quelles : une question ajoutée au parcours après coup manquerait dans ce
+ * qui a été écrit hier, et son champ vaudrait `undefined` — ni vide ni rempli, et
+ * le serveur l'accepterait sans broncher. Une étape hors bornes ramène à zéro :
+ * mieux vaut reposer six questions que d'ouvrir sur un écran qui n'existe pas.
+ */
+function lireReprise(): { step: number; answers: Reponses } {
+  const neuf = { step: 0, answers: { ...REPONSES_VIDES } };
+  try {
+    const brut = localStorage.getItem(CLE_QUESTIONNAIRE_EN_COURS);
+    if (!brut) return neuf;
+    const garde = JSON.parse(brut);
+    const etape = Number(garde?.step);
+    if (!Number.isInteger(etape) || etape < 0 || etape > ETAPE_ENREGISTREMENT) return neuf;
+    return { step: etape, answers: { ...REPONSES_VIDES, ...(garde?.answers ?? {}) } };
+  } catch {
+    // Stockage illisible ou refusé : on repose les questions. C'est le seul repli
+    // qui ne dépend de rien.
+    return neuf;
+  }
+}
+
+/**
+ * Vrai si un questionnaire a été commencé sur cet appareil et pas terminé.
+ *
+ * Lu par `App` pour rouvrir dessus au lieu de repasser par l'écran d'accueil :
+ * garder les réponses ne sert à rien si l'on redemande deux clics et une page de
+ * bienvenue à quelqu'un qui était au milieu de ses questions.
+ */
+export function questionnaireEnCours(): boolean {
+  return lireReprise().step > 0;
+}
+
 export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
-  const [step, setStep] = useState(0);
+  const [reprise] = useState(lireReprise);
+  const [step, setStep] = useState(reprise.step);
   const [isAnimating, setIsAnimating] = useState(false);
 
   // Réponses envoyées au serveur à la dernière étape, et relues par le coach ensuite.
@@ -31,17 +95,32 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   // disponible (qui borne le volume), le point de départ (qui décide de la difficulté)
   // et un champ libre, seul endroit du parcours où l'on peut dire ce qu'aucun bouton
   // ne prévoyait.
-  const [answers, setAnswers] = useState({
-    job: '',
-    consistency: '',
-    goal: '',
-    minutesParJour: 0,
-    niveau: '',
-    situation: '',
-    aiName: ''
-  });
+  const [answers, setAnswers] = useState<Reponses>(reprise.answers);
   const [tempAiName, setTempAiName] = useState('');
   const [tempSituation, setTempSituation] = useState('');
+
+  /*
+    La progression est écrite à chaque réponse.
+
+    Déclaré avant l'effet d'enregistrement, et c'est voulu : les deux dépendent de
+    `step`, React les exécute dans l'ordre où ils sont écrits, et l'arrivée à
+    l'étape finale doit être gardée avant que l'envoi ne commence. Sans quoi
+    quelqu'un dont le réseau tombe pendant l'envoi perdrait les six réponses au
+    moment précis où elles sont complètes.
+
+    L'étape 0 n'est pas écrite : personne n'a encore rien répondu, et laisser une
+    trace vide ferait « reprendre » un questionnaire jamais commencé.
+  */
+  useEffect(() => {
+    if (step === 0) return;
+    try {
+      localStorage.setItem(CLE_QUESTIONNAIRE_EN_COURS, JSON.stringify({ step, answers }));
+    } catch {
+      // Stockage plein, ou navigation privée qui le refuse. Le questionnaire
+      // fonctionne encore, il ne se souvient simplement plus : ce n'est pas une
+      // panne à annoncer à quelqu'un qui répond à des questions.
+    }
+  }, [step, answers]);
 
   const nextStep = () => {
     setIsAnimating(true);
@@ -147,6 +226,20 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
       if (answers.minutesParJour) {
         localStorage.setItem(CLE_MINUTES_PAR_JOUR, String(answers.minutesParJour));
       }
+
+      /*
+        Le questionnaire est fini : la progression gardée n'a plus d'objet.
+
+        Effacée ici et pas plus tôt. Tant que `onComplete` n'a pas été appelé, la
+        personne peut encore fermer l'application pendant l'envoi du profil — et
+        c'est justement là que la reprise vaut le plus cher, puisque les six
+        réponses sont complètes.
+
+        Le profil resté en attente, lui, part avec sa propre clé : les deux ne
+        couvrent pas la même panne. Celle-ci répond à « il a fermé en cours de
+        route », l'autre à « le serveur n'a pas voulu ».
+      */
+      localStorage.removeItem(CLE_QUESTIONNAIRE_EN_COURS);
 
       onComplete();
     };

@@ -96,6 +96,15 @@ let rafraichissementEnCours: Promise<boolean> | null = null;
 export const CLE_PROFIL_EN_ATTENTE = 'mindset_profil_en_attente';
 
 /**
+ * Où en est un questionnaire commencé et pas terminé.
+ *
+ * Déclarée ici et non dans `Onboarding.tsx` pour une seule raison : la déconnexion
+ * doit pouvoir l'effacer, et `Onboarding` importe déjà ce module — l'inverse
+ * fermerait le cercle.
+ */
+export const CLE_QUESTIONNAIRE_EN_COURS = 'mindset_questionnaire_en_cours';
+
+/**
  * Renvoie le questionnaire resté en attente. Rend `true` si le profil est
  * désormais enregistré — ou s'il n'y avait rien à envoyer.
  */
@@ -172,6 +181,10 @@ function terminerSession() {
   // Le jeton de rafraîchissement part avec : le laisser derrière ferait présenter à
   // la connexion suivante un jeton que le serveur a déjà révoqué.
   localStorage.removeItem('mindset_refresh');
+  // Et le questionnaire à moitié rempli, qui n'appartient qu'à la session qui
+  // s'achève : le garder ferait rouvrir la connexion suivante sur les réponses de
+  // quelqu'un d'autre, sur un téléphone prêté comme sur un compte changé.
+  localStorage.removeItem(CLE_QUESTIONNAIRE_EN_COURS);
   window.location.href = '/?auth=true';
 }
 
