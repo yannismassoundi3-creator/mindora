@@ -9,6 +9,7 @@ import { LoginDto } from './dto/login.dto';
 import { lienApp } from '../common/origines';
 import { envoyerBienvenue } from '../relances/bienvenue';
 import { verifierJetonGoogle, identifiantClientGoogle } from './google';
+import { FILTRE_MESSAGES_ECRITS } from '../common/message-inscription';
 
 @Injectable()
 export class AuthService {
@@ -752,10 +753,35 @@ export class AuthService {
   async getUserProfile(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { subscription: true, ai_profile: { select: { user_id: true } } },
+      include: {
+        subscription: true,
+        ai_profile: { select: { user_id: true } },
+        /*
+          A-t-elle déjà écrit au coach, une seule fois, depuis le début ?
+
+          Mesuré le 23 août 2026 : 20 comptes sur 63 seulement. Or le coach est la
+          seule chose que l'abonnement fait payer — personne n'achète ce qu'il n'a
+          jamais essayé. Pour aller chercher les autres, l'application doit d'abord
+          savoir qui ils sont, et elle ne le savait nulle part.
+
+          **Le serveur seul peut répondre.** Un drapeau posé par le navigateur au
+          premier message ne dirait rien des comptes créés avant lui : ils
+          s'entendraient tous dire « on ne s'est jamais parlé » alors qu'ils ont
+          discuté pendant des semaines, sur un ton qui suppose le contraire. C'est
+          exactement le genre de faux qui a l'air normal.
+
+          Filtré comme partout ailleurs (`FILTRE_MESSAGES_ECRITS`) : le plan que le
+          questionnaire réclamait au nom des gens n'est pas une conversation.
+        */
+        _count: { select: { chat_messages: { where: FILTRE_MESSAGES_ECRITS } } },
+      },
     });
     if (!user) throw new UnauthorizedException('Utilisateur introuvable.');
-    const { password_hash, ai_profile, ...result } = user;
-    return { ...result, has_ai_profile: !!ai_profile };
+    const { password_hash, ai_profile, _count, ...result } = user;
+    return {
+      ...result,
+      has_ai_profile: !!ai_profile,
+      a_deja_parle_au_coach: _count.chat_messages > 0,
+    };
   }
 }

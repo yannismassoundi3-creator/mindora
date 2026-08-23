@@ -26,7 +26,7 @@ import { AiExplanationModal } from './components/AiExplanationModal';
 import { EtatSauvegarde } from './components/EtatSauvegarde';
 import { purgerScoresAnciens } from './utils/etatLocal';
 import { ajouterNotification, notificationEnAttente } from './utils/notifications';
-import { motDuCoachDuMoment } from './utils/motDuCoach';
+import { motDuCoachDuMoment, CLE_A_PARLE_AU_COACH } from './utils/motDuCoach';
 import { observationPourBanniere } from './utils/observation';
 import { getSecurePoints, setSecurePoints } from './utils/secureStorage';
 import { suivreLesVenues } from './utils/venue';
@@ -333,6 +333,21 @@ function App() {
             }
           }
 
+          /*
+            A-t-elle déjà écrit au coach ? Le serveur seul le sait.
+
+            Recopié ici parce que la bannière d'accueil se compose sans réseau, au
+            millième de seconde où l'écran s'affiche. **Le test porte sur `=== false`
+            et non sur la valeur brute** : un serveur d'une version antérieure ne
+            renvoie pas ce champ, il vaut alors `undefined`, et l'écrire comme un
+            « non » ferait annoncer « on ne s'est jamais parlé » à toute la base le
+            temps d'un déploiement. Dans le doute, la clé n'est pas touchée et la
+            bannière se tait.
+          */
+          if (user.a_deja_parle_au_coach === true || user.a_deja_parle_au_coach === false) {
+            localStorage.setItem(CLE_A_PARLE_AU_COACH, user.a_deja_parle_au_coach ? '1' : '0');
+          }
+
           // TRIALING compte comme abonné : c'est l'essai de 7 jours du forfait mensuel.
           // Le serveur ouvre le coach dans les deux cas (AiQuotaService.PAID_STATUSES) ;
           // ne garder qu'ACTIVE ici afficherait « Passer Pro » à quelqu'un qui vient de
@@ -514,7 +529,10 @@ function App() {
       }
 
       const mot = motDuCoachDuMoment(localStorage.getItem('mindset_user_name') || '');
-      if (mot) ajouterNotification('coach', mot.message, mot.titre);
+      // L'invite part avec, comme pour l'observation : sans elle, appuyer sur la
+      // bannière ouvre un champ de saisie vide et demande à la personne de
+      // reformuler seule ce qu'elle vient de lire.
+      if (mot) ajouterNotification('coach', mot.message, mot.titre, mot.invite);
     }, 1800);
 
     return () => clearTimeout(minuteur);

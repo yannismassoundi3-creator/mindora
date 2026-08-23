@@ -9,6 +9,7 @@ import { normaliserJours } from '../utils/recurrence';
 import { extrairePlan, reparerJson, retirerObjetsDePlan } from '../utils/extractionPlan';
 import { listesIllisibles, reparerListe, type ListeIllisible } from '../utils/etatLocal';
 import { CLE_PREMIER_CONTACT, composerOuverture, composerPremierContact } from '../utils/ouverture';
+import { retenirQuOnAParleAuCoach } from '../utils/motDuCoach';
 import { nouveautes } from '../utils/fusionPlan';
 import { signalerPlanApplique } from '../utils/premierPlan';
 import { SuggestionsCoach } from './SuggestionsCoach';
@@ -681,6 +682,15 @@ export const AIChat: React.FC = () => {
 
     // Elle a parlé : le premier contact a eu lieu, et il n'aura pas lieu deux fois.
     localStorage.removeItem(CLE_PREMIER_CONTACT);
+    /*
+      Et la bannière « on ne s'est jamais parlé » n'a plus lieu d'être.
+
+      Retenu ici, à l'envoi, plutôt qu'attendu du prochain démarrage : le serveur ne
+      redira son mot qu'au chargement suivant, et d'ici là quelqu'un qui vient
+      justement de répondre se verrait accueillir par « on ne s'est jamais parlé ».
+      C'est la réponse à sa propre réponse.
+    */
+    retenirQuOnAParleAuCoach();
 
     playBloopSound();
 

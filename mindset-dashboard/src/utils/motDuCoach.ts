@@ -33,9 +33,53 @@ import { creneauDominant, creneauDe, NOM_CRENEAU } from './rythme';
 export interface MotDuCoach {
   titre: string;
   message: string;
+  /**
+   * Ce qui part au coach si l'on appuie sur la bannière, écrit à la première
+   * personne.
+   *
+   * Il manquait, et c'était le défaut le plus coûteux de tout ce mécanisme : le
+   * coach tapait sur l'épaule toutes les quatre heures, et quiconque répondait
+   * tombait sur **un champ de saisie vide**. On lui demandait de reformuler seul
+   * ce qu'il venait de lire. Seule l'observation — rare, une tous les trois jours
+   * au plus — en portait une ; la bannière ordinaire, celle que presque tout le
+   * monde voit, n'en avait pas.
+   *
+   * Mesuré le 23 août 2026 : 20 comptes sur 63 avaient écrit au coach une fois.
+   * C'est ici que ça se joue, bien plus que dans la formulation du message.
+   */
+  invite: string;
 }
 
 const CLE_DERNIER = 'mindset_mot_coach_le';
+
+/**
+ * Cette personne a-t-elle déjà écrit au coach, une fois, depuis le début ?
+ *
+ * **Trois états et non deux** : `'1'` oui, `'0'` non, et *absente* tant que le
+ * serveur n'a pas répondu. La distinction n'est pas un détail — traiter l'absence
+ * comme un « non » ferait dire « on ne s'est jamais parlé » à quelqu'un qui discute
+ * depuis trois semaines, chaque fois que la réponse tarde ou échoue. Le doute se
+ * tait ; il ne se devine pas.
+ */
+export const CLE_A_PARLE_AU_COACH = 'mindset_a_parle_au_coach';
+
+/** Vrai seulement si le serveur a répondu, et qu'il a répondu non. */
+export function jamaisParleAuCoach(): boolean {
+  return localStorage.getItem(CLE_A_PARLE_AU_COACH) === '0';
+}
+
+/**
+ * Retient qu'un message vient de partir.
+ *
+ * Posé par le chat à l'envoi, et non attendu du prochain démarrage : sans ça, la
+ * bannière « on ne s'est jamais parlé » reviendrait à la session suivante chez
+ * quelqu'un qui vient précisément de répondre.
+ */
+export function retenirQuOnAParleAuCoach(): void {
+  try {
+    localStorage.setItem(CLE_A_PARLE_AU_COACH, '1');
+  } catch {}
+}
 
 /**
  * Le temps minimum entre deux mots d'accueil.
@@ -156,6 +200,36 @@ export function composerMotDuCoach(prenom?: string): MotDuCoach | null {
         avecCap && avecCap.length <= BUDGET_CARACTERES
           ? avecCap
           : "Dis-moi ce que tu veux changer, je m'occupe du plan.",
+      invite: objectif
+        ? `Je veux ${enMinuscule(objectif)} et je n'ai rien de prévu aujourd'hui. Construis-moi mon plan.`
+        : "Je n'ai rien de prévu aujourd'hui. Construis-moi un plan pour ma journée.",
+    };
+  }
+
+  /*
+    On ne s'est jamais parlé, et il y a pourtant un plan qui tourne.
+
+    C'est la seule bannière qui ne parle pas de la journée mais de la relation, et
+    c'est celle qui manquait le plus. 43 comptes sur 63 n'avaient jamais écrit au
+    coach au 23 août 2026 — ils se servaient du calendrier et des habitudes, donc
+    de tout ce qui est gratuit, sans avoir jamais essayé la seule chose que
+    l'abonnement fait payer. Rien dans l'application n'allait les chercher : il y
+    avait un bouton « Parler à Coach IA », le même pour tout le monde, et c'était
+    tout.
+
+    Elle passe avant les mots du jour parce qu'elle n'a besoin d'être dite qu'une
+    fois — dès qu'un message part, `retenirQuOnAParleAuCoach` la retire pour
+    toujours — là où les autres reviendront demain.
+
+    Et elle ne se déclenche jamais sur un doute : `jamaisParleAuCoach` exige que le
+    serveur ait répondu, et qu'il ait répondu non.
+  */
+  if (jamaisParleAuCoach()) {
+    return {
+      titre: nom ? `${nom}, on ne s'est jamais parlé` : "On ne s'est jamais parlé",
+      message: `Tu suis un plan que je n'ai jamais discuté avec toi. Il te va vraiment ?`,
+      invite:
+        "On ne s'est jamais parlé. Regarde mon plan d'aujourd'hui et dis-moi ce que tu changerais pour moi.",
     };
   }
 
@@ -181,6 +255,9 @@ export function composerMotDuCoach(prenom?: string): MotDuCoach | null {
         objectif ? `C'est comme ça qu'on finit par ${enMinuscule(objectif)}.` : '',
         serie >= 2 ? `${serie} jours d'affilée.` : '',
       ]),
+      // Journée pleine : la seule question qui reste ouverte est celle de demain.
+      // Lui proposer de refaire son plan du jour n'aurait aucun sens.
+      invite: "J'ai fait tout ce qui était prévu aujourd'hui. Qu'est-ce que je vise demain ?",
     };
   }
 
@@ -198,6 +275,8 @@ export function composerMotDuCoach(prenom?: string): MotDuCoach | null {
       message: assembler(`${avancement}La prochaine : « ${prochaine.titre} ».`, [
         serie >= 2 ? `Ta série de ${serie} jours se joue là.` : 'Et la journée se termine.',
       ]),
+      // Le soir, ce n'est plus un plan qu'il faut, c'est un moyen de s'y mettre.
+      invite: `Il me reste « ${prochaine.titre} » et la journée se termine. Aide-moi à m'y mettre maintenant.`,
     };
   }
 
@@ -207,5 +286,15 @@ export function composerMotDuCoach(prenom?: string): MotDuCoach | null {
       `Commence par « ${prochaine.titre} »${prochaine.duree ? ` (${prochaine.duree})` : ''}.`,
       [observationRythme(heure), serie >= 2 ? `Ta série de ${serie} jours tient encore.` : ''],
     ),
+    /*
+      « Ton plan te convient ? », posé du bon côté.
+
+      C'est la personne qui pose la question, pas le coach : une bannière qui
+      demanderait « ça te va ? » se ferme d'un pouce sans rien produire, alors
+      qu'un message déjà écrit ouvre une vraie réponse — et le serveur joint le
+      schéma du plan dès qu'il lit « plan » (`MOTS_PLAN`), donc le coach peut
+      corriger pour de bon au lieu d'en parler.
+    */
+    invite: `Voilà mon plan du jour, je commence par « ${prochaine.titre} ». Tu changerais quelque chose ?`,
   };
 }
