@@ -15,6 +15,7 @@ import { appliquerNouveauJour, ecrireGroupes, lireGroupes } from '../utils/jourR
 import { noterTacheFaite } from '../utils/rythme';
 import { PremiersPas } from '../components/PremiersPas';
 import { CadrageManquant } from '../components/CadrageManquant';
+import { CapacitesCoach } from '../components/CapacitesCoach';
 import { lireObjectif, rafraichirObjectif, EVENEMENT_OBJECTIF } from '../utils/objectif';
 import { api } from '../services/api';
 import { getSecurePoints, setSecurePoints } from '../utils/secureStorage';
@@ -963,6 +964,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenChat }) => {
           nomCoach={aiName}
           onOuvrirChat={onOpenChat}
         />
+      )}
+
+      {/*
+        Ce que le coach sait faire, une fois les premiers pas derrière soi.
+
+        L'application vend un coach et n'a jamais montré son étendue : les trois
+        propositions qui la disent vivaient dans le chat, invisibles pour qui ne
+        l'ouvre pas, et n'y sortaient qu'avant le tout premier mot. Le rappel daté
+        — qu'aucun écran ne laisse deviner — mourait là.
+
+        Jamais en même temps que « Comment ça marche » : deux blocs pédagogiques
+        empilés sur un téléphone ne sont plus une aide, c'est un manuel. Celui-ci
+        prend le relais, et disparaît de lui-même dès que tout a été essayé.
+      */}
+      {(aAssezDHistorique || premiersPasDejaTermines) && (
+        <CapacitesCoach nomCoach={aiName} onOuvrirChat={onOpenChat} />
       )}
 
       <div className={`dashboard-grid ${aAssezDHistorique ? '' : 'dashboard-grid--sans-historique'}`}>

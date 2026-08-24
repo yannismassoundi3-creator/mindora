@@ -13,6 +13,7 @@ import { retenirQuOnAParleAuCoach } from '../utils/motDuCoach';
 import { nouveautes } from '../utils/fusionPlan';
 import { signalerPlanApplique } from '../utils/premierPlan';
 import { SuggestionsCoach } from './SuggestionsCoach';
+import { retenirCapaciteDepuisMessage, toutEssaye } from '../utils/capacitesCoach';
 import { ajouterNotification } from '../utils/notifications';
 import './AIChat.css';
 import { api } from '../services/api';
@@ -691,6 +692,14 @@ export const AIChat: React.FC = () => {
       C'est la réponse à sa propre réponse.
     */
     retenirQuOnAParleAuCoach();
+    /*
+      Et la capacité exercée est retenue, même tapée à la main.
+
+      Sans ça, quelqu'un qui pose un rappel de lui-même se verrait proposer « pose
+      un rappel » au message suivant : l'application lui apprendrait en une ligne
+      qu'elle ne suit pas ce qu'elle vient de faire.
+    */
+    retenirCapaciteDepuisMessage(currentInput);
 
     playBloopSound();
 
@@ -1137,19 +1146,29 @@ export const AIChat: React.FC = () => {
       </div>
 
       {/*
-        Les propositions ne s'affichent qu'avant le premier mot.
+        Les propositions s'affichent quand la conversation est au repos, et tant
+        qu'il reste quelque chose à découvrir.
 
-        Tant que la conversation se résume à la phrase d'ouverture, la personne n'a
-        rien demandé : c'est le seul moment où proposer aide. Dès qu'elle a parlé,
-        un rang de boutons au-dessus de la conversation n'est plus une aide, c'est
-        du décor — et il volerait la place de la réponse sur un téléphone.
+        Elles ne sortaient qu'avant le tout premier mot. C'était juste sur le fond
+        — un rang de boutons au-dessus d'un échange en cours est du décor, et il
+        vole la place de la réponse sur un téléphone — mais ça condamnait la
+        découverte : quelqu'un qui a écrit une fois ne les revoyait jamais, et
+        c'est le profil dominant. Le rappel daté, que rien à l'écran ne laisse
+        deviner, mourait là.
+
+        Deux conditions donc, et non une : le coach a fini de répondre (personne
+        n'attend une suggestion pendant qu'il écrit, ni sous son propre message),
+        et il reste une capacité qu'elle n'a pas exercée. Quand tout a été
+        essayé, elles disparaissent pour de bon — leur travail est fait.
       */}
-      {messages.length === 1 && messages[0].estOuverture && !isTyping && (
-        <SuggestionsCoach
-          premierContact={premierContact}
-          onChoisir={(texte) => handleSend(undefined, texte)}
-        />
-      )}
+      {!isTyping &&
+        messages[messages.length - 1]?.sender === 'ai' &&
+        (premierContact || !toutEssaye()) && (
+          <SuggestionsCoach
+            premierContact={premierContact}
+            onChoisir={(texte) => handleSend(undefined, texte)}
+          />
+        )}
 
       <div className="chat-input-area glass-panel">
         <form onSubmit={handleSend} className="chat-form">

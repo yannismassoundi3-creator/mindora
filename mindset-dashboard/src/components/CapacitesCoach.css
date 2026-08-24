@@ -1,0 +1,99 @@
+/*
+  La carte des capacités du coach, sur l'accueil.
+
+  **Aucune couleur en dur**, comme partout ailleurs : l'application a un thème
+  clair (`theme-monochrome-light`) où `--primary` vaut du presque noir. Un fond
+  blanc translucide et une bordure blanche — le réflexe naturel sur une interface
+  sombre — y donneraient des boutons invisibles, piège que ce projet a déjà payé
+  plusieurs fois.
+
+  **Elle doit rester une bande, pas un panneau.** Première version mesurée à
+  249 px sur le premier écran : trois éléments empilés, titre et phrase chacun sur
+  sa ligne. C'est exactement le travers que ce tableau de bord a mis des semaines à
+  corriger — 913 px de graphique et de damier vides sur une page de 2121. Une aide
+  à la découverte qui coûte un tiers de l'écran n'aide plus, elle occupe.
+
+  D'où la même disposition que les propositions du chat, pour la même raison :
+  elles défilent horizontalement au lieu de s'empiler. L'inertie est conservée sur
+  iOS, où une bande qui s'arrête net passe pour un blocage.
+*/
+
+.capacites-coach {
+  padding: 12px 14px;
+  border-radius: 16px;
+  margin-bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.capacites-coach-entete {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent-text);
+}
+
+.capacites-coach-entete h3 {
+  margin: 0;
+  font-size: 0.85rem;
+  color: inherit;
+}
+
+.capacites-coach-liste {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 2px;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  /* Un enfant de grille refuse de descendre sous la largeur de son contenu et
+     élargit sa piste : sans ceci, la bande déborderait au lieu de défiler. */
+  min-width: 0;
+}
+
+.capacites-coach-liste::-webkit-scrollbar {
+  display: none;
+}
+
+.capacites-coach-item {
+  flex: 0 0 auto;
+  /* Une puce ne se coupe jamais en deux lignes : elle se lit d'un coup d'œil, ou
+     elle ne sert à rien. */
+  white-space: nowrap;
+  padding: 8px 14px;
+  border-radius: 999px;
+
+  /* Un gris neutre d'abord : il tient sur fond clair comme sur fond sombre, et
+     reste la valeur affichée si `color-mix` n'est pas compris. */
+  border: 1px solid rgba(128, 128, 128, 0.35);
+  border: 1px solid color-mix(in srgb, var(--secondary) 45%, transparent);
+  background: var(--bg-panel);
+  color: inherit;
+
+  font-size: 0.82rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+@media (hover: hover) {
+  .capacites-coach-item:hover {
+    border-color: var(--accent-text);
+  }
+}
+
+.capacites-coach-item:active {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .capacites-coach-item {
+    transition: none;
+  }
+  .capacites-coach-item:active {
+    transform: none;
+  }
+}

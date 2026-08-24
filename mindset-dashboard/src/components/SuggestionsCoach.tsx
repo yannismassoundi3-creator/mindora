@@ -1,5 +1,6 @@
 import React from 'react';
 import { playClickSound } from '../utils/sounds';
+import { capacitesADecouvrir, retenirCapacite, type Capacite } from '../utils/capacitesCoach';
 import './SuggestionsCoach.css';
 
 /*
@@ -37,26 +38,6 @@ import './SuggestionsCoach.css';
     apprend que l'app ne suit pas.
 */
 
-/** Une liste du stockage local, tolérante à tout ce qui n'est pas un tableau. */
-function liste(cle: string): any[] {
-  try {
-    const parse = JSON.parse(localStorage.getItem(cle) || '[]');
-    return Array.isArray(parse) ? parse : [];
-  } catch {
-    return [];
-  }
-}
-
-/** Combien de journées ce compte a-t-il vraiment vécues ? */
-function joursVecus(): number {
-  try {
-    const scores = JSON.parse(localStorage.getItem('mindset_daily_scores') || '{}');
-    return scores && typeof scores === 'object' ? Object.keys(scores).length : 0;
-  } catch {
-    return 0;
-  }
-}
-
 /**
  * Trois propositions, jamais plus.
  *
@@ -65,32 +46,21 @@ function joursVecus(): number {
  * plan, le rappel daté, la lecture que le coach fait de la personne — pour qu'un
  * seul coup d'œil dise l'étendue de ce qu'il sait faire.
  */
-export function suggestionsDuMoment(): string[] {
-  const aUnPlan = liste('mindset_routines').length > 0;
-  const aDesHabitudes = liste('mindset_habits').length > 0;
-  const jours = joursVecus();
+export function suggestionsDuMoment(): Capacite[] {
+  /*
+    Ce qui reste à découvrir, et non les trois mêmes phrases indéfiniment.
 
-  const propositions: string[] = [];
+    Elles ne s'affichaient qu'avant le tout premier mot : quelqu'un qui a écrit
+    une fois ne les revoyait jamais, et c'est le profil dominant — 5 comptes sur
+    34 avaient parlé au coach exactement une fois. Ils ont vu trois phrases, en
+    ont cliqué une, et n'ont plus rien découvert. Le rappel daté, que rien à
+    l'écran ne laisse deviner, mourait là.
 
-  propositions.push(
-    aUnPlan
-      ? "J'ai décroché hier, adapte mon plan pour aujourd'hui"
-      : 'Fais-moi un plan pour la semaine',
-  );
-
-  // Le rappel daté est la capacité la moins devinable de toutes : rien à l'écran ne
-  // laisse imaginer qu'une phrase tapée dans un chat fera sonner un téléphone.
-  propositions.push('Rappelle-moi de méditer ce soir à 22 h 30');
-
-  propositions.push(
-    jours >= 3
-      ? "Qu'est-ce que tu as compris de moi ?"
-      : aDesHabitudes
-        ? 'Que dois-je faire en priorité aujourd’hui ?'
-        : 'Propose-moi deux habitudes simples à tenir',
-  );
-
-  return propositions;
+    La liste et l'état de découverte vivent dans `utils/capacitesCoach` : deux
+    endroits qui décideraient chacun de leur côté finiraient par proposer ici ce
+    que l'accueil vient de faire essayer.
+  */
+  return capacitesADecouvrir(3);
 }
 
 /**
@@ -110,11 +80,23 @@ export function suggestionsDuMoment(): string[] {
  * trois dans `MOTS_PLAN` côté serveur. Sans ça, la réponse arriverait en prose là
  * où la personne attend un plan appliqué dans l'app.
  */
-export function suggestionsPremierContact(): string[] {
+export function suggestionsPremierContact(): Capacite[] {
   return [
-    'Construis-moi mon plan complet, je te fais confiance',
-    'Commence petit : une seule habitude pour cette semaine',
-    'Donne-moi juste une première étape à faire maintenant',
+    {
+      id: 'plan',
+      titre: 'Tout de suite',
+      phrase: 'Construis-moi mon plan complet, je te fais confiance',
+    },
+    {
+      id: 'habitude',
+      titre: 'Une seule chose',
+      phrase: 'Commence petit : une seule habitude pour cette semaine',
+    },
+    {
+      id: 'plan',
+      titre: 'Une étape',
+      phrase: 'Donne-moi juste une première étape à faire maintenant',
+    },
   ];
 }
 
@@ -133,17 +115,20 @@ export const SuggestionsCoach: React.FC<Props> = ({ onChoisir, premierContact })
         {premierContact ? 'Réponds-lui, ou choisis :' : 'Tu peux lui demander :'}
       </p>
       <div className="suggestions-coach-liste">
-        {propositions.map((texte) => (
+        {propositions.map((capacite) => (
           <button
-            key={texte}
+            key={capacite.phrase}
             type="button"
             className="suggestions-coach-puce"
             onClick={() => {
               playClickSound();
-              onChoisir(texte);
+              // Retenu avant l'envoi : la réponse peut échouer, la capacité a
+              // quand même été montrée et essayée.
+              retenirCapacite(capacite.id);
+              onChoisir(capacite.phrase);
             }}
           >
-            {texte}
+            {capacite.phrase}
           </button>
         ))}
       </div>
