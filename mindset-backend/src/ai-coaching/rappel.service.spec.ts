@@ -173,6 +173,89 @@ describe('RappelService', () => {
   });
 
   /*
+    Le rappel que personne n avait demande.
+
+    Mesure du 21 aout 2026 : deux reponses sur deux posaient un rappel dont il n
+    avait jamais ete question, dont une sur un message de detresse — « appelle un
+    service d urgence », programme a 9 h du matin. La regle 11 l interdit en
+    toutes lettres depuis, et le modele recommence dans environ un cas sur quatre.
+    Une consigne d invite n est pas un garde-fou.
+
+    Le juge est le message de la personne, jamais la reponse du coach : se fier a
+    ce que le modele ecrit lui permettrait de s autoriser lui-meme, en annoncant
+    le rappel qu il s apprete a poser.
+
+    L asymetrie est voulue : refuser a tort un rappel reclame refait la panne d
+    origine de ce fichier. On accepte donc large.
+  */
+  describe('le rappel que personne n a demande', () => {
+    const lundiMidi = new Date('2026-08-24T10:11:00.000Z');
+    const balise = 'Voila.<RAPPEL 2026-08-24T15:30>Tes pompes</RAPPEL>';
+
+    const pose = (demande: string) => RappelService.extraire(balise, lundiMidi, demande);
+
+    it('ecarte le rappel pose sur un message qui n en parle pas', () => {
+      const { rappels, refuses, texte } = pose("C'est fait, j'ai termine ma routine");
+
+      expect(rappels).toHaveLength(0);
+      expect(refuses).toBe(1);
+      // La balise disparait quand meme du texte affiche : un marqueur en clair
+      // reste la pire des sorties.
+      expect(texte).toBe('Voila.');
+    });
+
+    it('ecarte le rappel pose sur un message de detresse', () => {
+      // Le cas le plus grave du lot, et le seul ou le modele croyait bien faire.
+      const { rappels, refuses } = pose("j'en peux plus, je n'y arrive pas");
+
+      expect(rappels).toHaveLength(0);
+      expect(refuses).toBe(1);
+    });
+
+    it('ecarte le rappel pose sur une question ouverte', () => {
+      const { rappels } = pose('Explique-moi tout sur le marketing digital');
+      expect(rappels).toHaveLength(0);
+    });
+
+    it('accepte quand elle le demande par le verbe', () => {
+      for (const demande of [
+        'Rappelle-moi de faire mes pompes',
+        'reveille moi stp',
+        'previens-moi quand ce sera le moment',
+        'fais-moi penser a appeler ma mere',
+      ]) {
+        expect(pose(demande).rappels).toHaveLength(1);
+      }
+    });
+
+    it('accepte quand elle donne une heure, sans nommer le rappel', () => {
+      // « a 15h30 de faire mes pompes » est une demande de rappel, et aucun verbe
+      // de rappel n y figure.
+      for (const demande of [
+        'a 15h30 mes 25 pompes',
+        'ce soir a 22:30 la meditation',
+        'note pour midi : appeler le client',
+      ]) {
+        expect(pose(demande).rappels).toHaveLength(1);
+      }
+    });
+
+    it('lit les accents comme leur absence', () => {
+      // Personne ne relit son message avant de l envoyer.
+      expect(RappelService.estUneDemandeDeRappel('réveille-moi à 7h')).toBe(true);
+      expect(RappelService.estUneDemandeDeRappel('reveille moi a 7h')).toBe(true);
+      expect(RappelService.estUneDemandeDeRappel('préviens-moi')).toBe(true);
+    });
+
+    it('laisse passer quand la demande est inconnue', () => {
+      // Sans le message, on ne sait rien : c est le cas de la demonstration, ou
+      // rien n est ecrit de toute facon. Refuser par defaut ferait disparaitre
+      // des rappels reels au premier appel qui oublierait de passer le message.
+      expect(RappelService.extraire(balise, lundiMidi).rappels).toHaveLength(1);
+    });
+  });
+
+  /*
     Les formes que le petit maillon ecrit vraiment.
 
     `openai/gpt-oss-20b` est celui sur lequel la chaine retombe des que Groq

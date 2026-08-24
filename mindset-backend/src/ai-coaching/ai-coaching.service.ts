@@ -834,7 +834,22 @@ ${microList}
           texte: sansBalise,
           rappels: demandes,
           recales,
+          refuses,
         } = RappelService.extraire(reply, new Date(), prompt);
+
+        /*
+          Le rappel que personne n'avait demandé, et qui ne partira pas.
+
+          Journalisé plutôt que passé sous silence : c'est le seul moyen de savoir
+          si le taux d'un cas sur quatre mesuré au banc du 21 août se retrouve chez
+          de vraies personnes, et sur quel maillon. Un garde-fou muet ne se règle
+          jamais, faute de savoir ce qu'il attrape.
+        */
+        if (refuses) {
+          console.warn(
+            `[Groq] 🔕 ${refuses} rappel(s) non demande(s) par la personne, ecarte(s) — pose(s) par ${modele}.`,
+          );
+        }
 
         /*
           Le maillon qui se trompe de jour, nomme.

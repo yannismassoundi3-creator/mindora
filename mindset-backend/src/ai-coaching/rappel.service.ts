@@ -103,16 +103,41 @@ export class RappelService {
     reponse: string,
     maintenant = new Date(),
     demande = '',
-  ): { texte: string; rappels: RappelDemande[]; recales: number } {
+  ): { texte: string; rappels: RappelDemande[]; recales: number; refuses: number } {
     const rappels: RappelDemande[] = [];
-    // Compté ici et rendu à l'appelant : c'est lui qui sait quel modèle a
+    // Comptés ici et rendus à l'appelant : c'est lui qui sait quel modèle a
     // répondu, et un filet qui se déclenche sans qu'on sache pour qui ne se
     // mesure jamais. Voir le journal du service.
     let recales = 0;
+    let refuses = 0;
+
+    /*
+      Personne n'a rien demandé, donc rien ne sera programmé.
+
+      Le modèle pose des rappels de sa propre initiative dans environ un cas sur
+      quatre — mesuré au banc du 21 août 2026, et jamais réglé depuis : la règle
+      11 le lui interdit en toutes lettres, et il le fait quand même. Une consigne
+      d'invite n'est pas un garde-fou.
+
+      Ce que ça coûte n'est pas une gêne : une notification qui arrive sans avoir
+      été demandée apprend qu'on ne décide pas de ce que cette application fait de
+      son téléphone. Et le pire cas est déjà documenté — sur un message de
+      détresse, le modèle avait programmé « appelle un service d'urgence » à 9 h
+      du matin. Bien intentionné, bien formé, et exactement ce qu'il ne faut pas.
+
+      Le juge est **le message de la personne**, jamais la réponse du coach :
+      s'appuyer sur ce que le modèle écrit lui permettrait de s'autoriser lui-même
+      en annonçant le rappel qu'il s'apprête à poser.
+    */
+    const voulu = !demande.trim() || RappelService.estUneDemandeDeRappel(demande);
 
     const texte = reponse
       .replace(RappelService.MARQUEUR, (_tout, jour: string, hh: string, mm: string, contenu: string) => {
         if (rappels.length >= RappelService.MAX_PAR_MESSAGE) return '';
+        if (!voulu) {
+          refuses++;
+          return '';
+        }
 
         const brut = RappelService.depuisParis(jour, Number(hh), Number(mm));
         const quand = RappelService.recaler(brut, jour, Number(hh), Number(mm), maintenant, demande);
@@ -132,7 +157,7 @@ export class RappelService {
       .replace(/\n{3,}/g, '\n\n')
       .trim();
 
-    return { texte: RappelService.nettoyerResidus(texte), rappels, recales };
+    return { texte: RappelService.nettoyerResidus(texte), rappels, recales, refuses };
   }
 
   /**
@@ -217,6 +242,44 @@ export class RappelService {
     }
 
     return annules;
+  }
+
+  /**
+   * Les façons de réclamer un rappel, verbe ou heure.
+   *
+   * **Deux familles, et il suffit de l'une.** Quelqu'un le demande soit en le
+   * nommant (« rappelle-moi », « réveille-moi », « fais-moi penser »), soit en
+   * donnant une heure — « à 15h30 de faire mes pompes » est une demande de
+   * rappel sans qu'aucun de ces verbes n'y figure.
+   */
+  private static readonly VERBE_RAPPEL =
+    /rappell?e|rappeler|rappel\b|reveille|reveiller|previen|prevenir|notifi|alerte|alarme|sonne|ping|fais.{0,4}moi penser|pense.{0,4}a me|n.?oublie pas de me|dis.{0,4}moi (a|dans)/;
+
+  private static readonly HEURE_DEMANDEE =
+    /\b\d{1,2}\s*h(\s*\d{2})?\b|\b\d{1,2}\s*:\s*\d{2}\b|\b\d{1,2}\s*heures?\b|\bmidi\b|\bminuit\b|ce soir|ce matin|cet apres-midi|cette nuit|tout a l.?heure|demain (matin|soir|midi)/;
+
+  /**
+   * Cette personne a-t-elle demandé un rappel ?
+   *
+   * **Volontairement large, et l'asymétrie est voulue.** Refuser à tort un rappel
+   * réclamé, c'est refaire la panne d'origine de ce fichier — la promesse tenue
+   * par personne, découverte à 22 h 30 en ne recevant rien. Laisser passer à tort
+   * une notification non demandée est fâcheux ; ne pas prévenir quelqu'un qui
+   * comptait dessus est la faute que tout ce fichier existe pour empêcher.
+   *
+   * Les accents sont retirés avant l'examen : « réveille » et « reveille »
+   * doivent valoir pareil, et personne ne relit son message avant de l'envoyer.
+   */
+  static estUneDemandeDeRappel(demande: string): boolean {
+    const t = (demande || '')
+      .toLowerCase()
+      .normalize('NFD')
+      // Les diacritiques par leur plage, jamais collés en clair : recopiés
+      // littéralement, ils sont invisibles à la relecture et un éditeur les
+      // recompose sans prévenir.
+      .replace(/[\u0300-\u036f]/g, '');
+
+    return RappelService.VERBE_RAPPEL.test(t) || RappelService.HEURE_DEMANDEE.test(t);
   }
 
   /**
