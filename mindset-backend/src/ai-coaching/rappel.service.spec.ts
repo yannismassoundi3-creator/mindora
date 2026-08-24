@@ -158,7 +158,7 @@ describe('RappelService', () => {
       expect(texte).toContain('Lis 10 pages.');
     });
 
-    it('laisse intacte une balise bien formee', () => {
+    it('laisse intacte une balise bien formee sans demande a comparer', () => {
       // Le filet ne doit pas manger ce qui marche : une balise valide est lue par
       // MARQUEUR et disparait par ce chemin-la, en programmant vraiment un rappel.
       const demain = new Date(Date.now() + 86400000);
@@ -169,6 +169,116 @@ describe('RappelService', () => {
 
       expect(rappels).toHaveLength(1);
       expect(texte).toBe('Fais tes squats.');
+    });
+  });
+
+  /*
+    Le rappel qui arrive le bon jour, vingt-sept heures trop tard.
+
+    Constate le 24 aout 2026 a 12 h 11 : « Rappel moi de faire mes 25 pompes a
+    15h30 », coach « c est note », et la ligne ecrite est celle de MARDI 15 h 30.
+    La balise etait bien formee, le rappel existe, il sonnera -- simplement pas le
+    jour ou on l attendait. Aucun journal, aucune erreur : c est la panne muette
+    du projet dans sa version la plus polie, puisque le produit confirme.
+
+    La cause est dans l invite et elle y est corrigee, mais une consigne au modele
+    ne se verifie qu apres coup, chez la personne. Ce qui suit ne depend d aucun
+    modele.
+  */
+  describe('le report injustifie au lendemain', () => {
+    // Lundi 24 aout 2026, 12 h 11 a Paris.
+    const lundiMidi = new Date('2026-08-24T10:11:00.000Z');
+
+    it('ramene a aujourd hui une heure encore a venir', () => {
+      const { rappels } = RappelService.extraire(
+        'Tes pompes.<RAPPEL 2026-08-25T15:30>25 pompes</RAPPEL>',
+        lundiMidi,
+        'Rappel moi de faire mes 25 pompes a 15h30',
+      );
+
+      // 15 h 30 heure de Paris, le jour meme : 13 h 30 UTC.
+      expect(rappels[0].quand.toISOString()).toBe('2026-08-24T13:30:00.000Z');
+    });
+
+    it('respecte un lendemain qu il a demande', () => {
+      const { rappels } = RappelService.extraire(
+        'Note.<RAPPEL 2026-08-25T15:30>25 pompes</RAPPEL>',
+        lundiMidi,
+        'Rappelle-moi demain a 15h30 pour mes pompes',
+      );
+
+      expect(rappels[0].quand.toISOString()).toBe('2026-08-25T13:30:00.000Z');
+    });
+
+    it('respecte un jour de la semaine nomme', () => {
+      const { rappels } = RappelService.extraire(
+        'Note.<RAPPEL 2026-08-25T15:30>25 pompes</RAPPEL>',
+        lundiMidi,
+        'Rappelle-moi mardi a 15h30',
+      );
+
+      expect(rappels[0].quand.toISOString()).toBe('2026-08-25T13:30:00.000Z');
+    });
+
+    it('ne touche pas a une heure deja passee aujourd hui', () => {
+      // « rappelle-moi a 8 h » lance a midi : le lendemain est le seul jour ou ce
+      // rappel peut encore servir, et le modele a eu raison.
+      const { rappels } = RappelService.extraire(
+        'Note.<RAPPEL 2026-08-25T08:00>Petit-dejeuner</RAPPEL>',
+        lundiMidi,
+        'Rappelle-moi a 8h de prendre mon petit-dejeuner',
+      );
+
+      expect(rappels[0].quand.toISOString()).toBe('2026-08-25T06:00:00.000Z');
+    });
+
+    it('ne touche a rien au-dela du lendemain', () => {
+      // Un rappel pose a trois jours n est pas un decalage d un jour : c est une
+      // demande qu on ne sait pas relire, et on n y touche pas.
+      const { rappels } = RappelService.extraire(
+        'Note.<RAPPEL 2026-08-27T15:30>25 pompes</RAPPEL>',
+        lundiMidi,
+        'Rappelle-moi a 15h30',
+      );
+
+      expect(rappels[0].quand.toISOString()).toBe('2026-08-27T13:30:00.000Z');
+    });
+  });
+
+  /*
+    « je te le rappelle mardi 15:30 » : la phrase qu a lue l utilisateur du 24
+    aout. Elle ne dit pas que c est le lendemain, et elle ne dirait pas davantage
+    qu un « mardi » est dans huit jours. Le seul mot qui aurait permis de voir
+    l erreur tout de suite etait celui que le format ne pouvait pas produire.
+  */
+  describe('le libelle rendu a la personne', () => {
+    const lundiMidi = new Date('2026-08-24T10:11:00.000Z');
+
+    it('dit aujourd hui quand c est aujourd hui', () => {
+      expect(RappelService.libelleQuand(new Date('2026-08-24T13:30:00.000Z'), lundiMidi)).toBe(
+        "aujourd'hui à 15:30",
+      );
+    });
+
+    it('dit demain quand c est demain', () => {
+      expect(RappelService.libelleQuand(new Date('2026-08-25T13:30:00.000Z'), lundiMidi)).toBe(
+        'demain à 15:30',
+      );
+    });
+
+    it('donne la date des que le jour de la semaine ne suffit plus', () => {
+      expect(RappelService.libelleQuand(new Date('2026-08-31T13:30:00.000Z'), lundiMidi)).toBe(
+        'lundi 31 août à 15:30',
+      );
+    });
+
+    it('lit le jour a Paris, pas a UTC', () => {
+      // 23 h 30 heure de Paris le 24 aout, c est deja le 25 en UTC : un libelle
+      // calcule sur l instant brut annoncerait « demain » a quelqu un qui attend
+      // ce soir.
+      expect(RappelService.libelleQuand(new Date('2026-08-24T21:30:00.000Z'), lundiMidi)).toBe(
+        "aujourd'hui à 23:30",
+      );
     });
   });
 });

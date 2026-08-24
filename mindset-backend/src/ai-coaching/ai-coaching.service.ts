@@ -8,6 +8,7 @@ import { lireReponseGroq, pourModele } from '../common/groq';
 import { lireFournisseurSecours, FournisseurSecours } from '../common/fournisseur-secours';
 import { MODELES_CHAT } from '../common/modeles';
 import { construirePromptBase } from './prompt-coach';
+import { cleJourParis } from '../common/jour-paris';
 
 @Injectable()
 export class AiCoachingService {
@@ -21,7 +22,15 @@ export class AiCoachingService {
    */
   private static readonly MARQUEUR_PLAN = 'BESOIN_SCHEMA_PLAN';
 
-  private static readonly MARQUEUR_PLAN_REGLE = `11. **DEMANDE PORTANT SUR SON PLAN** : Si le message demande de créer, modifier, compléter, remplacer ou supprimer ses routines, ses habitudes, ses objectifs ou ses repas, réponds EXCLUSIVEMENT par le mot ${AiCoachingService.MARQUEUR_PLAN}, seul, sans aucun autre mot. On te fournira alors les instructions nécessaires. Dans tous les autres cas — encouragement, question, bilan, discussion — ignore cette règle et réponds normalement.`;
+  /*
+    Numerotee 13, apres les douze regles du prompt de base.
+
+    Elle portait le numero 11, deja pris par POSER UN RAPPEL — et arrivait apres
+    la 12. Le modele lisait donc deux regles 11 contradictoires, dont l une lui
+    demande de repondre un seul mot et rien d autre. Une regle qu on ecrase de
+    cette facon n est pas une regle, c est un tirage au sort.
+  */
+  private static readonly MARQUEUR_PLAN_REGLE = `13. **DEMANDE PORTANT SUR SON PLAN** : Si le message demande de créer, modifier, compléter, remplacer ou supprimer ses routines, ses habitudes, ses objectifs ou ses repas, réponds EXCLUSIVEMENT par le mot ${AiCoachingService.MARQUEUR_PLAN}, seul, sans aucun autre mot. On te fournira alors les instructions nécessaires. Dans tous les autres cas — encouragement, question, bilan, discussion — ignore cette règle et réponds normalement.`;
 
   /**
    * Repère une demande portant sur le plan, pour joindre le schéma dès le premier appel.
@@ -66,6 +75,63 @@ export class AiCoachingService {
 
   /** Le serveur tourne en UTC ; les personnes à qui il parle vivent en France. */
   private static readonly FUSEAU = 'Europe/Paris';
+
+  /**
+   * Marque, dans l'historique, les messages qui ne sont pas d'aujourd'hui.
+   *
+   * Les vingt derniers messages partaient au modèle sans aucune date. Ils peuvent
+   * couvrir deux semaines : le coach relisait donc « je le fais demain », écrit
+   * quatre jours plus tôt, comme s'il venait d'être dit — et raisonnait sur un
+   * « demain » déjà passé. C'est la même erreur que le rappel posé au mauvais
+   * jour, par le même chemin : une date que le modèle doit deviner, il la devine
+   * mal.
+   *
+   * **Un seul repère par journée, pas un par message.** Marquer chaque ligne
+   * coûterait une vingtaine de jetons par message pour redire la même chose ;
+   * seul le changement de jour porte une information. Les messages du jour ne
+   * sont pas marqués du tout : c'est le cas par défaut, et le dire serait du
+   * bruit sur les échanges courants, qui sont la majorité.
+   */
+  static marquerLesJours(
+    messages: Array<{ role: string; content: string; quand?: Date }>,
+    maintenant = new Date(),
+  ): Array<{ role: string; content: string }> {
+    const aujourdhui = cleJourParis(maintenant);
+    const hier = new Date(
+      Date.UTC(
+        Number(aujourdhui.slice(0, 4)),
+        Number(aujourdhui.slice(5, 7)) - 1,
+        Number(aujourdhui.slice(8, 10)) - 1,
+      ),
+    )
+      .toISOString()
+      .slice(0, 10);
+
+    let jourPrecedent = '';
+
+    return messages.map(({ role, content, quand }) => {
+      if (!quand || Number.isNaN(quand.getTime())) return { role, content };
+
+      const jour = cleJourParis(quand);
+      if (jour === aujourdhui || jour === jourPrecedent) {
+        jourPrecedent = jour;
+        return { role, content };
+      }
+      jourPrecedent = jour;
+
+      const libelle =
+        jour === hier
+          ? 'hier'
+          : quand.toLocaleDateString('fr-FR', {
+              timeZone: AiCoachingService.FUSEAU,
+              weekday: 'long',
+              day: 'numeric',
+              month: 'long',
+            });
+
+      return { role, content: `[${libelle}] ${content}` };
+    });
+  }
 
   /**
    * Retire d'une réponse passée le bloc technique destiné à l'interface.
@@ -432,7 +498,10 @@ export class AiCoachingService {
         });
         history = dbHistory.reverse().map((m: any) => ({
           sender: m.sender,
-          text: m.text
+          text: m.text,
+          // La date part avec le message : sans elle, vingt messages étalés sur
+          // deux semaines se lisent comme une seule conversation d'aujourd'hui.
+          quand: m.created_at,
         }));
         // On retire le dernier (qui est le prompt actuel) car il est ajouté manuellement plus bas
         history.pop();
@@ -563,10 +632,31 @@ ${microList}
       timeStyle: 'short',
     });
 
+    /*
+      La même date, en `AAAA-MM-JJ`, prête à être recopiée dans une balise.
+
+      « lundi 24 août 2026 à 12:11 » suppose deux opérations avant de servir :
+      traduire en `2026-08-24`, puis comparer 15 h 30 à 12 h 11. Le 24 août à
+      12 h 11, sur « rappelle-moi mes 25 pompes à 15h30 », le modèle a raté la
+      seconde et posé le rappel au mardi. Les deux clés lui sont donc données
+      toutes faites : il lui reste à choisir laquelle recopier, ce qui est le seul
+      jugement qu'on peut raisonnablement lui demander.
+    */
+    const aujourdhui = cleJourParis();
+    const demain = new Date(Date.UTC(
+      Number(aujourdhui.slice(0, 4)),
+      Number(aujourdhui.slice(5, 7)) - 1,
+      Number(aujourdhui.slice(8, 10)) + 1,
+    ))
+      .toISOString()
+      .slice(0, 10);
+
     const promptBase = construirePromptBase({
       nomCoach: customAiName,
       nomPersonne: customUserName,
       maintenantParis,
+      aujourdhui,
+      demain,
     });
 
     // Le schéma complet, ajouté uniquement quand la demande porte sur le plan.
@@ -659,14 +749,17 @@ ${microList}
       // Les blocs <PLAN> sont retirés des réponses passées : ce sont des instructions
       // destinées à l'interface, les renvoyer au modèle l'incite à régénérer des plans
       // qu'on ne lui a pas demandés (et gonfle la note pour rien).
-      const historyMessages = history
-        .map((m: any) => ({
-          role: m.sender === 'ai' ? 'assistant' : 'user',
-          content: m.sender === 'ai'
-            ? AiCoachingService.retirerPlan(String(m.text))
-            : String(m.text),
-        }))
-        .filter((m) => m.content.length > 0);
+      const historyMessages = AiCoachingService.marquerLesJours(
+        history
+          .map((m: any) => ({
+            role: m.sender === 'ai' ? 'assistant' : 'user',
+            content: m.sender === 'ai'
+              ? AiCoachingService.retirerPlan(String(m.text))
+              : String(m.text),
+            quand: m.quand instanceof Date ? m.quand : m.quand ? new Date(m.quand) : undefined,
+          }))
+          .filter((m) => m.content.length > 0),
+      );
 
       // Limiter à 20 messages ne borne rien : une réponse peut monter à 1500 jetons,
       // donc trois réponses longues suffisent à faire exploser la requête. On plafonne
@@ -814,7 +907,13 @@ ${microList}
         chose, et la réponse est déjà écrite quand on l'apprend.
       */
       if (userId && userId !== 'demo-user') {
-        const { texte: sansBalise, rappels: demandes } = RappelService.extraire(reply);
+        // Le message de la personne est passé avec la réponse : c'est lui qui dit
+        // si un rappel posé pour demain était voulu ou reporté à tort.
+        const { texte: sansBalise, rappels: demandes } = RappelService.extraire(
+          reply,
+          new Date(),
+          prompt,
+        );
         const { texte: sansAnnul, numeros } = RappelService.extraireAnnulations(sansBalise);
         reply = sansAnnul;
 
@@ -1004,14 +1103,13 @@ ${microList}
       if (!liste.length) return '';
 
       const lignes = ['', '--- RAPPELS DEJA PROGRAMMES ---'];
+      // La date en clair ET en `AAAA-MM-JJ` : « mardi 15:30 » ne dit pas si le
+      // rappel est demain ou dans huit jours, et le modèle s'en sert pour juger
+      // s'il doit en poser un de plus ou déplacer celui-ci.
       liste.forEach((r, i) => {
-        const quand = r.quand.toLocaleString('fr-FR', {
-          timeZone: AiCoachingService.FUSEAU,
-          weekday: 'long',
-          hour: '2-digit',
-          minute: '2-digit',
-        });
-        lignes.push('[' + (i + 1) + '] ' + quand + ' : ' + r.texte);
+        const quand = RappelService.libelleQuand(r.quand);
+        const cle = cleJourParis(r.quand);
+        lignes.push('[' + (i + 1) + '] ' + quand + ' (' + cle + ') : ' + r.texte);
       });
       lignes.push('', '');
       return lignes.join('\n');
@@ -1033,16 +1131,7 @@ ${microList}
     userId: string,
     poses: Array<{ quand: Date; texte: string }>,
   ): Promise<string> {
-    const heures = poses
-      .map((r) =>
-        r.quand.toLocaleString('fr-FR', {
-          timeZone: AiCoachingService.FUSEAU,
-          weekday: 'long',
-          hour: '2-digit',
-          minute: '2-digit',
-        }),
-      )
-      .join(', ');
+    const quand = poses.map((r) => RappelService.libelleQuand(r.quand)).join(', ');
 
     const push = await this.prisma.pushSubscription
       .count({ where: { user_id: userId } })
@@ -1051,12 +1140,12 @@ ${microList}
     if (push === 0) {
       return `
 
-⏰ C'est noté pour ${heures} — mais tes notifications sont coupées, donc rien ne sonnera. Active-les dans ton profil.`;
+⏰ C'est noté pour ${quand} — mais tes notifications sont coupées, donc rien ne sonnera. Active-les dans ton profil.`;
     }
 
     return `
 
-⏰ C'est noté : je te le rappelle ${heures}.`;
+⏰ C'est noté : je te le rappelle ${quand}.`;
   }
 
   /**

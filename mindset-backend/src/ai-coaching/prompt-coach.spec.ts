@@ -18,6 +18,8 @@ describe('le prompt du coach', () => {
     nomCoach: 'Coach IA',
     nomPersonne: 'Yannis',
     maintenantParis: 'jeudi 21 août 2026 à 13:30',
+    aujourdhui: '2026-08-21',
+    demain: '2026-08-22',
   });
 
   it('porte les noms et l’instant qu’on lui donne', () => {
@@ -26,6 +28,29 @@ describe('le prompt du coach', () => {
     // Sans l'instant présent, « rappelle-moi à 22 h 30 » n'a pas de date et le
     // modèle invente une journée.
     expect(prompt).toContain('jeudi 21 août 2026 à 13:30');
+  });
+
+  it('donne la date du jour et celle du lendemain en clair machine', () => {
+    /*
+      « lundi 24 août 2026 à 12:11 » demandait deux opérations avant de servir :
+      traduire en `2026-08-24`, puis comparer l'heure demandée à l'heure qu'il
+      est. Le 24 août à 12 h 11, sur « rappelle-moi mes 25 pompes à 15h30 », le
+      modèle a raté la seconde et posé le rappel au lendemain — le coach a
+      confirmé « mardi 15:30 » et la personne l'a lu comme un oui.
+
+      Les deux clés sont donc écrites toutes faites : il ne lui reste qu'à
+      choisir laquelle recopier.
+    */
+    expect(prompt).toContain("AUJOURD'HUI = 2026-08-21");
+    expect(prompt).toContain('DEMAIN = 2026-08-22');
+  });
+
+  it('fait du jour même le cas par défaut d’un rappel', () => {
+    // La consigne disait « une heure déjà passée vaut le lendemain » et rien de
+    // l'autre cas : la seule règle explicite poussait vers demain.
+    expect(prompt).toContain('La date, tu la RECOPIES');
+    expect(prompt).toContain("C'est AUJOURD'HUI (2026-08-21) dès que l'heure qu'il demande");
+    expect(prompt).toContain("Ce n'est DEMAIN (2026-08-22) que dans deux cas");
   });
 
   it('interdit toujours de poser un rappel en cas de détresse', () => {

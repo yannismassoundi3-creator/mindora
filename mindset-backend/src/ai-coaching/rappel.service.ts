@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { cleJourParis, FUSEAU_AFFICHAGE } from '../common/jour-paris';
 
 /**
  * Un journal hors instance, parce que le nettoyage des balises est statique.
@@ -82,14 +83,25 @@ export class RappelService {
    * l'écriture échoue ensuite : un marqueur affiché tel quel dans la
    * conversation est la seule chose pire qu'un rappel manquant.
    */
-  static extraire(reponse: string, maintenant = new Date()): { texte: string; rappels: RappelDemande[] } {
+  static extraire(
+    reponse: string,
+    maintenant = new Date(),
+    demande = '',
+  ): { texte: string; rappels: RappelDemande[] } {
     const rappels: RappelDemande[] = [];
 
     const texte = reponse
       .replace(RappelService.MARQUEUR, (_tout, jour: string, hh: string, mm: string, contenu: string) => {
         if (rappels.length >= RappelService.MAX_PAR_MESSAGE) return '';
 
-        const quand = RappelService.depuisParis(jour, Number(hh), Number(mm));
+        const quand = RappelService.recaler(
+          RappelService.depuisParis(jour, Number(hh), Number(mm)),
+          jour,
+          Number(hh),
+          Number(mm),
+          maintenant,
+          demande,
+        );
         const propre = contenu.trim().replace(/\s+/g, ' ').slice(0, 200);
 
         // Un rappel dans le passé n'arrivera jamais, et un rappel dans six mois
@@ -190,6 +202,113 @@ export class RappelService {
     }
 
     return annules;
+  }
+
+  /**
+   * Les mots par lesquels quelqu'un désigne un jour qui n'est pas aujourd'hui.
+   *
+   * Volontairement étroite : elle sert à **renoncer** au recalage ci-dessous, donc
+   * un mot en trop ne fait que laisser passer une erreur, là où un mot manquant
+   * déplacerait un rappel que la personne avait bel et bien voulu pour un autre
+   * jour. « ce soir », « cet après-midi », « tout à l'heure » n'y sont pas : ils
+   * désignent aujourd'hui, et c'est précisément le cas qu'on répare.
+   */
+  private static readonly AUTRE_JOUR =
+    /demain|lendemain|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|semaine|mois|dans\s+\d+\s*(?:jour|h\b|heure)|\d{1,2}\s*[\/\- ]\s*(?:\d{1,2}|janvier|f[ée]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[ée]cembre)/i;
+
+  /** Un rappel programmé pour dans trois minutes n'a pas le temps de servir. */
+  private static readonly MARGE_RECALAGE_MS = 5 * 60 * 1000;
+
+  /**
+   * Ramène à aujourd'hui un rappel que le modèle a reporté sans raison.
+   *
+   * Constaté le 24 août 2026 à 12 h 11 : « Rappel moi de faire mes 25 pompes à
+   * 15h30 » — le coach répond « c'est noté », et la ligne écrite est celle de
+   * **mardi** 15 h 30. Vingt-sept heures de retard sur une intention qui en avait
+   * trois, et rien pour le signaler : la balise était bien formée, le rappel
+   * existe, il sonnera. Simplement pas le jour où on l'attendait.
+   *
+   * La cause est dans l'invite — la date y était écrite en toutes lettres, à
+   * charge pour le modèle de la convertir en `AAAA-MM-JJ` puis de comparer deux
+   * heures — et elle y est corrigée. **Mais une consigne d'invite ne se vérifie
+   * qu'après coup, chez la personne, et ce qu'elle coûte ici est un rendez-vous
+   * manqué.** D'où ce filet, qui ne dépend d'aucun modèle.
+   *
+   * **Il ne corrige qu'un cas, et refuse dès qu'il y a un doute** : la balise vise
+   * demain, la même heure est encore à venir aujourd'hui, et la personne n'a nommé
+   * aucun autre jour. Alors seulement le report est une erreur — dans tous les
+   * autres cas, y compris « rappelle-moi à 8 h » lancé à midi, la date du modèle
+   * est gardée telle quelle.
+   */
+  static recaler(
+    quand: Date,
+    jour: string,
+    heures: number,
+    minutes: number,
+    maintenant: Date,
+    demande: string,
+  ): Date {
+    // Sans la demande, on ne sait pas ce qui a été voulu : on ne touche à rien.
+    // C'est le cas de la démonstration, où aucune ligne n'est écrite de toute
+    // façon, et de tout appel qui ne dispose pas du message d'origine.
+    if (!demande.trim()) return quand;
+
+    const aujourdhui = cleJourParis(maintenant);
+    if (jour !== RappelService.jourSuivant(aujourdhui)) return quand;
+    if (RappelService.AUTRE_JOUR.test(demande)) return quand;
+
+    const memeHeureAujourdhui = RappelService.depuisParis(aujourdhui, heures, minutes);
+    if (memeHeureAujourdhui.getTime() <= maintenant.getTime() + RappelService.MARGE_RECALAGE_MS) {
+      return quand;
+    }
+
+    logger.warn(
+      `Rappel reporté à tort par le modèle (${jour} ${heures}:${String(minutes).padStart(2, '0')}), ramené à aujourd'hui.`,
+    );
+    return memeHeureAujourdhui;
+  }
+
+  /**
+   * Le lendemain d'une clé `AAAA-MM-JJ`, par arithmétique de calendrier.
+   *
+   * Ajouter 86 400 000 ms donnerait le bon jour 363 fois sur 365 : les deux nuits
+   * de changement d'heure durent 23 et 25 heures, et c'est exactement les nuits où
+   * personne ne relit ce code.
+   */
+  private static jourSuivant(cle: string): string {
+    const [annee, mois, jour] = cle.split('-').map(Number);
+    return new Date(Date.UTC(annee, mois - 1, jour + 1)).toISOString().slice(0, 10);
+  }
+
+  /**
+   * Quand un rappel tombe, dit à quelqu'un qui vit un lundi.
+   *
+   * « je te le rappelle mardi 15:30 » est la phrase qu'a lue l'utilisateur du 24
+   * août, et elle est doublement muette : elle ne dit pas que c'est le lendemain,
+   * et elle ne dirait pas davantage qu'un « mardi » est dans huit jours. Le seul
+   * mot qui aurait permis de voir l'erreur tout de suite — « demain » — était
+   * justement celui que le format ne pouvait pas produire.
+   */
+  static libelleQuand(quand: Date, maintenant = new Date()): string {
+    const heure = quand.toLocaleString('fr-FR', {
+      timeZone: FUSEAU_AFFICHAGE,
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    const cible = cleJourParis(quand);
+    const aujourdhui = cleJourParis(maintenant);
+
+    if (cible === aujourdhui) return `aujourd'hui à ${heure}`;
+    if (cible === RappelService.jourSuivant(aujourdhui)) return `demain à ${heure}`;
+
+    const date = quand.toLocaleString('fr-FR', {
+      timeZone: FUSEAU_AFFICHAGE,
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+    });
+    return `${date} à ${heure}`;
   }
 
   /**
