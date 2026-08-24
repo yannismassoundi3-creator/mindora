@@ -56,9 +56,25 @@ export class RappelService {
    * consigne demande l'heure de Paris, et `depuisParis` la convertit. Un modèle
    * qui ajoute un « Z » de son propre chef serait sinon décalé de deux heures en
    * été, silencieusement.
+   *
+   * **Le séparateur est optionnel, et l'ouverture tolère un espace.** Les trois
+   * formes ci-dessous sortent toutes de `openai/gpt-oss-20b` — le maillon sur
+   * lequel la chaîne retombe dès que Groq sature, donc celui qui répond aux heures
+   * de pointe — mesurées le 24 août 2026 sur le message d'un vrai utilisateur :
+   *
+   *     < Rappel 2026-08-25T15:30>…     l'espace et la casse
+   *     <RAPPEL 2026-08-2415:30>…       le « T » avalé
+   *     <RAPPEL 2026-08-25T15:30>…      la forme demandée
+   *
+   * Les deux premières étaient refusées, et une balise refusée ne programme rien :
+   * la personne lit une réponse normale et n'apprend qu'à l'heure dite, en ne
+   * recevant rien. **Exiger une forme exacte d'un petit modèle revient à décider
+   * que la fonctionnalité marche une fois sur trois** — et à faire porter l'écart
+   * par celui qui attendait le rappel. La date est de longueur fixe, l'heure aussi :
+   * rien n'oblige à ce que quelque chose les sépare.
    */
   static readonly MARQUEUR =
-    /<RAPPEL\s+(\d{4}-\d{2}-\d{2})[T ](\d{2}):(\d{2})(?::\d{2})?(?:Z|[+-]\d{2}:?\d{2})?\s*>([\s\S]{1,300}?)<\/RAPPEL>/gi;
+    /<\s*RAPPEL\s+(\d{4}-\d{2}-\d{2})[T ]?(\d{2}):(\d{2})(?::\d{2})?(?:Z|[+-]\d{2}:?\d{2})?\s*>([\s\S]{1,300}?)<\s*\/\s*RAPPEL\s*>/gi;
 
   /**
    * Le marqueur d annulation : le numero affiche au modele, pas un identifiant.

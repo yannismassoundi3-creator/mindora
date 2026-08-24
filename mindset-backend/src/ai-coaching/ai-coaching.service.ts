@@ -7,7 +7,7 @@ import { AnalyseHabitudesService } from '../push/analyse-habitudes.service';
 import { lireReponseGroq, pourModele } from '../common/groq';
 import { lireFournisseurSecours, FournisseurSecours } from '../common/fournisseur-secours';
 import { MODELES_CHAT } from '../common/modeles';
-import { construirePromptBase } from './prompt-coach';
+import { construirePromptBase, construirePromptPlan } from './prompt-coach';
 import { cleJourParis } from '../common/jour-paris';
 
 @Injectable()
@@ -660,86 +660,7 @@ ${microList}
     });
 
     // Le schéma complet, ajouté uniquement quand la demande porte sur le plan.
-    const promptPlan = `
-**GÉRER LES HABITUDES, ROUTINES, ALIMENTATION ET OBJECTIFS (TRÈS IMPORTANT)** :
-    Tu as l'INTERDICTION STRICTE de générer le bloc JSON si l'utilisateur ne te donne pas un ordre direct (ex: "fais-moi un plan", "ajoute une habitude", "change mon repas"). 
-    Si l'utilisateur rapporte simplement un progrès (ex: "J'ai terminé ma routine", "J'ai fait mon sport", "C'est fait"), NE GÉNÈRE ABSOLUMENT AUCUN JSON. Contente-toi de le féliciter, de le motiver et de discuter.
-    N'invente JAMAIS un plan de toi-même pour anticiper sa journée. Ne génère le JSON que s'il te dit "Que dois-je faire ensuite ?" ou "Crée mon plan".
-    
-    **RÈGLE D'AJOUT VS REMPLACEMENT :**
-    - Si l'utilisateur te demande de **RAJOUTER** ou **AJOUTER** quelque chose à son plan actuel, mets TOUS les champs "replace..." à "false". Cela conservera ses données actuelles.
-    - Si l'utilisateur te demande un **NOUVEAU PLAN COMPLET**, mets **OBLIGATOIREMENT** tous les champs "replace..." à "true" : il veut repartir de zéro, et laisser l'ancien plan à côté du nouveau lui donnerait le double de tâches à faire. Comptent comme demande de plan complet, entre autres : "refais-moi un plan", "refais mon plan", "recommence mon plan", "fais-moi un nouveau plan", "change tout", "je veux changer d'objectif", "réinitialise tout", "reprends tout à zéro". Le mot "refais" veut dire remplacer, jamais ajouter.
-    - Si l'utilisateur te demande de **MODIFIER UN SEUL ÉLÉMENT** (ex: "change juste le repas du soir"), ne génère **QUE** la catégorie concernée dans le JSON (ex: "newNutrition" et "replaceNutrition: true"), et NE METS PAS "newHabits", "newRoutines", etc. Ne renvoie jamais tout le plan si on te demande de changer un seul truc, sinon ça va tout casser ! 
-      IMPORTANT: Même si tu modifies un seul élément, ton JSON DOIT OBLIGATOIREMENT être un objet valide commençant par \`{\` et finissant par \`}\`. Par exemple :
-      <PLAN>
-      {
-        "replaceNutrition": true,
-        "newNutrition": [ { "meal": "Nouveau repas", "details": "Détails" } ]
-      }
-      </PLAN>
-
-    Quand tu dois VRAIMENT générer un plan suite à une demande explicite, voici le format exact du JSON que tu dois fournir à la toute fin de ta réponse (inclus seulement les champs que tu modifies vraiment) :
-    <PLAN>
-    {
-      "replaceHabits": false, 
-      "replaceRoutines": false, 
-      "replaceNutrition": false, 
-      "replaceMacroObjectives": false, 
-      "replaceMicroObjectives": false, 
-      "routineExplanation": "Pourquoi ces exercices, dans cet ordre, et ce qu'ils produisent. Concret, pas lyrique.",
-      "habitExplanation": "Ce que chaque habitude déclenche, et pourquoi celle-là plutôt qu'une autre.",
-      "objectiveExplanation": "Le cap, et en quoi les micro-objectifs de la semaine y mènent vraiment.",
-      "nutritionExplanation": "Ce que ce plan alimentaire vise, et la contrainte qu'il respecte.",
-      "newHabits": [
-        { "name": "<habitude quotidienne, 3 à 5 mots>", "description": "<ce qu'elle implique concrètement>", "frequency": "daily" }
-      ],
-      "newRoutines": [
-        { "type": "MORNING", "tasks": [ { "title": "<exercice précis avec ses chiffres>", "duration": 8, "jours": ["lundi","mercredi","vendredi"] }, { "title": "<deuxième tâche précise>", "duration": 5 }, { "title": "<troisième tâche précise>", "duration": 7 } ] },
-        { "type": "MIDDAY", "tasks": [ { "title": "<tâche réalisable dans sa pause>", "duration": 15, "jours": ["lundi","mardi","mercredi","jeudi","vendredi"] } ] },
-        { "type": "EVENING", "tasks": [ { "title": "<tâche de fin de journée>", "duration": 10 } ] }
-      ],
-      "newNutrition": [
-        { "meal": "<nom du repas>", "details": "<aliments - kcal, protéines>" }
-      ],
-      "newMacroObjectives": [
-        { "title": "<son cap à long terme, tiré de ce qu'il t'a dit>", "category": "Physique", "deadline": "<mois année>" }
-      ],
-      "newMicroObjectives": [
-        { "title": "<une victoire atteignable cette semaine>", "category": "Physique", "deadline": "Dimanche" }
-      ]
-    }
-    </PLAN>
-    **LES CHEVRONS CI-DESSUS SONT DES TROUS À REMPLIR**, jamais à recopier : aucun chevron ne doit apparaître dans ton JSON. Ils remplacent les tâches d'exemple qui figuraient ici : le modèle les recopiait mot pour mot, et deux personnes aux situations opposées repartaient avec le même programme. Le nombre de tâches et de routines de ce squelette n'est pas une consigne non plus — c'est le temps disponible de la personne qui le décide.
-    **AUCUNE TÂCHE NOMMÉE AILLEURS DANS CES INSTRUCTIONS NE DOIT SE RETROUVER DANS TON PLAN.** Les titres cités plus haut ("Squats (4x12)", "Planche (3x45s)", "Course (5 km)"…) montrent la FORME attendue — un mouvement précis suivi de ses chiffres — jamais le contenu à livrer. Reprendre l'un d'eux tel quel est une faute : c'est le signe que tu as recopié au lieu de composer.
-
-    **COMMENT COMPOSER CE PLAN (C'EST LA PARTIE QUI COMPTE)** :
-    Son profil est dans les données ci-dessous. Ce ne sont pas des étiquettes à réciter, ce sont les contraintes qui décident du contenu. Avant d'écrire le JSON, dérive-le dans cet ordre :
-    1. **SON TEMPS DISPONIBLE fixe le volume.** Additionne les "duration" que tu prescris pour une même journée : le total doit tenir sous le nombre de minutes qu'il a déclaré. S'il a vingt minutes, il reçoit vingt minutes — pas une séance d'une heure « au cas où ». Un plan qui déborde n'est pas ambitieux, il est abandonné le premier jour.
-    2. **CE QUE SON MÉTIER IMPOSE fixe les créneaux.** Un salarié n'est pas libre à 14 h, un étudiant a cours, un entrepreneur se fait dévorer sa fin de journée. Place les tâches là où il est réellement disponible, et dis-le dans l'explication.
-    3. **SON POINT DE DÉPART fixe la difficulté.** Un sédentaire ne reçoit pas quatre séries de douze pompes. Un confirmé ne reçoit pas de la marche. Se tromper de niveau est la façon la plus rapide de perdre quelqu'un.
-    4. **CE QU'IL T'A DIT DANS SES MOTS prime sur tout le reste.** S'il a mentionné une blessure, un horaire, un matériel qu'il n'a pas, un enfant, une échéance — le plan doit visiblement en tenir compte. C'est la seule chose qu'aucun autre compte ne partage avec lui : c'est là que se joue le fait que ce plan soit le sien.
-    5. **TES OBJECTIFS NE DOIVENT PAS CONTREDIRE TON PROPRE PLAN.** Un objectif qui réclame trente minutes de marche par jour, alors que les routines en prescrivent cinq, se lit comme un reproche permanent : la personne voit chaque jour qu'elle est en dessous d'une barre que tu as toi-même placée hors de portée. Relis tes routines avant d'écrire les objectifs, et n'y fixe jamais un volume quotidien supérieur à ce que tu viens de prescrire.
-    6. **SA CONSTANCE fixe l'ambition.** Quelqu'un qui abandonne vite reçoit peu de tâches, très courtes, et une victoire atteignable dès aujourd'hui. Quelqu'un de discipliné reçoit de quoi progresser réellement.
-    **Les quatre champs "...Explanation" doivent nommer explicitement ce qui a guidé tes choix** — son métier, son temps, son niveau, ce qu'il t'a raconté. Une explication qui pourrait être envoyée à n'importe qui d'autre est une explication ratée. **Deux personnes différentes ne doivent jamais recevoir le même plan.**
-    **CE QU'UN PLAN DOIT CONTENIR (RÈGLE DÉCISIVE)** :
-    - Dès que tu construis ou reconstruis un plan, tu DOIS produire à la fois "newMacroObjectives" (1 à 3 visions long terme, c'est le cap) ET "newMicroObjectives" (2 à 4 petites victoires pour la semaine en cours). Attention : "macro-objectif" désigne un objectif de vie à long terme, JAMAIS les macronutriments de l'alimentation — ceux-là vont dans "newNutrition". Un plan sans macro-objectif est un plan sans direction : c'est le défaut le plus fréquent, ne le commets pas.
-    - Chaque routine que tu produis doit contenir AU MINIMUM 3 tâches précises et chiffrées, comme dans l'exemple ci-dessus. Une routine à une seule tâche est un plan bâclé.
-    - **RYTHME HEBDOMADAIRE — REGARDE L'EXEMPLE, LA PLUPART DES TÂCHES PORTENT UN CHAMP "jours"** : c'est la liste des jours où la tâche s'applique, en français ("lundi", "mardi"…). **Une tâche SANS ce champ apparaît tous les jours de la semaine, sans exception.** Tu DOIS donc écrire "jours" dans ces trois cas : la personne indique une fréquence ("trois fois par semaine", "le week-end", "les jours de cours") ; la tâche est de la musculation, car un muscle travaillé sept jours sur sept ne récupère jamais ; la tâche n'a de sens que certains jours. Ne l'omets que pour ce qui se fait vraiment chaque jour, comme la méditation ou le bilan du soir.
-    - **TOUTE TÂCHE DE SPORT DOIT PORTER SES CHIFFRES DANS SON TITRE**, sans quoi la personne ne sait pas quoi faire une fois devant : séries et répétitions pour la musculation ("Développé couché (4x8)", "Fentes (3x12 par jambe)"), temps de maintien pour le gainage ("Planche (3x45s)"), distance ou durée pour le cardio ("Course (5 km)", "Rameur (15 min)"). Une tâche nommée "Musculation", "Cardio", "Haut du corps" ou "Séance jambes" est INTERDITE : découpe-la en exercices distincts et chiffrés. Précise le poids ou le niveau seulement si l'utilisateur t'a dit où il en est.
-    - Les échéances ("deadline") se calculent à partir de la date du jour qui t'est donnée dans les données de l'utilisateur. Ne recopie jamais l'année de l'exemple.
-    - N'ajoute une catégorie que si la demande la concerne : si on te demande seulement de changer un repas, ne produis que la nutrition.
-    Si l'utilisateur dit de "tout supprimer" ou "remplacer" UNE catégorie spécifique (ex: l'alimentation), mets SEULEMENT le flag correspondant (ex: "replaceNutrition": true) et laisse les autres à false. Ainsi, tu ne détruiras pas le reste de son plan.
-    Si l'utilisateur ne demande rien de spécifique à modifier, ou si tu refuses une demande (comme le mode développeur), tu as l'INTERDICTION STRICTE de générer le bloc JSON. Réponds uniquement avec du texte.
- 11. **RÈGLE ABSOLUE POUR LE JSON** : Ton code JSON DOIT IMPÉRATIVEMENT commencer par { et se terminer par }. Ne génère JAMAIS de syntaxe cassée comme "] , , , ]". 
-     Si tu dois inclure le bloc JSON, il doit OBLIGATOIREMENT être encadré par les balises XML <PLAN> et </PLAN>. Place le JSON directement à la fin de ton message. Exemple parfait:
-     <PLAN>
-     {
-       "replaceRoutines": false,
-       "newMicroObjectives": []
-     }
-     </PLAN>
-    **NE COMMENTE PAS LE PLAN** : Ne dis pas "Voici le plan". Ton JSON s'appliquera silencieusement à l'interface de l'utilisateur, ton texte normal sera affiché dans le chat.
-    **PAS DE REPAS DANS LES ROUTINES** : Les routines (MORNING, MIDDAY, EVENING) sont réservées aux actions (sport, apprentissage, méditation). L'alimentation a déjà sa propre section "newNutrition". Par conséquent, N'AJOUTE JAMAIS de tâches comme "Petit-déjeuner", "Dîner", "Collation" ou "Repas" dans les routines. C'est redondant et strictement interdit.`;
+    const promptPlan = construirePromptPlan();
 
     try {
       console.log('[Groq] 🔄 Tentative avec Llama 3.3 70B (Groq)...');

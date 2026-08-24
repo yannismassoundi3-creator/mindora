@@ -173,6 +173,65 @@ describe('RappelService', () => {
   });
 
   /*
+    Les formes que le petit maillon ecrit vraiment.
+
+    `openai/gpt-oss-20b` est celui sur lequel la chaine retombe des que Groq
+    sature — donc celui qui repond aux heures de pointe. Mesure le 24 aout 2026
+    sur le message d un vrai utilisateur, quatre appels : il a produit trois
+    formes differentes, dont deux que le serveur refusait.
+
+    Une balise refusee ne programme rien. La personne lit une reponse normale et
+    ne l apprend qu a l heure dite, en ne recevant rien — la panne muette de ce
+    fichier, dans sa version la plus courante.
+  */
+  describe('les formes abimees par les petits modeles', () => {
+    const lundiSoir = new Date('2026-08-24T10:11:00.000Z');
+
+    it('accepte un espace apres le chevron et une casse libre', () => {
+      const { rappels } = RappelService.extraire(
+        '< Rappel 2026-08-24T15:30>Fais tes 25 pompes.</RAPPEL>',
+        lundiSoir,
+      );
+
+      expect(rappels).toHaveLength(1);
+      expect(rappels[0].quand.toISOString()).toBe('2026-08-24T13:30:00.000Z');
+    });
+
+    it('accepte une date collee a l heure, sans le T', () => {
+      // Vu deux fois sur deux. La date est de longueur fixe, l heure aussi :
+      // rien n oblige a ce que quelque chose les separe.
+      const { rappels } = RappelService.extraire(
+        '<RAPPEL 2026-08-2415:30>Fais tes 25 pompes.</RAPPEL>',
+        lundiSoir,
+      );
+
+      expect(rappels).toHaveLength(1);
+      expect(rappels[0].quand.toISOString()).toBe('2026-08-24T13:30:00.000Z');
+    });
+
+    it('accepte une fermeture espacee', () => {
+      const { texte, rappels } = RappelService.extraire(
+        'Tes pompes.<RAPPEL 2026-08-24T15:30>25 pompes.< / RAPPEL >',
+        lundiSoir,
+      );
+
+      expect(rappels).toHaveLength(1);
+      expect(texte).toBe('Tes pompes.');
+    });
+
+    it('refuse toujours ce qui n est pas une date', () => {
+      // La tolerance porte sur la ponctuation, jamais sur le fond : une balise
+      // sans date lisible ne doit pas devenir un rappel invente.
+      const { rappels } = RappelService.extraire(
+        '<RAPPEL demain 15:30>Fais tes pompes.</RAPPEL>',
+        lundiSoir,
+      );
+
+      expect(rappels).toHaveLength(0);
+    });
+  });
+
+  /*
     Le rappel qui arrive le bon jour, vingt-sept heures trop tard.
 
     Constate le 24 aout 2026 a 12 h 11 : « Rappel moi de faire mes 25 pompes a
