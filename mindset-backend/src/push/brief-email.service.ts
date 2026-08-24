@@ -42,9 +42,33 @@ export class BriefEmailService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Les créneaux réellement autorisés à partir, dans l'ordre de la journée. */
+  /**
+   * Tout ce que ce service sait porter, du plus quotidien au plus rare.
+   *
+   * Les trois premiers sont des briefs, un par créneau de la journée. Les trois
+   * suivants sont les messages qui **n'avaient aucun canal e-mail** : leur tournée
+   * sautait purement les comptes sans notification, d'un `continue`. Avec 6
+   * personnes joignables par push sur 52, cela voulait dire que le coup de pouce,
+   * le bilan du dimanche et l'alerte de série ne parlaient à personne.
+   *
+   * Leur volume est très différent de celui d'un brief, et c'est ce qui rend leur
+   * ajout tenable : le coup de pouce est plafonné à un tous les trois jours par
+   * personne, le bilan est hebdomadaire, et l'alerte de série ne peut partir que
+   * le soir où une série vivante n'a rien de coché — donc jamais deux soirs de
+   * suite, par construction.
+   */
+  static readonly CRENEAUX_CONNUS = ['matin', 'midi', 'soir', 'coup-de-pouce', 'bilan', 'serie'];
+
+  /**
+   * Les créneaux réellement autorisés à partir.
+   *
+   * Le défaut n'ouvre pas tout : `midi` et `soir` ajouteraient deux e-mails
+   * quotidiens à tout le monde, ce qui est le signalement type qu'un filtre attend
+   * d'un domaine sans historique. Les trois nouveaux, eux, sont rares par
+   * construction — voir `CRENEAUX_CONNUS`.
+   */
   static creneauxActifs(): string[] {
-    const brut = process.env.BRIEF_EMAIL_CRENEAUX ?? 'matin';
+    const brut = process.env.BRIEF_EMAIL_CRENEAUX ?? 'matin,coup-de-pouce,bilan,serie';
     const demandes = brut
       .split(',')
       .map((c) => c.trim().toLowerCase())
@@ -52,7 +76,7 @@ export class BriefEmailService {
 
     // Un nom inconnu est ignoré plutôt que d'ouvrir un créneau au hasard : une
     // faute de frappe sur la variable ne doit pas décider d'un envoi de masse.
-    return ['matin', 'midi', 'soir'].filter((c) => demandes.includes(c));
+    return BriefEmailService.CRENEAUX_CONNUS.filter((c) => demandes.includes(c));
   }
 
   static creneauActif(creneau: string): boolean {
@@ -116,10 +140,10 @@ export class BriefEmailService {
         // Le texte du modèle est déjà écrit pour être lu tel quel : on ne le
         // reformule pas, on l'encadre.
         corps: `<p style="margin: 0 0 16px;">${BriefEmailService.echapper(texte)}</p>`,
-        bouton: { texte: 'Ouvrir ma journée', lien: lienApp('/?auth=true') },
+        bouton: BriefEmailService.bouton(creneau),
         lienRetrait: retrait,
       }),
-      texte: `${texte}\n\nOuvrir ma journée : ${lienApp('/?auth=true')}`,
+      texte: `${texte}\n\n${BriefEmailService.bouton(creneau).texte} : ${BriefEmailService.bouton(creneau).lien}`,
       lienRetrait: retrait,
     });
 
@@ -152,6 +176,18 @@ export class BriefEmailService {
     const qui = prenom ? `${prenom}, ` : '';
     if (creneau === 'soir') return `${qui}ta journée en une ligne`;
     if (creneau === 'midi') return `${qui}il te reste l'après-midi`;
+    /*
+      Le sujet de l'alerte de série ne crie pas, et c'est délibéré.
+
+      « DERNIÈRE CHANCE », les majuscules et les points d'exclamation sont le
+      vocabulaire des campagnes : ils font basculer un message en indésirable
+      avant qu'il soit lu, et ils annoncent une urgence fabriquée. Celle-ci est
+      réelle — la série tombe vraiment à minuit — donc la dire platement suffit,
+      et c'est ce qui la rend croyable.
+    */
+    if (creneau === 'serie') return `${qui}ta série s'arrête ce soir`;
+    if (creneau === 'bilan') return `${qui}ta semaine en chiffres`;
+    if (creneau === 'coup-de-pouce') return `${qui}un mot de ton coach`;
     return `${qui}ton brief du jour`;
   }
 
@@ -159,7 +195,26 @@ export class BriefEmailService {
     const qui = prenom ? ` ${prenom}` : '';
     if (creneau === 'soir') return `Ta journée${qui}`;
     if (creneau === 'midi') return `Le point de midi${qui}`;
+    if (creneau === 'serie') return `Il te reste ce soir${qui}`;
+    if (creneau === 'bilan') return `Ta semaine${qui}`;
+    if (creneau === 'coup-de-pouce') return `Ton coach${qui}`;
     return `Bonjour${qui}`;
+  }
+
+  /**
+   * Ce que promet le bouton, et où il mène.
+   *
+   * Un bouton qui dit « ouvrir ma journée » sous un bilan hebdomadaire annonce
+   * autre chose que ce qu'il fait. Et sous une alerte de série, il doit dire ce
+   * qu'il y a à sauver — c'est toute la raison d'ouvrir ce message-là.
+   */
+  private static bouton(creneau: string): { texte: string; lien: string } {
+    if (creneau === 'serie') return { texte: 'Sauver ma série', lien: lienApp('/?auth=true') };
+    if (creneau === 'bilan') return { texte: 'Voir ma semaine', lien: lienApp('/?auth=true') };
+    if (creneau === 'coup-de-pouce') {
+      return { texte: 'Reprendre maintenant', lien: lienApp('/?auth=true&vue=chat') };
+    }
+    return { texte: 'Ouvrir ma journée', lien: lienApp('/?auth=true') };
   }
 
   /**

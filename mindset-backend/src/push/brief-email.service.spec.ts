@@ -47,11 +47,30 @@ describe('BriefEmailService', () => {
   });
 
   describe('les créneaux allumés', () => {
-    it('n’en allume qu’un par défaut', () => {
-      // Trois envois quotidiens depuis un domaine sans historique est le
-      // signalement type d'un spammeur. On monte le volume à la main.
+    it('n’allume qu’un seul envoi QUOTIDIEN par défaut', () => {
+      /*
+        Ce test disait « un seul créneau », et sa raison était « trois envois
+        quotidiens depuis un domaine sans historique est le signalement type d'un
+        spammeur ». La raison n'a pas changé, le compte si : ce qui abîme une
+        réputation d'expéditeur est la répétition quotidienne, pas le nombre de
+        motifs.
+
+        Le défaut ouvre donc `matin` — le seul brief quotidien — plus trois
+        messages rares par construction : le coup de pouce est plafonné à un tous
+        les trois jours par personne, le bilan est hebdomadaire, et l'alerte de
+        série ne peut pas partir deux soirs de suite puisqu'elle exige d'avoir
+        tenu la veille.
+
+        `midi` et `soir` restent éteints : eux ajouteraient deux e-mails par jour
+        à tout le monde, ce qui est exactement le cas que ce test protège.
+      */
       delete process.env.BRIEF_EMAIL_CRENEAUX;
-      expect(BriefEmailService.creneauxActifs()).toEqual(['matin']);
+      const actifs = BriefEmailService.creneauxActifs();
+
+      expect(actifs).toContain('matin');
+      expect(actifs).not.toContain('midi');
+      expect(actifs).not.toContain('soir');
+      expect(actifs).toEqual(['matin', 'coup-de-pouce', 'bilan', 'serie']);
     });
 
     it('rend les créneaux dans l’ordre de la journée, quel que soit celui de la variable', () => {
@@ -142,5 +161,78 @@ describe('BriefEmailService', () => {
     prisma.briefEmail.create.mockRejectedValue(new Error('base injoignable'));
 
     await expect(service.envoyer(COMPTE, 'matin', 'Bonjour.')).resolves.toBe(true);
+  });
+
+  /*
+    Les trois messages qui n avaient aucun canal e-mail.
+
+    Le coup de pouce, le bilan du dimanche et l alerte de serie sautaient
+    purement les comptes sans notification, d un `continue`. Avec 6 personnes
+    joignables par push sur 52, ils ne parlaient donc qu a 12 % des comptes — et
+    l alerte de serie est justement celle qui previent AVANT la perte, la seule
+    du produit qui arrive quand il reste quelque chose a sauver.
+  */
+  describe('les messages qui n avaient pas d e-mail', () => {
+    it('porte le coup de pouce, le bilan et l alerte de serie', async () => {
+      process.env.BRIEF_EMAIL_CRENEAUX = 'coup-de-pouce,bilan,serie';
+
+      for (const creneau of ['coup-de-pouce', 'bilan', 'serie']) {
+        prisma.briefEmail.findUnique.mockResolvedValue(null);
+        await expect(service.envoyer(COMPTE, creneau, 'Un texte.')).resolves.toBe(true);
+      }
+    });
+
+    it('les compte separement dans la journee', async () => {
+      /*
+        La cle d unicite porte le creneau : un bilan deja parti un dimanche ne
+        doit pas empecher l alerte de serie du meme soir. Ce sont deux messages
+        qui disent deux choses differentes, et l un n est pas la repetition de
+        l autre.
+      */
+      process.env.BRIEF_EMAIL_CRENEAUX = 'bilan,serie';
+      prisma.briefEmail.findUnique.mockResolvedValue(null);
+
+      await service.envoyer(COMPTE, 'bilan', 'Ta semaine.');
+      const appels = prisma.briefEmail.create.mock.calls.map((c: any[]) => c[0].data.creneau);
+
+      await service.envoyer(COMPTE, 'serie', 'Ta serie tombe.');
+      const apres = prisma.briefEmail.create.mock.calls.map((c: any[]) => c[0].data.creneau);
+
+      expect(appels).toContain('bilan');
+      expect(apres).toContain('serie');
+    });
+
+    it('ne crie pas dans le sujet de l alerte de serie', async () => {
+      /*
+        « DERNIERE CHANCE », les majuscules et les points d exclamation sont le
+        vocabulaire des campagnes : ils font basculer un message en indesirable
+        avant qu il soit lu, et annoncent une urgence fabriquee. Celle-ci est
+        reelle — la serie tombe vraiment a minuit — donc la dire platement suffit,
+        et c est ce qui la rend croyable.
+      */
+      process.env.BRIEF_EMAIL_CRENEAUX = 'serie';
+      prisma.briefEmail.findUnique.mockResolvedValue(null);
+
+      await service.envoyer(COMPTE, 'serie', 'Ta série de 12 jours tombe à minuit.');
+
+      const sujet: string = (envoyerEmail as jest.Mock).mock.calls.at(-1)[0].sujet;
+      expect(sujet).not.toMatch(/[A-Z]{4,}/);
+      expect(sujet).not.toContain('!');
+      expect(sujet.toLowerCase()).toContain('série');
+    });
+
+    it('promet dans le bouton ce que le message contient', async () => {
+      // « Ouvrir ma journée » sous un bilan hebdomadaire annonce autre chose que
+      // ce qu il fait ; sous une alerte de serie, le bouton doit nommer ce qu il
+      // y a a sauver — c est toute la raison d ouvrir ce message-la.
+      process.env.BRIEF_EMAIL_CRENEAUX = 'bilan,serie';
+      prisma.briefEmail.findUnique.mockResolvedValue(null);
+
+      await service.envoyer(COMPTE, 'serie', 'Ta série tombe.');
+      expect((envoyerEmail as jest.Mock).mock.calls.at(-1)[0].texte).toContain('Sauver ma série');
+
+      await service.envoyer(COMPTE, 'bilan', 'Ta semaine.');
+      expect((envoyerEmail as jest.Mock).mock.calls.at(-1)[0].texte).toContain('Voir ma semaine');
+    });
   });
 });

@@ -495,6 +495,27 @@ export class PushService implements OnModuleInit {
   }
 
   /**
+   * La trace d'un coup de pouce parti, quel que soit le canal.
+   *
+   * Elle tient le plafond d'un envoi tous les trois jours par personne — la règle
+   * qui rend ce dispositif supportable. Partagée entre la notification et
+   * l'e-mail parce que le plafond, lui, ne dépend pas du canal : recevoir un coup
+   * de pouce par mail puis un autre par notification le lendemain serait deux
+   * relances en deux jours, ce que ce service existe pour empêcher.
+   */
+  private async tracerCoupDePouce(userId: string, raison: string): Promise<void> {
+    await this.prisma.coupDePouce.upsert({
+      where: { user_id: userId },
+      create: { user_id: userId, dernier_envoi: new Date(), derniere_raison: raison, envoyes: 1 },
+      update: {
+        dernier_envoi: new Date(),
+        derniere_raison: raison,
+        envoyes: { increment: 1 },
+      },
+    });
+  }
+
+  /**
    * La tournée des coups de pouce.
    *
    * Elle ressemble à celle du matin, à une différence près qui est tout l'intérêt
@@ -519,9 +540,18 @@ export class PushService implements OnModuleInit {
     let echecs = 0;
 
     for (const user of users) {
-      // Injoignable : inutile de calculer quoi que ce soit, et surtout inutile de
-      // payer un appel IA pour un message que personne ne recevra.
-      if (!user.push_subscriptions?.length) continue;
+      /*
+        Sans notification, l'e-mail. Ce `continue` disait l'inverse.
+
+        « Injoignable : inutile de calculer quoi que ce soit » était vrai le jour
+        où ce service n'avait qu'un canal. Mesuré le 20 août 2026 : **6 personnes
+        sur 52 sont joignables par notification**. Le coup de pouce ne parlait donc
+        qu'à 12 % des comptes — et personne ne pouvait s'en apercevoir, puisque la
+        tournée comptait ces gens-là dans « rien à dire » plutôt que dans
+        « injoignable ».
+      */
+      const parMail = !user.push_subscriptions?.length;
+      if (parMail && !BriefEmailService.creneauActif('coup-de-pouce')) continue;
 
       const situation = this.coupDePouce.situation({
         dailyScores: user.sync_data?.daily_scores as Record<string, number> | null,
@@ -548,6 +578,23 @@ export class PushService implements OnModuleInit {
         const texte = await this.coupDePouce.generer(user.first_name, situation);
         const body = texte ?? this.coupDePouce.texteFactuel(user.first_name, situation);
 
+        /*
+          La voie e-mail écrit puis trace, exactement comme la voie notification.
+
+          La trace est ce qui tient le plafond d'un coup de pouce tous les trois
+          jours. L'oublier ici ferait écrire tous les jours à ceux qui n'ont pas de
+          notification — c'est-à-dire à presque tout le monde, et par le canal qui
+          se signale.
+        */
+        if (parMail) {
+          if (await this.briefEmail.envoyer(user, 'coup-de-pouce', body)) {
+            await this.tracerCoupDePouce(user.id, situation.raison);
+            envoyes++;
+            if (texte) personnalises++;
+          }
+          continue;
+        }
+
         const envoi = await this.sendNotification(user.id, {
           title: this.coupDePouce.titre(situation),
           tag: 'coup-de-pouce',
@@ -562,20 +609,7 @@ export class PushService implements OnModuleInit {
         // réseau qui consommerait quand même le quota de trois jours ferait taire
         // le coach sans que personne n'ait rien reçu.
         if (envoi.envoyees > 0) {
-          await this.prisma.coupDePouce.upsert({
-            where: { user_id: user.id },
-            create: {
-              user_id: user.id,
-              dernier_envoi: new Date(),
-              derniere_raison: situation.raison,
-              envoyes: 1,
-            },
-            update: {
-              dernier_envoi: new Date(),
-              derniere_raison: situation.raison,
-              envoyes: { increment: 1 },
-            },
-          });
+          await this.tracerCoupDePouce(user.id, situation.raison);
           envoyes++;
           if (texte) personnalises++;
         }
@@ -664,7 +698,23 @@ export class PushService implements OnModuleInit {
     const yesterday = dYesterday.toISOString().slice(0, 10);
 
     for (const user of users) {
-      if (!user.push_subscriptions || user.push_subscriptions.length === 0) continue;
+      /*
+        Le seul soir où une série meurt vraiment, porté aussi par e-mail.
+
+        Ce `continue` sautait les comptes sans notification — c'est-à-dire 46 sur
+        52. L'alerte la plus utile du produit, celle qui prévient **avant** la
+        perte plutôt que de la reprocher après, ne partait donc quasiment à
+        personne.
+
+        **Une seule des branches de cette tournée passe par l'e-mail** : celle de
+        22 h qui dit qu'une série vivante tombe à minuit. Les autres constatent un
+        décrochage déjà consommé — la relance à trois jours s'en charge, et un
+        e-mail quotidien de reproche est exactement ce qui fait signaler un
+        expéditeur. Celle-ci est rare par construction : il faut avoir tenu hier et
+        n'avoir rien coché aujourd'hui, donc jamais deux soirs de suite.
+      */
+      const parMail = !user.push_subscriptions?.length;
+      if (parMail && !(hour === 22 && BriefEmailService.creneauActif('serie'))) continue;
       
       const scores = (user.sync_data?.daily_scores as Record<string, number>) || {};
       const scoreToday = scores[today] || 0;
@@ -768,7 +818,10 @@ export class PushService implements OnModuleInit {
             pas. L'urgence était donc criée le soir où elle n'existe plus, et tue le
             soir où elle existe.
           */
-          if (missedDays === 2) {
+          if (missedDays === 2 && !parMail) {
+            // Réservée à la notification : un décrochage de deux jours est déjà
+            // porté par la relance à trois jours, qui part par e-mail. Le redire
+            // ici ferait deux messages pour le même constat, à un jour d'écart.
             await this.sendNotification(user.id, {
               title: progression(),
               tag: 'progression',
@@ -777,15 +830,29 @@ export class PushService implements OnModuleInit {
             });
           } else if (scoreToday === 0 && scoreYesterday > 0) {
             const serie = this.morningBrief.computeStreak(scores);
-            await this.sendNotification(user.id, {
-              title: progression(),
-              tag: 'progression',
-              body:
-                serie >= 2
-                  ? `Ta série de ${serie} jours s'arrête à minuit. Une case suffit à la garder.`
-                  : 'Deux heures avant minuit. Valide ce que tu as fait avant de dormir.',
-              url: this.lienVers()
-            });
+            const body =
+              serie >= 2
+                ? `Ta série de ${serie} jours s'arrête à minuit. Une case suffit à la garder.`
+                : 'Deux heures avant minuit. Valide ce que tu as fait avant de dormir.';
+
+            /*
+              Par e-mail, seulement quand il y a une série à sauver.
+
+              « Valide ce que tu as fait avant de dormir » ne dit rien qu'on ne
+              sache : c'est acceptable en notification, qu'on balaie, et ça ne vaut
+              pas un e-mail. Ce qui vaut un e-mail, c'est un nombre de jours qu'on
+              est sur le point de perdre.
+            */
+            if (parMail) {
+              if (serie >= 2) await this.briefEmail.envoyer(user, 'serie', body);
+            } else {
+              await this.sendNotification(user.id, {
+                title: progression(),
+                tag: 'progression',
+                body,
+                url: this.lienVers()
+              });
+            }
           }
         }
       } catch (e) {
@@ -821,7 +888,11 @@ export class PushService implements OnModuleInit {
     let appelsIA = 0;
 
     for (const user of users) {
-      if (!user.push_subscriptions || user.push_subscriptions.length === 0) continue;
+      // Le bilan par e-mail à qui n'a pas de notification : une fois par semaine,
+      // c'est le message le moins coûteux du produit pour sa réputation d'envoi,
+      // et celui qui a le plus à dire.
+      const parMail = !user.push_subscriptions?.length;
+      if (parMail && !BriefEmailService.creneauActif('bilan')) continue;
 
       // Une exception par personne ne doit pas arrêter la tournée : c'est ce qui
       // avait déjà fait taire l'envoi du matin pour tout le monde.
@@ -858,13 +929,17 @@ export class PushService implements OnModuleInit {
           this.weeklyReview.texteFactuel(prenom, semaine);
         if (abonne) appelsIA++;
 
-        await this.sendNotification(user.id, {
-          title: '📊 Bilan de ta semaine',
-          tag: 'bilan',
-          body: texte,
-          url: this.lienVers(abonne ? 'chat' : 'dashboard'),
-        });
-        envoyes++;
+        if (parMail) {
+          if (await this.briefEmail.envoyer(user, 'bilan', texte)) envoyes++;
+        } else {
+          await this.sendNotification(user.id, {
+            title: '📊 Bilan de ta semaine',
+            tag: 'bilan',
+            body: texte,
+            url: this.lienVers(abonne ? 'chat' : 'dashboard'),
+          });
+          envoyes++;
+        }
 
         /*
           La lecture longue est préparée maintenant, pas à l'ouverture de l'écran.
