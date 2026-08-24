@@ -30,20 +30,35 @@
  * La chaîne du chat, dans l'ordre.
  *
  * L'ordre suit la capacité à produire le bloc `<PLAN>` en JSON valide, puisque
- * c'est ce qui casse en premier sur un petit modèle — le raisonnement d'origine
- * n'a pas changé, seuls les identifiants ont changé. Le plus capable d'abord, le
- * plus petit en dernier comme filet.
+ * c'est ce qui casse en premier sur un petit modèle. Ce critère était juste ; il
+ * n'avait simplement **jamais été mesuré**, et le classement qu'on en avait tiré
+ * était faux.
  *
- * `qwen/qwen3.6-27b` est en troisième position et **son identifiant n'est pas
- * vérifié en production** : Groq le recommande comme remplaçant, mais s'il est
- * faux la chaîne le traitera comme un modèle retiré et passera au suivant. Un
- * maillon incertain placé au milieu coûte au pire un aller-retour ; l'omettre
- * coûterait un filet le jour où les deux autres saturent.
+ * Mesuré le 24 août 2026 contre le vrai Groq, sur « fais-moi un plan complet
+ * pour la semaine » avec un profil d'inscription complet :
+ *
+ * - `openai/gpt-oss-120b` : bloc `<PLAN>` présent, JSON valide, 15 min prescrites
+ *   pour 15 déclarées.
+ * - `qwen/qwen3.6-27b` : idem, 15/15, macro et micro objectifs produits. Son
+ *   identifiant, jusqu'ici non vérifié en production, répond donc bien.
+ * - `openai/gpt-oss-20b` : **aucun bloc `<PLAN>`**. Il refuse en toutes lettres
+ *   — « Je ne peux pas créer un plan complet pour toute la semaine en une seule
+ *   réponse » — puis écrit la routine en Markdown.
+ *
+ * Ce refus est la panne muette du projet dans sa forme la plus coûteuse : la
+ * réponse est bonne à lire, l'application reste vide. Quelqu'un qui demande un
+ * plan à l'heure de pointe, quand la chaîne a basculé, obtient une belle routine
+ * dans le chat et aucune tâche à cocher. Il en conclut que l'app ne sait pas
+ * appliquer ce que son coach dit.
+ *
+ * Le petit modèle reste en dernier — il converse correctement, et un filet qui
+ * répond du texte vaut mieux qu'une erreur — mais il n'est plus devant celui qui
+ * sait faire le travail.
  */
 export const MODELES_CHAT = [
   'openai/gpt-oss-120b',
-  'openai/gpt-oss-20b',
   'qwen/qwen3.6-27b',
+  'openai/gpt-oss-20b',
 ];
 
 /**
