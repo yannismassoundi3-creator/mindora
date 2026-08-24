@@ -87,21 +87,20 @@ export class RappelService {
     reponse: string,
     maintenant = new Date(),
     demande = '',
-  ): { texte: string; rappels: RappelDemande[] } {
+  ): { texte: string; rappels: RappelDemande[]; recales: number } {
     const rappels: RappelDemande[] = [];
+    // Compté ici et rendu à l'appelant : c'est lui qui sait quel modèle a
+    // répondu, et un filet qui se déclenche sans qu'on sache pour qui ne se
+    // mesure jamais. Voir le journal du service.
+    let recales = 0;
 
     const texte = reponse
       .replace(RappelService.MARQUEUR, (_tout, jour: string, hh: string, mm: string, contenu: string) => {
         if (rappels.length >= RappelService.MAX_PAR_MESSAGE) return '';
 
-        const quand = RappelService.recaler(
-          RappelService.depuisParis(jour, Number(hh), Number(mm)),
-          jour,
-          Number(hh),
-          Number(mm),
-          maintenant,
-          demande,
-        );
+        const brut = RappelService.depuisParis(jour, Number(hh), Number(mm));
+        const quand = RappelService.recaler(brut, jour, Number(hh), Number(mm), maintenant, demande);
+        if (quand.getTime() !== brut.getTime()) recales++;
         const propre = contenu.trim().replace(/\s+/g, ' ').slice(0, 200);
 
         // Un rappel dans le passé n'arrivera jamais, et un rappel dans six mois
@@ -117,7 +116,7 @@ export class RappelService {
       .replace(/\n{3,}/g, '\n\n')
       .trim();
 
-    return { texte: RappelService.nettoyerResidus(texte), rappels };
+    return { texte: RappelService.nettoyerResidus(texte), rappels, recales };
   }
 
   /**

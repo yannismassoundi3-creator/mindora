@@ -909,11 +909,25 @@ ${microList}
       if (userId && userId !== 'demo-user') {
         // Le message de la personne est passé avec la réponse : c'est lui qui dit
         // si un rappel posé pour demain était voulu ou reporté à tort.
-        const { texte: sansBalise, rappels: demandes } = RappelService.extraire(
-          reply,
-          new Date(),
-          prompt,
-        );
+        const {
+          texte: sansBalise,
+          rappels: demandes,
+          recales,
+        } = RappelService.extraire(reply, new Date(), prompt);
+
+        /*
+          Le maillon qui se trompe de jour, nomme.
+
+          La chaine bascule sur un modele plus petit des que Groq sature, et
+          c'est le cas courant en heure de pointe : sans cette ligne, on repare
+          un filet sans jamais savoir lequel des trois le declenche, ni si le
+          changement d'invite a servi a quelque chose.
+        */
+        if (recales) {
+          console.warn(
+            `[Groq] 📅 ${recales} rappel(s) reporte(s) a tort par ${modele}, ramene(s) au jour meme.`,
+          );
+        }
         const { texte: sansAnnul, numeros } = RappelService.extraireAnnulations(sansBalise);
         reply = sansAnnul;
 

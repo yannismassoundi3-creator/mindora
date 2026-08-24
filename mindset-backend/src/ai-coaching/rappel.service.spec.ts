@@ -232,6 +232,27 @@ describe('RappelService', () => {
       expect(rappels[0].quand.toISOString()).toBe('2026-08-25T06:00:00.000Z');
     });
 
+    it('compte ce qu il a recale, pour que le journal nomme le modele', () => {
+      /*
+        Un filet qui repare en silence est la meme panne muette que celle qu il
+        repare : sans ce compte, on ne saurait jamais lequel des trois maillons
+        de la chaine se trompe de jour, ni si le changement d invite a servi.
+      */
+      const rate = RappelService.extraire(
+        'A.<RAPPEL 2026-08-25T15:30>pompes</RAPPEL>',
+        lundiMidi,
+        'Rappelle-moi a 15h30',
+      );
+      expect(rate.recales).toBe(1);
+
+      const juste = RappelService.extraire(
+        'A.<RAPPEL 2026-08-24T15:30>pompes</RAPPEL>',
+        lundiMidi,
+        'Rappelle-moi a 15h30',
+      );
+      expect(juste.recales).toBe(0);
+    });
+
     it('ne touche a rien au-dela du lendemain', () => {
       // Un rappel pose a trois jours n est pas un decalage d un jour : c est une
       // demande qu on ne sait pas relire, et on n y touche pas.
