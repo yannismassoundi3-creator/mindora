@@ -1922,12 +1922,46 @@
    * Elle voyage maintenant dans l'adresse, et l'app rouvre l'offre sur la bonne
    * formule une fois le compte créé.
    */
+  /**
+   * La provenance survit au passage de la page d'accueil vers l'application.
+   *
+   * Ce bouton réécrivait l'adresse de zéro — `/?auth=true` — et jetait donc tout
+   * ce que le lien d'origine portait. Or `retenirProvenance()` vit dans le paquet
+   * React : quelqu'un qui arrive **directement** sur `landing.html?s=dm-insta` ne
+   * l'exécute jamais, et son étiquette disparaît à la seconde exacte où il se
+   * décide. La mesure disait alors « lien sans marque » pour un lien parfaitement
+   * marqué — une panne muette qui produit un résultat plausible, et qui fausse la
+   * seule donnée servant à décider où distribuer.
+   *
+   * Les trois noms sont ceux que l'app accepte (`PARAMETRES`, provenance.ts) :
+   * `s` est le nôtre, les deux autres sont ajoutés d'office par les outils de
+   * publication et les raccourcisseurs de liens.
+   *
+   * Rien n'est normalisé ici. Le serveur est seul juge de ce qui est comptable ;
+   * deux nettoyages, l'un dans cette page et l'autre là-bas, finiraient par ne
+   * plus donner la même étiquette.
+   */
+  const provenanceDuLien = () => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      for (const nom of ['s', 'utm_source', 'ref']) {
+        const valeur = params.get(nom);
+        if (valeur && valeur.trim()) return valeur.trim().slice(0, 64);
+      }
+    } catch (e) { /* Adresse illisible : on renonce à mesurer, jamais à faire entrer. */ }
+    return null;
+  };
+
   document.querySelectorAll('.open-modal-btn, .open-login-btn, #hero-cta-primary, #final-cta-primary').forEach(el => {
     el.addEventListener('click', e => {
       e.preventDefault();
       e.stopPropagation();
       const plan = el.getAttribute('data-plan');
-      window.location.href = plan ? '/?auth=true&plan=' + plan : '/?auth=true';
+      const source = provenanceDuLien();
+      const params = ['auth=true'];
+      if (plan) params.push('plan=' + encodeURIComponent(plan));
+      if (source) params.push('s=' + encodeURIComponent(source));
+      window.location.href = '/?' + params.join('&');
     }, true);
   });
 </script>
