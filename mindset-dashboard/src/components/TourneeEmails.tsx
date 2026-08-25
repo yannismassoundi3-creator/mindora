@@ -24,11 +24,21 @@ interface Bilan {
   destinataires?: Array<{ email: string; motif: string; inscritIlYA: number }>;
 }
 
+/*
+  Les barreaux portent leur silence, pas leur numéro.
+
+  Le repli `?? motif` afficherait « decroche_2 », lisible pour qui a écrit le code
+  et opaque pour qui lit l'écran — or c'est sur ce décompte qu'on décide d'appuyer
+  ou non sur « Envoyer pour de vrai ». Le libellé doit dire de quelle population on
+  parle, puisque c'est la seule question qu'on se pose devant cette liste.
+*/
 const LIBELLES_MOTIF: Record<string, string> = {
   bienvenue: 'accueil rattrapé',
   merci_abonnement: 'merci à un abonné',
   jamais_ouvert: 'jamais ouvert',
-  decroche: 'a décroché',
+  decroche: 'a décroché · 3 jours',
+  decroche_2: 'a décroché · 2 semaines',
+  decroche_3: 'a décroché · dernier message',
 };
 
 export const TourneeEmails: React.FC = () => {
@@ -55,9 +65,11 @@ export const TourneeEmails: React.FC = () => {
       </h2>
 
       <p className="secours-intro">
-        Trois messages, un seul par personne et par motif, jamais davantage : merci
-        à ceux qui viennent de s’abonner, et deux reprises de contact pour ceux qui
-        s’éloignent. Elle part seule chaque jour à 11h.
+        Un seul message par personne et par motif, jamais davantage : merci à ceux
+        qui viennent de s’abonner, et quatre reprises de contact pour ceux qui
+        s’éloignent — jamais ouvert, puis 3 jours, 2 semaines et 50 jours de
+        silence. Le dernier barreau annonce qu’il est le dernier, et c’est vrai :
+        plus rien ne part ensuite. Elle démarre seule chaque jour à 11h.
       </p>
 
       <div className="tournee-boutons">
