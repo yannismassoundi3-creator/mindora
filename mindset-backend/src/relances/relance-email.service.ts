@@ -7,14 +7,15 @@ import {
 import * as crypto from 'crypto';
 import * as cron from 'node-cron';
 import { PrismaService } from '../prisma/prisma.service';
-import { envoyerEmail, gabarit } from '../common/email';
+import { envoyerEmail, gabarit, echapperHtml } from '../common/email';
+import { repereDuProfil, ProfilCitable } from '../common/repere';
 import { lienApi, lienApp } from '../common/origines';
 import { MOTIF_BIENVENUE, envoyerBienvenue } from './bienvenue';
 
 /**
  * Les raisons d'écrire à quelqu'un. Sert aussi de clé d'unicité en base.
  *
- * Les deux premières reprennent contact avec quelqu'un qui s'éloigne. Les deux
+ * Les quatre premières reprennent contact avec quelqu'un qui s'éloigne. Les deux
  * autres font l'inverse : elles répondent à un geste qu'on vient de recevoir —
  * une inscription, un abonnement. Elles partagent le même mécanisme parce
  * qu'elles partagent la même exigence — une fois, jamais deux, et retirable d'un
@@ -24,8 +25,22 @@ import { MOTIF_BIENVENUE, envoyerBienvenue } from './bienvenue';
  * (`AuthService.register`). Il figure ici parce qu'il occupe la même table, donc
  * la même contrainte d'unicité, et parce que la tournée le rattrape quand le
  * premier envoi a échoué.
+ *
+ * **`decroche_2` et `decroche_3` sont numérotés au lieu d'être répétés, et c'est
+ * volontaire.** La contrainte `(user_id, motif)` est la seule garantie qu'un
+ * message ne parte pas deux fois ; la lever pour permettre une relance répétée
+ * aurait rendu possible, le jour d'un bug de date, la boucle qui envoie le même
+ * e-mail tous les matins. Un motif par échelon garde la garantie intacte : chaque
+ * texte part au plus une fois, et l'échelle s'arrête d'elle-même faute de barreau
+ * suivant.
  */
-export type MotifRelance = 'jamais_ouvert' | 'decroche' | 'merci_abonnement' | 'bienvenue';
+export type MotifRelance =
+  | 'jamais_ouvert'
+  | 'decroche'
+  | 'decroche_2'
+  | 'decroche_3'
+  | 'merci_abonnement'
+  | 'bienvenue';
 
 /**
  * Reprendre contact par e-mail avec ceux qui ne reviennent pas.
@@ -61,17 +76,73 @@ export class RelanceEmailService {
   static readonly JOURS_AVANT_DECROCHE = 3;
 
   /**
-   * Au-delà, on se tait.
+   * L'échelle du décrochage : un barreau, le silence qu'il exige, et rien après.
+   *
+   * **C'est le trou le plus coûteux du produit, mesuré le 25 août 2026.** Le
+   * décrochage n'avait qu'un seul message, envoyable une seule fois dans la vie
+   * d'un compte, et uniquement pendant ses trente premiers jours. Quelqu'un qui
+   * s'arrêtait au cinquième jour recevait donc **un** e-mail, puis plus jamais
+   * rien — et le stock de gens à qui le produit avait plu, mais qu'on ne pouvait
+   * plus joindre du tout, grossissait chaque jour. Sur 77 inscrits, l'écrasante
+   * majorité n'agit qu'une seule journée : c'est précisément cette population que
+   * le mécanisme abandonnait.
+   *
+   * Les paliers s'écartent au lieu de se répéter à intervalle fixe. Trois jours de
+   * silence, c'est un accroc ; quinze, c'est un abandon ; cinquante, c'est une
+   * autre vie. Trois messages qui disent trois choses différentes valent mieux que
+   * six qui disent la même — et au-delà du dernier barreau, se taire est la bonne
+   * réponse, pas un oubli.
+   */
+  static readonly ECHELONS_DECROCHE: ReadonlyArray<{ motif: MotifRelance; silenceMin: number }> = [
+    { motif: 'decroche', silenceMin: 3 },
+    { motif: 'decroche_2', silenceMin: 15 },
+    { motif: 'decroche_3', silenceMin: 50 },
+  ];
+
+  /**
+   * Au-delà, on se tait — **pour qui n'a jamais rien fait**.
    *
    * Écrire à quelqu'un qui s'est inscrit il y a trois mois et n'est jamais revenu
    * n'est plus une relance, c'est du démarchage — et c'est ce qui fait signaler un
-   * expéditeur. La borne protège aussi le premier passage de la tâche, qui trouve
-   * d'un coup tout l'historique des comptes dormants.
+   * expéditeur.
+   *
+   * **Cette borne ne s'applique plus au décrochage, et c'est la correction du
+   * 25 août 2026.** Les deux cas n'ont rien de commun : une adresse qui n'a jamais
+   * ouvert l'application est un prospect froid, alors que quelqu'un qui s'en est
+   * servi pendant trois jours en juillet a une histoire ici. Lui écrire en août
+   * n'est pas du démarchage, c'est la seule chose qui puisse le ramener. Confondre
+   * les deux revenait à condamner au silence exactement les gens qui avaient aimé
+   * le produit.
    */
   static readonly JOURS_MAX = 30;
 
+  /**
+   * L'horizon au-delà duquel la tournée ne va plus chercher personne.
+   *
+   * Il ne décide de rien tout seul — `motifPour` reste seul juge — mais il borne
+   * ce que la requête rapporte. Sans lui, chaque tournée lirait `daily_scores` de
+   * la base entière pour, la plupart du temps, ne rien avoir à en faire.
+   */
+  static readonly JOURS_HORIZON = 365;
+
   /** Plafond par tournée : une salve massive est ce qui abîme une réputation d'envoi. */
   static readonly MAX_PAR_TOURNEE = 50;
+
+  /**
+   * Plafond distinct pour les barreaux hauts de l'échelle.
+   *
+   * Le jour où l'échelle est déployée, la tournée découvre d'un coup tout
+   * l'arriéré : des dizaines de comptes dormants deviennent éligibles à
+   * `decroche_2` ou `decroche_3` dans la même minute. Cinquante messages de
+   * réveil partant le même matin depuis un domaine créé le 20 août 2026, c'est
+   * exactement le profil qu'un filtre attend d'un spammeur — et une réputation
+   * d'expéditeur se refait en semaines.
+   *
+   * Douze par jour, l'arriéré se vide en une semaine sans que personne ne le
+   * remarque. Le premier barreau n'est pas concerné : il suit une inscription
+   * récente, son volume est celui des arrivées.
+   */
+  static readonly MAX_REVEIL_PAR_TOURNEE = 12;
 
   /**
    * Jamais deux messages à la même personne dans la même semaine.
@@ -188,7 +259,9 @@ export class RelanceEmailService {
   ): MotifRelance | null {
     const jours = (depuis: Date) => Math.floor((maintenant.getTime() - depuis.getTime()) / 86_400_000);
     const age = jours(compte.created_at);
-    if (age > RelanceEmailService.JOURS_MAX) return null;
+    // L'âge ne disqualifie plus personne d'entrée : il ne tranche que le cas du
+    // compte resté vide, plus bas. Cette ligne-ci écartait aussi ceux qui avaient
+    // utilisé le produit puis cessé — voir `JOURS_MAX`.
 
     /*
       Le silence dû à quelqu'un qui vient de recevoir un message.
@@ -211,6 +284,13 @@ export class RelanceEmailService {
     const dernier = RelanceEmailService.dernierJourActif(compte.dailyScores);
 
     if (dernier === null) {
+      /*
+        Le compte n'a jamais rien porté : c'est le seul cas où l'âge décide, parce
+        que c'est le seul où il n'y a rien d'autre à regarder. Une adresse qui n'a
+        pas ouvert l'application en trois mois n'a pas d'histoire ici, et lui écrire
+        serait du démarchage.
+      */
+      if (age > RelanceEmailService.JOURS_MAX) return null;
       if (age < RelanceEmailService.JOURS_AVANT_JAMAIS_OUVERT) return null;
       return compte.dejaEnvoyes.includes('jamais_ouvert') ? null : 'jamais_ouvert';
     }
@@ -219,11 +299,48 @@ export class RelanceEmailService {
       « Décroché » se mesure sur la dernière venue, pas sur l'âge du compte : c'est
       la différence entre quelqu'un qui n'a jamais commencé et quelqu'un qui a
       commencé puis s'est arrêté. Les deux méritent des mots différents, et c'est
-      d'ailleurs la seule raison d'avoir deux motifs.
+      d'ailleurs la raison d'avoir des motifs distincts.
+
+      **L'échelle se lit du haut vers le bas.** On cherche le barreau le plus haut
+      que le silence justifie, jamais le premier venu : quelqu'un qui reparaît dans
+      la base après trois mois d'absence recevrait sinon « ça fait quelques jours »
+      — barreau jamais envoyé, donc techniquement éligible, et faux.
+
+      Un barreau déjà envoyé arrête tout au lieu de faire redescendre d'un cran :
+      les barreaux du bas sont des messages plus anciens, pas des rattrapages. Une
+      échelle qui repasse par ses barreaux inférieurs finit par tout renvoyer.
     */
     const silence = jours(new Date(`${dernier}T00:00:00.000Z`));
-    if (silence < RelanceEmailService.JOURS_AVANT_DECROCHE || silence > RelanceEmailService.JOURS_MAX) return null;
-    return compte.dejaEnvoyes.includes('decroche') ? null : 'decroche';
+
+    for (let i = RelanceEmailService.ECHELONS_DECROCHE.length - 1; i >= 0; i--) {
+      const echelon = RelanceEmailService.ECHELONS_DECROCHE[i];
+      if (silence < echelon.silenceMin) continue;
+      return compte.dejaEnvoyes.includes(echelon.motif) ? null : echelon.motif;
+    }
+
+    return null;
+  }
+
+  /** Les barreaux qui réveillent un compte dormant, par opposition au premier. */
+  static estReveil(motif: MotifRelance): boolean {
+    return motif === 'decroche_2' || motif === 'decroche_3';
+  }
+
+  /**
+   * Ce que la personne a dit vouloir, prêt à être cité — ou `null`.
+   *
+   * **C'est la moitié du travail du 25 août 2026.** Les relances constataient une
+   * absence et invitaient à revenir, exactement comme le ferait n'importe quelle
+   * application d'habitudes ; rien dedans ne prouvait qu'il y avait quelqu'un au
+   * courant de qui on est.
+   *
+   * La règle vit dans `common/repere.ts` parce que le brief du matin en a besoin
+   * aussi, et qu'un module d'envoi d'e-mails n'a pas à dépendre du module des
+   * notifications pour découper une chaîne. Elle reste exposée ici parce que c'est
+   * le nom sous lequel la tournée l'appelle.
+   */
+  static repereDuProfil(profil?: ProfilCitable): string | null {
+    return repereDuProfil(profil);
   }
 
   /*
@@ -269,9 +386,17 @@ export class RelanceEmailService {
     motif: MotifRelance,
     prenom: string,
     userId: string,
+    repere?: string | null,
   ): { sujet: string; html: string; texte: string; lienRetrait: string } {
     const retrait = this.lienRetrait(userId);
     const app = lienApp('');
+
+    // La citation existe en deux versions parce que l'e-mail existe en deux
+    // versions. Composer la partie texte à partir du HTML — ou l'inverse — ferait
+    // apparaître des `&amp;` dans la version lue par les clients qui refusent le
+    // HTML, et c'est justement là que se trouvent les boîtes les plus sévères.
+    const citation = repere ? `« ${repere} »` : null;
+    const citationHtml = repere ? `« ${echapperHtml(repere)} »` : null;
 
     if (motif === 'merci_abonnement') {
       /*
@@ -340,6 +465,119 @@ export class RelanceEmailService {
       };
     }
 
+    if (motif === 'decroche_2') {
+      /*
+        Deux semaines : le message qui ne parle plus de série.
+
+        Au troisième jour, une série interrompue est encore un fait présent — on
+        peut la reprendre. Au quinzième, la mentionner reviendrait à réclamer des
+        comptes sur quelque chose que la personne a cessé de suivre depuis
+        longtemps, et personne ne revient sur une convocation.
+
+        Ce qui reste vrai à quinze jours, en revanche, c'est la raison pour
+        laquelle elle s'était inscrite. C'est le seul angle qui ne se périme pas,
+        et c'est pour lui que `repereDuProfil` existe.
+      */
+      const relance = citation
+        ? `En arrivant, tu m'as dit : ${citation}. Deux semaines plus tard, la question n'est pas ` +
+          "de savoir si tu as tenu — tu n'as pas tenu, et ça n'a aucune importance. Elle est de " +
+          'savoir si tu le veux toujours.'
+        : "Deux semaines sans rien, ça ne veut pas dire que c'est raté. Ça veut dire que le plan " +
+          "que tu t'étais donné ne tenait pas dans ta vie réelle, ce qui est une information, pas " +
+          'un échec.';
+
+      const relanceHtml = citationHtml
+        ? `En arrivant, tu m'as dit : ${citationHtml}. Deux semaines plus tard, la question n'est ` +
+          "pas de savoir si tu as tenu — tu n'as pas tenu, et ça n'a aucune importance. Elle est " +
+          'de savoir si tu le veux toujours.'
+        : relance;
+
+      const suite =
+        "Ton compte n'a pas bougé, ton plan non plus. Et s'il ne collait pas, dis-le au coach : " +
+        "il en refait un en deux minutes. C'est plus court que de recommencer ailleurs.";
+
+      return {
+        // Un constat, jamais une injonction : « Tu nous manques » est la formule
+        // que tous les filtres ont apprise, et elle est fausse en plus d'être usée.
+        sujet: 'Deux semaines',
+        html: gabarit({
+          titre: `${prenom}, ça fait deux semaines.`,
+          corps: `<p>${relanceHtml}</p><p>${suite}</p>`,
+          bouton: { texte: 'Rouvrir mon plan', lien: app },
+          lienRetrait: retrait,
+        }),
+        texte:
+          `${prenom}, ça fait deux semaines.\n\n${relance}\n\n${suite}\n\n` +
+          `${app}\n\nNe plus recevoir ces messages : ${retrait}\n`,
+        lienRetrait: retrait,
+      };
+    }
+
+    if (motif === 'decroche_3') {
+      /*
+        Le dernier barreau, et il dit qu'il est le dernier.
+
+        **C'est vrai au moment où c'est écrit, et ça doit le rester.** Passé
+        `decroche_3`, aucun mécanisme du produit n'écrit plus à ce compte : la
+        tournée n'a pas de barreau suivant, le brief du matin ignore les comptes
+        inactifs depuis plus de sept jours, et le remerciement suppose un
+        abonnement. Quiconque ajoute un envoi de cycle de vie doit revenir ici :
+        une promesse de silence démentie deux mois plus tard vaut le signalement
+        pour indésirable qu'elle mérite.
+
+        Il demande une réponse plutôt qu'un retour. Quelqu'un d'absent depuis
+        cinquante jours ne revient pas sur un e-mail, et prétendre le contraire
+        n'aurait servi qu'à écrire un message de plus. Une réponse, même « je ne
+        reviendrai pas », vaut mieux : elle dit ce qui n'allait pas, et un échange
+        dans les deux sens est le meilleur signal de réputation qu'un domaine neuf
+        puisse recevoir.
+      */
+      const rappel = citation
+        ? `Tu étais venu pour ça : ${citation}. Peut-être que ce n'est plus d'actualité, et c'est ` +
+          'très bien.'
+        : "Peut-être que ce n'était pas le bon moment, et c'est très bien.";
+
+      const rappelHtml = citationHtml
+        ? `Tu étais venu pour ça : ${citationHtml}. Peut-être que ce n'est plus d'actualité, et ` +
+          "c'est très bien."
+        : rappel;
+
+      const corps1 = "Tu t'es inscrit, tu as essayé, puis tu es parti. Je ne vais pas te relancer indéfiniment : c'est mon dernier message.";
+      const corps3 =
+        "Ton compte reste ouvert et ton plan avec — rien n'est effacé, et tu n'auras rien à " +
+        'refaire si tu reviens un jour.';
+      const corps4 =
+        "Une chose, si tu as trente secondes : réponds à cet e-mail et dis-moi ce qui n'allait " +
+        "pas. C'est le genre de réponse qui change le produit, et j'en ai plus besoin que d'un " +
+        'compte de plus.';
+
+      return {
+        sujet: 'Mon dernier message',
+        html: gabarit({
+          titre: `${prenom}, je te laisse tranquille.`,
+          corps: `<p>${corps1}</p><p>${rappelHtml}</p><p>${corps3}</p><p>${corps4}</p>`,
+          bouton: { texte: 'Rouvrir mon plan', lien: app },
+          lienRetrait: retrait,
+        }),
+        texte:
+          `${prenom}, je te laisse tranquille.\n\n${corps1}\n\n${rappel}\n\n${corps3}\n\n${corps4}\n\n` +
+          `${app}\n\nNe plus recevoir ces messages : ${retrait}\n`,
+        lienRetrait: retrait,
+      };
+    }
+
+    /*
+      Le premier barreau : trois jours, la série vient de tomber.
+
+      La citation s'ajoute ici sans remplacer quoi que ce soit. À trois jours, le
+      fait le plus frais est l'interruption elle-même, et c'est de lui qu'il faut
+      partir ; l'objectif ne vient qu'en rappel de ce qu'on est en train de perdre.
+    */
+    const objectif = citation
+      ? ` Tu étais venu pour ça : ${citation}.`
+      : '';
+    const objectifHtml = citationHtml ? ` Tu étais venu pour ça : ${citationHtml}.` : '';
+
     return {
       sujet: 'Ta série s’est arrêtée',
       html: gabarit({
@@ -348,7 +586,7 @@ export class RelanceEmailService {
           "<p>Tu avais commencé, puis la série s'est interrompue. Ça arrive à tout le monde, " +
           "et ce n'est pas ce qui décide de la suite — ce qui décide, c'est de rouvrir.</p>" +
           "<p>Ton plan est toujours là, et ton coach sait où tu en étais. Une seule case " +
-          "cochée aujourd'hui suffit à repartir.</p>",
+          `cochée aujourd'hui suffit à repartir.${objectifHtml}</p>`,
         bouton: { texte: 'Reprendre aujourd’hui', lien: app },
         lienRetrait: retrait,
       }),
@@ -357,7 +595,7 @@ export class RelanceEmailService {
         "Tu avais commencé, puis la série s'est interrompue. Ça arrive à tout le monde, et ce " +
         "n'est pas ce qui décide de la suite — ce qui décide, c'est de rouvrir.\n\n" +
         "Ton plan est toujours là, et ton coach sait où tu en étais. Une seule case cochée " +
-        "aujourd'hui suffit à repartir.\n\n" +
+        `aujourd'hui suffit à repartir.${objectif}\n\n` +
         `${app}\n\nNe plus recevoir ces messages : ${retrait}\n`,
       lienRetrait: retrait,
     };
@@ -384,7 +622,16 @@ export class RelanceEmailService {
     destinataires?: Array<{ email: string; motif: MotifRelance; inscritIlYA: number }>;
   }> {
     const maintenant = new Date();
-    const limite = new Date(maintenant.getTime() - RelanceEmailService.JOURS_MAX * 86_400_000);
+    /*
+      L'horizon, et non plus la borne des trente jours.
+
+      Cette requête décidait en silence de qui pouvait être relancé : un compte de
+      plus de trente jours n'était même pas lu, si bien que l'échelle du décrochage
+      n'aurait jamais vu l'arriéré qu'elle existe pour rattraper. Une règle qui
+      vit dans un `where` est une règle qu'aucun test ne peut atteindre — c'est
+      `motifPour` qui tranche, et lui seul.
+    */
+    const limite = new Date(maintenant.getTime() - RelanceEmailService.JOURS_HORIZON * 86_400_000);
 
     const comptes = await this.prisma.user.findMany({
       where: {
@@ -398,6 +645,10 @@ export class RelanceEmailService {
         first_name: true,
         created_at: true,
         sync_data: { select: { daily_scores: true } },
+        // Ce que la personne a dit vouloir en s'inscrivant. C'est la seule chose
+        // qu'un message de relance puisse citer et qu'aucune autre application ne
+        // saurait dire — voir `repereDuProfil`.
+        ai_profile: { select: { objectives: true, situation: true } },
         // `envoye_le` autant que `motif` : le premier dit quoi ne pas répéter, le
         // second dit quand se taire. Sans lui, deux messages pouvaient se suivre à
         // quelques heures — voir `JOURS_DE_SILENCE_APRES_UN_MESSAGE`.
@@ -532,6 +783,17 @@ export class RelanceEmailService {
     // « tu n'es jamais revenu » le même jour se contredirait tout seul.
     const dejaEcrit = new Set([...accueillis, ...aRemercier.map((c) => c.id)]);
 
+    /*
+      Les réveils se comptent à part du reste de la tournée.
+
+      Le premier barreau du décrochage suit une inscription récente : son volume
+      est celui des arrivées, quelques-uns par jour. Les deux suivants réveillent
+      l'arriéré, et le jour où ils sont déployés cet arriéré est entier. Un même
+      plafond pour les deux populations laisserait partir cinquante messages de
+      réveil dans la même minute — voir `MAX_REVEIL_PAR_TOURNEE`.
+    */
+    let reveils = 0;
+
     for (const compte of comptes) {
       if (bilan.envoyes >= RelanceEmailService.MAX_PAR_TOURNEE) break;
       if (dejaEcrit.has(compte.id)) continue;
@@ -547,6 +809,22 @@ export class RelanceEmailService {
       );
       if (!motif) continue;
 
+      /*
+        `continue` et non `break` : le plafond ne vise que les réveils, et une
+        tournée qui s'arrêterait là priverait de leur relance les inscrits du jour,
+        qui viennent après dans la liste.
+
+        Le compteur monte sur la tentative, là où `bilan.envoyes` ne monte que sur
+        un envoi accepté. C'est volontaire et c'est le bon sens de l'erreur : un
+        refus de Brevo fait perdre une place dans le quota du jour, ce qui retarde
+        l'arriéré d'une tournée, alors que compter les seuls succès pourrait faire
+        tenter cinquante envois pour en réussir douze.
+      */
+      if (RelanceEmailService.estReveil(motif)) {
+        if (reveils >= RelanceEmailService.MAX_REVEIL_PAR_TOURNEE) continue;
+        reveils++;
+      }
+
       if (simulation) {
         // Le plafond compte quand même : la simulation doit décrire la tournée
         // réelle, pas une tournée idéale qui n'aura jamais lieu.
@@ -560,7 +838,12 @@ export class RelanceEmailService {
         continue;
       }
 
-      const { sujet, html, texte, lienRetrait } = this.contenu(motif, compte.first_name || 'toi', compte.id);
+      const { sujet, html, texte, lienRetrait } = this.contenu(
+        motif,
+        compte.first_name || 'toi',
+        compte.id,
+        RelanceEmailService.repereDuProfil(compte.ai_profile),
+      );
       const parti = await envoyerEmail({ destinataire: compte.email, sujet, html, texte, lienRetrait });
 
       if (!parti) {

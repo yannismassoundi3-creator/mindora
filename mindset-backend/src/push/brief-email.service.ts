@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { envoyerEmail, gabarit } from '../common/email';
 import { lienRetrait } from '../common/retrait';
 import { lienApp } from '../common/origines';
+import { repereDuProfil, ProfilCitable } from '../common/repere';
 
 /**
  * Le brief, porté par e-mail à ceux que la notification n'atteint pas.
@@ -93,6 +94,43 @@ export class BriefEmailService {
    */
   private static jourLocal(): string {
     return new Date().toLocaleDateString('fr-CA', { timeZone: 'Europe/Paris' });
+  }
+
+  /**
+   * Le seul texte que ce service accepte d'écrire sans le modèle, et une seule fois.
+   *
+   * **Ce qu'il répare.** L'e-mail d'accueil promet depuis le 25 août 2026 un
+   * message le lendemain matin : c'est le rendez-vous qui doit créer le deuxième
+   * jour, et une promesse tenue est le seul mécanisme de retour que ce produit
+   * puisse offrir à quelqu'un qui n'a pas installé l'application. Or la voie
+   * e-mail n'envoie rien quand le modèle ne répond pas — Groq saturé, clé
+   * refusée — et personne ne l'apprend : le compteur `sansTexte` monte, la boîte
+   * de la personne reste vide, et la première promesse du produit est démentie
+   * le premier matin. Exactement la panne muette que ce projet produit en série.
+   *
+   * **Pourquoi ce texte-ci n'est pas un e-mail générique**, ce que le service
+   * s'interdit par ailleurs : il cite les mots que la personne a écrits elle-même,
+   * il n'est donc identique pour personne d'autre. Et il ne peut pas devenir
+   * quotidien — `count() > 0` le retire dès qu'un premier brief est parti, quel
+   * qu'il soit. Un seul message dans la vie d'un compte, celui qui était promis.
+   *
+   * `null` quand rien n'a été dit à l'inscription : mieux vaut manquer une
+   * promesse que la tenir avec une phrase creuse.
+   */
+  async repliPremierMatin(
+    user: { id: string },
+    profil?: ProfilCitable,
+  ): Promise<string | null> {
+    const repere = repereDuProfil(profil);
+    if (!repere) return null;
+
+    const deja = await this.prisma.briefEmail.count({ where: { user_id: user.id } });
+    if (deja > 0) return null;
+
+    // « En arrivant » et non « hier » : le premier brief n'est pas forcément le
+    // lendemain de l'inscription, et une phrase mise en cache ne doit contenir que
+    // des faits qui survivent au délai — la règle vaut aussi pour un repli.
+    return `Tu m'as dit en arrivant : « ${repere} ». On commence par quoi aujourd'hui ?`;
   }
 
   /**

@@ -332,3 +332,57 @@ describe("MorningBriefService — quand la journée est vide", () => {
     expect(invite).toContain('RESTE À FAIRE');
   });
 });
+
+/*
+  Le deuxième jour, et ce que le coach a le droit de dire ce matin-là.
+
+  Mesuré le 25 août 2026 : deux tiers de ceux qui agissent n'agissent qu'une seule
+  journée. Quelqu'un qui a fini le questionnaire hier et n'a encore rien coché tombe
+  dans l'état « rien » — et recevait jusque-là « ta journée est vide, dis-moi ce que
+  tu veux faire », c'est-à-dire une question que le produit lui avait déjà posée la
+  veille, et dont il avait la réponse en base depuis l'inscription.
+*/
+describe('MorningBriefService — ce qu’il a dit vouloir en s’inscrivant', () => {
+  const service = new MorningBriefService();
+  const vide = { routines: [], micro_objectives: [] };
+
+  it('donne ses mots au modèle', () => {
+    const invite = service.buildPrompt('Yannis', vide, {
+      objectives: ['arrêter de repousser ma thèse'],
+      situation: null,
+    });
+
+    expect(invite).toContain('arrêter de repousser ma thèse');
+  });
+
+  it('impose de partir de là quand la journée est vide', () => {
+    const invite = service.buildPrompt('Yannis', vide, {
+      objectives: ['arrêter de repousser ma thèse'],
+      situation: null,
+    });
+
+    expect(invite).toMatch(/CE QU'IL A DIT VOULOIR|ses mots|ce pour quoi il est venu/);
+    // L'interdiction d'inventer une tâche ne disparaît pas pour autant : c'est elle
+    // qui a empêché « 10m de footing » d'être ordonné à un compte sans routine.
+    expect(invite).toMatch(/sans jamais en inventer|N'invente aucune tâche/);
+  });
+
+  it('garde l’ancien angle pour un compte sans profil', () => {
+    // `null` est un résultat normal : une partie des comptes n'a jamais fini le
+    // questionnaire. L'invite doit rester celle d'avant, pas une version amputée.
+    const invite = service.buildPrompt('Yannis', vide, null);
+
+    expect(invite).toMatch(/Ne lui donne AUCUNE tâche|Ne propose aucune activité précise/);
+    expect(invite).not.toContain('CE QU’IL A DIT VOULOIR');
+  });
+
+  it('ne cite pas un paragraphe entier', () => {
+    const invite = service.buildPrompt('Yannis', vide, {
+      objectives: ['a'.repeat(200)],
+      situation: null,
+    });
+
+    expect(invite).not.toContain('aaaa');
+    expect(invite).toMatch(/Ne lui donne AUCUNE tâche|Ne propose aucune activité précise/);
+  });
+});

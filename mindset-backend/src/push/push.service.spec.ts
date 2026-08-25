@@ -34,7 +34,7 @@ describe('PushService — tournée des briefs du matin', () => {
   let prisma: any;
   let morningBrief: { isActive: jest.Mock; generate: jest.Mock; computeStreak: jest.Mock };
   let bilanHebdo: { lecture: jest.Mock };
-  let briefEmail: { envoyer: jest.Mock };
+  let briefEmail: { envoyer: jest.Mock; repliPremierMatin: jest.Mock };
   const frontendUrlInitiale = process.env.FRONTEND_URL;
 
   const compteActif = (id: string) => ({
@@ -68,7 +68,13 @@ describe('PushService — tournée des briefs du matin', () => {
     bilanHebdo = { lecture: jest.fn().mockResolvedValue(null) };
     // Le brief part aussi par e-mail depuis le 20 août 2026, à ceux que la
     // notification n'atteint pas. Vrai par défaut : un envoi accepté se compte.
-    briefEmail = { envoyer: jest.fn().mockResolvedValue(true) };
+    briefEmail = {
+      envoyer: jest.fn().mockResolvedValue(true),
+      // `null` par défaut : le repli ne concerne que le tout premier brief d'un
+      // compte ayant dit quelque chose à l'inscription. Partout ailleurs, ne rien
+      // envoyer reste la bonne réponse quand le modèle se tait.
+      repliPremierMatin: jest.fn().mockResolvedValue(null),
+    };
     morningBrief = {
       isActive: jest.fn().mockReturnValue(true),
       generate: jest.fn().mockResolvedValue(null),
@@ -286,6 +292,42 @@ describe('PushService — tournée des briefs du matin', () => {
       */
       expect(resume.sansTexte).toBe(1);
       expect(resume.echecs).toBe(0);
+    });
+
+    it('tient quand même la promesse du tout premier matin', async () => {
+      /*
+        La seule exception, et elle ne peut pas se répéter.
+
+        L'e-mail d'accueil annonce un message pour le lendemain. Le silence du
+        modèle ce matin-là ne dément pas un brief, il dément une promesse — et
+        c'est la seule chose que la personne ait reçue du produit. `repliPremierMatin`
+        décide seul, sur la base d'un compte n'ayant jamais reçu de brief : la
+        tournée, elle, se contente de lui demander.
+      */
+      prisma.user.findMany.mockResolvedValue([{ ...compteActif('u1'), push_subscriptions: [] }]);
+      morningBrief.generate.mockResolvedValue(null);
+      briefEmail.repliPremierMatin.mockResolvedValue('Tu m’as dit en arrivant : « courir ». Alors ?');
+
+      const resume = await service.sendMorningBriefs('cron', PushService.REVEIL_PAR_DEFAUT);
+
+      expect(briefEmail.envoyer).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'u1' }),
+        'matin',
+        'Tu m’as dit en arrivant : « courir ». Alors ?',
+      );
+      expect(resume.parEmail).toBe(1);
+      expect(resume.sansTexte).toBe(0);
+    });
+
+    it('ne demande pas de repli quand le modèle a écrit', async () => {
+      // Le repli est un filet, pas une seconde source : l'interroger à chaque
+      // matin servi ferait une requête par personne et par tournée, pour rien.
+      prisma.user.findMany.mockResolvedValue([{ ...compteActif('u1'), push_subscriptions: [] }]);
+      morningBrief.generate.mockResolvedValue('Ta série tient depuis 4 jours.');
+
+      await service.sendMorningBriefs('cron', PushService.REVEIL_PAR_DEFAUT);
+
+      expect(briefEmail.repliPremierMatin).not.toHaveBeenCalled();
     });
 
     it('ne compte pas comme « sans texte » quelqu’un que l’e-mail a servi', async () => {

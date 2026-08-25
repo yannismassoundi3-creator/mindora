@@ -53,6 +53,31 @@ export const MOTIF_BIENVENUE = 'bienvenue';
 export const JOURS_AVANT_ACCUEIL_TARDIF = 2;
 
 /**
+ * Le rendez-vous, annoncé dès le premier message.
+ *
+ * **C'est la réponse du 25 août 2026 au mur du deuxième jour.** Deux tiers de ceux
+ * qui agissent n'agissent qu'une seule journée, et rien dans le produit ne donnait
+ * de raison de revenir : le plan est livré le premier jour, après quoi
+ * l'application demande du travail et rend un pourcentage. On revient pour un
+ * rendez-vous, pas pour un tableau de bord.
+ *
+ * Dire quand le prochain message arrive coûte une phrase et change la nature de
+ * celui de demain : il n'est plus une relance qui tombe, c'est quelque chose qui
+ * était prévu. Personne ne signale pour indésirable un message qu'on lui a annoncé.
+ *
+ * **La promesse doit être tenue, et elle l'est par construction :** quand le modèle
+ * ne répond pas le matin, `BriefEmailService.repliPremierMatin` écrit le tout
+ * premier brief sans lui. Ne jamais retirer l'un sans retirer l'autre — une
+ * promesse démentie au premier matin coûte plus cher que pas de promesse.
+ *
+ * Absent du message de rattrapage : annoncer un rendez-vous pour demain à quelqu'un
+ * à qui l'on écrit avec trois semaines de retard n'engage que celui qui l'écoute.
+ */
+const RENDEZ_VOUS =
+  "Demain matin, je t'écris avec ta journée. C'est comme ça que ça marche ici : " +
+  'un point par jour, court, et on avance.';
+
+/**
  * Le contenu, isolé pour être lisible dans un test sans passer par la base.
  *
  * Deux ouvertures, une seule demande. `tardif` ne change pas ce qu'on attend de la
@@ -131,6 +156,7 @@ export function contenuBienvenue(prenom: string, userId: string, tardif = false)
         '<p>Une seule chose à faire maintenant : parle-lui une fois. Raconte-lui où tu en es, ' +
         "même mal dit. Tant qu'il ne sait rien de toi, il ne peut te donner que des généralités " +
         "— c'est ce premier message qui transforme l'app en quelque chose qui te connaît.</p>" +
+        `<p>${RENDEZ_VOUS}</p>` +
         '<p>Si tu ne sais pas par où commencer, ou si quelque chose ne marche pas : réponds à ' +
         'cet e-mail. Je le lis.</p>',
       bouton: { texte: 'Parler à mon coach', lien: app },
@@ -143,6 +169,7 @@ export function contenuBienvenue(prenom: string, userId: string, tardif = false)
       'Une seule chose à faire maintenant : parle-lui une fois. Raconte-lui où tu en es, même ' +
       "mal dit. Tant qu'il ne sait rien de toi, il ne peut te donner que des généralités — " +
       "c'est ce premier message qui transforme l'app en quelque chose qui te connaît.\n\n" +
+      `${RENDEZ_VOUS}\n\n` +
       'Si tu ne sais pas par où commencer, ou si quelque chose ne marche pas : réponds à cet ' +
       `e-mail. Je le lis.\n\n${app}\n\nNe plus recevoir ces messages : ${retrait}\n`,
     lienRetrait: retrait,

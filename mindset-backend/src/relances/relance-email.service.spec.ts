@@ -21,6 +21,7 @@ describe('RelanceEmailService', () => {
     joursActifs?: number[];
     dejaEnvoyes?: string[];
     email?: string;
+    objectif?: string;
   }) => {
     const daily_scores: Record<string, number> = {};
     for (const j of opts.joursActifs ?? []) daily_scores[cle(j)] = 50;
@@ -30,8 +31,18 @@ describe('RelanceEmailService', () => {
       first_name: 'Yannis',
       created_at: ilYA(opts.inscritIlYA),
       sync_data: { daily_scores },
+      // Absent par défaut, et c'est voulu : une partie des comptes n'a jamais fini
+      // le questionnaire. Tous les tests qui ne le précisent pas vérifient donc au
+      // passage que les messages tiennent debout sans citation.
+      ai_profile: opts.objectif ? { objectives: [opts.objectif], situation: null } : null,
       relances: (opts.dejaEnvoyes ?? []).map((motif) => ({ motif })),
     };
+  };
+
+  /** Le corps du dernier e-mail parti, tel que Brevo l'a reçu. */
+  const dernierEnvoi = () => {
+    const appels = (global.fetch as any).mock.calls;
+    return JSON.parse(appels[appels.length - 1][1].body);
   };
 
   /**
@@ -121,15 +132,84 @@ describe('RelanceEmailService', () => {
       expect(bilan.envoyes).toBe(0);
     });
 
-    it('se tait passé un mois', async () => {
-      // Écrire à quelqu'un inscrit il y a trois mois n'est plus une relance, c'est
-      // du démarchage — et c'est ce qui fait signaler un expéditeur.
+    it('se tait passé un mois devant un compte resté vide', async () => {
+      // Écrire à quelqu'un inscrit il y a trois mois et jamais entré n'est plus une
+      // relance, c'est du démarchage — et c'est ce qui fait signaler un expéditeur.
+      const bilan = await avec([compte({ inscritIlYA: 90 })]);
+
+      expect(bilan.envoyes).toBe(0);
+    });
+
+    it('écrit quand même à celui qui avait commencé, trois mois après', async () => {
+      /*
+        Le pendant du test précédent, et la correction du 25 août 2026.
+
+        La borne des trente jours écartait les deux sans les distinguer. Or celui-ci
+        a une histoire ici : il s'est servi du produit, puis il a cessé. C'est
+        exactement la population que le mécanisme abandonnait — et celle qu'il y a
+        le plus de chances de ramener.
+      */
+      const bilan = await avec([compte({ inscritIlYA: 90, joursActifs: [90, 89] })]);
+
+      expect(bilan.parMotif).toEqual({ decroche_3: 1 });
+    });
+
+    it('monte d’un barreau quand le silence s’installe', async () => {
+      // Sans l'échelle, quelqu'un qui avait reçu « ça fait quelques jours » au
+      // troisième jour n'entendait plus jamais parler de personne.
       const bilan = await avec([
-        compte({ inscritIlYA: 90 }),
-        compte({ inscritIlYA: 90, joursActifs: [90, 89] }),
+        compte({ inscritIlYA: 40, joursActifs: [40, 20], dejaEnvoyes: ['decroche'] }),
+      ]);
+
+      expect(bilan.parMotif).toEqual({ decroche_2: 1 });
+    });
+
+    it('choisit le barreau du haut, pas le premier venu', async () => {
+      // Lue à l'endroit, l'échelle enverrait « ça fait quelques jours » à quelqu'un
+      // absent depuis deux mois : jamais envoyé, donc éligible, et faux.
+      const bilan = await avec([compte({ inscritIlYA: 90, joursActifs: [90, 60] })]);
+
+      expect(bilan.parMotif).toEqual({ decroche_3: 1 });
+    });
+
+    it('s’arrête en haut de l’échelle au lieu de redescendre', async () => {
+      // Le dernier message annonce qu'il est le dernier. Redescendre d'un barreau
+      // le démentirait, et c'est le genre de contradiction qui se paye en
+      // signalements.
+      const bilan = await avec([
+        compte({ inscritIlYA: 90, joursActifs: [90, 60], dejaEnvoyes: ['decroche_3'] }),
       ]);
 
       expect(bilan.envoyes).toBe(0);
+    });
+
+    it('ne réveille pas tout l’arriéré dans la même tournée', async () => {
+      /*
+        Le jour du déploiement, la tournée découvre d'un coup tous les comptes
+        dormants. Cinquante messages de réveil partant la même minute depuis un
+        domaine créé le 20 août 2026 est le profil qu'un filtre attend d'un
+        spammeur — et une réputation d'expéditeur se refait en semaines.
+      */
+      const dormants = Array.from({ length: 20 }, () =>
+        compte({ inscritIlYA: 90, joursActifs: [90, 60] }),
+      );
+
+      const bilan = await avec(dormants);
+
+      expect(bilan.envoyes).toBe(RelanceEmailService.MAX_REVEIL_PAR_TOURNEE);
+    });
+
+    it('laisse passer les inscrits du jour malgré le plafond de réveils', async () => {
+      // Le plafond ne vise que les réveils. S'il interrompait la tournée, les
+      // arrivées récentes — placées après dans la liste — perdraient leur relance
+      // chaque matin où l'arriéré est plein.
+      const dormants = Array.from({ length: 20 }, () =>
+        compte({ inscritIlYA: 90, joursActifs: [90, 60] }),
+      );
+
+      const bilan = await avec([...dormants, compte({ inscritIlYA: 3 })]);
+
+      expect(bilan.parMotif.jamais_ouvert).toBe(1);
     });
 
     it('ne renvoie jamais le même motif deux fois', async () => {
@@ -152,6 +232,66 @@ describe('RelanceEmailService', () => {
       ]);
 
       expect(bilan.parMotif).toEqual({ decroche: 1 });
+    });
+  });
+
+  /*
+    Ce qui distingue ces messages de ceux de n'importe quelle autre application.
+
+    Une série interrompue, tout le monde sait la constater. Ce que la personne a
+    écrit à l'inscription, personne d'autre ne l'a — et le seul trait commun de tous
+    ceux qui sont restés plus d'un jour est d'avoir eu le sentiment que quelqu'un
+    écoutait. La citation n'est donc pas un ornement : c'est le contenu.
+  */
+  describe('ce que la personne a dit vouloir', () => {
+    it('le cite dans le message des deux semaines', async () => {
+      await avec([
+        compte({
+          inscritIlYA: 40,
+          joursActifs: [40, 20],
+          objectif: 'arrêter de repousser ma thèse',
+        }),
+      ]);
+
+      expect(dernierEnvoi().htmlContent).toContain('arrêter de repousser ma thèse');
+      expect(dernierEnvoi().textContent).toContain('arrêter de repousser ma thèse');
+    });
+
+    it('écrit un message qui tient debout sans profil', async () => {
+      // Une partie des comptes n'a jamais fini le questionnaire. Composer la phrase
+      // autour d'une donnée absente produirait « tu m'as dit : « » », un e-mail qui
+      // part quand même et se voit une fois chez la personne.
+      const bilan = await avec([compte({ inscritIlYA: 40, joursActifs: [40, 20] })]);
+
+      expect(bilan.parMotif).toEqual({ decroche_2: 1 });
+      expect(dernierEnvoi().textContent).not.toContain('« »');
+      expect(dernierEnvoi().textContent).toContain('deux semaines');
+    });
+
+    it('ignore une réponse trop longue pour être citée', async () => {
+      // Le champ est libre : un paragraphe recollé au milieu d'un e-mail ne se lit
+      // pas comme une citation, il se lit comme un bug.
+      const bilan = await avec([
+        compte({ inscritIlYA: 40, joursActifs: [40, 20], objectif: 'a'.repeat(200) }),
+      ]);
+
+      expect(bilan.envoyes).toBe(1);
+      expect(dernierEnvoi().textContent).not.toContain('aaaa');
+    });
+
+    it('neutralise le balisage d’un objectif écrit à la main', async () => {
+      /*
+        `gabarit` assemble des chaînes : un `<` isolé dans un objectif avale la fin
+        du paragraphe, et l'e-mail part quand même, tronqué, sans que rien ne le
+        signale. La partie texte, elle, ne doit pas se retrouver avec des `&lt;` —
+        c'est celle que lisent les boîtes les plus sévères.
+      */
+      await avec([
+        compte({ inscritIlYA: 40, joursActifs: [40, 20], objectif: 'perdre <b>5 kg</b>' }),
+      ]);
+
+      expect(dernierEnvoi().htmlContent).toContain('perdre &lt;b&gt;5 kg&lt;/b&gt;');
+      expect(dernierEnvoi().textContent).toContain('perdre <b>5 kg</b>');
     });
   });
 

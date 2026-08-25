@@ -115,6 +115,27 @@ export async function envoyerEmail({
 }
 
 /**
+ * Rendre inoffensif un texte écrit par la personne avant de le poser dans du HTML.
+ *
+ * `gabarit` assemble des chaînes : tout ce qu'on lui passe est interprété comme du
+ * balisage. Tant que les e-mails ne contenaient que des prénoms, le risque restait
+ * théorique. Depuis le 25 août 2026 ils citent l'objectif que la personne a tapé
+ * elle-même à l'inscription — un champ libre, qui peut contenir n'importe quoi.
+ *
+ * Le danger immédiat n'est pas le script, qu'aucun client de messagerie sérieux
+ * n'exécute : c'est le message cassé. Un `<` isolé dans un objectif avale la fin
+ * du paragraphe, et l'e-mail part quand même, tronqué, sans que rien ne le
+ * signale. Encore une panne qui produit un résultat plausible.
+ */
+export function echapperHtml(texte: string): string {
+  return texte
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/**
  * La mise en page commune, et le pied de page qui porte le lien de retrait.
  *
  * Ce lien n'est pas une politesse : un courrier de relance qui n'offre aucun moyen

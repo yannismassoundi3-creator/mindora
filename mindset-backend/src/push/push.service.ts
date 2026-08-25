@@ -1126,7 +1126,15 @@ export class PushService implements OnModuleInit {
 
   private async executerTourneeBriefs(creneau?: string): Promise<ResumeTournee> {
     const tous = await this.prisma.user.findMany({
-      include: { push_subscriptions: true, sync_data: true, ai_profile: { select: { reveil: true } } },
+      include: {
+        push_subscriptions: true,
+        sync_data: true,
+        // `reveil` décide de l'heure, les deux autres décident du contenu : c'est
+        // ce que la personne a dit vouloir en s'inscrivant, la seule matière dont
+        // le coach dispose pour parler à quelqu'un qui n'a encore rien coché —
+        // c'est-à-dire à la majorité des comptes au deuxième jour.
+        ai_profile: { select: { reveil: true, objectives: true, situation: true } },
+      },
     });
 
     /*
@@ -1197,7 +1205,11 @@ export class PushService implements OnModuleInit {
         }
 
         try {
-          const texte = await this.morningBrief.generate(user.first_name, user.sync_data);
+          const texte = await this.morningBrief.generate(
+            user.first_name,
+            user.sync_data,
+            (user as any).ai_profile,
+          );
           /*
             Le silence sans texte est compté, il n'est plus déduit.
 
@@ -1207,8 +1219,19 @@ export class PushService implements OnModuleInit {
             revenait à écrire le même `0 échec(s)` pour « tout le monde a été
             servi » et pour « un tiers de la voie e-mail n'a rien reçu ».
           */
-          if (!texte) sansTexte++;
-          else if (await this.briefEmail.envoyer(user, 'matin', texte)) parEmail++;
+          /*
+            Le repli ne remplace pas le modèle, il tient une promesse.
+
+            Il ne sert qu'au tout premier brief d'un compte — celui que l'e-mail
+            d'accueil annonce — et seulement si le modèle n'a rien écrit. Les
+            matins suivants, `sansTexte` reprend son rôle : mieux vaut ne rien
+            envoyer que d'envoyer le même texte tous les jours.
+          */
+          const aEnvoyer =
+            texte ?? (await this.briefEmail.repliPremierMatin(user, (user as any).ai_profile));
+
+          if (!aEnvoyer) sansTexte++;
+          else if (await this.briefEmail.envoyer(user, 'matin', aEnvoyer)) parEmail++;
         } catch (e) {
           echecs++;
           this.logger.error(
@@ -1269,11 +1292,14 @@ export class PushService implements OnModuleInit {
   async sendMorningBriefTo(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { sync_data: true },
+      // Le profil est chargé ici aussi, et pas seulement dans la tournée : c'est ce
+      // chemin qu'emprunte la voie notification, et un brief personnalisé par
+      // e-mail mais générique en notification serait le pire des deux.
+      include: { sync_data: true, ai_profile: { select: { objectives: true, situation: true } } },
     });
     if (!user) return { envoye: false, personnalise: false, message: 'Utilisateur introuvable.' };
 
-    const texte = await this.morningBrief.generate(user.first_name, user.sync_data);
+    const texte = await this.morningBrief.generate(user.first_name, user.sync_data, user.ai_profile);
     const body = texte ?? "Tes objectifs t'attendent, c'est l'heure de commencer ta journée.";
 
     /*

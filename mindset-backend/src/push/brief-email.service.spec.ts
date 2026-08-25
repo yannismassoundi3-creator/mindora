@@ -34,6 +34,7 @@ describe('BriefEmailService', () => {
       briefEmail: {
         findUnique: jest.fn().mockResolvedValue(null),
         create: jest.fn().mockResolvedValue({}),
+        count: jest.fn().mockResolvedValue(0),
       },
     };
 
@@ -233,6 +234,49 @@ describe('BriefEmailService', () => {
 
       await service.envoyer(COMPTE, 'bilan', 'Ta semaine.');
       expect((envoyerEmail as jest.Mock).mock.calls.at(-1)[0].texte).toContain('Voir ma semaine');
+    });
+  });
+
+  /*
+    La promesse du premier matin, et ce qui la tient quand le modèle se tait.
+
+    L'e-mail d'accueil annonce depuis le 25 août 2026 un message le lendemain :
+    c'est le rendez-vous censé créer le deuxième jour. Or la voie e-mail n'envoie
+    rien quand le modèle ne répond pas — Groq saturé, clé refusée — et rien ne le
+    signale : le compteur `sansTexte` monte, la boîte de la personne reste vide, et
+    la première promesse du produit est démentie le premier matin.
+  */
+  describe('le repli du tout premier matin', () => {
+    const PROFIL = { objectives: ['arrêter de repousser ma thèse'], situation: null };
+
+    it('écrit une phrase à partir de ses mots', async () => {
+      const texte = await service.repliPremierMatin(COMPTE, PROFIL);
+
+      expect(texte).toContain('arrêter de repousser ma thèse');
+    });
+
+    it('ne sert qu’une fois dans la vie d’un compte', async () => {
+      // La seule chose qui empêche ce texte de devenir un e-mail quotidien : dès
+      // qu'un brief est parti, quel qu'il soit, le repli se retire.
+      prisma.briefEmail.count.mockResolvedValue(1);
+
+      expect(await service.repliPremierMatin(COMPTE, PROFIL)).toBeNull();
+    });
+
+    it('se tait plutôt que de tenir la promesse avec une phrase creuse', async () => {
+      expect(await service.repliPremierMatin(COMPTE, null)).toBeNull();
+      expect(
+        await service.repliPremierMatin(COMPTE, { objectives: [], situation: null }),
+      ).toBeNull();
+    });
+
+    it('ne parle pas d’hier, qui n’est pas forcément vrai', async () => {
+      // Le premier brief n'est pas forcément le lendemain de l'inscription : un
+      // texte ne doit contenir que des faits qui survivent au délai qui le sépare
+      // du moment où il a été décidé.
+      const texte = await service.repliPremierMatin(COMPTE, PROFIL);
+
+      expect(texte).not.toContain('Hier');
     });
   });
 });

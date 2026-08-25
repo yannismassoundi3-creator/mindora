@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { lireReponseGroq } from '../common/groq';
 import { chaineCourte, appelerMaillon, MaillonCourt } from '../common/chaine-courte';
 import { aDesRoutines, objectifsDeLaSemaine, tachesDuJour } from './taches';
+import { repereDuProfil, ProfilCitable } from '../common/repere';
 import { JETONS_TEXTE_COURT, MODELES_COURTS } from '../common/modeles';
 
 /**
@@ -70,7 +71,7 @@ export class MorningBriefService {
    * même construction (« prénom, jour N, tâches ») et le message redevient un
    * automatisme au bout d'une semaine — le défaut qu'on cherchait justement à corriger.
    */
-  private angleDuJour(etat: 'rien' | 'repos' | 'reste' | 'toutFait'): string {
+  private angleDuJour(etat: 'rien' | 'repos' | 'reste' | 'toutFait', aUnRepere = false): string {
     // Journée déjà bouclée : réclamer quoi que ce soit serait absurde. On félicite
     // et on projette, sans jamais redemander une tâche cochée.
     if (etat === 'toutFait') {
@@ -89,6 +90,31 @@ export class MorningBriefService {
     // footing » un matin. Ici on ne demande rien : on invite à décider quoi faire,
     // ce qui est exactement le geste attendu à ce moment-là.
     if (etat === 'rien') {
+      /*
+        L'état « rien » est celui du deuxième jour, et c'est le mur du produit.
+
+        Mesuré le 25 août 2026 : deux tiers de ceux qui agissent n'agissent qu'une
+        seule journée. Quelqu'un qui a fini le questionnaire hier et n'a encore
+        rien coché tombe exactement ici — et jusqu'à présent il recevait
+        « ta journée est vide, dis-moi ce que tu veux faire ». C'est-à-dire une
+        question que le produit lui avait **déjà posée la veille**, et dont il
+        avait la réponse en base depuis l'inscription.
+
+        Quand un repère existe, l'angle impose donc de le nommer. La différence
+        n'est pas cosmétique : « ta journée est vide » se lit comme un formulaire
+        qui attend d'être rempli, « tu m'as dit vouloir X, on commence par quoi »
+        se lit comme quelqu'un qui a écouté. C'est la seule chose qu'un carnet
+        d'habitudes ne saura jamais dire.
+      */
+      if (aUnRepere) {
+        const angles = [
+          "Il n'a rien de prévu aujourd'hui. Pars de CE QU'IL A DIT VOULOIR, reprends ses mots, et demande-lui la première action concrète — sans jamais en inventer une à sa place.",
+          "Sa journée est vide. Rappelle-lui ce pour quoi il est venu en citant ses mots, et demande-lui par quoi il veut commencer aujourd'hui. N'invente aucune tâche.",
+        ];
+        const jour = Math.floor(Date.now() / 86400000);
+        return angles[jour % angles.length];
+      }
+
       const angles = [
         "Il n'a rien de prévu aujourd'hui. Ne lui donne AUCUNE tâche : invite-le à ouvrir le chat pour décider avec toi de sa première action.",
         "Sa journée est vide. Ne propose aucune activité précise : demande-lui simplement ce qu'il veut accomplir aujourd'hui, et dis-lui que tu l'attends dans le chat.",
@@ -122,7 +148,7 @@ export class MorningBriefService {
     return angles[jour % angles.length];
   }
 
-  buildPrompt(prenom: string, sync: any): string {
+  buildPrompt(prenom: string, sync: any, profil?: ProfilCitable): string {
     const streak = this.computeStreak(sync?.daily_scores);
     // Les deux listes sont datées, chacune à son rythme : les routines se décochent
     // chaque nuit, les objectifs chaque lundi, et dans les deux cas c'est le client
@@ -145,8 +171,21 @@ export class MorningBriefService {
           ? 'toutFait'
           : 'reste';
 
+    /*
+      Ce qu'il a dit vouloir, et qui ne périme pas.
+
+      Tout le reste de cette invite décrit la journée : les tâches, la série, les
+      objectifs de la semaine. Ce sont des données que le client écrit, donc des
+      données qu'un compte inactif n'a pas. Le repère, lui, vient du questionnaire
+      d'inscription : il existe dès le premier jour et il est le même le trentième.
+      C'est la seule ligne de cette invite sur laquelle le coach puisse s'appuyer
+      pour parler à quelqu'un qui n'a encore rien fait.
+    */
+    const repere = repereDuProfil(profil);
+
     return [
       `Prénom : ${prenom || 'champion'}`,
+      repere ? `CE QU'IL A DIT VOULOIR en s'inscrivant (ses mots) : ${repere}` : '',
       `Série en cours : ${streak} jour(s) d'affilée`,
       routines.faites.length ? `DÉJÀ FAIT aujourd'hui (ne le redemande jamais) : ${routines.faites.join(', ')}` : '',
       toutEstFait
@@ -158,7 +197,7 @@ export class MorningBriefService {
             : `Aucune tâche planifiée aujourd'hui`,
       objectifs.restantes.length ? `Objectifs de la semaine en cours : ${objectifs.restantes.slice(0, 2).join(', ')}` : '',
       '',
-      `Angle imposé aujourd'hui : ${this.angleDuJour(etat)}`,
+      `Angle imposé aujourd'hui : ${this.angleDuJour(etat, !!repere)}`,
     ]
       .filter(Boolean)
       .join('\n');
@@ -168,7 +207,7 @@ export class MorningBriefService {
    * Retourne null si l'IA n'est pas disponible : l'appelant retombe alors sur le
    * message générique. Une notification banale vaut mieux que pas de notification.
    */
-  async generate(prenom: string, sync: any): Promise<string | null> {
+  async generate(prenom: string, sync: any, profil?: ProfilCitable): Promise<string | null> {
     const chaine = chaineCourte(process.env.GROQ_API_KEY);
     if (chaine.length === 0) return null;
 
@@ -184,7 +223,7 @@ export class MorningBriefService {
       "Un seul emoji maximum. Réponds uniquement par le texte de la notification.",
     ].join(' ');
 
-    const invite = this.buildPrompt(prenom, sync);
+    const invite = this.buildPrompt(prenom, sync, profil);
 
     for (const maillon of chaine) {
       const texte = await this.tenter(maillon, systeme, invite);
