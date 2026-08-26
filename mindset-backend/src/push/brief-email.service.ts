@@ -57,19 +57,52 @@ export class BriefEmailService {
    * personne, le bilan est hebdomadaire, et l'alerte de série ne peut partir que
    * le soir où une série vivante n'a rien de coché — donc jamais deux soirs de
    * suite, par construction.
+   *
+   * ## `rappel`, le seul de la liste que la personne a réclamé elle-même
+   *
+   * Tous les autres sont des messages que **nous** décidons d'envoyer. Celui-ci
+   * est l'inverse : quelqu'un a écrit « rappelle-moi mes 25 pompes à 15h30 », le
+   * coach a répondu « c'est noté », et une ligne existe en base avec cette heure.
+   *
+   * Elle ne partait que par notification. Sur 52 comptes mesurés le 20 août, 46
+   * ne pouvaient donc **rien** recevoir : la ligne était écrite, la tournée des
+   * cinq minutes la ramassait, `sendNotification` ne trouvait aucun abonnement,
+   * et le rappel était abandonné au bout de deux heures. Exactement la panne que
+   * `RappelService` existe pour empêcher — la promesse crédible et muette,
+   * découverte à 15 h 30 en ne recevant rien — refaite un cran plus bas, dans le
+   * canal au lieu du modèle.
+   *
+   * Son volume ne se plafonne pas comme les autres, et c'est assumé : il est
+   * borné par la personne elle-même, qui n'en pose pas trois par jour, et par
+   * `MAX_PAR_MESSAGE`. Un e-mail qu'on a demandé pour une heure précise n'est pas
+   * du volume, c'est un rendez-vous.
    */
-  static readonly CRENEAUX_CONNUS = ['matin', 'midi', 'soir', 'coup-de-pouce', 'bilan', 'serie'];
+  static readonly CRENEAUX_CONNUS = [
+    'matin',
+    'midi',
+    'soir',
+    'coup-de-pouce',
+    'bilan',
+    'serie',
+    'rappel',
+  ];
 
   /**
    * Les créneaux réellement autorisés à partir.
    *
    * Le défaut n'ouvre pas tout : `midi` et `soir` ajouteraient deux e-mails
    * quotidiens à tout le monde, ce qui est le signalement type qu'un filtre attend
-   * d'un domaine sans historique. Les trois nouveaux, eux, sont rares par
-   * construction — voir `CRENEAUX_CONNUS`.
+   * d'un domaine sans historique. Les autres, eux, sont rares par construction —
+   * voir `CRENEAUX_CONNUS`.
+   *
+   * `rappel` est allumé par défaut, et c'est le seul de la liste pour lequel
+   * l'éteindre serait un mensonge : le coach confirme l'heure à la personne, donc
+   * le message doit partir. Le couper reviendrait à laisser le produit promettre
+   * ce qu'il ne fait pas — la variable existe pour régler du volume subi, pas pour
+   * annuler un rendez-vous demandé.
    */
   static creneauxActifs(): string[] {
-    const brut = process.env.BRIEF_EMAIL_CRENEAUX ?? 'matin,coup-de-pouce,bilan,serie';
+    const brut = process.env.BRIEF_EMAIL_CRENEAUX ?? 'matin,coup-de-pouce,bilan,serie,rappel';
     const demandes = brut
       .split(',')
       .map((c) => c.trim().toLowerCase())
@@ -145,6 +178,21 @@ export class BriefEmailService {
     user: { id: string; email: string; first_name: string | null; relances_email?: boolean },
     creneau: string,
     texte: string,
+    /**
+     * Ce qui rend cet envoi unique, quand la journée ne suffit pas.
+     *
+     * L'unicité par défaut est « un message de ce créneau par jour », et elle est
+     * juste pour tout ce qui est périodique : deux briefs du matin le même matin
+     * sont un défaut, jamais une intention.
+     *
+     * Elle est fausse pour les rappels. Quelqu'un peut en poser trois dans la
+     * même journée — 7 h, 13 h, 22 h 30 — et ce sont trois rendez-vous distincts
+     * qu'il a demandés lui-même. Sous la clé du jour, seul le premier partirait,
+     * et les deux autres seraient marqués comme traités sans jamais être écrits :
+     * la panne muette, refaite par le garde-fou censé l'empêcher. L'appelant
+     * passe donc l'identifiant du rappel, et chacun a sa propre ligne.
+     */
+    cle?: string,
   ): Promise<boolean> {
     if (!BriefEmailService.creneauActif(creneau)) return false;
 
@@ -153,7 +201,7 @@ export class BriefEmailService {
     // message dont il se retirait ce jour-là.
     if (user.relances_email === false) return false;
 
-    const jour = BriefEmailService.jourLocal();
+    const jour = cle ?? BriefEmailService.jourLocal();
 
     /*
       Le doublon, empêché avant l'envoi et non après.
@@ -226,6 +274,14 @@ export class BriefEmailService {
     if (creneau === 'serie') return `${qui}ta série s'arrête ce soir`;
     if (creneau === 'bilan') return `${qui}ta semaine en chiffres`;
     if (creneau === 'coup-de-pouce') return `${qui}un mot de ton coach`;
+    /*
+      « que tu m'as demandé » n'est pas une formule de politesse, c'est le fait qui
+      distingue ce message de tous les autres : c'est le seul que la personne a
+      réclamé, pour une heure qu'elle a choisie. Le dire dans le sujet est ce qui
+      lui évite de le lire comme une relance de plus — et c'est aussi la seule
+      raison légitime de lui écrire hors de ses créneaux habituels.
+    */
+    if (creneau === 'rappel') return `${qui}le rappel que tu m'as demandé`;
     return `${qui}ton brief du jour`;
   }
 
@@ -236,6 +292,7 @@ export class BriefEmailService {
     if (creneau === 'serie') return `Il te reste ce soir${qui}`;
     if (creneau === 'bilan') return `Ta semaine${qui}`;
     if (creneau === 'coup-de-pouce') return `Ton coach${qui}`;
+    if (creneau === 'rappel') return `Ton rappel${qui}`;
     return `Bonjour${qui}`;
   }
 

@@ -1,4 +1,4 @@
-import { construirePromptBase } from './prompt-coach';
+import { construirePromptBase, construirePromptPlan } from './prompt-coach';
 
 /*
   Ce que ce fichier peut prouver, et ce qu'il ne peut pas.
@@ -84,5 +84,51 @@ describe('le prompt du coach', () => {
   it('interdit d’inventer un chiffre', () => {
     // Mesuré : « 0 % sur les 4 jours » sur des données qui ne disaient pas ça.
     expect(prompt).toContain('AUCUN chiffre inventé');
+  });
+
+  it('dit qu’un rappel non demandé sera jeté', () => {
+    /*
+      Mesuré au banc du 21 août 2026 : le modèle pose un rappel de sa propre
+      initiative environ une fois sur quatre, alors que la règle le lui interdit
+      en toutes lettres. Le code l'écarte désormais — mais tant qu'il l'ignore, il
+      dépense à chaque fois la place qu'il aurait pu employer à lui parler.
+    */
+    expect(prompt).toContain("jetée par l'application avant d'être écrite");
+  });
+});
+
+/*
+  Le schéma du plan, et la seule faute qu'il ne rattrape pas.
+
+  Mesuré contre le vrai Groq le 24 août 2026 : `openai/gpt-oss-20b` — dernier
+  maillon de la chaîne, donc celui qui répond quand les deux premiers saturent —
+  refuse « Je ne peux pas créer un plan complet pour toute la semaine en une seule
+  réponse », puis écrit la routine en Markdown. La réponse est agréable à lire et
+  l'application reste vide.
+
+  Le code a désormais son filet — il redescend la chaîne en écartant le maillon
+  qui a refusé — mais un filet ne remplace pas une consigne : il coûte un appel de
+  plus à chaque fois qu'il sert.
+*/
+describe('le schéma du plan', () => {
+  const plan = construirePromptPlan();
+
+  it('interdit de refuser le bloc quand un plan est ordonné', () => {
+    expect(plan).toContain("TU NE REFUSES JAMAIS D'ÉCRIRE CE BLOC");
+    // Le refus mesuré, cité mot pour mot : c'est ce qui empêche de le reformuler
+    // en quelque chose que le modèle ne reconnaîtrait plus.
+    expect(plan).toContain('Je ne peux pas créer un plan complet en une seule réponse');
+  });
+
+  it('donne la sortie de secours plutôt que le refus', () => {
+    // Un refus vient presque toujours d'une demande jugée trop large. Sans une
+    // porte de sortie, l'interdiction ci-dessus n'a nulle part où mener.
+    expect(plan).toContain('avec MOINS de tâches');
+  });
+
+  it('interdit d’écrire le plan en prose', () => {
+    // C'est la forme exacte qu'a prise le refus : une belle routine en liste, dans
+    // le texte, dont rien n'est ajouté ni cochable.
+    expect(plan).toContain("TU NE L'ÉCRIS JAMAIS EN PROSE");
   });
 });

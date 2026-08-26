@@ -322,16 +322,33 @@ export class PushService implements OnModuleInit {
    * parti — exactement la panne qu on repare ici. Un rappel trop en retard n est
    * pas envoye du tout : il reveillerait une intention morte et apprendrait
    * surtout que l application n est pas a l heure.
+   *
+   * ## Deux canaux, et lequel décide
+   *
+   * La notification d'abord, toujours : c'est le seul canal qui arrive à l'heure
+   * dite, et l'heure est ce que la personne a choisi.
+   *
+   * **L'e-mail quand il n'y a aucun abonnement**, et seulement dans ce cas. Sur 52
+   * comptes mesurés le 20 août, 46 n'en ont aucun — un iPhone qui n'a pas installé
+   * l'app ne peut rien recevoir. Pour eux, tout ce fichier fonctionnait
+   * parfaitement dans le vide : la ligne écrite, la tournée qui la ramasse, et un
+   * téléphone muet à l'heure promise.
+   *
+   * Le partage est fait sur `abonnements`, pas sur `envoyees` : un abonnement qui
+   * échoue une fois est un téléphone éteint cinq minutes, et la tournée suivante
+   * réessaiera. Doubler par e-mail à la première secousse enverrait deux fois le
+   * même rappel à quelqu'un qui n'en attendait qu'un.
    */
   async envoyerRappels() {
     await this.rappels.abandonnerLesPerimes();
     const dus = await this.rappels.dus();
-    if (dus.length === 0) return { dus: 0, envoyes: 0 };
+    if (dus.length === 0) return { dus: 0, envoyes: 0, parMail: 0 };
 
     let envoyes = 0;
+    let parMail = 0;
     for (const r of dus) {
       try {
-        const { envoyees } = await this.sendNotification(r.user_id, {
+        const { abonnements, envoyees } = await this.sendNotification(r.user_id, {
           title: '⏰ Rappel',
           body: r.texte,
           url: this.lienVers(),
@@ -350,10 +367,38 @@ export class PushService implements OnModuleInit {
         if (envoyees > 0) {
           await this.rappels.marquerEnvoye(r.id);
           envoyes++;
+        } else if (abonnements === 0) {
+          /*
+            Aucun appareil abonné : c'est definitif, pas passager. Reessayer
+            pendant deux heures ne ferait qu'attendre un abonnement qui
+            n'arrivera pas — la personne n'a pas installe l'application, et ce
+            n'est pas a 15 h 30 qu'elle va le faire.
+
+            L'e-mail est donc le seul canal qui reste, et il est marque comme
+            envoye **seulement s'il est parti** : `envoyer` rend `false` quand la
+            personne s'est retiree des e-mails ou quand Brevo refuse. Dans ces
+            cas-la on ne marque rien, la tournee suivante reessaiera, et la borne
+            de retard fermera la ligne. Le coach, lui, a deja prevenu au moment de
+            poser le rappel — voir `confirmerRappels`.
+          */
+          const user = await this.prisma.user.findUnique({
+            where: { id: r.user_id },
+            select: { id: true, email: true, first_name: true, relances_email: true },
+          });
+
+          if (user && (await this.briefEmail.envoyer(user, 'rappel', r.texte, `rappel:${r.id}`))) {
+            await this.rappels.marquerEnvoye(r.id);
+            envoyes++;
+            parMail++;
+          } else {
+            this.logger.warn(
+              'Rappel ' + r.id + ' non remis a ' + r.user_id + ' : ni notification, ni e-mail.',
+            );
+          }
         } else {
-          // Aucun abonnement joignable : la ligne reste ouverte et la tournee
-          // suivante reessaiera, jusqu a la borne de retard. Un telephone eteint
-          // cinq minutes ne doit pas couter le rappel.
+          // Des abonnements existent mais aucun n a repondu : la ligne reste
+          // ouverte et la tournee suivante reessaiera, jusqu a la borne de
+          // retard. Un telephone eteint cinq minutes ne doit pas couter le rappel.
           this.logger.warn('Rappel ' + r.id + ' non remis a ' + r.user_id + ' : aucun abonnement joignable.');
         }
       } catch (e) {
@@ -362,8 +407,10 @@ export class PushService implements OnModuleInit {
       }
     }
 
-    this.logger.log('Rappels : ' + envoyes + '/' + dus.length + ' remis.');
-    return { dus: dus.length, envoyes };
+    this.logger.log(
+      'Rappels : ' + envoyes + '/' + dus.length + ' remis, dont ' + parMail + ' par e-mail.',
+    );
+    return { dus: dus.length, envoyes, parMail };
   }
 
   onModuleInit() {

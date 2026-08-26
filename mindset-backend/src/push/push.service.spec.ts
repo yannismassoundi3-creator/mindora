@@ -20,6 +20,25 @@ jest.mock('web-push', () => ({
 const attendre = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
+ * Les tournées de ce fichier dorment pour de vrai, et le défaut de Jest est trop court.
+ *
+ * `INTERVALLE_ENTRE_BRIEFS_MS` vaut 2 200 ms et sépare les appels au modèle : le
+ * fournisseur limite à une trentaine de requêtes par minute, et l'espacement est
+ * la fonctionnalité testée, pas un détail à contourner. Deux attentes dans la même
+ * tournée — celle du bilan d'un abonné, par exemple — font donc 4,4 s de sommeil
+ * réel, contre un plafond par test de 5 s.
+ *
+ * Résultat : deux tests passaient lancés seuls et tombaient dans la suite complète,
+ * où les fichiers tournent en parallèle et où la machine rend la main plus tard.
+ * **Un rouge qui dépend de la charge apprend à ignorer le rouge** — c'est-à-dire
+ * exactement ce que cette suite existe pour empêcher.
+ *
+ * Le plafond est relevé plutôt que l'attente supprimée : remplacer les minuteurs
+ * par des faux ferait passer un test même si l'espacement disparaissait du code.
+ */
+jest.setTimeout(30000);
+
+/**
  * Ce qui mérite d'être verrouillé ici tient en trois points, tous invisibles à la
  * lecture d'une réponse HTTP :
  *
@@ -616,14 +635,73 @@ describe('PushService — tournée des briefs du matin', () => {
       expect(charge.persistante).toBe(true);
     });
 
-    it('laisse la ligne ouverte quand personne n’est joignable', async () => {
+    it('laisse la ligne ouverte quand un appareil abonné ne répond pas', async () => {
       /*
         Un téléphone éteint cinq minutes ne doit pas coûter le rappel : la
         tournée suivante réessaiera, jusqu'à la borne de retard. Marquer envoyé
         ici condamnerait la personne au silence en donnant à croire que c'est
         parti — la panne exacte qu'on répare.
+
+        Et surtout : **pas d'e-mail ici.** L'abonnement existe, il a juste échoué
+        une fois. Doubler par e-mail à la première secousse enverrait deux fois le
+        même rappel à quelqu'un qui n'en attendait qu'un.
       */
+      prisma.pushSubscription.findMany.mockResolvedValue([
+        { id: 's1', endpoint: 'https://push.example/abc', p256dh: 'p', auth: 'a' },
+      ]);
+      (webpush.sendNotification as jest.Mock).mockRejectedValueOnce(new Error('réseau'));
+
+      const bilan: any = await service.envoyerRappels();
+
+      expect(rappels.marquerEnvoye).not.toHaveBeenCalled();
+      expect(briefEmail.envoyer).not.toHaveBeenCalled();
+      expect(bilan.envoyes).toBe(0);
+    });
+
+    /*
+      Le rappel porté par e-mail, quand aucun appareil n'est abonné.
+
+      Sur 52 comptes mesurés le 20 août 2026, 46 n'en ont aucun — un iPhone qui
+      n'a pas installé l'application ne peut rien recevoir. Pour eux, tout ce
+      dispositif fonctionnait parfaitement dans le vide : la ligne écrite, la
+      tournée qui la ramasse toutes les cinq minutes, et un téléphone muet à
+      l'heure promise. Le coach, lui, avait dit « c'est noté ».
+    */
+    it('porte le rappel par e-mail quand aucun appareil n’est abonné', async () => {
       prisma.pushSubscription.findMany.mockResolvedValue([]);
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'u1',
+        email: 'yannis@exemple.test',
+        first_name: 'Yannis',
+        relances_email: true,
+      });
+
+      const bilan: any = await service.envoyerRappels();
+
+      expect(briefEmail.envoyer).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'u1' }),
+        'rappel',
+        'Commence le livre',
+        // La clé d'unicité est celle du rappel, pas celle du jour : quelqu'un peut
+        // en poser trois dans la même journée, et ce sont trois rendez-vous.
+        'rappel:r1',
+      );
+      expect(rappels.marquerEnvoye).toHaveBeenCalledWith('r1');
+      expect(bilan.envoyes).toBe(1);
+      expect(bilan.parMail).toBe(1);
+    });
+
+    it('ne marque rien quand l’e-mail non plus ne part pas', async () => {
+      // Retiré des e-mails, ou refusé par Brevo : dans les deux cas la ligne reste
+      // ouverte et la borne de retard la fermera. On ne confirme que ce qui part.
+      prisma.pushSubscription.findMany.mockResolvedValue([]);
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'u1',
+        email: 'yannis@exemple.test',
+        first_name: 'Yannis',
+        relances_email: false,
+      });
+      briefEmail.envoyer.mockResolvedValue(false);
 
       const bilan: any = await service.envoyerRappels();
 

@@ -64,6 +64,11 @@ describe('AiCoachingService — chat', () => {
       chatMessage: { create: jest.fn().mockResolvedValue({}), findMany: jest.fn().mockResolvedValue([]) },
       syncData: { findUnique: jest.fn().mockResolvedValue(null) },
       coachEchec: { create: jest.fn().mockResolvedValue({}) },
+      // Les deux canaux interrogés au moment de confirmer un rappel. Par défaut la
+      // notification est ouverte : c'est le cas nominal, et celui où la phrase de
+      // confirmation ne doit surtout rien ajouter.
+      pushSubscription: { count: jest.fn().mockResolvedValue(1) },
+      user: { findUnique: jest.fn().mockResolvedValue({ relances_email: true }) },
     };
 
     const memoire = {
@@ -466,6 +471,169 @@ describe('AiCoachingService — chat', () => {
       expect(prisma.chatMessage.create).not.toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ sender: 'ai' }) }),
       );
+    });
+  });
+
+  /*
+    Le plan ordonné et jamais rendu.
+
+    Mesuré contre le vrai Groq le 24 août 2026 : `openai/gpt-oss-20b` — dernier
+    maillon, donc celui qui répond quand les deux premiers saturent — refuse
+    « Je ne peux pas créer un plan complet pour toute la semaine en une seule
+    réponse », puis écrit la routine en Markdown. La réponse se lit bien et
+    l'application reste vide.
+
+    C'était la seule panne du fichier sans rattrapage ni trace : ni le marqueur
+    réclamé, ni le 200 muet, ni la troncature ne la couvrent, parce qu'ici le
+    modèle a parfaitement réussi son appel — il a juste répondu autre chose.
+  */
+  describe('plan ordonné et non rendu', () => {
+    const ORDRE = 'fais-moi un plan complet pour la semaine';
+
+    it('redescend la chaîne en écartant le maillon qui a refusé', async () => {
+      fetchMock
+        .mockResolvedValueOnce(reponseOk("Je ne peux pas tout faire d'un coup. Voici lundi : 20 pompes."))
+        .mockResolvedValueOnce(reponseOk('Voilà. <PLAN>{"replaceRoutines":true}</PLAN>'));
+
+      const resultat: any = await service.chatWithAi('u1', ORDRE);
+
+      // Pas une seconde chance donnée au même modèle : c'est lui le problème.
+      expect(modelesAppeles()).toEqual([PREMIER, DEUXIEME]);
+      expect(resultat.reply).toContain('<PLAN>');
+      expect(resultat.erreur).toBeUndefined();
+    });
+
+    it('garde la première réponse et prévient quand les deux refusent', async () => {
+      const prose = 'On va y aller étape par étape. Lundi : 20 pompes.';
+      fetchMock.mockResolvedValue(reponseOk(prose));
+
+      const resultat: any = await service.chatWithAi('u1', ORDRE);
+
+      // La réponse est écrite, lisible et déjà payée : la jeter coûterait deux
+      // appels pour rendre moins que ce qu'on avait.
+      expect(resultat.reply).toContain(prose);
+      expect(resultat.erreur).toBeUndefined();
+      // Mais elle ne passe pas pour un succès : sans cette phrase, la personne ne
+      // voit rien apparaître dans son application et n'a aucun moyen de le savoir.
+      expect(resultat.reply).toContain("Je n'ai rien installé dans ton plan");
+    });
+
+    it('ne relance rien quand le bloc est là', async () => {
+      fetchMock.mockResolvedValueOnce(reponseOk('C\'est parti. <PLAN>{}</PLAN>'));
+
+      await service.chatWithAi('u1', ORDRE);
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    /*
+      Le cas qui décide de tout le coût de ce filet.
+
+      « J'ai fini ma routine » contient le mot « routine » : le schéma est donc
+      joint, et la réponse ne contient aucun bloc — c'est même ce que les
+      instructions exigent sur un compte rendu de progrès. Relancer là-dessus
+      ferait payer un aller-retour supplémentaire sur l'un des messages les plus
+      fréquents de l'application, pour rien.
+    */
+    it('ne relance pas sur un compte rendu de progrès', async () => {
+      fetchMock.mockResolvedValueOnce(reponseOk('Acté. Enchaîne sur le gainage ce soir.'));
+
+      await service.chatWithAi('u1', "J'ai fini ma routine ce matin");
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("n'accuse pas d'échec un modèle qui demande une précision", async () => {
+      const question = 'Tu veux un plan sur combien de jours ?';
+      fetchMock.mockResolvedValue(reponseOk(question));
+
+      const resultat: any = await service.chatWithAi('u1', ORDRE);
+
+      // Demander avant d'écrire est un comportement correct : lui coller un
+      // avertissement d'échec contredirait la question qu'il vient de poser.
+      expect(resultat.reply).toBe(question);
+    });
+  });
+
+  /*
+    La phrase que la personne lit après avoir demandé un rappel.
+
+    Elle est écrite par le serveur et non par le modèle, parce que lui seul sait
+    ce qui a vraiment été écrit en base. Depuis que le rappel part aussi par
+    e-mail, elle doit dire **par quel canal** : « je te le rappelle à 22 h 30 »
+    chez quelqu'un sans notification veut dire un e-mail, et ne pas le préciser le
+    laisse guetter une sonnerie pendant qu'un message l'attend ailleurs.
+  */
+  describe('la confirmation d’un rappel', () => {
+    /** Demain à 9 h, en heure de Paris : ni dans le passé, ni recalé au jour même. */
+    const DEMAIN = new Date(Date.now() + 86400000).toLocaleDateString('sv-SE', {
+      timeZone: 'Europe/Paris',
+    });
+    const DEMANDE = 'rappelle-moi demain à 09:00 mes pompes';
+    const REPONSE = `Noté.\n<RAPPEL ${DEMAIN}T09:00>Tes 25 pompes.</RAPPEL>`;
+
+    beforeEach(() => {
+      // Le service ne confirme que ce que `poser` a réellement écrit : on lui fait
+      // rendre ce qu'il reçoit, ce qui est le cas d'une écriture réussie.
+      (service as any).rappels.poser = jest.fn(async (_u: string, demandes: any[]) => demandes);
+      fetchMock.mockResolvedValueOnce(reponseOk(REPONSE));
+    });
+
+    it('ne nomme aucun canal quand la notification est ouverte', async () => {
+      const resultat: any = await service.chatWithAi('u1', DEMANDE);
+
+      expect(resultat.reply).toContain('je te le rappelle');
+      expect(resultat.reply).not.toContain('e-mail');
+    });
+
+    it('dit que ça passera par e-mail quand aucun appareil n’est abonné', async () => {
+      prisma.pushSubscription.count.mockResolvedValue(0);
+
+      const resultat: any = await service.chatWithAi('u1', DEMANDE);
+
+      expect(resultat.reply).toContain('par e-mail');
+      expect(resultat.reply).toContain('je te le rappelle');
+    });
+
+    it('prévient quand aucun des deux canaux n’est ouvert', async () => {
+      // La ligne existe, et personne ne la lira jamais. On aurait remplacé une
+      // promesse fausse par une promesse muette, ce qui ne vaut pas mieux — et la
+      // personne l'apprend maintenant, pas à 9 h.
+      prisma.pushSubscription.count.mockResolvedValue(0);
+      prisma.user.findUnique.mockResolvedValue({ relances_email: false });
+
+      const resultat: any = await service.chatWithAi('u1', DEMANDE);
+
+      expect(resultat.reply).toContain('rien ne partira');
+    });
+  });
+
+  /**
+   * La détection décide de relancer un appel : son biais est donc l'inverse de
+   * `MOTS_PLAN`, qui ne décide que de joindre un millier de jetons.
+   */
+  describe('AiCoachingService.ordreDePlan', () => {
+    it.each([
+      'fais-moi un plan complet pour la semaine',
+      'Ajoute une habitude de lecture le soir',
+      'refais mon programme de muscu',
+      'stp crée mon planning de la semaine',
+      'change tout',
+      'que dois-je faire ensuite',
+      'Supprime le repas du soir',
+    ])('y voit un ordre : %s', (message) => {
+      expect(AiCoachingService.ordreDePlan(message)).toBe(true);
+    });
+
+    it.each([
+      'je fais ma routine tous les matins',
+      "J'ai fini ma routine ce matin",
+      'ma séance était dure aujourd hui',
+      'je change tout dans ma vie en ce moment',
+      'Comment tu vas ?',
+      'Je veux arrêter de procrastiner le matin',
+    ])('n’y voit pas un ordre : %s', (message) => {
+      expect(AiCoachingService.ordreDePlan(message)).toBe(false);
     });
   });
 

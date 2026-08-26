@@ -4,6 +4,10 @@ import { CoachMemoryService } from './coach-memory.service';
 import { RappelService } from './rappel.service';
 import { ObservationService } from './observation.service';
 import { AnalyseHabitudesService } from '../push/analyse-habitudes.service';
+// Importé pour ses statiques seulement, jamais injecté : la confirmation d'un
+// rappel doit savoir si le canal e-mail est ouvert, et c'est cette classe qui le
+// décide. L'injecter ferait dépendre tout le module de coaching de l'envoi.
+import { BriefEmailService } from '../push/brief-email.service';
 import { lireReponseGroq, pourModele } from '../common/groq';
 import { lireFournisseurSecours, FournisseurSecours } from '../common/fournisseur-secours';
 import { MODELES_CHAT } from '../common/modeles';
@@ -56,6 +60,75 @@ export class AiCoachingService {
   */
   private static readonly MOTS_PLAN =
     /(plan|planning|programme|routine|habitude|objectif|repas|nutrition|aliment|menu|entra[iî]n|s[ée]ance|exercice|sport|muscu|apprendre|apprends|apprentissage|[ée]tudier|formation|parcours|[ée]tape|notion|comp[ée]tence|ajoute|rajoute|cr[ée]e|change|modifie|remplace|supprime|enl[èe]ve|retire|g[ée]n[èe]re|refais|r[ée]initialise|organise|pr[ée]pare|que dois-je faire|quoi faire)/i;
+
+  /**
+   * L'ordre explicite de toucher au plan — et **le biais est l'inverse de
+   * `MOTS_PLAN`**.
+   *
+   * Celle du dessus est généreuse parce qu'un faux positif n'y coûte que des
+   * jetons. Celle-ci décide de **relancer un appel** quand la réponse ne contient
+   * aucun bloc `<PLAN>` : un faux positif coûte alors un aller-retour complet et
+   * quelques secondes d'attente, sur des messages parmi les plus fréquents de
+   * l'application. « Je fais ma routine tous les matins » ne doit rien déclencher.
+   *
+   * D'où l'ancrage : le verbe doit ouvrir le message ou suivre une ponctuation,
+   * c'est-à-dire être à l'impératif. « fais-moi un plan » passe, « je fais ma
+   * routine » non — et c'est toute la différence entre un ordre et un compte rendu.
+   *
+   * Rater une formulation ne coûte rien de plus qu'aujourd'hui : on retombe sur le
+   * comportement d'avant ce filet. La rate donc plutôt que d'en inventer.
+   */
+  /**
+   * Ce qui peut précéder un impératif sans le transformer en récit.
+   *
+   * C'est toute la précision de la détection : rien, une ponctuation, ou une
+   * formule de politesse. Un pronom devant le verbe — « je fais », « tu changes »
+   * — n'y est pas, et c'est ce qui sépare « fais-moi un plan » de « je fais ma
+   * routine tous les matins ».
+   */
+  private static readonly DEBUT_D_ORDRE =
+    '(?:^|[.!?,;]|\\bstp\\b|\\bsvp\\b|\\bs.?il te pla[iî]t\\b|\\ballez\\b|\\bmaintenant\\b)\\s*';
+
+  private static readonly ORDRE_DE_PLAN = new RegExp(
+    AiCoachingService.DEBUT_D_ORDRE +
+      '(?:fais|refais|refaire|cr[ée]e|cr[ée]er|g[ée]n[èe]re|ajoute|rajoute|change|modifie|remplace|supprime|enl[èe]ve|retire|r[ée]initialise|organise|pr[ée]pare|donne)' +
+      // Ce qui sépare le verbe de son objet : « -moi un nouveau… », « une ».
+      // Borné, et sans ponctuation forte, pour ne pas franchir deux phrases.
+      '[^.?!]{0,50}' +
+      '\\b(?:plan|planning|programme|routines?|habitudes?|objectifs?|repas|menus?|s[ée]ances?|entra[iî]nements?|alimentation|nutrition)\\b',
+    'i',
+  );
+
+  /**
+   * Les ordres qui ne nomment pas leur objet, et qui en sont pourtant.
+   *
+   * « refais tout », « reprends à zéro », « que dois-je faire » : aucun ne contient
+   * le mot « plan », et tous demandent d'en écrire un. Ils sont listés à part
+   * plutôt qu'ajoutés à l'expression ci-dessus, où « tout » aurait élargi l'objet à
+   * n'importe quoi.
+   *
+   * L'ancrage vaut ici aussi : « je change tout dans ma vie » raconte une décision,
+   * il n'ordonne rien.
+   */
+  private static readonly ORDRE_DE_PLAN_SANS_OBJET = new RegExp(
+    '(?:que dois[- ]je faire|quoi faire (?:maintenant|ensuite|aujourd))' +
+      '|' +
+      AiCoachingService.DEBUT_D_ORDRE +
+      '(?:refais|refaire|change|recommence|reprends?|r[ée]initialise)\\s+(?:tout|[àa] z[ée]ro)\\b',
+    'i',
+  );
+
+  /** Ce message ordonne-t-il de construire ou de modifier le plan ? */
+  static ordreDePlan(prompt: string): boolean {
+    const t = prompt || '';
+    return (
+      AiCoachingService.ORDRE_DE_PLAN.test(t) ||
+      AiCoachingService.ORDRE_DE_PLAN_SANS_OBJET.test(t)
+    );
+  }
+
+  /** La balise d'ouverture du plan, telle qu'elle doit apparaître dans la réponse. */
+  private static readonly BALISE_PLAN = /<\s*PLAN\s*>/i;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -788,6 +861,65 @@ ${microList}
         );
       }
 
+      /*
+        Un plan ordonné, et aucun bloc en retour.
+
+        Mesuré contre le vrai Groq le 24 août 2026 : sur « fais-moi un plan complet
+        pour la semaine », `openai/gpt-oss-20b` **refuse** — « Je ne peux pas créer
+        un plan complet pour toute la semaine en une seule réponse » — puis écrit la
+        routine en Markdown. La réponse est agréable à lire et l'application reste
+        vide. C'est le dernier maillon de la chaîne, donc celui qui répond aux
+        heures de pointe, quand les deux premiers saturent : la panne tombe
+        précisément sur les gens qui écrivent le soir.
+
+        Rien ne la détectait. Le marqueur réclamé, le 200 sans texte et la
+        troncature ont chacun leur rattrapage ; celui-ci n'en avait aucun, pas même
+        une ligne de journal. La personne, elle, en conclut que l'application ne
+        sait pas appliquer ce que son coach dit — et elle a raison de le conclure.
+
+        **On redescend la chaîne en écartant le maillon qui a refusé.** Ce n'est pas
+        une seconde chance donnée au même modèle : `qwen/qwen3.6-27b` produit le
+        bloc, il a été mesuré le même jour. Une seule fois — si le second refuse
+        aussi, la cause n'est plus le modèle, et un troisième appel se paierait pour
+        le même vide.
+      */
+      const planOrdonne = AiCoachingService.ordreDePlan(prompt);
+      if (planOrdonne && !AiCoachingService.BALISE_PLAN.test(reply)) {
+        console.warn(`[Groq] 📋 Plan ordonné, aucun bloc <PLAN> rendu par ${modele} — second maillon`);
+        const tentative = await demander(true, [modele]);
+
+        if (tentative.texte && AiCoachingService.BALISE_PLAN.test(tentative.texte)) {
+          console.log(`[Groq] ✅ Plan rattrapé par ${tentative.modele}`);
+          reply = tentative.texte;
+          modele = tentative.modele;
+          tronque = tentative.tronque;
+          schemaJoint = tentative.schemaJoint;
+        } else {
+          /*
+            Les deux ont refusé. On garde la première réponse — elle est écrite, elle
+            est lisible, et la jeter pour un message d'erreur serait payer deux appels
+            pour rendre moins que ce qu'on avait.
+
+            **Mais on ne la laisse pas passer pour un succès.** Sans la phrase
+            ci-dessous, la personne lit une belle routine, ne voit rien apparaître
+            dans son application, et n'a aucun moyen de savoir laquelle des deux est
+            en panne. C'est la forme exacte que prend ici la panne muette du projet :
+            un résultat plausible qui n'a rien fait.
+
+            Sauf si la réponse se termine par une question : le modèle demande alors
+            une précision avant d'écrire le plan, ce qui est un comportement correct,
+            et lui coller un avertissement d'échec le contredirait.
+          */
+          console.error(
+            `[Groq] ❌ Plan ordonné et non produit, même après repli (${modele} puis ${tentative.modele})`,
+          );
+          if (!/\?\s*$/.test(reply.trim())) {
+            reply +=
+              "\n\n⚠️ Je n'ai rien installé dans ton plan : le texte ci-dessus n'a ni ajouté ni coché quoi que ce soit. Redemande-le-moi.";
+          }
+        }
+      }
+
       // Réponse arrêtée par `max_tokens` et non par le modèle.
       //
       // Elle arrive avec le même statut 200 et la même forme qu'une réponse finie :
@@ -1071,11 +1203,17 @@ ${microList}
   /**
    * La phrase de confirmation, ajoutée après l'écriture en base.
    *
-   * **Elle dit aussi quand le rappel ne pourra pas arriver.** Un rappel se
-   * délivre par notification ; sans notification autorisée, la ligne existe et
-   * personne ne la lira jamais — on aurait remplacé une promesse fausse par une
-   * promesse muette, ce qui ne vaut pas mieux. Le compte des abonnements push est
-   * donc lu ici, et la personne apprend le problème maintenant, pas à 22 h 30.
+   * **Elle dit aussi par quel canal le rappel arrivera, et quand il n'arrivera
+   * pas.** Un rappel part par notification, ou à défaut par e-mail. Si aucun des
+   * deux n'est ouvert, la ligne existe et personne ne la lira jamais — on aurait
+   * remplacé une promesse fausse par une promesse muette, ce qui ne vaut pas
+   * mieux. Les deux canaux sont donc interrogés ici, et la personne apprend le
+   * problème maintenant, pas à 22 h 30.
+   *
+   * **Le canal est nommé quand ce n'est pas celui qu'on attend.** « Je te le
+   * rappelle à 22 h 30 » chez quelqu'un qui n'a pas de notification veut dire un
+   * e-mail : ne pas le dire, c'est le laisser guetter une sonnerie qui ne viendra
+   * pas pendant qu'un message l'attend ailleurs.
    */
   private async confirmerRappels(
     userId: string,
@@ -1083,19 +1221,34 @@ ${microList}
   ): Promise<string> {
     const quand = poses.map((r) => RappelService.libelleQuand(r.quand)).join(', ');
 
+    // En cas d'échec de lecture, on suppose le canal ouvert : annoncer à tort
+    // qu'un rappel ne partira pas est le seul des deux mensonges qui fasse
+    // renoncer quelqu'un à s'en servir.
     const push = await this.prisma.pushSubscription
       .count({ where: { user_id: userId } })
       .catch(() => 1);
 
-    if (push === 0) {
+    if (push > 0) {
       return `
 
-⏰ C'est noté pour ${quand} — mais tes notifications sont coupées, donc rien ne sonnera. Active-les dans ton profil.`;
+⏰ C'est noté : je te le rappelle ${quand}.`;
+    }
+
+    const user = await this.prisma.user
+      .findUnique({ where: { id: userId }, select: { relances_email: true } })
+      .catch(() => ({ relances_email: true }));
+
+    const parMail = user?.relances_email !== false && BriefEmailService.creneauActif('rappel');
+
+    if (parMail) {
+      return `
+
+⏰ C'est noté : je te le rappelle ${quand}, par e-mail — tes notifications sont coupées. Active-les dans ton profil pour l'avoir sur ton téléphone.`;
     }
 
     return `
 
-⏰ C'est noté : je te le rappelle ${quand}.`;
+⏰ C'est noté pour ${quand} — mais tes notifications sont coupées et tu t'es retiré des e-mails, donc rien ne partira. Réactive l'un des deux dans ton profil.`;
   }
 
   /**

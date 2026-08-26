@@ -62,6 +62,11 @@ describe('BriefEmailService', () => {
         série ne peut pas partir deux soirs de suite puisqu'elle exige d'avoir
         tenu la veille.
 
+        `rappel` est allumé pour une raison qui n'est pas de volume : c'est le
+        seul message de la liste que la personne a réclamé elle-même, à une heure
+        qu'elle a choisie, et que le coach lui a confirmée. L'éteindre ferait
+        mentir cette confirmation.
+
         `midi` et `soir` restent éteints : eux ajouteraient deux e-mails par jour
         à tout le monde, ce qui est exactement le cas que ce test protège.
       */
@@ -71,7 +76,7 @@ describe('BriefEmailService', () => {
       expect(actifs).toContain('matin');
       expect(actifs).not.toContain('midi');
       expect(actifs).not.toContain('soir');
-      expect(actifs).toEqual(['matin', 'coup-de-pouce', 'bilan', 'serie']);
+      expect(actifs).toEqual(['matin', 'coup-de-pouce', 'bilan', 'serie', 'rappel']);
     });
 
     it('rend les créneaux dans l’ordre de la journée, quel que soit celui de la variable', () => {
@@ -234,6 +239,55 @@ describe('BriefEmailService', () => {
 
       await service.envoyer(COMPTE, 'bilan', 'Ta semaine.');
       expect((envoyerEmail as jest.Mock).mock.calls.at(-1)[0].texte).toContain('Voir ma semaine');
+    });
+  });
+
+  /*
+    Le rappel, seul message de la liste que la personne a réclamé elle-même.
+
+    Il ne partait que par notification. Sur 52 comptes mesurés le 20 août 2026, 46
+    n'en ont aucune : la ligne était écrite en base, la tournée des cinq minutes la
+    ramassait, et le téléphone restait muet à l'heure promise — pendant que le
+    coach avait répondu « c'est noté ».
+  */
+  describe('le rappel demandé', () => {
+    beforeEach(() => {
+      process.env.BRIEF_EMAIL_CRENEAUX = 'rappel';
+      prisma.briefEmail.findUnique.mockResolvedValue(null);
+    });
+
+    it('dit dans le sujet que la personne l’a demandé', async () => {
+      // C'est le fait qui le distingue de tous les autres messages du produit, et
+      // la seule chose qui l'empêche d'être lu comme une relance de plus.
+      await service.envoyer(COMPTE, 'rappel', 'Tes 25 pompes.', 'rappel:r1');
+
+      const sujet: string = (envoyerEmail as jest.Mock).mock.calls.at(-1)[0].sujet;
+      expect(sujet).toContain('demandé');
+      expect(sujet).not.toMatch(/[A-Z]{4,}/);
+    });
+
+    it('en laisse passer plusieurs le même jour', async () => {
+      /*
+        Trois rappels posés pour 7 h, 13 h et 22 h 30 sont trois rendez-vous
+        distincts. Sous la clé du jour — l'unicité de tous les autres créneaux —
+        seul le premier partirait, et les deux suivants seraient marqués traités
+        sans jamais être écrits : la panne muette, refaite par le garde-fou censé
+        l'empêcher.
+      */
+      await expect(service.envoyer(COMPTE, 'rappel', 'Sept heures.', 'rappel:r1')).resolves.toBe(true);
+      await expect(service.envoyer(COMPTE, 'rappel', 'Treize heures.', 'rappel:r2')).resolves.toBe(true);
+
+      const cles = prisma.briefEmail.create.mock.calls.map((c: any[]) => c[0].data.jour);
+      expect(cles).toEqual(['rappel:r1', 'rappel:r2']);
+    });
+
+    it('ne renvoie pas deux fois le même rappel', async () => {
+      // La tournée repasse toutes les cinq minutes : sans cette clé, un rappel non
+      // marqué repartirait douze fois par heure.
+      prisma.briefEmail.findUnique.mockResolvedValue({ id: 'deja' });
+
+      await expect(service.envoyer(COMPTE, 'rappel', 'Sept heures.', 'rappel:r1')).resolves.toBe(false);
+      expect(envoyerEmail).not.toHaveBeenCalled();
     });
   });
 
