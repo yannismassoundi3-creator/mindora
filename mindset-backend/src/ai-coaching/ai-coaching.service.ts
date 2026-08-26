@@ -161,6 +161,18 @@ export class AiCoachingService {
   /** La balise d'ouverture du plan, telle qu'elle doit apparaître dans la réponse. */
   private static readonly BALISE_PLAN = /<\s*PLAN\s*>/i;
 
+  /**
+   * Au-delà de ce multiple du temps déclaré, on repaie un appel pour corriger.
+   *
+   * 1,3 n'est pas un chiffre rond par hasard : mesuré le 26 août 2026, les trois
+   * modèles dépassent le budget, mais `gpt-oss-120b` de 25 % (25 min pour 20) et
+   * `qwen` de 65 % (33 min pour 20). Le premier se rattrape en sautant une tâche
+   * un jour chargé ; le second est un plan qu'on n'ouvre plus au bout de trois
+   * jours. Corriger les deux doublerait le coût de presque chaque demande de plan
+   * pour un gain nul sur le premier.
+   */
+  private static readonly TOLERANCE_BUDGET = 1.3;
+
   private static readonly JOURS_SEMAINE = [
     'lundi',
     'mardi',
@@ -869,14 +881,15 @@ ${microList}
       // La règle du marqueur n'accompagne que la version sans schéma : la laisser dans
       // les deux ferait réclamer au modèle des instructions qu'il a déjà sous les yeux,
       // et chaque demande de plan coûterait deux appels au lieu d'un.
-      const demander = async (avecPlan: boolean, exclus: string[] = []) => {
+      const demander = async (avecPlan: boolean, exclus: string[] = [], correction = '') => {
         // Rendu avec la réponse, et non déduit du message : quand le second appel a
         // lieu, le schéma est joint alors que la détection par mots-clés disait le
         // contraire. Un journal de diagnostic qui se trompe sur ce point-là ferait
         // chercher la coupure dans la mauvaise moitié du prompt.
-        const consigne = avecPlan
-          ? promptBase + promptPlan + '\n' + contextString
-          : promptBase + AiCoachingService.MARQUEUR_PLAN_REGLE + '\n' + contextString;
+        const consigne =
+          (avecPlan
+            ? promptBase + promptPlan + '\n' + contextString
+            : promptBase + AiCoachingService.MARQUEUR_PLAN_REGLE + '\n' + contextString) + correction;
 
         const messages = [
           { role: 'system', content: consigne },
@@ -1086,20 +1099,59 @@ ${microList}
         jour, mais une consigne d'invite ne se vérifie qu'après coup — et « après
         coup », ici, veut dire chez quelqu'un qui a déjà abandonné.
 
-        **On journalise sans rien modifier.** Retirer des tâches en douce ferait
-        diverger le plan appliqué du plan que le coach vient d'annoncer, ce qui est
-        une autre forme de mensonge ; refaire un appel se paierait sur toutes les
-        demandes de plan. Ce qui manquait n'était pas une correction, c'était de
-        savoir que ça arrive — et à quelle fréquence.
+        **On renvoie le calcul au modèle plutôt que de rogner nous-mêmes.** Retirer
+        des tâches en douce donnerait un plan que le coach n'a pas composé — il ne
+        saurait pas laquelle il vient de perdre, ni pourquoi. Lui dire le nombre
+        qu'il a raté est la seule correction qui garde le plan cohérent, et c'est
+        aussi la seule information qui lui manquait : il ne sait pas additionner en
+        écrivant, il sait très bien retirer quand on lui montre le total.
+
+        **Seulement au-delà de la tolérance.** 25 minutes pour 20 déclarées se
+        rattrape en sautant une tâche ; 70 pour 20 est un plan qu'on abandonne le
+        premier jour. Payer un appel de plus pour le premier cas reviendrait à
+        doubler le coût de presque toutes les demandes de plan — mesuré le 26 août,
+        les trois modèles dépassent, mais deux d'entre eux de peu.
       */
       const budget = Number(profil?.minutes_par_jour);
       if (Number.isFinite(budget) && budget > 0) {
         const charge = AiCoachingService.minutesDuJourLePlusCharge(reply);
+
         if (charge !== null && charge > budget) {
           console.error(
             `[Groq] ⏳ Plan hors budget par ${modele} : ${charge} min sur le jour le plus chargé ` +
               `pour ${budget} min déclarées (×${(charge / budget).toFixed(1)})`,
           );
+
+          if (charge > budget * AiCoachingService.TOLERANCE_BUDGET) {
+            const tentative = await demander(
+              true,
+              [],
+              `\n\nCORRECTION OBLIGATOIRE : le plan que tu viens d'écrire totalise ${charge} minutes sur son jour le plus chargé, alors qu'il en a déclaré ${budget}. Refais-le en retirant des tâches jusqu'à passer sous ${budget} minutes par jour. Même format, même bloc <PLAN>.`,
+            );
+
+            const corrigee = tentative.texte
+              ? AiCoachingService.minutesDuJourLePlusCharge(tentative.texte)
+              : null;
+
+            /*
+              On ne garde la seconde réponse que si elle est **strictement
+              meilleure**. Un modèle à qui l'on signale une erreur peut très bien
+              rendre pire : sans cette comparaison, la correction serait un pari.
+            */
+            if (tentative.texte && corrigee !== null && corrigee < charge) {
+              console.log(
+                `[Groq] ✅ Plan ramené de ${charge} à ${corrigee} min par ${tentative.modele}`,
+              );
+              reply = tentative.texte;
+              modele = tentative.modele;
+              tronque = tentative.tronque;
+              schemaJoint = tentative.schemaJoint;
+            } else {
+              console.error(
+                `[Groq] ❌ Plan toujours hors budget après correction (${modele}) — réponse d'origine gardée`,
+              );
+            }
+          }
         }
       }
 

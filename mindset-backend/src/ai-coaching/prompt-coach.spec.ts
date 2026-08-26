@@ -128,6 +128,40 @@ describe('le prompt du coach', () => {
 describe('le schéma du plan', () => {
   const plan = construirePromptPlan();
 
+  /*
+    Le garde-fou qui manquait, et qui a coûté une panne de production.
+
+    Groq compte 8 000 jetons par MINUTE pour l'organisation entière, `max_tokens`
+    inclus. Le 26 août 2026, l'invite d'une demande de plan pesait 6 045 jetons ;
+    en montant `max_tokens` à 2600 « pour éviter les troncatures », le total est
+    passé au-dessus de la limite et les TROIS modèles ont rendu 413 sur un vrai
+    utilisateur. Une requête plus grosse que la limite par minute ne passe jamais.
+
+    Le calcul du plafond ci-dessous : 8 000 − 1 500 de réponse = 6 500 pour
+    l'invite et le contexte. Un compte chargé pèse ~1 000 jetons de contexte, et
+    les tokeniseurs varient de 10 % d'un modèle à l'autre (mesuré : 8 965 sur
+    gpt-oss-120b contre 9 554 sur qwen pour la même requête). Reste ~4 800.
+
+    **Ce test ne protège pas un style, il protège la fonctionnalité.** Une règle
+    ajoutée sans en retirer une autre finit par supprimer les demandes de plan.
+  */
+  it('reste sous le budget qui le rend envoyable', () => {
+    const invite =
+      construirePromptBase({
+        nomCoach: 'Coach IA',
+        nomPersonne: 'Yannis',
+        maintenantParis: 'jeudi 21 août 2026 à 13:30',
+        aujourdhui: '2026-08-21',
+        demain: '2026-08-22',
+      }) + plan;
+
+    // ~3,6 caractères par jeton en français : l'ordre de grandeur suffit, la
+    // marge est prise dans le plafond.
+    const jetons = Math.round(invite.length / 3.6);
+
+    expect(jetons).toBeLessThan(4800);
+  });
+
   it('interdit de refuser le bloc quand un plan est ordonné', () => {
     expect(plan).toContain("TU NE REFUSES JAMAIS D'ÉCRIRE CE BLOC");
     // Le refus mesuré, cité mot pour mot : c'est ce qui empêche de le reformuler

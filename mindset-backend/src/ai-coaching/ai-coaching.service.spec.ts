@@ -765,29 +765,84 @@ describe('AiCoachingService — chat', () => {
       expect(AiCoachingService.minutesDuJourLePlusCharge(bloc({ newHabits: [] }))).toBeNull();
     });
 
-    it('journalise le dépassement, sans toucher au plan', () => {
+    /** Un plan dont le jour le plus chargé pèse `minutes`. */
+    const planDe = (minutes: number) =>
+      bloc({ newRoutines: [{ type: 'MIDDAY', tasks: [{ title: 'Squats (4x12)', duration: minutes }] }] });
+
+    it('journalise un léger dépassement sans repayer un appel', async () => {
       /*
-        On ne retire pas de tâches en douce : le plan appliqué divergerait de celui
-        que le coach vient d'annoncer, ce qui est une autre forme de mensonge. Ce
-        qui manquait n'était pas une correction, c'était de savoir que ça arrive.
+        24 minutes pour 20 se rattrape en sautant une tâche un jour chargé. Payer
+        un appel de plus pour ça doublerait le coût de presque chaque demande de
+        plan : mesuré le 26 août, les trois modèles dépassent, mais deux de peu.
       */
       const trace = jest.spyOn(console, 'error');
       memoire.chargerProfil.mockResolvedValue({ minutes_par_jour: 20 });
-      fetchMock.mockResolvedValueOnce(
-        reponseOk(
-          bloc({
-            newRoutines: [{ type: 'MIDDAY', tasks: [{ title: 'Séance 1', duration: 45 }] }],
-          }),
-        ),
-      );
+      fetchMock.mockResolvedValueOnce(reponseOk(planDe(24)));
 
-      return service.chatWithAi('u1', 'fais-moi un plan complet').then((resultat: any) => {
-        expect(resultat.reply).toContain('<PLAN>');
-        const message = trace.mock.calls.map((a) => String(a[0])).join('\n');
-        expect(message).toContain('Plan hors budget');
-        expect(message).toContain('45 min');
-        expect(message).toContain('20 min');
-      });
+      const resultat: any = await service.chatWithAi('u1', 'fais-moi un plan complet');
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(resultat.reply).toContain('<PLAN>');
+      const message = trace.mock.calls.map((a) => String(a[0])).join('\n');
+      expect(message).toContain('Plan hors budget');
+      expect(message).toContain('24 min');
+    });
+
+    it('renvoie le calcul au modèle quand le plan déborde vraiment', async () => {
+      /*
+        70 minutes pour 20 — le cas réellement mesuré sur `gpt-oss-20b` — est un
+        plan qu'on n'ouvre plus au bout de trois jours.
+
+        On lui dit le total qu'il a raté plutôt que de rogner nous-mêmes : rogner
+        donnerait un plan que le coach n'a pas composé, et il ne saurait ni
+        laquelle des tâches il vient de perdre, ni pourquoi. Il ne sait pas
+        additionner en écrivant ; il sait très bien retirer quand on lui montre
+        le total.
+      */
+      memoire.chargerProfil.mockResolvedValue({ minutes_par_jour: 20 });
+      fetchMock
+        .mockResolvedValueOnce(reponseOk(planDe(70)))
+        .mockResolvedValueOnce(reponseOk(planDe(18)));
+
+      const resultat: any = await service.chatWithAi('u1', 'fais-moi un plan complet');
+
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      // La correction porte les deux nombres : celui qu'il a écrit, et celui qu'il
+      // avait déclaré. Sans eux, « fais plus court » ne dit pas de combien.
+      expect(consigne(1)).toContain('70 minutes');
+      expect(consigne(1)).toContain('20');
+      expect(AiCoachingService.minutesDuJourLePlusCharge(resultat.reply)).toBe(18);
+    });
+
+    it('garde la première réponse si la correction ne fait pas mieux', async () => {
+      /*
+        Un modèle à qui l'on signale une erreur peut très bien rendre pire. Sans
+        cette comparaison, la correction serait un pari — et on paierait un appel
+        pour dégrader le plan.
+      */
+      const trace = jest.spyOn(console, 'error');
+      memoire.chargerProfil.mockResolvedValue({ minutes_par_jour: 20 });
+      fetchMock
+        .mockResolvedValueOnce(reponseOk(planDe(70)))
+        .mockResolvedValueOnce(reponseOk(planDe(90)));
+
+      const resultat: any = await service.chatWithAi('u1', 'fais-moi un plan complet');
+
+      expect(AiCoachingService.minutesDuJourLePlusCharge(resultat.reply)).toBe(70);
+      expect(trace.mock.calls.map((a) => String(a[0])).join('\n')).toContain(
+        'toujours hors budget après correction',
+      );
+    });
+
+    it('ne corrige rien quand aucun temps n’a été déclaré', async () => {
+      // Sans budget déclaré, il n'y a pas de dépassement possible : on ne va pas
+      // inventer une limite au nom de quelqu'un qui n'en a pas donné.
+      memoire.chargerProfil.mockResolvedValue({ minutes_par_jour: null });
+      fetchMock.mockResolvedValueOnce(reponseOk(planDe(120)));
+
+      await service.chatWithAi('u1', 'fais-moi un plan complet');
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
     });
   });
 
