@@ -41,6 +41,17 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
   // Quelqu'un qui a cliqué « Passer à vie » sur la page d'accueil ne doit pas avoir
   // à le rechoisir : on lui reproposerait le mensuel après qu'il a tranché.
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'lifetime'>(planInitial);
+  /**
+   * Le clic d'aujourd'hui est-il gratuit ?
+   *
+   * Vrai pour la formule mensuelle, et pour elle seule : le serveur pose
+   * `trial_period_days: 7` sur tout ce qui n'est pas « à vie »
+   * (`subscriptions.service.ts`), et l'achat définitif se débite immédiatement.
+   * Le drapeau `dejaAbonne` est exclu par prudence — quelqu'un qui paie déjà ne
+   * doit jamais lire « 0 € aujourd'hui », même si le chemin qui l'amène ici ne
+   * propose que la formule à vie.
+   */
+  const essaiOffert = selectedPlan === 'monthly' && !dejaAbonne;
   const [verification, setVerification] = useState(false);
   const [resultat, setResultat] = useState<{ ok: boolean; texte: string } | null>(null);
   const aiName = localStorage.getItem('mindset_ai_name') || 'Coach IA';
@@ -201,7 +212,28 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
                 qui demandent réellement de payer affichaient « 9.99€ », c'est-à-dire
                 l'endroit précis où un prix mal écrit se remarque.
               */}
-              {selectedPlan === 'monthly' ? (
+              {essaiOffert ? (
+                /*
+                  Le prix du jour, et c'est zéro.
+
+                  « 9,99 € / mois » est le prix de la quatrième semaine, pas celui du
+                  clic : `subscription_data.trial_period_days = 7` est posé sur toute
+                  formule mensuelle, donc **rien n'est débité aujourd'hui**. Afficher
+                  le prix différé en tête faisait payer à l'écran ce que Stripe ne
+                  demande pas encore — sur un écran qui s'ouvre au moment précis où
+                  quelqu'un vient de manquer de messages, c'est le chiffre qui décide
+                  s'il lit la suite.
+
+                  La bascule est juste en dessous, en toutes lettres et avec sa date.
+                  **Elle ne se réduit ni ne se grise** : un « 0 € » dont la
+                  contrepartie est en petit gris est un piège, pas une offre — et
+                  c'est un remboursement, un litige Stripe et un avis en moins.
+                */
+                <>
+                  <span className="amount">0&nbsp;€</span>
+                  <span className="period">aujourd'hui</span>
+                </>
+              ) : selectedPlan === 'monthly' ? (
                 <>
                   <span className="amount">9,99&nbsp;€</span>
                   <span className="period">/ mois</span>
@@ -213,6 +245,11 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({ onSubscribe, onClo
                 </>
               )}
             </div>
+            {essaiOffert && (
+              <p className="pricing-bascule">
+                Puis <strong>9,99&nbsp;€/mois</strong> à partir du {finEssai}.
+              </p>
+            )}
             <p className="pricing-desc">
               {selectedPlan === 'monthly'
                 ? "Le coach IA sans compteur, résiliable en un clic."

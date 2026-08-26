@@ -155,11 +155,34 @@
 }
 
 .pricing-price {
-  margin-bottom: 16px;
+  margin-bottom: 8px;
   display: flex;
   align-items: baseline;
   justify-content: center;
   gap: 8px;
+}
+
+/*
+  La contrepartie du « 0 € », et la raison pour laquelle elle n'est pas en petit gris.
+
+  Un prix d'appel dont la suite est écrite dans le `#94a3b8` du texte
+  d'accompagnement juste en dessous, c'est la définition d'un piège : la personne
+  découvre le prélèvement sur son relevé, demande un remboursement, et laisse un
+  avis qui coûte bien plus que l'abonnement ne rapportait.
+
+  D'où une taille au-dessus du texte courant, un blanc cassé lisible et le montant
+  en gras. Elle doit se lire dans le même coup d'œil que le zéro.
+*/
+.pricing-bascule {
+  margin: 0 0 16px;
+  font-size: 1.05rem;
+  line-height: 1.4;
+  color: #e2e8f0;
+}
+
+.pricing-bascule strong {
+  color: #fff;
+  font-weight: 700;
 }
 
 .amount {
