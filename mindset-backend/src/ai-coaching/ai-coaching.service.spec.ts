@@ -521,19 +521,24 @@ describe('AiCoachingService — chat', () => {
       expect(resultat.reply).toContain("Je n'ai rien installé dans ton plan");
     });
 
-    it('accorde plus de jetons quand le schéma est joint', async () => {
+    it('ne demande jamais plus de 1500 jetons, schéma joint ou non', async () => {
       /*
-        Mesuré le 26 août 2026 sur `gpt-oss-20b` : à 1500 jetons, le JSON s'arrête
-        en plein milieu d'un titre de tâche. Le bloc est présent, la réponse se lit
-        bien, `JSON.parse` échoue chez la personne, et rien ne s'installe — la
-        panne du plan refusé, atteinte par l'autre bout.
+        **Ce plafond est imposé de l'extérieur, pas choisi.** Groq compte 8 000
+        jetons par minute pour l'organisation entière et inclut `max_tokens` dans
+        le total demandé ; l'invite d'une demande de plan en pèse déjà ~6 000.
 
-        Le plafond ne coûte que s'il sert : la facturation suit les jetons écrits,
-        et une conversation ordinaire garde le sien.
+        Constaté en production le 26 août 2026 à 16 h 24, sur un vrai utilisateur,
+        après un passage à 2600 « pour éviter les troncatures » :
+        `413 — Request too large … TPM: Limit 8000, Requested 8965`, sur les trois
+        modèles. Une requête plus grosse que la limite par minute ne passe JAMAIS,
+        et elle consomme la minute de tout le monde en échouant.
+
+        Ce test existe pour que personne ne relève ce nombre en croyant régler une
+        troncature : il supprimerait la fonctionnalité au lieu de la réparer.
       */
       fetchMock.mockResolvedValueOnce(reponseOk('C\'est parti. <PLAN>{}</PLAN>'));
       await service.chatWithAi('u1', ORDRE);
-      expect(JSON.parse(fetchMock.mock.calls[0][1].body).max_tokens).toBe(2600);
+      expect(JSON.parse(fetchMock.mock.calls[0][1].body).max_tokens).toBe(1500);
 
       fetchMock.mockClear();
       fetchMock.mockResolvedValueOnce(reponseOk('Bien reçu.'));
@@ -564,6 +569,39 @@ describe('AiCoachingService — chat', () => {
       await service.chatWithAi('u1', "J'ai fini ma routine ce matin");
 
       expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    /*
+      Le déclencheur qui ne dépend d'aucun vocabulaire d'utilisateur.
+
+      Reproduction exacte du 26 août 2026, 16 h 24 : « Construis-moi mon plan
+      complet, je te fais confiance ». Le verbe manquait à la liste, donc rien ne
+      s'est déclenché — et le coach a répondu « Ce plan crée une structure complète
+      adaptée à ton emploi du temps d'étudiant » sans qu'aucun plan n'existe.
+
+      Aucune liste de verbes ne couvrira le français. Celle-ci n'a pas à le faire :
+      un coach qui écrit « ce plan » doit en avoir produit un.
+    */
+    it('se déclenche sur un coach qui annonce un plan inexistant', async () => {
+      fetchMock
+        .mockResolvedValueOnce(
+          reponseOk('Ce plan crée une structure complète adaptée à ton emploi du temps.'),
+        )
+        .mockResolvedValueOnce(reponseOk('En place. <PLAN>{"replaceRoutines":true}</PLAN>'));
+
+      const resultat: any = await service.chatWithAi(
+        'u1',
+        'Construis-moi mon plan complet, je te fais confiance',
+      );
+
+      expect(modelesAppeles()).toEqual([PREMIER, DEUXIEME]);
+      expect(resultat.reply).toContain('<PLAN>');
+    });
+
+    it('ne se déclenche pas quand le coach ne parle d’aucun plan', () => {
+      // L'asymétrie joue dans le bon sens : pas d'annonce, pas de relance.
+      expect(AiCoachingService.annonceUnPlan('Tu as tenu 4 jours. Fais tes squats.')).toBe(false);
+      expect(AiCoachingService.annonceUnPlan('Ce plan tient dans tes 20 minutes.')).toBe(true);
     });
 
     it("n'accuse pas d'échec un modèle qui demande une précision", async () => {
@@ -759,6 +797,11 @@ describe('AiCoachingService — chat', () => {
    */
   describe('AiCoachingService.ordreDePlan', () => {
     it.each([
+      // Message d'un vrai utilisateur, 26 août 2026 à 16 h 24. « construis »
+      // manquait à la liste : le filet ne s'est pas déclenché, et il a redemandé
+      // quatre minutes plus tard.
+      'Construis-moi mon plan complet, je te fais confiance',
+      'bâtis-moi un programme de sport',
       'fais-moi un plan complet pour la semaine',
       'Ajoute une habitude de lecture le soir',
       'refais mon programme de muscu',

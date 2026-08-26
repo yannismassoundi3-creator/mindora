@@ -92,7 +92,16 @@ export class AiCoachingService {
 
   private static readonly ORDRE_DE_PLAN = new RegExp(
     AiCoachingService.DEBUT_D_ORDRE +
-      '(?:fais|refais|refaire|cr[ée]e|cr[ée]er|g[ée]n[èe]re|ajoute|rajoute|change|modifie|remplace|supprime|enl[èe]ve|retire|r[ée]initialise|organise|pr[ée]pare|donne)' +
+      /*
+        « Construis-moi mon plan complet, je te fais confiance » — message d'un vrai
+        utilisateur, le 26 août 2026 à 16 h 24. Le verbe « construis » manquait à
+        cette liste : le filet n'a pas vu passer un ordre de plan on ne peut plus
+        explicite, et la personne a redemandé quatre minutes plus tard.
+
+        C'est la limite de toute liste de verbes, et c'est pourquoi elle n'est plus
+        seule à décider — voir `annonceUnPlan` juste en dessous.
+      */
+      '(?:fais|refais|refaire|cr[ée]e|cr[ée]er|g[ée]n[èe]re|ajoute|rajoute|change|modifie|remplace|supprime|enl[èe]ve|retire|r[ée]initialise|organise|pr[ée]pare|donne|construis|construi[ts]|construire|b[âa]tis|b[âa]tir|monte|[ée]tablis|[ée]tablir|con[çc]ois|structure|planifie)' +
       // Ce qui sépare le verbe de son objet : « -moi un nouveau… », « une ».
       // Borné, et sans ponctuation forte, pour ne pas franchir deux phrases.
       '[^.?!]{0,50}' +
@@ -126,6 +135,27 @@ export class AiCoachingService {
       AiCoachingService.ORDRE_DE_PLAN.test(t) ||
       AiCoachingService.ORDRE_DE_PLAN_SANS_OBJET.test(t)
     );
+  }
+
+  /**
+   * Le coach annonce-t-il un plan ?
+   *
+   * **C'est le détecteur qui ne dépend d'aucun vocabulaire d'utilisateur**, et
+   * c'est ce qui manquait. La liste de verbes ci-dessus rate ce qu'elle n'a pas
+   * prévu — « construis-moi mon plan » l'a prouvé chez un vrai utilisateur le
+   * 26 août. Celui-ci lit **la réponse** : quand le coach écrit « Ce plan crée une
+   * structure complète adaptée à ton emploi du temps » et qu'aucun bloc `<PLAN>`
+   * n'existe, il n'y a rien à interpréter. C'est faux, et la personne le
+   * découvrira en n'ayant aucune tâche.
+   *
+   * L'asymétrie joue dans le bon sens : un coach qui ne parle pas d'un plan ne
+   * déclenche rien, et un coach qui en annonce un doit en avoir produit un.
+   */
+  private static readonly ANNONCE_UN_PLAN =
+    /\b(?:ce plan|ton (?:nouveau )?plan|ce programme|ce planning|cette routine|voici (?:ton|le) (?:plan|programme))\b/i;
+
+  static annonceUnPlan(reponse: string): boolean {
+    return AiCoachingService.ANNONCE_UN_PLAN.test(reponse || '');
   }
 
   /** La balise d'ouverture du plan, telle qu'elle doit apparaître dans la réponse. */
@@ -867,22 +897,32 @@ ${microList}
           // ponctuation, et 0,6 la préserve.
           temperature: avecPlan ? 0.3 : 0.6,
           /*
-            Deux budgets, parce que les deux réponses n'ont rien à voir.
+            1500, et **ce plafond n'est pas un réglage de confort : c'est une borne
+            imposée de l'extérieur.**
 
-            Une conversation tient largement dans 1500 jetons — l'invite en demande
-            120 mots. Un plan complet, lui, fait près de mille jetons de seul JSON,
-            auxquels s'ajoutent le raisonnement du modèle (qui se sert dans le même
-            budget, voir `effortDeRaisonnement`) et la phrase qui précède le bloc.
+            Groq compte 8 000 jetons par MINUTE pour l'organisation entière, et il
+            compte `max_tokens` dans le total demandé. L'invite d'une demande de
+            plan pèse déjà ~6 000 jetons à elle seule (2 400 de règles + 3 600 de
+            schéma), plus le contexte de la personne. Le reste est tout ce qu'on
+            peut réclamer.
 
-            Mesuré le 26 août 2026 sur `gpt-oss-20b` : à 1500, le JSON s'arrête en
-            plein milieu d'un titre de tâche. Le bloc est alors présent, la réponse
-            se lit bien, `JSON.parse` échoue chez la personne, et rien ne s'installe.
-            C'est la panne du plan refusé, atteinte par l'autre bout.
+            **Constaté en production le 26 août 2026 à 16 h 24**, sur un vrai
+            utilisateur, après être passé à 2600 « pour éviter les troncatures » :
 
-            **Le plafond ne coûte que s'il sert** : la facturation suit les jetons
-            réellement écrits, et seules les demandes de plan reçoivent celui-ci.
+                413 — Request too large … TPM: Limit 8000, Requested 8965
+
+            Sur les TROIS modèles de la chaîne, donc aucune réponse. Et ce n'est
+            pas une saturation passagère : **une requête plus grosse que la limite
+            par minute ne peut jamais passer**, quel que soit le moment. Pire, elle
+            consomme la minute de tout le monde en échouant.
+
+            Un plafond trop bas coupe une réponse de temps en temps. Un plafond
+            trop haut supprime la fonctionnalité et prend les autres avec elle. Le
+            vrai remède à la troncature est ailleurs : la règle « deux phrases
+            avant le bloc » du schéma, qui a fait tomber la réponse de 335 à 235
+            mots au banc du même jour.
           */
-            max_tokens: avecPlan ? 2600 : 1500,
+            max_tokens: 1500,
           },
           exclus,
         );
@@ -982,7 +1022,21 @@ ${microList}
         aussi, la cause n'est plus le modèle, et un troisième appel se paierait pour
         le même vide.
       */
-      const planOrdonne = AiCoachingService.ordreDePlan(prompt);
+      /*
+        Deux déclencheurs, et le second existe parce que le premier a raté.
+
+        `ordreDePlan` lit le message de la personne : sûr quand il reconnaît, aveugle
+        quand le verbe n'est pas dans sa liste. Le 26 août à 16 h 24, « Construis-moi
+        mon plan complet » ne l'a pas déclenché — aucun repli, aucun avertissement,
+        et l'utilisateur a redemandé quatre minutes plus tard.
+
+        `annonceUnPlan` lit la réponse du coach, et ne dépend donc d'aucun mot que
+        la personne aurait pu employer : s'il écrit « ce plan » sans bloc `<PLAN>`,
+        il annonce quelque chose qui n'existe pas. Aucune liste de verbes ne couvrira
+        jamais le français ; celui-ci n'a pas à le faire.
+      */
+      const planOrdonne =
+        AiCoachingService.ordreDePlan(prompt) || AiCoachingService.annonceUnPlan(reply);
       if (planOrdonne && !AiCoachingService.BALISE_PLAN.test(reply)) {
         console.warn(`[Groq] 📋 Plan ordonné, aucun bloc <PLAN> rendu par ${modele} — second maillon`);
         const tentative = await demander(true, [modele]);
