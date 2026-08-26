@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { cleJourParis, FUSEAU_AFFICHAGE } from '../common/jour-paris';
+import { retirerInvisibles } from '../common/invisibles';
 
 /**
  * Un journal hors instance, parce que le nettoyage des balises est statique.
@@ -100,10 +101,22 @@ export class RappelService {
    * conversation est la seule chose pire qu'un rappel manquant.
    */
   static extraire(
-    reponse: string,
+    entree: string,
     maintenant = new Date(),
     demande = '',
   ): { texte: string; rappels: RappelDemande[]; recales: number; refuses: number } {
+    /*
+      Les invisibles, retirés ici aussi.
+
+      `chatWithAi` le fait déjà en amont, pour que la balise `<PLAN>` en profite.
+      Mais cette fonction est publique et statique : le banc d'essai l'appelle, les
+      tests l'appellent, et c'est elle qui promet dans son commentaire un texte
+      « toujours débarrassé des marqueurs ». Une promesse qui ne tient que si
+      l'appelant a pensé à nettoyer avant n'est pas une promesse.
+
+      L'opération est idempotente : la faire deux fois ne coûte qu'un balayage.
+    */
+    const reponse = retirerInvisibles(entree);
     const rappels: RappelDemande[] = [];
     // Comptés ici et rendus à l'appelant : c'est lui qui sait quel modèle a
     // répondu, et un filet qui se déclenche sans qu'on sache pour qui ne se
@@ -207,7 +220,11 @@ export class RappelService {
    * grave que la panne d origine — la personne avait alors une raison de croire
    * que c etait regle, et le telephone la contredisait.
    */
-  static extraireAnnulations(reponse: string): { texte: string; numeros: number[] } {
+  static extraireAnnulations(entree: string): { texte: string; numeros: number[] } {
+    // Même raison que dans `extraire` : un `<ANNULE_RAPPEL 2>` porteur d'un
+    // caractère invisible ne serait ni lu ni nettoyé, et le coach annoncerait une
+    // annulation qui n'a pas eu lieu — pire que de ne pas avoir annulé.
+    const reponse = retirerInvisibles(entree);
     const numeros: number[] = [];
 
     const texte = reponse

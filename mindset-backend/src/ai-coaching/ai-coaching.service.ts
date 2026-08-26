@@ -13,6 +13,7 @@ import { lireFournisseurSecours, FournisseurSecours } from '../common/fournisseu
 import { MODELES_CHAT } from '../common/modeles';
 import { construirePromptBase, construirePromptPlan } from './prompt-coach';
 import { cleJourParis } from '../common/jour-paris';
+import { contientDesInvisibles, retirerInvisibles } from '../common/invisibles';
 
 @Injectable()
 export class AiCoachingService {
@@ -129,6 +130,72 @@ export class AiCoachingService {
 
   /** La balise d'ouverture du plan, telle qu'elle doit apparaître dans la réponse. */
   private static readonly BALISE_PLAN = /<\s*PLAN\s*>/i;
+
+  private static readonly JOURS_SEMAINE = [
+    'lundi',
+    'mardi',
+    'mercredi',
+    'jeudi',
+    'vendredi',
+    'samedi',
+    'dimanche',
+  ];
+
+  /**
+   * Le jour le plus chargé du plan, en minutes. `null` si le bloc est illisible.
+   *
+   * **Ce que ça mesure, et pourquoi ça se mesure ici.** Le plan s'applique dans le
+   * navigateur : le serveur ne le lisait donc jamais, et un plan trois fois trop
+   * long s'installait aussi proprement qu'un bon. JSON valide, bloc bien fermé,
+   * tâches qui apparaissent — rien à signaler nulle part, et quelqu'un qui a
+   * déclaré vingt minutes se retrouve devant soixante-dix.
+   *
+   * Mesuré le 26 août 2026 sur `openai/gpt-oss-20b`, le maillon des heures de
+   * pointe : trois tâches de 15 minutes en MIDDAY, trois de 5 le matin, dix le
+   * soir, tous les jours — **70 minutes par jour pour 20 déclarées**. Le modèle
+   * avait même écrit « Tu as 20 min par jour, pas plus » juste au-dessus.
+   *
+   * C'est la panne muette dans sa forme la plus aboutie : rien n'échoue, et la
+   * personne abandonne le premier jour en concluant que c'est elle qui n'a pas
+   * tenu.
+   *
+   * **Une tâche sans champ "jours" compte tous les jours** — c'est la règle du
+   * schéma, et l'oublier ferait passer pour léger un plan qui tombe sept fois.
+   */
+  static minutesDuJourLePlusCharge(reponse: string): number | null {
+    const bloc = /<\s*PLAN\s*>([\s\S]*?)<\s*\/\s*PLAN\s*>/i.exec(reponse);
+    if (!bloc) return null;
+
+    let plan: any;
+    try {
+      plan = JSON.parse(bloc[1].trim());
+    } catch {
+      // Un JSON cassé se voit déjà côté navigateur, qui affiche « Je n'ai pas
+      // réussi à appliquer ce plan ». Rien à ajouter ici.
+      return null;
+    }
+
+    const routines = Array.isArray(plan?.newRoutines) ? plan.newRoutines : [];
+    if (!routines.length) return null;
+
+    const parJour = new Map<string, number>();
+    for (const routine of routines) {
+      const taches = Array.isArray(routine?.tasks) ? routine.tasks : [];
+      for (const tache of taches) {
+        const duree = Number(tache?.duration);
+        if (!Number.isFinite(duree) || duree <= 0) continue;
+
+        const jours = Array.isArray(tache?.jours) && tache.jours.length
+          ? tache.jours.map((j: any) => String(j).toLowerCase())
+          : AiCoachingService.JOURS_SEMAINE;
+
+        for (const jour of jours) parJour.set(jour, (parJour.get(jour) ?? 0) + duree);
+      }
+    }
+
+    if (parJour.size === 0) return null;
+    return Math.max(...parJour.values());
+  }
 
   constructor(
     private readonly prisma: PrismaService,
@@ -799,9 +866,23 @@ ${microList}
           // s'agit seulement de parler, la chaleur du ton compte davantage que la
           // ponctuation, et 0,6 la préserve.
           temperature: avecPlan ? 0.3 : 0.6,
-          // Un plan complet fait à lui seul près de mille jetons de JSON : rogner ici
-          // le tronquerait en plein objet et casserait son application dans l'app.
-            max_tokens: 1500,
+          /*
+            Deux budgets, parce que les deux réponses n'ont rien à voir.
+
+            Une conversation tient largement dans 1500 jetons — l'invite en demande
+            120 mots. Un plan complet, lui, fait près de mille jetons de seul JSON,
+            auxquels s'ajoutent le raisonnement du modèle (qui se sert dans le même
+            budget, voir `effortDeRaisonnement`) et la phrase qui précède le bloc.
+
+            Mesuré le 26 août 2026 sur `gpt-oss-20b` : à 1500, le JSON s'arrête en
+            plein milieu d'un titre de tâche. Le bloc est alors présent, la réponse
+            se lit bien, `JSON.parse` échoue chez la personne, et rien ne s'installe.
+            C'est la panne du plan refusé, atteinte par l'autre bout.
+
+            **Le plafond ne coûte que s'il sert** : la facturation suit les jetons
+            réellement écrits, et seules les demandes de plan reçoivent celui-ci.
+          */
+            max_tokens: avecPlan ? 2600 : 1500,
           },
           exclus,
         );
@@ -850,6 +931,24 @@ ${microList}
       // base ne dirait pas quel modèle rend du vide — c'est pourtant ce qui décide
       // s'il faut le retirer de la liste.
       if (!reply) throw Object.assign(new Error('Empty response from Groq'), { modele });
+
+      /*
+        Les caractères invisibles, retirés avant que quoi que ce soit ne soit lu.
+
+        Mesuré le 26 août 2026 sur `gpt-oss-120b` : `<​RAPPEL …>`, avec un espace
+        de largeur nulle entre le chevron et le mot. La balise n'est alors ni
+        reconnue — donc aucun rappel n'est programmé — ni nettoyée, puisque `\s`
+        ne couvre pas ce caractère en JavaScript : elle s'affiche en clair.
+
+        **Ici et non dans `RappelService`**, parce que la balise `<PLAN>` court le
+        même risque et qu'elle est lue quelques lignes plus bas. Un nettoyage placé
+        au plus près de la réponse vaut pour tous ses lecteurs, y compris ceux qui
+        n'existent pas encore. Voir `common/invisibles.ts`.
+      */
+      if (contientDesInvisibles(reply)) {
+        console.warn(`[Groq] 👻 Caractères invisibles retirés de la réponse de ${modele}`);
+        reply = retirerInvisibles(reply);
+      }
 
       // Garde-fou : si le marqueur survit au second appel, il ne doit jamais s'afficher
       // dans la conversation. Mieux vaut une réponse vide traitée comme une erreur —
@@ -917,6 +1016,36 @@ ${microList}
             reply +=
               "\n\n⚠️ Je n'ai rien installé dans ton plan : le texte ci-dessus n'a ni ajouté ni coché quoi que ce soit. Redemande-le-moi.";
           }
+        }
+      }
+
+      /*
+        Le plan qui déborde du temps déclaré.
+
+        Le serveur ne lisait jamais le contenu du bloc — il le laisse passer vers le
+        navigateur, qui l'applique. Un plan trois fois trop long s'installait donc
+        exactement comme un bon : JSON valide, tâches visibles, aucune erreur. La
+        seule trace était la personne qui n'ouvrait plus l'application.
+
+        Mesuré sur `gpt-oss-20b` le 26 août 2026 : 70 minutes par jour prescrites à
+        quelqu'un qui en a déclaré 20. La consigne du schéma a été renforcée le même
+        jour, mais une consigne d'invite ne se vérifie qu'après coup — et « après
+        coup », ici, veut dire chez quelqu'un qui a déjà abandonné.
+
+        **On journalise sans rien modifier.** Retirer des tâches en douce ferait
+        diverger le plan appliqué du plan que le coach vient d'annoncer, ce qui est
+        une autre forme de mensonge ; refaire un appel se paierait sur toutes les
+        demandes de plan. Ce qui manquait n'était pas une correction, c'était de
+        savoir que ça arrive — et à quelle fréquence.
+      */
+      const budget = Number(profil?.minutes_par_jour);
+      if (Number.isFinite(budget) && budget > 0) {
+        const charge = AiCoachingService.minutesDuJourLePlusCharge(reply);
+        if (charge !== null && charge > budget) {
+          console.error(
+            `[Groq] ⏳ Plan hors budget par ${modele} : ${charge} min sur le jour le plus chargé ` +
+              `pour ${budget} min déclarées (×${(charge / budget).toFixed(1)})`,
+          );
         }
       }
 

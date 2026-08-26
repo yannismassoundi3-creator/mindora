@@ -267,6 +267,69 @@ describe('RappelService', () => {
     ne l apprend qu a l heure dite, en ne recevant rien — la panne muette de ce
     fichier, dans sa version la plus courante.
   */
+  /*
+    Le caractere qu on ne voit pas, et qui cassait tout deux fois.
+
+    Mesure le 26 aout 2026 contre le vrai Groq, sur `openai/gpt-oss-120b` — le
+    GROS modele, pas le petit : un espace de largeur nulle entre le chevron et le
+    mot RAPPEL. Verifie aux octets, E2 80 8B.
+
+    La balise n etait ni lue — donc aucun rappel programme — ni nettoyee, parce
+    que `\s` ne couvre pas U+200B en JavaScript. Elle s affichait donc en clair
+    dans la conversation, ce que ce fichier designe comme sa faute la plus chere.
+  */
+  describe('le caractere invisible dans la balise', () => {
+    const lundi = new Date('2026-08-24T10:11:00.000Z');
+    // Par son point de code : colle en clair, il serait illisible a la relecture.
+    const ZWSP = String.fromCharCode(0x200b);
+
+    it('programme quand meme le rappel', () => {
+      const { rappels } = RappelService.extraire(
+        `Tes pompes.<${ZWSP}RAPPEL 2026-08-24T15:30>Fais tes 25 pompes.</RAPPEL>`,
+        lundi,
+        'rappelle-moi mes pompes a 15h30',
+      );
+
+      expect(rappels).toHaveLength(1);
+      expect(rappels[0].texte).toBe('Fais tes 25 pompes.');
+    });
+
+    it('ne laisse aucune balise a l ecran', () => {
+      const { texte } = RappelService.extraire(
+        `Tes pompes.<${ZWSP}RAPPEL 2026-08-24T15:30>Fais tes 25 pompes.</RAPPEL>`,
+        lundi,
+        'rappelle-moi mes pompes a 15h30',
+      );
+
+      expect(texte).toBe('Tes pompes.');
+      expect(texte).not.toContain('RAPPEL');
+    });
+
+    it('nettoie aussi une balise invisible et non fermee', () => {
+      // La forme exacte du 26 aout : ouverture abimee, aucune fermeture. Rien
+      // n est programme — la balise est incomplete — mais rien ne s affiche non
+      // plus, et c est ce qui manquait.
+      const { texte, rappels } = RappelService.extraire(
+        `Fais la planche.<${ZWSP}RAPPEL 2026-08-24T15:30>Termine les squats.`,
+        lundi,
+        "j'ai pas pu, j'etais creve",
+      );
+
+      expect(rappels).toHaveLength(0);
+      expect(texte).not.toContain('RAPPEL');
+      expect(texte).toContain('Fais la planche.');
+    });
+
+    it('ecarte une annulation invisible plutot que de l afficher', () => {
+      const { texte, numeros } = RappelService.extraireAnnulations(
+        `C est retire.<${ZWSP}ANNULE_RAPPEL 1>`,
+      );
+
+      expect(numeros).toEqual([1]);
+      expect(texte).toBe('C est retire.');
+    });
+  });
+
   describe('les formes abimees par les petits modeles', () => {
     const lundiSoir = new Date('2026-08-24T10:11:00.000Z');
 

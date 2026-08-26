@@ -86,6 +86,21 @@ describe('le prompt du coach', () => {
     expect(prompt).toContain('AUCUN chiffre inventé');
   });
 
+  it('interdit aussi les statistiques sur le monde', () => {
+    /*
+      Mesuré le 26 août 2026 sur `gpt-oss-120b`, en réponse à « j'ai fini ma
+      routine » : « la réflexion écrite augmente la persévérance de +15 % selon
+      les études de suivi ». Le chiffre n'existe pas.
+
+      La règle 6 lui demande d'expliquer pourquoi une méthode marche ; il
+      satisfaisait cette règle en violant la première. Il suffit d'une
+      vérification pour qu'il ne croie plus aucun chiffre du coach — y compris
+      les vrais, ceux qui viennent de ses propres données.
+    */
+    expect(prompt).toContain('Cela vaut aussi pour les chiffres sur le monde');
+    expect(prompt).toContain('21 jours');
+  });
+
   it('dit qu’un rappel non demandé sera jeté', () => {
     /*
       Mesuré au banc du 21 août 2026 : le modèle pose un rappel de sa propre
@@ -130,5 +145,41 @@ describe('le schéma du plan', () => {
     // C'est la forme exacte qu'a prise le refus : une belle routine en liste, dans
     // le texte, dont rien n'est ajouté ni cochable.
     expect(plan).toContain("TU NE L'ÉCRIS JAMAIS EN PROSE");
+  });
+
+  it('fait du budget temps un calcul, pas une intention', () => {
+    /*
+      Mesuré le 26 août 2026 sur `openai/gpt-oss-20b` — le maillon des heures de
+      pointe — pour quelqu'un ayant déclaré 20 minutes : 3×5 le matin, 3×15 le
+      midi, 10 le soir, tous les jours. **70 minutes.** Et le modèle avait écrit
+      « Tu as 20 min par jour, pas plus » dans la phrase juste au-dessus du bloc.
+
+      La consigne disait « additionne » sans dire quoi additionner ni quoi faire
+      du résultat. Elle nomme désormais le cas exact, et demande la somme dans
+      l'explication — un contrôle qu'on doit écrire est un contrôle qu'on fait.
+    */
+    expect(plan).toContain('SON TEMPS DISPONIBLE FIXE LE VOLUME, ET ÇA SE CALCULE');
+    expect(plan).toContain('trois tâches de 15 minutes dans MIDDAY font 45 minutes');
+    expect(plan).toContain('Dis la somme obtenue dans "routineExplanation"');
+  });
+
+  it('borne ce qui précède le bloc à deux phrases', () => {
+    /*
+      Effet de bord mesuré le 26 août 2026, après avoir durci la règle du budget
+      temps : `gpt-oss-20b` s'est mis à recopier ses quatre explications **en prose
+      avant le bloc**, puis à énumérer routines et repas. La réponse a dépassé le
+      plafond de jetons et le JSON s'est arrêté en plein milieu d'un titre.
+
+      Écrire deux fois la même explication est donc la façon la plus sûre de se
+      faire couper — et une réponse coupée n'installe rien du tout.
+    */
+    expect(plan).toContain('AVANT LE BLOC : DEUX PHRASES, PAS UNE DE PLUS');
+    expect(plan).toContain('les écrire deux fois');
+  });
+
+  it('interdit les titres de séance numérotés', () => {
+    // « Séance 1 », « Séance 2 » : le même défaut que « Musculation », avec un
+    // chiffre en plus. Devant sa tâche, la personne ne sait toujours pas quoi faire.
+    expect(plan).toContain('"Séance 1", "Séance 2"');
   });
 });

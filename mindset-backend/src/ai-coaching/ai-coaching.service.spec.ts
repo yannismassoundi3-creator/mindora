@@ -21,6 +21,9 @@ describe('AiCoachingService — chat', () => {
   let service: AiCoachingService;
   let prisma: any;
   let fetchMock: jest.Mock;
+  /* Hissée hors du `beforeEach` : le profil décide du budget temps, et un test
+     doit pouvoir déclarer « cette personne a vingt minutes ». */
+  let memoire: any;
   const cleInitiale = process.env.GROQ_API_KEY;
 
   const PREMIER = MODELES_CHAT[0];
@@ -71,7 +74,7 @@ describe('AiCoachingService — chat', () => {
       user: { findUnique: jest.fn().mockResolvedValue({ relances_email: true }) },
     };
 
-    const memoire = {
+    memoire = {
       chargerProfil: jest.fn().mockResolvedValue(null),
       formatProfil: jest.fn().mockReturnValue(''),
       formatMemoire: jest.fn().mockReturnValue(''),
@@ -518,6 +521,26 @@ describe('AiCoachingService — chat', () => {
       expect(resultat.reply).toContain("Je n'ai rien installé dans ton plan");
     });
 
+    it('accorde plus de jetons quand le schéma est joint', async () => {
+      /*
+        Mesuré le 26 août 2026 sur `gpt-oss-20b` : à 1500 jetons, le JSON s'arrête
+        en plein milieu d'un titre de tâche. Le bloc est présent, la réponse se lit
+        bien, `JSON.parse` échoue chez la personne, et rien ne s'installe — la
+        panne du plan refusé, atteinte par l'autre bout.
+
+        Le plafond ne coûte que s'il sert : la facturation suit les jetons écrits,
+        et une conversation ordinaire garde le sien.
+      */
+      fetchMock.mockResolvedValueOnce(reponseOk('C\'est parti. <PLAN>{}</PLAN>'));
+      await service.chatWithAi('u1', ORDRE);
+      expect(JSON.parse(fetchMock.mock.calls[0][1].body).max_tokens).toBe(2600);
+
+      fetchMock.mockClear();
+      fetchMock.mockResolvedValueOnce(reponseOk('Bien reçu.'));
+      await service.chatWithAi('u1', 'Comment tu vas ?');
+      expect(JSON.parse(fetchMock.mock.calls[0][1].body).max_tokens).toBe(1500);
+    });
+
     it('ne relance rien quand le bloc est là', async () => {
       fetchMock.mockResolvedValueOnce(reponseOk('C\'est parti. <PLAN>{}</PLAN>'));
 
@@ -605,6 +628,128 @@ describe('AiCoachingService — chat', () => {
       const resultat: any = await service.chatWithAi('u1', DEMANDE);
 
       expect(resultat.reply).toContain('rien ne partira');
+    });
+  });
+
+  /*
+    Le plan qui déborde du temps déclaré.
+
+    Le serveur ne lisait jamais le contenu du bloc : il le passe au navigateur, qui
+    l'applique. Un plan trois fois trop long s'installait donc exactement comme un
+    bon — JSON valide, tâches visibles, aucune erreur nulle part. La seule trace
+    était quelqu'un qui n'ouvrait plus l'application.
+  */
+  describe('AiCoachingService.minutesDuJourLePlusCharge', () => {
+    const bloc = (plan: any) => `Voilà ton plan.\n<PLAN>${JSON.stringify(plan)}</PLAN>`;
+
+    it('additionne les trois moments de la même journée', () => {
+      /*
+        Le plan réellement rendu par `openai/gpt-oss-20b` le 26 août 2026, à
+        quelqu'un ayant déclaré 20 minutes : 3×5 le matin, 3×15 le midi, 10 le
+        soir, tous les jours. Soixante-dix minutes. Le modèle avait écrit « Tu as
+        20 min par jour, pas plus » dans la phrase juste au-dessus.
+      */
+      const plan = {
+        newRoutines: [
+          {
+            type: 'MORNING',
+            tasks: [
+              { title: 'Squats (4x12)', duration: 5 },
+              { title: 'Planche (3x45s)', duration: 5 },
+              { title: 'Lecture 10 pages', duration: 5 },
+            ],
+          },
+          {
+            type: 'MIDDAY',
+            tasks: [
+              { title: 'Séance 1', duration: 15 },
+              { title: 'Séance 2', duration: 15 },
+              { title: 'Séance 3', duration: 15 },
+            ],
+          },
+          { type: 'EVENING', tasks: [{ title: 'Bilan écrit', duration: 10 }] },
+        ],
+      };
+
+      expect(AiCoachingService.minutesDuJourLePlusCharge(bloc(plan))).toBe(70);
+    });
+
+    it('compte une tâche sans « jours » tous les jours de la semaine', () => {
+      // C'est la règle du schéma, et l'ignorer ferait passer pour léger un plan qui
+      // tombe sept fois.
+      const plan = {
+        newRoutines: [{ type: 'MORNING', tasks: [{ title: 'Méditation', duration: 12 }] }],
+      };
+
+      expect(AiCoachingService.minutesDuJourLePlusCharge(bloc(plan))).toBe(12);
+    });
+
+    it('rend le jour le plus chargé, pas la moyenne', () => {
+      // Un plan qui met tout le lundi et rien le reste de la semaine déborde le
+      // lundi. La moyenne le dirait raisonnable, et c'est le lundi qu'on abandonne.
+      const plan = {
+        newRoutines: [
+          {
+            type: 'MORNING',
+            tasks: [
+              { title: 'Squats (4x12)', duration: 30, jours: ['lundi'] },
+              { title: 'Étirements', duration: 5, jours: ['lundi', 'mercredi'] },
+            ],
+          },
+        ],
+      };
+
+      expect(AiCoachingService.minutesDuJourLePlusCharge(bloc(plan))).toBe(35);
+    });
+
+    it('ignore une durée absente ou aberrante', () => {
+      const plan = {
+        newRoutines: [
+          {
+            type: 'MORNING',
+            tasks: [
+              { title: 'Sans durée' },
+              { title: 'Durée négative', duration: -10 },
+              { title: 'Squats (4x12)', duration: 8 },
+            ],
+          },
+        ],
+      };
+
+      expect(AiCoachingService.minutesDuJourLePlusCharge(bloc(plan))).toBe(8);
+    });
+
+    it('rend null sur un bloc absent, vide ou cassé', () => {
+      // Un JSON cassé se voit déjà côté navigateur, qui affiche « Je n'ai pas
+      // réussi à appliquer ce plan ». Rien à ajouter ici.
+      expect(AiCoachingService.minutesDuJourLePlusCharge('Rien à signaler.')).toBeNull();
+      expect(AiCoachingService.minutesDuJourLePlusCharge('<PLAN>{"newRou</PLAN>')).toBeNull();
+      expect(AiCoachingService.minutesDuJourLePlusCharge(bloc({ newHabits: [] }))).toBeNull();
+    });
+
+    it('journalise le dépassement, sans toucher au plan', () => {
+      /*
+        On ne retire pas de tâches en douce : le plan appliqué divergerait de celui
+        que le coach vient d'annoncer, ce qui est une autre forme de mensonge. Ce
+        qui manquait n'était pas une correction, c'était de savoir que ça arrive.
+      */
+      const trace = jest.spyOn(console, 'error');
+      memoire.chargerProfil.mockResolvedValue({ minutes_par_jour: 20 });
+      fetchMock.mockResolvedValueOnce(
+        reponseOk(
+          bloc({
+            newRoutines: [{ type: 'MIDDAY', tasks: [{ title: 'Séance 1', duration: 45 }] }],
+          }),
+        ),
+      );
+
+      return service.chatWithAi('u1', 'fais-moi un plan complet').then((resultat: any) => {
+        expect(resultat.reply).toContain('<PLAN>');
+        const message = trace.mock.calls.map((a) => String(a[0])).join('\n');
+        expect(message).toContain('Plan hors budget');
+        expect(message).toContain('45 min');
+        expect(message).toContain('20 min');
+      });
     });
   });
 
