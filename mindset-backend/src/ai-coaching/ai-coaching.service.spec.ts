@@ -552,7 +552,7 @@ describe('AiCoachingService — chat', () => {
       expect(resultat.erreur).toBeUndefined();
       // Mais elle ne passe pas pour un succès : sans cette phrase, la personne ne
       // voit rien apparaître dans son application et n'a aucun moyen de le savoir.
-      expect(resultat.reply).toContain("Je n'ai rien installé dans ton plan");
+      expect(resultat.reply).toContain("Je n'ai rien changé dans ton plan");
     });
 
     it('ne demande jamais plus de 1500 jetons, schéma joint ou non', async () => {
@@ -636,6 +636,31 @@ describe('AiCoachingService — chat', () => {
       // L'asymétrie joue dans le bon sens : pas d'annonce, pas de relance.
       expect(AiCoachingService.annonceUnPlan('Tu as tenu 4 jours. Fais tes squats.')).toBe(false);
       expect(AiCoachingService.annonceUnPlan('Ce plan tient dans tes 20 minutes.')).toBe(true);
+    });
+
+    /*
+      Le même piège, un cran plus bas.
+
+      Depuis que le coach sait faire des retouches, il peut écrire « Je passe ta
+      méditation à 5 minutes » sans émettre le moindre bloc. La personne lit une
+      confirmation, sa liste ne bouge pas, et rien ne le signale — la panne muette
+      qui a touché un vrai utilisateur cet après-midi, refaite dans le chemin
+      qu'on venait d'ouvrir.
+    */
+    it('voit aussi une retouche annoncée et jamais faite', () => {
+      expect(AiCoachingService.annonceUnPlan('Je passe ta méditation à 5 minutes.')).toBe(true);
+      expect(AiCoachingService.annonceUnPlan("J'ajoute des pompes à ton matin.")).toBe(true);
+      expect(AiCoachingService.annonceUnPlan("C'est modifié.")).toBe(true);
+    });
+
+    it('ne prend pas une suggestion pour une annonce', () => {
+      /*
+        Le pronom est collé au verbe, volontairement : « je retire » est une
+        affirmation, « je te propose de retirer » n'en est pas une. Sans cette
+        distinction, chaque conseil déclencherait une relance payée pour rien.
+      */
+      expect(AiCoachingService.annonceUnPlan('Je te propose de retirer la lecture.')).toBe(false);
+      expect(AiCoachingService.annonceUnPlan('Tu peux ajouter du gainage demain.')).toBe(false);
     });
 
     it("n'accuse pas d'échec un modèle qui demande une précision", async () => {

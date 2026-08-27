@@ -193,8 +193,36 @@ export class AiCoachingService {
   private static readonly ANNONCE_UN_PLAN =
     /\b(?:ce plan|ton (?:nouveau )?plan|ce programme|ce planning|cette routine|voici (?:ton|le) (?:plan|programme))\b/i;
 
+  /**
+   * Le coach affirme-t-il avoir **modifié** quelque chose ?
+   *
+   * Le même piège que le plan annoncé sans bloc, un cran plus bas : depuis que le
+   * coach sait faire des retouches, il peut écrire « Je passe ta méditation à 5
+   * minutes » et n'émettre aucun bloc. La personne lit une confirmation, sa liste
+   * ne bouge pas, et rien ne le signale.
+   *
+   * **Le pronom est collé au verbe, volontairement.** « Je retire » est une
+   * affirmation ; « je te propose de retirer » n'en est pas une, et la seconde ne
+   * doit rien déclencher. C'est ce qui sépare une annonce d'une suggestion.
+   */
+  /*
+    Pas de `\b` final après les participes, et ce n'est pas un oubli.
+
+    En JavaScript, `\b` se calcule sur l'ASCII : « é » n'est pas un caractère de
+    mot, donc dans « c'est modifié. » il n'y a **aucune** frontière entre le « é »
+    et le point. Un `\b` en fin d'alternative faisait échouer « modifié », «
+    changé » et « ajouté » — c'est-à-dire précisément les formes que le coach
+    écrit. Le même piège que les diacritiques ailleurs dans ce projet, par un
+    autre chemin.
+  */
+  private static readonly ANNONCE_UNE_RETOUCHE =
+    /\bj(?:e |')(?:passe|retire|renomme|remplace|d[ée]place|supprime|ajoute|mets|raccourcis|allonge)\b|\bc'est (?:fait|modifi|chang|retir|ajout)[ée]/i;
+
   static annonceUnPlan(reponse: string): boolean {
-    return AiCoachingService.ANNONCE_UN_PLAN.test(reponse || '');
+    const t = reponse || '';
+    return (
+      AiCoachingService.ANNONCE_UN_PLAN.test(t) || AiCoachingService.ANNONCE_UNE_RETOUCHE.test(t)
+    );
   }
 
   /** La balise d'ouverture du plan, telle qu'elle doit apparaître dans la réponse. */
@@ -1154,7 +1182,7 @@ ${microList}
           );
           if (!/\?\s*$/.test(reply.trim())) {
             reply +=
-              "\n\n⚠️ Je n'ai rien installé dans ton plan : le texte ci-dessus n'a ni ajouté ni coché quoi que ce soit. Redemande-le-moi.";
+              "\n\n⚠️ Je n'ai rien changé dans ton plan : le texte ci-dessus n'a rien ajouté ni modifié chez toi. Redemande-le-moi.";
           }
         }
       }
