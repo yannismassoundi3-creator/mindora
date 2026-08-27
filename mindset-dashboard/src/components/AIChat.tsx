@@ -8,6 +8,7 @@ import { sauvegarderPlanPrecedent, planPrecedentDisponible, restaurerPlanPrecede
 import { normaliserJours } from '../utils/recurrence';
 import { extrairePlan, reparerJson, retirerObjetsDePlan } from '../utils/extractionPlan';
 import { listesIllisibles, reparerListe, type ListeIllisible } from '../utils/etatLocal';
+import { appliquerEditions, resumerEditions, type AccesListes } from '../utils/editionsPlan';
 import { CLE_PREMIER_CONTACT, composerOuverture, composerPremierContact } from '../utils/ouverture';
 import { retenirQuOnAParleAuCoach } from '../utils/motDuCoach';
 import { nouveautes } from '../utils/fusionPlan';
@@ -57,6 +58,30 @@ interface Message {
    */
   listesAReparer?: ListeIllisible[];
 }
+
+/**
+ * Le seul accès au stockage que les retouches du coach obtiennent.
+ *
+ * `editionsPlan` ne connaît pas `localStorage` : il reçoit ce couple. C'est ce
+ * qui le rend testable sans navigateur, et surtout ce qui borne ce qu'il peut
+ * écrire — il ne touchera jamais une clé qu'on ne lui a pas confiée.
+ *
+ * Une valeur illisible rend un tableau vide, mais **l'appelant vérifie d'abord**
+ * avec `listesIllisibles()` : sans ce contrôle en amont, une liste corrompue
+ * serait relue comme vide, puis réécrite par-dessus, et tout serait perdu en
+ * annonçant que c'est fait.
+ */
+const ACCES_LISTES: AccesListes = {
+  lire: (cle) => {
+    try {
+      const valeur = JSON.parse(localStorage.getItem(cle) || '[]');
+      return Array.isArray(valeur) ? valeur : [];
+    } catch {
+      return [];
+    }
+  },
+  ecrire: (cle, valeur) => localStorage.setItem(cle, JSON.stringify(valeur)),
+};
 
 export const AIChat: React.FC = () => {
   const aiName = localStorage.getItem('mindset_ai_name') || 'Coach IA';
@@ -791,6 +816,38 @@ export const AIChat: React.FC = () => {
           jsonStr = reparerJson(jsonStr);
 
           const planData = JSON.parse(jsonStr);
+
+          /*
+            Les retouches chirurgicales, traitées avant le plan complet.
+
+            Elles ne réécrivent aucune liste : elles nomment leur cible et ne
+            touchent qu'elle. C'est ce qui permet à « change ma méditation en 5
+            minutes » de garder l'historique et l'XP de cette habitude, là où le
+            plan complet devait remplacer la liste entière pour changer un titre.
+
+            **Le même garde-fou que le plan complet, et pour la même raison** :
+            une liste qu'on ne sait pas relire ne se réécrit pas. `lire` rendrait
+            un tableau vide, et un `habit.add` par-dessus effacerait tout ce que
+            la personne avait — en annonçant que c'est fait.
+          */
+          if (Array.isArray(planData.edits) && planData.edits.length > 0) {
+            const illisibles = listesIllisibles();
+            if (illisibles.length > 0) {
+              listesAReparer = illisibles;
+              replyText +=
+                `\n\n⚠️ **Je n'ai rien changé.** Je n'arrive pas à relire ${illisibles
+                  .map((l) => l.nom)
+                  .join(' ni ')} sur cet appareil.`;
+            } else {
+              const editions = appliquerEditions(planData.edits, ACCES_LISTES);
+              if (editions.appliquees.length > 0) {
+                // Sans ce signal, la liste change dans le stockage et l'écran
+                // continue d'afficher l'ancienne jusqu'au prochain rechargement.
+                window.dispatchEvent(new Event('storage'));
+              }
+              replyText += resumerEditions(editions);
+            }
+          }
 
           if (planData.planExplanation || planData.routineExplanation) {
             localStorage.setItem('mindset_pending_ai_explanation', planData.planExplanation || planData.routineExplanation);

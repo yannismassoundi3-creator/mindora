@@ -183,3 +183,65 @@ Les quatre "...Explanation" nomment ce qui a guidé tes choix — son métier, s
 - **PAS DE REPAS DANS LES ROUTINES** : MORNING, MIDDAY et EVENING sont des actions. « Petit-déjeuner », « Dîner », « Collation » y sont interdits — l'alimentation a "newNutrition".
 - **NE COMMENTE PAS LE PLAN.** Ne dis pas « voici le plan » : le JSON s'applique silencieusement à son écran, ton texte normal est ce qu'elle lit.`;
 }
+
+/**
+ * Le schéma d'édition : agir sur **un** élément, sans réécrire tout le plan.
+ *
+ * ## Le problème qu'il résout, et il en résout deux à la fois
+ *
+ * Jusqu'ici le coach n'avait qu'un seul outil : le bloc `<PLAN>` complet. Pour
+ * « change ma méditation en 5 minutes », il devait donc recevoir les 1 951 jetons
+ * du schéma entier, puis émettre `replaceHabits: true` **et recomposer toute la
+ * liste des habitudes de mémoire**. Deux conséquences, et les deux se payaient :
+ *
+ * 1. **C'était cher.** Le schéma partait sur tout message contenant « habitude »,
+ *    « routine », « objectif », « repas » ou « sport » — c'est-à-dire la majorité
+ *    des demandes. Sur une limite de 8 000 jetons par minute pour l'organisation
+ *    entière, c'est ce qui décide du nombre de personnes qu'on peut servir.
+ * 2. **C'était destructeur.** Tout ce que le modèle oubliait de recopier
+ *    disparaissait, avec son historique et son XP. Changer une ligne coûtait la
+ *    liste entière.
+ *
+ * Ces opérations-ci nomment leur cible. Elles tiennent en ~300 jetons, elles ne
+ * touchent que ce qu'elles désignent, et elles ne peuvent rien effacer d'autre.
+ *
+ * ## Pourquoi elles voyagent dans le même bloc `<PLAN>`
+ *
+ * Le transport est déjà éprouvé : extraction tolérante aux balises mutilées,
+ * réparation des virgules en rafale, refus d'écrire quoi que ce soit quand une
+ * liste est illisible, photo avant remplacement, et confirmation à l'écran de ce
+ * qui a réellement été appliqué. Inventer un second marqueur, ce serait refaire
+ * tout ce chemin — et le refaire moins bien, comme l'a montré la balise de rappel
+ * et son espace de largeur nulle.
+ *
+ * ## Le rattrapage quand on s'est trompé de schéma
+ *
+ * Ce texte n'est joint qu'aux demandes qui ressemblent à une retouche. Si la
+ * personne voulait en réalité un plan complet, le modèle réclame le schéma long
+ * par `BESOIN_SCHEMA_PLAN`, exactement comme depuis un message ordinaire — le
+ * mécanisme existait déjà, il sert ici une seconde fois.
+ */
+export function construirePromptEdition(): string {
+  return `
+**MODIFIER UN SEUL ÉLÉMENT DE SON PLAN.** Tu peux agir directement sur ce qu'il te désigne, sans toucher au reste. Termine alors ta réponse par ce bloc, et **rien d'autre après** :
+<PLAN>
+{ "edits": [ { "op": "habit.rename", "target": "Méditation 10 min", "value": "Méditation 5 min" } ] }
+</PLAN>
+
+Les opérations disponibles, et elles seules :
+- {"op":"habit.add","value":"<nom court>","description":"<ce qu'elle implique>"}
+- {"op":"habit.rename","target":"<nom actuel exact>","value":"<nouveau nom>"}
+- {"op":"habit.remove","target":"<nom actuel exact>"}
+- {"op":"task.add","routine":"MORNING|MIDDAY|EVENING","value":"<exercice precis + ses chiffres>","duration":<minutes>,"jours":["mardi","jeudi"]} — "jours" est facultatif ; sans lui la tache tombe tous les jours
+- {"op":"task.remove","routine":"MORNING|MIDDAY|EVENING","target":"<titre actuel exact>"}
+- {"op":"meal.set","target":"<nom du repas>","value":"<aliments - kcal, protéines>"}
+- {"op":"meal.remove","target":"<nom du repas>"}
+- {"op":"goal.add","scope":"micro|macro","value":"<objectif>"}
+- {"op":"goal.remove","target":"<objectif actuel exact>"}
+
+**"target" se recopie depuis les données ci-dessous, mot pour mot.** Ce n'est pas une description : c'est le nom exact de la ligne qui existe chez lui. Une cible inventée ne correspond à rien et l'opération est refusée — tu ne peux modifier que ce qui est écrit dans SES DONNÉES.
+
+**Une retouche n'est pas un plan.** N'utilise ce bloc que pour ce qu'il demande précisément : trois opérations au maximum, et jamais pour reconstruire son programme. S'il veut un plan complet ou un changement de fond, réponds EXCLUSIVEMENT par le mot ${'BESOIN_SCHEMA_PLAN'}, seul, sans aucun autre mot — on te donnera de quoi le faire.
+
+**Avant le bloc : une phrase, deux au plus, adressées à LUI.** Tu dis ce que tu viens de changer et pourquoi — « Je passe ta méditation à 5 minutes : tenue 2 fois sur 7, elle était trop longue pour toi. » Pas de narration à la troisième personne, pas d'ordre qui décrirait ta propre action. Ne recopie pas le contenu du bloc dans ton texte. Si tu ne changes rien, n'écris aucun bloc.`;
+}

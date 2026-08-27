@@ -11,7 +11,7 @@ import { BriefEmailService } from '../push/brief-email.service';
 import { lireReponseGroq, pourModele } from '../common/groq';
 import { lireFournisseurSecours, FournisseurSecours } from '../common/fournisseur-secours';
 import { MODELES_CHAT } from '../common/modeles';
-import { construirePromptBase, construirePromptPlan } from './prompt-coach';
+import { construirePromptBase, construirePromptEdition, construirePromptPlan } from './prompt-coach';
 import { cleJourParis } from '../common/jour-paris';
 import { contientDesInvisibles, retirerInvisibles } from '../common/invisibles';
 
@@ -127,6 +127,45 @@ export class AiCoachingService {
       '(?:refais|refaire|change|recommence|reprends?|r[ée]initialise)\\s+(?:tout|[àa] z[ée]ro)\\b',
     'i',
   );
+
+  /**
+   * L'ordre porte-t-il sur **le plan lui-même**, et non sur une de ses lignes ?
+   *
+   * C'est ce qui décide entre 1 951 jetons de schéma et 504. « Refais mon
+   * programme » reconstruit tout ; « ajoute une habitude de lecture » touche une
+   * ligne — et jusqu'ici les deux recevaient le même outil, celui qui ne sait que
+   * tout remplacer.
+   *
+   * Le vocabulaire est donc restreint aux noms qui désignent l'ensemble : plan,
+   * planning, programme. Une habitude, une tâche, un repas ou un objectif sont des
+   * lignes, et relèvent du schéma d'édition.
+   */
+  private static readonly ORDRE_DE_PLAN_COMPLET = new RegExp(
+    AiCoachingService.DEBUT_D_ORDRE +
+      '(?:fais|refais|refaire|cr[ée]e|cr[ée]er|g[ée]n[èe]re|change|remplace|r[ée]initialise|organise|pr[ée]pare|donne|construis|construi[ts]|construire|b[âa]tis|b[âa]tir|monte|[ée]tablis|con[çc]ois|planifie|refonds)' +
+      '[^.?!]{0,50}' +
+      /*
+        Les noms qui désignent l'ensemble, et pas une de ses lignes.
+
+        « parcours », « formation » et « notions à apprendre » en font partie : un
+        parcours d'apprentissage crée des objectifs ET des routines, c'est un plan
+        entier sous un autre nom. Les envoyer au schéma d'édition les ferait
+        remonter par `BESOIN_SCHEMA_PLAN` — ça marcherait, mais au prix d'un
+        aller-retour sur une demande qu'on savait reconnaître.
+      */
+      '\\b(?:plan|planning|programme|parcours|formation|notions?|comp[ée]tences?)\\b',
+    'i',
+  );
+
+  static ordreDePlanComplet(prompt: string): boolean {
+    const t = prompt || '';
+    return (
+      AiCoachingService.ORDRE_DE_PLAN_COMPLET.test(t) ||
+      // « refais tout », « reprends à zéro », « que dois-je faire » : pas de nom
+      // d'objet, et pourtant c'est bien le programme entier qui est demandé.
+      AiCoachingService.ORDRE_DE_PLAN_SANS_OBJET.test(t)
+    );
+  }
 
   /** Ce message ordonne-t-il de construire ou de modifier le plan ? */
   static ordreDePlan(prompt: string): boolean {
@@ -843,6 +882,7 @@ ${microList}
 
     // Le schéma complet, ajouté uniquement quand la demande porte sur le plan.
     const promptPlan = construirePromptPlan();
+    const promptEdition = construirePromptEdition();
 
     try {
       console.log('[Groq] 🔄 Tentative avec Llama 3.3 70B (Groq)...');
@@ -886,10 +926,29 @@ ${microList}
         // lieu, le schéma est joint alors que la détection par mots-clés disait le
         // contraire. Un journal de diagnostic qui se trompe sur ce point-là ferait
         // chercher la coupure dans la mauvaise moitié du prompt.
-        const consigne =
-          (avecPlan
-            ? promptBase + promptPlan + '\n' + contextString
-            : promptBase + AiCoachingService.MARQUEUR_PLAN_REGLE + '\n' + contextString) + correction;
+        /*
+          Trois consignes possibles, et l'écart entre elles se compte en jetons.
+
+          - **Schéma complet** (1 951 jetons) : uniquement sur un ordre de plan
+            explicite. C'est le seul qui sait reconstruire un programme entier.
+          - **Schéma d'édition** (504 jetons) : pour une retouche — une habitude,
+            une tâche, un repas. Il nomme sa cible et ne touche qu'elle.
+          - **Ni l'un ni l'autre**, avec la règle du marqueur : le modèle réclame
+            ce qui lui manque s'il en a besoin.
+
+          Avant, tout message contenant « habitude », « routine », « objectif » ou
+          « sport » recevait le schéma complet — c'est-à-dire la majorité des
+          demandes, pour un outil qui ne savait que tout remplacer. Sur une limite
+          de 8 000 jetons par minute partagée par toute l'application, ce choix-là
+          décide du nombre de personnes qu'on peut servir.
+        */
+        const base = avecPlan
+          ? promptBase + promptPlan
+          : editionProbable
+            ? promptBase + promptEdition
+            : promptBase + AiCoachingService.MARQUEUR_PLAN_REGLE;
+
+        const consigne = base + '\n' + contextString + correction;
 
         const messages = [
           { role: 'system', content: consigne },
@@ -945,13 +1004,27 @@ ${microList}
         return { texte: texte ?? undefined, modele, tronque, schemaJoint: avecPlan };
       };
 
-      const planProbable = AiCoachingService.MOTS_PLAN.test(prompt);
+      /*
+        Quel outil pour quelle demande.
+
+        Le schéma complet ne part plus que sur un ordre visant **le plan lui-même**
+        (« refais mon plan », « construis-moi un programme »). Une retouche — « ajoute
+        une habitude », « change mon repas du soir » — reçoit le schéma d'édition,
+        quatre fois plus léger, qui nomme sa cible au lieu de tout remplacer.
+
+        Se tromper ne coûte rien : le modèle réclame le schéma complet par
+        `BESOIN_SCHEMA_PLAN` s'il en a besoin, et la relance juste en dessous le lui
+        donne. Ce mécanisme existait déjà pour les messages sans schéma ; il sert ici
+        une seconde fois, et c'est ce qui rend ce partage sûr.
+      */
+      const planComplet = AiCoachingService.ordreDePlanComplet(prompt);
+      const editionProbable = !planComplet && AiCoachingService.MOTS_PLAN.test(prompt);
       console.log(
         `[Groq] 🧠 ${retenus.length}/${historyMessages.length} message(s) de contexte (${volume} car.), ` +
-          `schéma du plan ${planProbable ? 'joint' : 'omis'}`,
+          `schéma ${planComplet ? 'complet' : editionProbable ? 'édition' : 'omis'}`,
       );
 
-      let { texte: reply, modele, tronque, schemaJoint } = await demander(planProbable);
+      let { texte: reply, modele, tronque, schemaJoint } = await demander(planComplet);
 
       // Le modèle réclame le schéma : la détection par mots-clés est passée à côté.
       // Un second appel coûte moins qu'un utilisateur à qui on répond qu'on ne sait

@@ -23,9 +23,16 @@ const OUVERTURE = /<\s*PLAN\s*>/i;
  */
 const FERMETURE = /<?\s*\/?\s*PLAN\s*>/i;
 
-/** Champs qui trahissent un plan, quelle que soit la forme du bloc. */
+/**
+ * Champs qui trahissent un plan, quelle que soit la forme du bloc.
+ *
+ * `edits` y figure depuis les retouches chirurgicales : un bloc qui ne contient
+ * que `{"edits":[...]}` est un plan aussi, et sans cette entree il ne serait
+ * reconnu ni pour etre applique ni pour etre retire du texte — la personne
+ * lirait son JSON en clair sous la reponse.
+ */
 const CHAMPS_DE_PLAN =
-  /"(new(Habits|Routines|Nutrition|MacroObjectives|MicroObjectives|Objectives)|macroObjectives|microObjectives|replace(Habits|Routines|Nutrition|MacroObjectives|MicroObjectives))"/;
+  /"(edits|new(Habits|Routines|Nutrition|MacroObjectives|MicroObjectives|Objectives)|macroObjectives|microObjectives|replace(Habits|Routines|Nutrition|MacroObjectives|MicroObjectives))"/;
 
 export interface PlanExtrait {
   /** Le texte à afficher, débarrassé de toute trace technique. */

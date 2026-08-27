@@ -437,24 +437,43 @@ describe('AiCoachingService — chat', () => {
       expect(resultat.erreur).toBeUndefined();
     });
 
-    it('joint le schéma dès le premier appel sur une demande reconnue', async () => {
-      fetchMock.mockResolvedValueOnce(reponseOk('C\'est noté. <PLAN>{}</PLAN>'));
+    it('envoie une retouche au schéma d’édition, pas au schéma complet', async () => {
+      /*
+        « Ajoute une séance de sport le mardi » touche UNE ligne. Le schéma complet
+        pèse 1 951 jetons et ne sait que tout remplacer ; celui d'édition en pèse
+        504 et nomme sa cible. Sur une limite de 8 000 jetons par minute partagée
+        par toute l'application, ce choix décide du nombre de gens qu'on sert.
+
+        Et il reste un seul appel : le filet du second appel ne doit servir que
+        quand on s'est trompé.
+      */
+      fetchMock.mockResolvedValueOnce(
+        reponseOk('Ajouté. <PLAN>{"edits":[{"op":"task.add","routine":"MORNING","value":"Course (5 km)"}]}</PLAN>'),
+      );
 
       await service.chatWithAi('u1', 'Ajoute une séance de sport le mardi');
 
-      // Le second appel ne doit servir que de filet : une demande explicite ne doit
-      // jamais coûter deux appels.
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(consigne(0)).not.toContain(EXTRAIT_SCHEMA);
+      expect(consigne(0)).toContain('MODIFIER UN SEUL ÉLÉMENT');
+    });
+
+    it('garde le schéma complet pour un ordre visant le plan entier', async () => {
+      fetchMock.mockResolvedValueOnce(reponseOk("C'est parti. <PLAN>{}</PLAN>"));
+
+      await service.chatWithAi('u1', 'Refais-moi mon programme complet');
+
       expect(fetchMock).toHaveBeenCalledTimes(1);
       expect(consigne(0)).toContain(EXTRAIT_SCHEMA);
     });
 
-    it('joint le schéma quand la demande porte sur un apprentissage', async () => {
+    it('joint le schéma complet quand la demande porte sur un apprentissage', async () => {
       /*
         « Donne moi toute les notion à apprendre » — capture d'un vrai échange du
-        21 août 2026. Aucun mot d'apprentissage n'était dans MOTS_PLAN : le schéma
-        n'était pas joint, et le coach répondait une action du jour à quelqu'un qui
-        demandait un parcours, alors que l'application sait le fabriquer et
-        l'installer chez lui.
+        21 août 2026. Un parcours d'apprentissage crée des objectifs ET des
+        routines : c'est un plan entier sous un autre nom, et l'envoyer au schéma
+        d'édition le ferait remonter par `BESOIN_SCHEMA_PLAN`, au prix d'un
+        aller-retour sur une demande qu'on savait reconnaître.
       */
       fetchMock.mockResolvedValueOnce(reponseOk('Voici le parcours. <PLAN>{}</PLAN>'));
 
@@ -462,6 +481,21 @@ describe('AiCoachingService — chat', () => {
 
       expect(fetchMock).toHaveBeenCalledTimes(1);
       expect(consigne(0)).toContain(EXTRAIT_SCHEMA);
+    });
+
+    it('laisse le modèle réclamer le schéma complet depuis une retouche', async () => {
+      /*
+        C'est ce qui rend le partage sûr : se tromper d'outil ne coûte qu'un
+        aller-retour, et le mécanisme existait déjà pour les messages sans schéma.
+      */
+      fetchMock
+        .mockResolvedValueOnce(reponseOk('BESOIN_SCHEMA_PLAN'))
+        .mockResolvedValueOnce(reponseOk('Voilà. <PLAN>{"replaceRoutines":true}</PLAN>'));
+
+      await service.chatWithAi('u1', 'change mon repas du soir et tout le reste');
+
+      expect(consigne(0)).toContain('MODIFIER UN SEUL ÉLÉMENT');
+      expect(consigne(1)).toContain(EXTRAIT_SCHEMA);
     });
     it("ne laisse jamais le mot de code s'afficher dans la conversation", async () => {
       fetchMock.mockResolvedValue(reponseOk('BESOIN_SCHEMA_PLAN'));
