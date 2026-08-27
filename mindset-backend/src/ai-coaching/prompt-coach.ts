@@ -233,7 +233,9 @@ Les opérations disponibles, et elles seules :
 - {"op":"habit.rename","target":"<nom actuel exact>","value":"<nouveau nom>"}
 - {"op":"habit.remove","target":"<nom actuel exact>"}
 - {"op":"task.add","routine":"MORNING|MIDDAY|EVENING","value":"<exercice precis + ses chiffres>","duration":<minutes>,"jours":["mardi","jeudi"]} — "jours" est facultatif ; sans lui la tache tombe tous les jours
+- {"op":"task.set","routine":"<où elle est aujourd'hui>","target":"<titre actuel exact>","value":"<nouveau titre>","duration":<minutes>,"jours":["lundi"],"vers":"EVENING"} — pour MODIFIER une tâche qui existe : seuls "routine" et "target" sont obligatoires, mets uniquement les champs que tu changes. "vers" la déplace d'un créneau à l'autre.
 - {"op":"task.remove","routine":"MORNING|MIDDAY|EVENING","target":"<titre actuel exact>"}
+- {"op":"goal.rename","target":"<objectif actuel exact>","value":"<nouvel intitulé>"}
 - {"op":"meal.set","target":"<nom du repas>","value":"<aliments - kcal, protéines>"}
 - {"op":"meal.remove","target":"<nom du repas>"}
 - {"op":"goal.add","scope":"micro|macro","value":"<objectif>"}

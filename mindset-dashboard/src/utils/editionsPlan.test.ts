@@ -142,6 +142,120 @@ describe('les retouches du coach', () => {
     expect(donnees.mindset_routines[1].items[0].jours).toEqual([2, 4]);
   });
 
+  /*
+    `task.set` remplace quatre opérations par une, avec des champs facultatifs.
+    Quatre demandes banales que le coach ne savait pas honorer : renommer, changer
+    la durée, restreindre les jours, déplacer d'un créneau à l'autre.
+  */
+  describe('modifier une tâche qui existe', () => {
+    it('renomme et change la durée sans toucher au reste', () => {
+      const { donnees, acces } = magasin({ mindset_routines: routines() });
+
+      const r = appliquerEditions(
+        [{ op: 'task.set', routine: 'MORNING', target: 'Squats', value: 'Squats (4x15)', duration: 8 }],
+        acces,
+      );
+
+      expect(donnees.mindset_routines[0].items[0]).toMatchObject({
+        id: 't1',
+        title: 'Squats (4x15)',
+        time: '8 min',
+        done: false,
+      });
+      expect(r.refusees).toEqual([]);
+    });
+
+    it('ne change que ce qu’on lui donne', () => {
+      // Seuls "routine" et "target" sont obligatoires : un champ absent doit
+      // laisser la valeur existante, pas la remettre à un défaut.
+      const { donnees, acces } = magasin({ mindset_routines: routines() });
+
+      appliquerEditions([{ op: 'task.set', routine: 'MORNING', target: 'Squats', duration: 12 }], acces);
+
+      expect(donnees.mindset_routines[0].items[0].title).toBe('Squats (4x12)');
+      expect(donnees.mindset_routines[0].items[0].time).toBe('12 min');
+    });
+
+    it('déplace la tâche d’un créneau à l’autre en gardant son état', () => {
+      // La déplacer ne défait pas ce qui a déjà été fait ce matin.
+      const avecFait = routines();
+      avecFait[0].items[0].done = true;
+      const { donnees, acces } = magasin({ mindset_routines: avecFait });
+
+      const r = appliquerEditions(
+        [{ op: 'task.set', routine: 'MORNING', target: 'Squats', vers: 'EVENING' }],
+        acces,
+      );
+
+      expect(donnees.mindset_routines[0].items).toHaveLength(0);
+      expect(donnees.mindset_routines[2].items[0]).toMatchObject({ title: 'Squats (4x12)', done: true });
+      expect(r.appliquees[0]).toContain('Routine du Soir');
+    });
+
+    it('refuse une modification qui ne modifierait rien', () => {
+      // Un succès annoncé sans effet visible est pire qu'un refus : la personne
+      // attend un changement qu'elle ne verra jamais.
+      const { acces } = magasin({ mindset_routines: routines() });
+
+      const r = appliquerEditions([{ op: 'task.set', routine: 'MORNING', target: 'Squats' }], acces);
+
+      expect(r.appliquees).toEqual([]);
+      expect(r.refusees[0]).toContain('rien à changer');
+    });
+
+    it('déplace même quand le modèle annonce le mauvais créneau de départ', () => {
+      /*
+        Mesuré le 26 août 2026 sur `gpt-oss-120b`, message « mets mes squats le
+        soir plutôt que le matin » : il a répondu `routine: "EVENING"` — la
+        destination — alors que le champ désigne l'emplacement actuel.
+
+        Chercher là où il le dit aurait fait échouer la retouche la plus naturelle
+        qui soit, sur une subtilité de champ. On sait d'où la tâche part en la
+        cherchant ; un créneau qui diffère de sa position réelle ne peut donc
+        vouloir dire qu'une chose.
+      */
+      const { donnees, acces } = magasin({ mindset_routines: routines() });
+
+      const r = appliquerEditions(
+        [{ op: 'task.set', routine: 'EVENING', target: 'Squats (4x12)' }],
+        acces,
+      );
+
+      expect(donnees.mindset_routines[0].items).toHaveLength(0);
+      expect(donnees.mindset_routines[2].items[0].title).toBe('Squats (4x12)');
+      expect(r.refusees).toEqual([]);
+    });
+
+    it('refuse quand le même titre existe dans deux créneaux', () => {
+      // Chercher partout élargit la reconnaissance, pas le droit de deviner :
+      // deux « Lecture » ne se départagent pas au hasard.
+      const deux = routines();
+      deux[2].items.push({ id: 't9', title: 'Squats (4x12)', time: '5 min', done: false });
+      const { acces } = magasin({ mindset_routines: deux });
+
+      const r = appliquerEditions(
+        [{ op: 'task.set', routine: 'MORNING', target: 'Squats', duration: 9 }],
+        acces,
+      );
+
+      expect(r.appliquees).toEqual([]);
+      expect(r.refusees[0]).toContain('introuvable');
+    });
+  });
+
+  it('renomme un objectif dans l’une ou l’autre liste', () => {
+    const { donnees, acces } = magasin({
+      mindset_macro_obj: [{ id: '2', title: "Physique d'athlète" }],
+    });
+
+    appliquerEditions(
+      [{ op: 'goal.rename', target: 'physique d athlete', value: 'Marathon en 2027' }],
+      acces,
+    );
+
+    expect(donnees.mindset_macro_obj[0].title).toBe('Marathon en 2027');
+  });
+
   it('crée le repas qu’il ne trouve pas plutôt que de refuser', () => {
     // « mets des œufs au petit déjeuner » chez quelqu'un qui n'en a pas encore est
     // une demande parfaitement claire.
@@ -215,6 +329,87 @@ describe('les retouches du coach', () => {
     const { acces } = magasin({});
     expect(appliquerEditions(null, acces)).toEqual({ appliquees: [], refusees: [] });
     expect(appliquerEditions('edits', acces)).toEqual({ appliquees: [], refusees: [] });
+  });
+});
+
+/*
+  Les blocs réellement produits par `openai/gpt-oss-120b` le 26 août 2026, sur les
+  messages qui les ont produits. Recopiés tels quels, virgules comprises.
+
+  Un module qui passe ses propres tests mais pas les sorties du modèle ne sert à
+  rien : c'est le modèle qui écrit, pas nous. C'est aussi ce qui a révélé que le
+  champ `routine` porte parfois la destination — la seule façon de le savoir était
+  de lire ce qu'il envoie vraiment.
+*/
+describe('les réponses réelles du modèle, telles quelles', () => {
+  const etat = () => ({
+    mindset_routines: [
+      {
+        id: 'morning',
+        title: 'Routine Matinale',
+        icon: 'sun',
+        items: [
+          { id: 'a', title: 'Squats (4x12)', time: '5 min', done: false },
+          { id: 'b', title: 'Planche (3x45s)', time: '3 min', done: false },
+          { id: 'c', title: 'Lecture 10 pages', time: '10 min', done: false },
+        ],
+      },
+      { id: 'midday', title: 'Routine de Midi', icon: 'sun', items: [] },
+      { id: 'evening', title: 'Routine du Soir', icon: 'moon', items: [{ id: 'd', title: 'Bilan ecrit du jour', time: '5 min', done: false }] },
+    ],
+    mindset_micro_obj: [{ id: 'o', title: 'Trois seances completes cette semaine' }],
+  });
+
+  it('« passe ma lecture a 20 minutes »', () => {
+    const { donnees, acces } = magasin(etat());
+    const r = appliquerEditions(
+      [{ op: 'task.set', routine: 'MORNING', target: 'Lecture 10 pages', value: 'Lecture 20 pages', duration: 20 }],
+      acces,
+    );
+    expect(donnees.mindset_routines[0].items[2]).toMatchObject({ title: 'Lecture 20 pages', time: '20 min' });
+    expect(r.refusees).toEqual([]);
+  });
+
+  it('« renomme mes squats en 4x15 »', () => {
+    const { donnees, acces } = magasin(etat());
+    const r = appliquerEditions(
+      [{ op: 'task.set', routine: 'MORNING', target: 'Squats (4x12)', value: 'Squats (4x15)' }],
+      acces,
+    );
+    expect(donnees.mindset_routines[0].items[0].title).toBe('Squats (4x15)');
+    expect(r.refusees).toEqual([]);
+  });
+
+  it('« mets mes squats le soir plutot que le matin »', () => {
+    // Le cas qui échouait : `routine` porte la destination, pas l'origine.
+    const { donnees, acces } = magasin(etat());
+    const r = appliquerEditions(
+      [{ op: 'task.set', routine: 'EVENING', target: 'Squats (4x12)', value: 'Squats (4x12)', duration: 15 }],
+      acces,
+    );
+    expect(donnees.mindset_routines[0].items.map((t: any) => t.title)).not.toContain('Squats (4x12)');
+    expect(donnees.mindset_routines[2].items.map((t: any) => t.title)).toContain('Squats (4x12)');
+    expect(r.refusees).toEqual([]);
+  });
+
+  it('« je veux faire la planche seulement lundi et jeudi »', () => {
+    const { donnees, acces } = magasin(etat());
+    const r = appliquerEditions(
+      [{ op: 'task.set', routine: 'MORNING', target: 'Planche (3x45s)', jours: ['lundi', 'jeudi'] }],
+      acces,
+    );
+    expect(donnees.mindset_routines[0].items[1].jours).toEqual([1, 4]);
+    expect(r.refusees).toEqual([]);
+  });
+
+  it('« renomme mon objectif en quatre seances »', () => {
+    const { donnees, acces } = magasin(etat());
+    const r = appliquerEditions(
+      [{ op: 'goal.rename', target: 'Trois seances completes cette semaine', value: 'Quatre seances completes cette semaine' }],
+      acces,
+    );
+    expect(donnees.mindset_micro_obj[0].title).toBe('Quatre seances completes cette semaine');
+    expect(r.refusees).toEqual([]);
   });
 });
 

@@ -46,6 +46,8 @@ export interface Edition {
   description?: string;
   /** Pour `goal.add` : micro ou macro. */
   scope?: string;
+  /** Pour `task.set` : le créneau d'arrivée, quand la tâche change de moment. */
+  vers?: string;
 }
 
 export interface ResultatEditions {
@@ -148,6 +150,33 @@ const MOMENTS: Record<string, string> = {
   SOIR: 'evening',
   SOIREE: 'evening',
 };
+
+/**
+ * Où se trouve vraiment cette tâche, tous créneaux confondus.
+ *
+ * **On ne se fie pas au champ `routine` du modèle**, et c'est mesuré : le 26 août
+ * 2026, sur « mets mes squats le soir plutôt que le matin », `gpt-oss-120b` a
+ * répondu `routine: "EVENING"` — la destination — alors que le champ désigne
+ * l'emplacement actuel. Chercher là où il le dit aurait fait échouer la retouche
+ * la plus naturelle qui soit, sur une subtilité de champ.
+ *
+ * La tâche est donc cherchée partout. Si elle est dans un seul créneau, on sait
+ * d'où elle part, quel que soit ce que le modèle a écrit ; si son titre existe
+ * dans deux créneaux, on refuse plutôt que de choisir.
+ */
+export function localiserTache(
+  routines: any[],
+  cible: string,
+): { routine: any; index: number } | null {
+  const trouves = routines
+    .map((routine) => ({
+      routine,
+      index: Array.isArray(routine?.items) ? trouverIndex(routine.items, cible, (t: any) => t?.title) : -1,
+    }))
+    .filter((e) => e.index !== -1);
+
+  return trouves.length === 1 ? trouves[0] : null;
+}
 
 function identifiantUnique(): string {
   return Date.now().toString() + Math.random().toString(36).slice(2, 11);
@@ -259,17 +288,114 @@ export function appliquerEditions(edits: unknown, acces: AccesListes): ResultatE
         break;
       }
 
-      case 'task.remove': {
-        const moment = MOMENTS[String(edit?.routine ?? '').toUpperCase()] ?? 'morning';
+      /*
+        La retouche la plus demandée, et celle qui manquait.
+
+        « Passe ma lecture à 20 minutes », « renomme mes squats en 4x15 », « mets
+        mes pompes seulement le lundi », « déplace ma séance au soir » : quatre
+        demandes banales que le coach ne savait pas honorer. Il devait répondre
+        qu'il ne pouvait pas, ou reconstruire tout le plan pour changer un mot.
+
+        **Une seule opération plutôt que quatre**, avec des champs facultatifs. Le
+        schéma est payé à chaque message qui ressemble à une retouche : quatre
+        lignes pour décrire quatre opérations coûteraient quatre fois plus cher
+        que celle-ci, pour exactement le même pouvoir.
+      */
+      case 'task.set': {
         const routines = acces.lire(CLE_ROUTINES);
-        const routine = routines.find((r: any) => r?.id === moment);
-        const items = Array.isArray(routine?.items) ? routine.items : [];
-        const i = trouverIndex(items, cible, (t: any) => t?.title);
-        if (!routine || i === -1) {
+        const emplacement = localiserTache(routines, cible);
+
+        if (!emplacement) {
           resultat.refusees.push(`tâche « ${cible} » introuvable`);
           break;
         }
-        const [retiree] = items.splice(i, 1);
+
+        const source = emplacement.routine;
+        const items = source.items;
+        const i = emplacement.index;
+        const tache = { ...items[i] };
+        const ancien = tache.title;
+        const changements: string[] = [];
+
+        if (valeur && valeur !== tache.title) {
+          tache.title = valeur;
+          changements.push(`renommée « ${valeur} »`);
+        }
+        if (Number(edit?.duration) > 0) {
+          tache.time = `${Number(edit?.duration)} min`;
+          changements.push(`${Number(edit?.duration)} min`);
+        }
+        if (edit?.jours !== undefined) {
+          tache.jours = normaliserJours(edit.jours);
+          changements.push('jours mis à jour');
+        }
+
+        /*
+          La destination : « vers » si le modèle l'a écrit, sinon « routine ».
+
+          Les deux sont acceptés parce que le modèle confond les deux champs — et
+          la confusion est sans risque ici : on sait déjà d'où la tâche part, donc
+          un créneau qui diffère de sa position réelle ne peut vouloir dire qu'une
+          chose. S'il désigne le créneau où elle est déjà, il n'y a pas de
+          déplacement, et le reste de la retouche s'applique quand même.
+        */
+        const demandee = edit?.vers ?? edit?.routine;
+        const arrivee = demandee ? MOMENTS[String(demandee).toUpperCase()] : undefined;
+        if (arrivee && arrivee !== source.id) {
+          const destination = routines.find((r: any) => r?.id === arrivee);
+          if (!destination) {
+            resultat.refusees.push(`routine « ${edit?.vers} » introuvable`);
+            break;
+          }
+          if (!Array.isArray(destination.items)) destination.items = [];
+          // Elle garde son état du jour : la déplacer d'un créneau à l'autre ne
+          // défait pas ce qui a déjà été fait ce matin.
+          items.splice(i, 1);
+          destination.items.push(tache);
+          changements.push(`déplacée vers ta ${destination.title ?? arrivee}`);
+        } else {
+          items[i] = tache;
+        }
+
+        if (changements.length === 0) {
+          // Une opération qui ne change rien n'est pas un succès : la personne
+          // attendrait un effet qu'elle ne verrait pas.
+          resultat.refusees.push(`rien à changer sur « ${ancien} »`);
+          break;
+        }
+
+        acces.ecrire(CLE_ROUTINES, routines);
+        resultat.appliquees.push(`${ancien} : ${changements.join(', ')}`);
+        break;
+      }
+
+      case 'goal.rename': {
+        let renomme = false;
+        for (const cle of [CLE_MICRO, CLE_MACRO]) {
+          const objectifs = acces.lire(cle);
+          const i = trouverIndex(objectifs, cible, (o: any) => o?.title);
+          if (i === -1 || !valeur) continue;
+          const ancien = objectifs[i].title;
+          objectifs[i] = { ...objectifs[i], title: valeur };
+          acces.ecrire(cle, objectifs);
+          resultat.appliquees.push(`« ${ancien} » devient « ${valeur} »`);
+          renomme = true;
+          break;
+        }
+        if (!renomme) resultat.refusees.push(`objectif « ${cible} » introuvable`);
+        break;
+      }
+
+      case 'task.remove': {
+        const routines = acces.lire(CLE_ROUTINES);
+        // Cherchée partout, pour la même raison que `task.set` : le créneau annoncé
+        // par le modèle n'est pas fiable, l'endroit où la tâche se trouve l'est.
+        const emplacement = localiserTache(routines, cible);
+        if (!emplacement) {
+          resultat.refusees.push(`tâche « ${cible} » introuvable`);
+          break;
+        }
+        const [retiree] = emplacement.routine.items.splice(emplacement.index, 1);
         acces.ecrire(CLE_ROUTINES, routines);
         resultat.appliquees.push(`tâche retirée : ${retiree.title}`);
         break;

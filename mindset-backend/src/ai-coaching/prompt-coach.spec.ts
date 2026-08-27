@@ -1,4 +1,4 @@
-import { construirePromptBase, construirePromptPlan } from './prompt-coach';
+import { construirePromptBase, construirePromptEdition, construirePromptPlan } from './prompt-coach';
 
 /*
   Ce que ce fichier peut prouver, et ce qu'il ne peut pas.
@@ -215,5 +215,51 @@ describe('le schéma du plan', () => {
     // « Séance 1 », « Séance 2 » : le même défaut que « Musculation », avec un
     // chiffre en plus. Devant sa tâche, la personne ne sait toujours pas quoi faire.
     expect(plan).toContain('"Séance 1", "Séance 2"');
+  });
+});
+
+/*
+  Le schéma d'édition : agir sur UNE ligne, sans réécrire le plan.
+
+  Il pèse ~700 jetons contre 1 951 pour le schéma complet, et c'est ce partage
+  qui décide du nombre de personnes qu'on peut servir sous la limite de 8 000
+  jetons par minute de Groq. Chaque opération ajoutée ici se paie sur toutes les
+  retouches : elles sont donc regroupées quand elles peuvent l'être.
+*/
+describe('le schéma d’édition', () => {
+  const edition = construirePromptEdition();
+
+  it('couvre les neuf opérations, et une seule pour modifier une tâche', () => {
+    for (const op of [
+      'habit.add',
+      'habit.rename',
+      'habit.remove',
+      'task.add',
+      'task.set',
+      'task.remove',
+      'meal.set',
+      'meal.remove',
+      'goal.add',
+      'goal.rename',
+      'goal.remove',
+    ]) {
+      expect(edition).toContain(op);
+    }
+  });
+
+  it('dit que la cible se recopie depuis ses données', () => {
+    // Une cible inventée ne correspond à rien et l'opération est refusée côté
+    // client : autant que le modèle le sache avant d'écrire.
+    expect(edition).toContain('se recopie depuis les données ci-dessous, mot pour mot');
+  });
+
+  it('garde la porte vers le schéma complet', () => {
+    // C'est ce qui rend le partage sûr : se tromper d'outil ne coûte qu'un
+    // aller-retour, au lieu d'une demande à laquelle on ne sait pas répondre.
+    expect(edition).toContain('BESOIN_SCHEMA_PLAN');
+  });
+
+  it('reste bien plus léger que le schéma complet', () => {
+    expect(edition.length).toBeLessThan(construirePromptPlan().length / 2);
   });
 });
