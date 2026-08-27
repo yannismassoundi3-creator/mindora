@@ -1,4 +1,5 @@
 import { estPourAujourdhui } from './recurrence';
+import { trouverIndex } from './correspondance';
 import {
   ecrireGroupes,
   lireGroupes,
@@ -231,6 +232,78 @@ export function lireEtatDuJour(): EtatDuJour {
   série, puisque personne n'est là pour recalculer.
 */
 export function basculerTache(id: number, position: { x: number; y: number }): void {
+  basculerPar((item: any) => item.id === id, position);
+}
+
+/**
+ * Ce qu'a donné une demande de validation venue du chat.
+ *
+ * Le coach a besoin de savoir **exactement** ce qui s'est passé pour le dire :
+ * une case déjà cochée, une tâche introuvable et une tâche cochée à l'instant
+ * appellent trois phrases différentes. Rendre `void`, comme le fait le geste au
+ * doigt, l'obligerait à deviner — et il annoncerait « c'est coché » sur une
+ * tâche qui n'existe pas.
+ */
+export type ResultatValidation =
+  | { etat: 'cochee'; titre: string }
+  | { etat: 'deja-faite'; titre: string }
+  | { etat: 'introuvable' };
+
+/**
+ * Cocher une tâche que la personne dit avoir faite, depuis la conversation.
+ *
+ * **Pourquoi c'est légitime.** Le score de cette application est déclaratif : la
+ * personne coche elle-même ses cases. Lui faire dire « j'ai fait mes squats » au
+ * coach puis lui demander d'aller cliquer ailleurs, c'est lui réclamer deux fois
+ * la même affirmation. Rien n'est gagné en intégrité, tout est perdu en usage.
+ *
+ * **Trois différences avec le geste au doigt, toutes voulues.**
+ *
+ * 1. **Elle ne décoche jamais.** Le doigt bascule parce qu'on peut se tromper de
+ *    case ; une phrase, elle, affirme. « J'ai fait mes squats » ne peut pas
+ *    vouloir dire « retire-les », et une IA qui décoche sur un malentendu ferait
+ *    perdre des points que personne ne saurait expliquer.
+ * 2. **Une case déjà cochée n'est pas une erreur**, c'est un doublon : on le dit
+ *    sans rien changer. Le crédit serveur porte déjà la tâche et le jour, donc
+ *    rien ne serait recrédité — mais l'XP, elle, le serait.
+ * 3. **Aucun effet visuel de position.** L'onde de choc, le « +5 » volant et la
+ *    bulle du coach visent l'endroit du clic. Il n'y en a pas ici, et les faire
+ *    surgir au hasard de l'écran donnerait l'impression d'un bug.
+ *
+ * Tout le reste est identique, et c'est le point : XP, monnaie, rythme, crédit
+ * serveur, score du jour, signal aux autres écrans. Une tâche cochée depuis le
+ * chat compte exactement autant qu'une tâche cochée au doigt.
+ */
+export function validerTacheParTitre(titre: string): ResultatValidation {
+  // La même reconnaissance que les retouches du coach : accents, casse et
+  // espaces tolérés, ambiguïté refusée. Voir `correspondance.ts`.
+  for (const groupe of lireGroupes()) {
+    const items = Array.isArray(groupe?.items) ? groupe.items : [];
+    const i = trouverIndex(items, titre, (t: any) => t?.title);
+    if (i === -1) continue;
+
+    const vise = items[i];
+    if (vise.done) return { etat: 'deja-faite', titre: vise.title };
+
+    basculerPar((item: any) => item?.id === vise.id);
+    return { etat: 'cochee', titre: vise.title };
+  }
+
+  return { etat: 'introuvable' };
+}
+
+/**
+ * Le cœur commun : basculer la tâche que `vise` désigne, et en tirer toutes les
+ * conséquences.
+ *
+ * Extrait le 27 août 2026 pour que le chat coche exactement comme le doigt. Deux
+ * copies auraient divergé au premier ajustement, et « j'ai fait mes squats »
+ * aurait fini par valoir moins qu'un clic — sans que rien ne le dise.
+ *
+ * `position` absente veut dire « ce geste n'a pas eu lieu à un endroit » : les
+ * effets visuels qui visent un point de l'écran sont alors sautés, et eux seuls.
+ */
+function basculerPar(vise: (item: any) => boolean, position?: { x: number; y: number }): void {
   const groupes = lireGroupes();
   let etaitFaite = false;
   let tacheTouchee: any = null;
@@ -238,7 +311,7 @@ export function basculerTache(id: number, position: { x: number; y: number }): v
   const nouveaux = groupes.map((groupe: any) => ({
     ...groupe,
     items: (Array.isArray(groupe.items) ? groupe.items : []).map((item: any) => {
-      if (item.id !== id) return item;
+      if (tacheTouchee || !vise(item)) return item;
       etaitFaite = !!item.done;
       tacheTouchee = item;
       return { ...item, done: !item.done };
@@ -252,39 +325,55 @@ export function basculerTache(id: number, position: { x: number; y: number }): v
   // journée bouclée ne compte pour rien.
   ecrireGroupes(nouveaux);
 
-  if ('vibrate' in navigator) navigator.vibrate([15, 10, 15]);
-  window.dispatchEvent(
-    new CustomEvent('triggerShockwave', { detail: { x: position.x, y: position.y, color: '#ffffff' } }),
-  );
+  /*
+    Les effets qui visent un point de l'écran ne partent que s'il y en a un.
+
+    L'onde de choc, le « +5 » volant et la bulle du coach naissent sous le doigt.
+    Quand la coche vient du chat, ce doigt n'existe pas — les faire surgir au
+    hasard de l'écran ne serait pas une récompense, ce serait un bug apparent.
+    Tout le reste — points, XP, rythme, crédit serveur, score du jour — part dans
+    les deux cas, et c'est ce qui fait qu'une tâche cochée depuis la conversation
+    compte exactement autant.
+  */
+  if (position) {
+    if ('vibrate' in navigator) navigator.vibrate([15, 10, 15]);
+    window.dispatchEvent(
+      new CustomEvent('triggerShockwave', { detail: { x: position.x, y: position.y, color: '#ffffff' } }),
+    );
+  }
 
   const points = getSecurePoints();
   if (!etaitFaite) {
     // L'heure, et rien d'autre : c'est elle qui permettra au coach de dire quelque
     // chose que personne d'autre ne saurait dire. Voir `utils/rythme.ts`.
     noterTacheFaite();
-    playBloopSound();
-    window.dispatchEvent(
-      new CustomEvent('triggerShockwave', { detail: { x: position.x, y: position.y, color: '#ec4899' } }),
-    );
+    if (position) {
+      playBloopSound();
+      window.dispatchEvent(
+        new CustomEvent('triggerShockwave', { detail: { x: position.x, y: position.y, color: '#ec4899' } }),
+      );
+    }
     const nouveauSolde = points + 5;
     setSecurePoints(nouveauSolde);
     // Les points sont la monnaie, l'XP le parcours : une tâche faite alimente les
     // deux, mais la Boutique ne dépensera que la première.
     ajouterXp(5);
     window.dispatchEvent(new CustomEvent('pointsChanged', { detail: nouveauSolde }));
-    annoncerGain('+5', position);
     // La clé porte la tâche et le jour : décocher puis recocher ne recrédite pas.
     api.claimCoins(`routine-${tacheTouchee.title || 'tache'}-${cleUTC()}`);
-    /*
-      La bulle du coach est rendue par le Layout et non ici : le bandeau vit sur
-      toutes les pages, or seul le Dashboard savait l'afficher. Passer par un
-      événement évite au module de calcul de connaître quoi que ce soit à React.
-    */
-    window.dispatchEvent(
-      new CustomEvent(EVENEMENT_TACHE_FAITE, {
-        detail: { titre: tacheTouchee.title || 'Tâche', x: position.x, y: position.y },
-      }),
-    );
+    if (position) {
+      annoncerGain('+5', position);
+      /*
+        La bulle du coach est rendue par le Layout et non ici : le bandeau vit sur
+        toutes les pages, or seul le Dashboard savait l'afficher. Passer par un
+        événement évite au module de calcul de connaître quoi que ce soit à React.
+      */
+      window.dispatchEvent(
+        new CustomEvent(EVENEMENT_TACHE_FAITE, {
+          detail: { titre: tacheTouchee.title || 'Tâche', x: position.x, y: position.y },
+        }),
+      );
+    }
   } else {
     const nouveauSolde = Math.max(0, points - 5);
     setSecurePoints(nouveauSolde);
@@ -292,7 +381,7 @@ export function basculerTache(id: number, position: { x: number; y: number }): v
     // cocher et décocher en boucle serait une machine à niveaux.
     ajouterXp(-5);
     window.dispatchEvent(new CustomEvent('pointsChanged', { detail: nouveauSolde }));
-    annoncerGain('−5', position, true);
+    if (position) annoncerGain('−5', position, true);
   }
 
   enregistrerScoreDuJour();

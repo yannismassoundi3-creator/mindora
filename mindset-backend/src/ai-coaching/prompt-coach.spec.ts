@@ -235,6 +235,7 @@ describe('le schéma d’édition', () => {
       'habit.rename',
       'habit.remove',
       'task.add',
+      'task.done',
       'task.set',
       'task.remove',
       'meal.set',

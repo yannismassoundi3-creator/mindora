@@ -9,6 +9,7 @@ import { normaliserJours } from '../utils/recurrence';
 import { extrairePlan, reparerJson, retirerObjetsDePlan } from '../utils/extractionPlan';
 import { listesIllisibles, reparerListe, type ListeIllisible } from '../utils/etatLocal';
 import { appliquerEditions, resumerEditions, type AccesListes } from '../utils/editionsPlan';
+import { validerTacheParTitre } from '../utils/journee';
 import { CLE_PREMIER_CONTACT, composerOuverture, composerPremierContact } from '../utils/ouverture';
 import { retenirQuOnAParleAuCoach } from '../utils/motDuCoach';
 import { nouveautes } from '../utils/fusionPlan';
@@ -81,6 +82,15 @@ const ACCES_LISTES: AccesListes = {
     }
   },
   ecrire: (cle, valeur) => localStorage.setItem(cle, JSON.stringify(valeur)),
+  /*
+    Cocher passe par le même chemin que le doigt.
+
+    `journee` sait ce qu'une coche entraîne — XP, monnaie, rythme, crédit
+    serveur, score du jour — et il n'existe qu'une seule version de cette règle.
+    En recopier une ici ferait qu'une tâche cochée depuis la conversation
+    vaudrait un jour moins qu'un clic, sans que rien ne le dise.
+  */
+  validerTache: validerTacheParTitre,
 };
 
 export const AIChat: React.FC = () => {

@@ -243,6 +243,107 @@ describe('les retouches du coach', () => {
     });
   });
 
+  /*
+    « J'ai fait mes squats » doit cocher la case.
+
+    Le coach l'actait en paroles et la case restait vide : la personne devait
+    aller cliquer ailleurs pour dire une seconde fois ce qu'elle venait
+    d'affirmer. Le score est déclaratif — c'est elle qui coche — donc le lui
+    réclamer deux fois ne gagne rien en intégrité et perd tout en usage.
+  */
+  describe('cocher une tâche depuis la conversation', () => {
+    const avecValidation = (reponse: any) => {
+      const appels: string[] = [];
+      const base = magasin({});
+      return {
+        appels,
+        acces: {
+          ...base.acces,
+          validerTache: (titre: string) => {
+            appels.push(titre);
+            return reponse;
+          },
+        },
+      };
+    };
+
+    it('annonce ce qui vient d’être coché', () => {
+      const { acces, appels } = avecValidation({ etat: 'cochee', titre: 'Squats (4x12)' });
+
+      const r = appliquerEditions([{ op: 'task.done', target: 'squats' }], acces);
+
+      expect(appels).toEqual(['squats']);
+      expect(r.appliquees).toEqual(['coché : Squats (4x12)']);
+    });
+
+    it('dit qu’une case était déjà cochée, sans la compter', () => {
+      // Ni un succès ni une panne : un doublon. Le taire lui ferait croire
+      // qu'elle vient de gagner cinq points de plus.
+      const { acces } = avecValidation({ etat: 'deja-faite', titre: 'Squats (4x12)' });
+
+      const r = appliquerEditions([{ op: 'task.done', target: 'squats' }], acces);
+
+      expect(r.appliquees).toEqual([]);
+      expect(r.refusees[0]).toContain('déjà cochée');
+    });
+
+    it('refuse une tâche qui n’existe pas', () => {
+      const { acces } = avecValidation({ etat: 'introuvable' });
+
+      const r = appliquerEditions([{ op: 'task.done', target: 'course à pied' }], acces);
+
+      expect(r.refusees[0]).toContain('introuvable');
+    });
+
+    it('coche une routine entière sans buter sur le plafond des retouches', () => {
+      /*
+        Mesuré le 27 août 2026 : « j'ai fini ma routine du matin » fait produire
+        au modèle une validation par tâche. Sous le plafond de trois, une routine
+        de cinq tâches en aurait vu deux refusées — sur la phrase la plus banale
+        de l'application.
+
+        Le plafond de trois protège des opérations qui écrivent ou effacent.
+        Cocher ne fait ni l'un ni l'autre.
+      */
+      const { acces, appels } = avecValidation({ etat: 'cochee', titre: 'X' });
+
+      const r = appliquerEditions(
+        ['a', 'b', 'c', 'd', 'e'].map((t) => ({ op: 'task.done', target: t })),
+        acces,
+      );
+
+      expect(appels).toHaveLength(5);
+      expect(r.refusees).toEqual([]);
+    });
+
+    it('garde le plafond de trois sur ce qui écrit, même mélangé', () => {
+      const { acces } = avecValidation({ etat: 'cochee', titre: 'X' });
+
+      const r = appliquerEditions(
+        [
+          { op: 'task.done', target: 'a' },
+          { op: 'habit.add', value: 'A' },
+          { op: 'habit.add', value: 'B' },
+          { op: 'habit.add', value: 'C' },
+          { op: 'habit.add', value: 'D' },
+        ],
+        acces,
+      );
+
+      expect(r.refusees.some((m) => m.includes('1 changement de plus'))).toBe(true);
+    });
+
+    it('refuse proprement là où la validation n’est pas branchée', () => {
+      // Le module est utilisable sans elle : mieux vaut un refus lisible qu'une
+      // exception au milieu d'une conversation.
+      const { acces } = magasin({});
+
+      const r = appliquerEditions([{ op: 'task.done', target: 'squats' }], acces);
+
+      expect(r.refusees[0]).toContain('pas disponible');
+    });
+  });
+
   it('renomme un objectif dans l’une ou l’autre liste', () => {
     const { donnees, acces } = magasin({
       mindset_macro_obj: [{ id: '2', title: "Physique d'athlète" }],

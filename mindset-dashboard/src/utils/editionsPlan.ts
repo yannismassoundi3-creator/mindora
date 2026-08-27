@@ -31,6 +31,11 @@
  */
 
 import { normaliserJours } from './recurrence';
+import { trouverIndex } from './correspondance';
+
+// Re-exporté : les tests de ce module l'utilisent, et c'est ici que se décide ce
+// qu'une « cible » veut dire pour le coach.
+export { trouverIndex };
 
 export interface Edition {
   op?: string;
@@ -57,10 +62,26 @@ export interface ResultatEditions {
   refusees: string[];
 }
 
+/** Ce que rend une demande de validation. Miroir de `journee.ResultatValidation`. */
+export interface ValidationTache {
+  etat: 'cochee' | 'deja-faite' | 'introuvable';
+  titre?: string;
+}
+
 /** Les listes que ce module a le droit de lire et d'écrire, et aucune autre. */
 export interface AccesListes {
   lire: (cle: string) => any[];
   ecrire: (cle: string, valeur: any[]) => void;
+  /**
+   * Cocher une tâche, avec tout ce que ça entraîne — XP, monnaie, rythme, crédit
+   * serveur, score du jour.
+   *
+   * **Injecté plutôt qu'appelé directement**, pour la même raison que `lire` et
+   * `ecrire` : ce module ne connaît ni `localStorage`, ni l'XP, ni le serveur, et
+   * reste donc testable sans navigateur. Absent, l'opération est refusée
+   * proprement au lieu de planter.
+   */
+  validerTache?: (titre: string) => ValidationTache;
 }
 
 const CLE_HABITUDES = 'mindset_habits';
@@ -73,71 +94,19 @@ const CLE_MACRO = 'mindset_macro_obj';
 export const MAX_EDITIONS = 3;
 
 /**
- * Compare deux libellés comme un humain les lirait.
+ * Les validations ont leur propre plafond, bien plus haut.
  *
- * Le modèle recopie « Méditation 10 min » depuis un contexte où le titre est
- * peut-être « Méditation 10min » ou « méditation 10 minutes ». Exiger l'égalité
- * stricte ferait échouer la moitié des retouches sur une espace — et un refus
- * pour une espace se lit comme une panne, pas comme une précaution.
+ * Le plafond de trois existe pour empêcher qu'on reconstruise un plan par la
+ * petite porte — il protège des opérations qui **écrivent ou effacent**.
+ * `task.done` ne fait ni l'un ni l'autre : elle coche ce qui existe déjà.
  *
- * **Les diacritiques sont retirés par leur point de code, jamais collés en clair.**
- * Écrits littéralement, les accents combinants sont invisibles à la relecture et
- * un éditeur les recompose sans prévenir — on ne saurait plus ce que la plage
- * contient vraiment. Ce sont U+0300 à U+036F, ce que `NFD` produit en séparant
- * « é » en « e » plus son accent.
+ * Et la limite se voyait tout de suite : mesuré le 27 août 2026, « j'ai fini ma
+ * routine du matin » fait produire au modèle une validation par tâche. Une
+ * routine de quatre tâches en aurait donc vu deux refusées, sur la phrase la plus
+ * banale de l'application. Dix couvre toute routine réaliste sans ouvrir la porte
+ * à autre chose.
  */
-const PREMIER_DIACRITIQUE = 0x300;
-const DERNIER_DIACRITIQUE = 0x36f;
-
-function normaliser(texte: unknown): string {
-  let sansAccent = '';
-  for (const caractere of String(texte ?? '').toLowerCase().normalize('NFD')) {
-    const point = caractere.codePointAt(0) as number;
-    if (point < PREMIER_DIACRITIQUE || point > DERNIER_DIACRITIQUE) sansAccent += caractere;
-  }
-
-  return sansAccent.replace(/[^a-z0-9]+/g, ' ').trim();
-}
-
-/**
- * L'index de la ligne visée, ou -1.
- *
- * Trois passes, de la plus sûre à la plus tolérante : égalité, puis préfixe, puis
- * inclusion. **La première passe qui trouve UNE seule ligne gagne** ; si une passe
- * en trouve plusieurs, on s'arrête là et on refuse. Deux habitudes qui contiennent
- * « lecture » ne se départagent pas au hasard : renommer la mauvaise est la seule
- * faute vraiment coûteuse que ce fichier puisse commettre.
- */
-export function trouverIndex(lignes: any[], cible: string, titreDe: (l: any) => unknown): number {
-  const vise = normaliser(cible);
-  if (!vise) return -1;
-
-  const titres = lignes.map((l) => normaliser(titreDe(l)));
-
-  /*
-    La dernière passe compare sans aucun séparateur.
-
-    « Méditation 10min » et « Méditation 10 min » désignent la même ligne, et le
-    modèle produit l'une ou l'autre selon son humeur. Sans cette passe, la retouche
-    échouait sur une espace — un refus pour une espace se lit comme une panne.
-  */
-  const colle = (t: string) => t.replace(/ /g, '');
-
-  for (const correspond of [
-    (t: string) => t === vise,
-    (t: string) => t.startsWith(vise) || vise.startsWith(t),
-    (t: string) => t.includes(vise) || vise.includes(t),
-    (t: string) => colle(t) === colle(vise) || colle(t).includes(colle(vise)),
-  ]) {
-    const trouves = titres.reduce<number[]>((acc, t, i) => (t && correspond(t) ? [...acc, i] : acc), []);
-    if (trouves.length === 1) return trouves[0];
-    // Plusieurs candidats : on s'arrête là plutôt que de tenter une passe encore
-    // plus tolérante, qui en trouverait davantage et choisirait au hasard.
-    if (trouves.length > 1) return -1;
-  }
-
-  return -1;
-}
+export const MAX_VALIDATIONS = 10;
 
 /** Les trois moments de la journée, tels que le modèle les nomme et tels qu'on les stocke. */
 const MOMENTS: Record<string, string> = {
@@ -207,7 +176,16 @@ export function appliquerEditions(edits: unknown, acces: AccesListes): ResultatE
     pourquoi les deux autres manquent. Elle en conclut que le coach fait les
     choses à moitié.
   */
-  const aTraiter = (edits as Edition[]).slice(0, MAX_EDITIONS);
+  const demandees = edits as Edition[];
+  const gardees = new Set<Edition>([
+    // Deux plafonds parce que les deux familles ne courent pas le même risque :
+    // cocher ne peut rien détruire, écrire et effacer, si.
+    ...demandees.filter((e) => e?.op === 'task.done').slice(0, MAX_VALIDATIONS),
+    ...demandees.filter((e) => e?.op !== 'task.done').slice(0, MAX_EDITIONS),
+  ]);
+  // L'ordre d'origine est conservé : le coach a écrit ses opérations dans un
+  // sens, et une confirmation qui les réordonne se lit comme une autre réponse.
+  const aTraiter = demandees.filter((e) => gardees.has(e));
   const ignorees = edits.length - aTraiter.length;
   if (ignorees > 0) {
     resultat.refusees.push(
@@ -381,6 +359,37 @@ export function appliquerEditions(edits: unknown, acces: AccesListes): ResultatE
 
         acces.ecrire(CLE_ROUTINES, routines);
         resultat.appliquees.push(`${ancien} : ${changements.join(', ')}`);
+        break;
+      }
+
+      /*
+        « J'ai fait mes squats » doit cocher la case.
+
+        Jusqu'ici le coach l'actait en paroles et la case restait vide : la
+        personne devait aller cliquer ailleurs pour dire une seconde fois ce
+        qu'elle venait d'affirmer. Le score de cette application est déclaratif —
+        c'est elle qui coche — donc rien n'est gagné en intégrité à le lui
+        réclamer deux fois, et tout est perdu en usage.
+
+        La validation passe par `journee.validerTacheParTitre`, le même chemin que
+        le doigt : XP, monnaie, rythme, crédit serveur, score du jour. **Elle ne
+        décoche jamais** — une phrase affirme, elle ne bascule pas.
+      */
+      case 'task.done': {
+        if (!acces.validerTache) {
+          resultat.refusees.push('la validation n’est pas disponible ici');
+          break;
+        }
+        const validation = acces.validerTache(cible);
+        if (validation.etat === 'cochee') {
+          resultat.appliquees.push(`coché : ${validation.titre ?? cible}`);
+        } else if (validation.etat === 'deja-faite') {
+          // Ni un succès ni une panne : un doublon. Le dire évite qu'elle croie
+          // avoir gagné cinq points de plus.
+          resultat.refusees.push(`« ${validation.titre ?? cible} » était déjà cochée`);
+        } else {
+          resultat.refusees.push(`tâche « ${cible} » introuvable`);
+        }
         break;
       }
 

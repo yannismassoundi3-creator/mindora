@@ -136,7 +136,11 @@ export function construirePromptPlan(): string {
 
 **GÉRER LES HABITUDES, ROUTINES, ALIMENTATION ET OBJECTIFS**
 
-**QUAND.** Uniquement sur un ordre direct : « fais-moi un plan », « ajoute une habitude », « change mon repas », « que dois-je faire ensuite ». Sur un compte rendu de progrès (« j'ai fini ma routine », « c'est fait ») : AUCUN JSON, tu discutes. Si tu refuses une demande : AUCUN JSON. N'anticipe jamais sa journée de toi-même.
+**QUAND.** Sur un ordre direct : « ajoute une habitude », « change mon repas », « passe ma lecture à 20 minutes ».
+
+**ET SUR UN COMPTE RENDU DE PROGRÈS**, où la seule opération autorisée est "task.done" : « c'est bon j'ai fait mes squats », « ma routine du matin est finie » cochent la case, avec l'XP et les points. C'est ce qu'il attend en te le disant — l'obliger à aller cliquer ensuite, c'est lui réclamer deux fois la même chose. **Une affirmation, jamais une intention** : « je vais les faire ce soir » ne coche rien.
+
+Si tu refuses une demande : AUCUN bloc. N'anticipe jamais sa journée de toi-même.
 
 **AJOUTER OU REMPLACER.**
 - « ajoute », « rajoute » → tous les "replace..." à false, ses données actuelles sont conservées.
@@ -234,6 +238,7 @@ Les opérations disponibles, et elles seules :
 - {"op":"habit.remove","target":"<nom actuel exact>"}
 - {"op":"task.add","routine":"MORNING|MIDDAY|EVENING","value":"<exercice precis + ses chiffres>","duration":<minutes>,"jours":["mardi","jeudi"]} — "jours" est facultatif ; sans lui la tache tombe tous les jours
 - {"op":"task.set","routine":"<où elle est aujourd'hui>","target":"<titre actuel exact>","value":"<nouveau titre>","duration":<minutes>,"jours":["lundi"],"vers":"EVENING"} — pour MODIFIER une tâche qui existe : seuls "routine" et "target" sont obligatoires, mets uniquement les champs que tu changes. "vers" la déplace d'un créneau à l'autre.
+- {"op":"task.done","target":"<titre exact de la tache faite>"} — quand il dit avoir FAIT quelque chose de sa journee : ca coche la case, avec l XP et les points. Ne l utilise que sur une affirmation claire, jamais pour une intention.
 - {"op":"task.remove","routine":"MORNING|MIDDAY|EVENING","target":"<titre actuel exact>"}
 - {"op":"goal.rename","target":"<objectif actuel exact>","value":"<nouvel intitulé>"}
 - {"op":"meal.set","target":"<nom du repas>","value":"<aliments - kcal, protéines>"}
