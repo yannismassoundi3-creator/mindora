@@ -305,17 +305,23 @@ describe('les retouches du coach', () => {
     expect(r.refusees).toHaveLength(1);
   });
 
-  it('s’arrête à trois opérations', () => {
-    // Au-delà, ce n'est plus une retouche : c'est un plan qui n'a pas dit son nom,
-    // et il a son propre schéma.
+  it('s’arrête à trois opérations, et dit combien sont restées dehors', () => {
+    /*
+      Au-delà, ce n'est plus une retouche : c'est un plan qui n'a pas dit son nom.
+      Mais taire les deux qui sautent serait le défaut qu'on traque partout
+      ailleurs, en plus petit — elle en demande cinq, en voit trois, et rien ne
+      lui dit pourquoi.
+    */
     const { donnees, acces } = magasin({ mindset_habits: [] });
 
-    appliquerEditions(
+    const r = appliquerEditions(
       ['A', 'B', 'C', 'D', 'E'].map((v) => ({ op: 'habit.add', value: v })),
       acces,
     );
 
     expect(donnees.mindset_habits).toHaveLength(3);
+    expect(r.appliquees).toHaveLength(3);
+    expect(r.refusees[0]).toContain('2 changements de plus');
   });
 
   it('refuse une opération inventée au lieu de se taire', () => {

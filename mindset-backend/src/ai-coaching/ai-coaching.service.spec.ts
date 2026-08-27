@@ -653,6 +653,22 @@ describe('AiCoachingService — chat', () => {
       expect(AiCoachingService.annonceUnPlan("C'est modifié.")).toBe(true);
     });
 
+    it('se tait quand le coach explique déjà pourquoi il n’a rien fait', () => {
+      /*
+        Réponse réelle de `gpt-oss-120b` le 27 août 2026, sur « supprime ma course
+        à pied du matin » alors qu'aucune course n'existe. C'est la bonne réponse,
+        et elle n'a pas de bloc : sans cette exception, le filet paierait un appel
+        de plus pour un plan que personne n'attend, puis collerait « je n'ai rien
+        changé » sous une phrase qui vient de l'expliquer mieux que lui.
+      */
+      expect(
+        AiCoachingService.annonceUnPlan(
+          "**Course à pied** n'apparaît pas dans ta routine matinale ; aucune suppression n'est possible.",
+        ),
+      ).toBe(false);
+      expect(AiCoachingService.annonceUnPlan("Je ne trouve pas cette habitude chez toi.")).toBe(false);
+    });
+
     it('ne prend pas une suggestion pour une annonce', () => {
       /*
         Le pronom est collé au verbe, volontairement : « je retire » est une
@@ -661,6 +677,44 @@ describe('AiCoachingService — chat', () => {
       */
       expect(AiCoachingService.annonceUnPlan('Je te propose de retirer la lecture.')).toBe(false);
       expect(AiCoachingService.annonceUnPlan('Tu peux ajouter du gainage demain.')).toBe(false);
+    });
+
+    /*
+      Le pire résultat possible pour la plus anodine des demandes.
+
+      Le filet relançait toujours avec le schéma complet. Une retouche qui échoue
+      — « change ma méditation en 5 minutes », réponse sans bloc — repartait donc
+      avec le schéma qui sait tout remplacer, et le modèle rendait un
+      `replaceHabits: true` avec une liste entièrement recomposée. Le plan de la
+      personne effacé parce qu'elle voulait renommer une ligne.
+
+      C'est le maillon qui échoue, pas le schéma : on relance avec le même outil.
+    */
+    it('ne relance jamais une retouche avec le schéma complet', async () => {
+      fetchMock
+        .mockResolvedValueOnce(reponseOk('Je passe ta méditation à 5 minutes.'))
+        .mockResolvedValueOnce(
+          reponseOk('Fait. <PLAN>{"edits":[{"op":"habit.rename","target":"Méditation","value":"Méditation 5 min"}]}</PLAN>'),
+        );
+
+      await service.chatWithAi('u1', 'change mon habitude de méditation');
+
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      // Le second appel doit porter le schéma d'édition, pas celui qui remplace.
+      expect(consigne(1)).toContain('MODIFIER UN SEUL ÉLÉMENT');
+      expect(consigne(1)).not.toContain(EXTRAIT_SCHEMA);
+    });
+
+    it('relance avec le schéma complet quand aucun n’était joint', async () => {
+      // Le cas d'origine du filet : le coach annonce « ce plan » sur un message
+      // que la détection n'avait pas reconnu. Là, il faut bien un schéma.
+      fetchMock
+        .mockResolvedValueOnce(reponseOk('Ce plan va structurer tes semaines.'))
+        .mockResolvedValueOnce(reponseOk('Voilà. <PLAN>{"replaceRoutines":true}</PLAN>'));
+
+      await service.chatWithAi('u1', 'Je veux arrêter de procrastiner le matin');
+
+      expect(consigne(1)).toContain(EXTRAIT_SCHEMA);
     });
 
     it("n'accuse pas d'échec un modèle qui demande une précision", async () => {

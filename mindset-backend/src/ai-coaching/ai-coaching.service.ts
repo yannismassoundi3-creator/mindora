@@ -218,8 +218,26 @@ export class AiCoachingService {
   private static readonly ANNONCE_UNE_RETOUCHE =
     /\bj(?:e |')(?:passe|retire|renomme|remplace|d[ée]place|supprime|ajoute|mets|raccourcis|allonge)\b|\bc'est (?:fait|modifi|chang|retir|ajout)[ée]/i;
 
+  /**
+   * Le coach explique-t-il déjà pourquoi il n'a rien fait ?
+   *
+   * Mesuré le 27 août 2026 sur « supprime ma course à pied du matin », alors
+   * qu'aucune course n'existe : `gpt-oss-120b` répond « **Course à pied**
+   * n'apparaît pas dans ta routine matinale ; aucune suppression n'est
+   * possible. » C'est la bonne réponse, et elle n'a pas de bloc — donc le filet
+   * la prendrait pour un échec.
+   *
+   * Il paierait alors un appel de plus pour un plan que personne n'attend, puis
+   * collerait « je n'ai rien changé » sous une phrase qui vient de l'expliquer
+   * mieux que lui. Une absence de bloc n'est une panne que si le coach n'a pas
+   * dit pourquoi.
+   */
+  private static readonly EXPLIQUE_SON_INACTION =
+    /n(?:'|’)(?:apparait|apparaît|existe|est pas|y a)|aucune? (?:suppression|modification|correspondance|t[âa]che|habitude)|je ne (?:trouve|vois) (?:pas|aucun)|introuvable|pas dans (?:ta|ton|tes)/i;
+
   static annonceUnPlan(reponse: string): boolean {
     const t = reponse || '';
+    if (AiCoachingService.EXPLIQUE_SON_INACTION.test(t)) return false;
     return (
       AiCoachingService.ANNONCE_UN_PLAN.test(t) || AiCoachingService.ANNONCE_UNE_RETOUCHE.test(t)
     );
@@ -1153,7 +1171,23 @@ ${microList}
         AiCoachingService.ordreDePlan(prompt) || AiCoachingService.annonceUnPlan(reply);
       if (planOrdonne && !AiCoachingService.BALISE_PLAN.test(reply)) {
         console.warn(`[Groq] 📋 Plan ordonné, aucun bloc <PLAN> rendu par ${modele} — second maillon`);
-        const tentative = await demander(true, [modele]);
+
+        /*
+          **On relance avec le MÊME outil, jamais avec un plus gros.**
+
+          C'est le maillon qui a échoué, pas le schéma. Relancer une retouche avec
+          le schéma complet serait catastrophique : « change ma méditation en 5
+          minutes » repartirait avec `replaceHabits: true` et une liste
+          entièrement recomposée — le plan de la personne effacé parce qu'elle
+          voulait renommer une ligne. Le pire résultat possible pour la plus
+          anodine des demandes.
+
+          Seule exception, et elle est logique : quand aucun schéma n'était joint,
+          il en faut bien un. C'est le cas d'origine de ce filet — le coach qui
+          annonce « ce plan » sur un message que la détection n'avait pas reconnu.
+        */
+        const memeOutil = planComplet || !editionProbable;
+        const tentative = await demander(memeOutil, [modele]);
 
         if (tentative.texte && AiCoachingService.BALISE_PLAN.test(tentative.texte)) {
           console.log(`[Groq] ✅ Plan rattrapé par ${tentative.modele}`);

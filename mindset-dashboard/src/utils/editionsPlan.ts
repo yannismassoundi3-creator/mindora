@@ -196,9 +196,24 @@ export function appliquerEditions(edits: unknown, acces: AccesListes): ResultatE
   const resultat: ResultatEditions = { appliquees: [], refusees: [] };
   if (!Array.isArray(edits) || edits.length === 0) return resultat;
 
-  // Au-delà de trois, ce n'est plus une retouche. On applique les trois premières
-  // plutôt que de tout refuser : la personne a demandé quelque chose.
+  /*
+    Au-delà de trois, ce n'est plus une retouche : c'est un plan qui n'a pas dit
+    son nom, et il a son propre schéma. On applique les trois premières plutôt que
+    de tout refuser — la personne a demandé quelque chose — **mais on dit combien
+    sont restées dehors**.
+
+    Les taire serait le défaut qu'on passe la journée à traquer, en plus petit :
+    elle a demandé cinq changements, elle en voit trois, et rien ne lui explique
+    pourquoi les deux autres manquent. Elle en conclut que le coach fait les
+    choses à moitié.
+  */
   const aTraiter = (edits as Edition[]).slice(0, MAX_EDITIONS);
+  const ignorees = edits.length - aTraiter.length;
+  if (ignorees > 0) {
+    resultat.refusees.push(
+      `${ignorees} changement${ignorees > 1 ? 's' : ''} de plus dans le même message — redemande-les-moi`,
+    );
+  }
 
   for (const edit of aTraiter) {
     const op = String(edit?.op ?? '').trim();
