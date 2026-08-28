@@ -157,10 +157,56 @@ export class AiCoachingService {
     'i',
   );
 
+  /**
+   * La même demande, formulée comme un souhait — et le rattrapage prévu ne joue pas.
+   *
+   * « Je veux un programme de calisthénie » n'est pas un impératif : l'ancrage
+   * ci-dessus le range donc parmi les retouches, et le schéma d'édition part à sa
+   * place. Le commentaire du dessus affirmait que ça marcherait quand même, au
+   * prix d'un aller-retour, parce que le modèle réclamerait `BESOIN_SCHEMA_PLAN`.
+   *
+   * **Mesuré le 28 août 2026 contre le vrai Groq, cette phrase exacte, les trois
+   * maillons : aucun ne le réclame.** `gpt-oss-120b` et `qwen3.6-27b` posent une
+   * seule opération d'édition — une tâche de tractions — et récitent une liste de
+   * généralités en prose (« Tirage vertical, Tirage horizontal, Poussée… ») ;
+   * `gpt-oss-20b` refuse en toutes lettres : « Je ne peux pas te fournir un
+   * programme complet de calisthénie en une seule réponse ». Personne n'installe
+   * de programme, et `annonceUnPlan` ne voit rien à relancer.
+   *
+   * C'est le chemin le plus probable du reproche reçu ce jour-là — « elle semble
+   * assez limitée, elle m'a donné des exos pas trop spécifiques ». Une demande de
+   * programme formulée poliment recevait un exercice.
+   *
+   * **Les verbes de consultation sont exclus** : « je veux voir mon programme »
+   * ne demande pas d'en écrire un, et lui joindre le schéma complet inviterait à
+   * réécrire ce que la personne voulait seulement regarder.
+   */
+  /*
+    L'apostrophe typographique compte autant que l'autre.
+
+    « j'aimerais » s'écrit avec U+2019 sur un clavier de téléphone, qui est ce
+    avec quoi cette application se lit. Une classe qui n'accepte que l'apostroph
+    droite rate la moitié des messages — le même piège que les diacritiques et
+    `\b`, par un autre chemin.
+  */
+  private static readonly APOSTROPHE = "[’']";
+
+  private static readonly DEMANDE_DE_PLAN_COMPLET = new RegExp(
+    `(?:j(?:e |${AiCoachingService.APOSTROPHE} ?)(?:veux|voudrais|aimerais|souhaite|cherche)|` +
+      `il me faut|il me faudrait|j(?:e |${AiCoachingService.APOSTROPHE})ai besoin d(?:${AiCoachingService.APOSTROPHE}|e )?un|` +
+      'tu peux me (?:faire|cr[ée]er|construire|donner)|' +
+      'peux-tu me (?:faire|cr[ée]er|donner)|pourrais-tu me (?:faire|cr[ée]er|donner))' +
+      "(?![^.?!]{0,25}\\b(?:voir|consulter|regarder|comprendre|savoir|afficher|conna[îi]tre)\\b)" +
+      '[^.?!]{0,40}' +
+      '\\b(?:plan|planning|programme|parcours|formation)\\b',
+    'i',
+  );
+
   static ordreDePlanComplet(prompt: string): boolean {
     const t = prompt || '';
     return (
       AiCoachingService.ORDRE_DE_PLAN_COMPLET.test(t) ||
+      AiCoachingService.DEMANDE_DE_PLAN_COMPLET.test(t) ||
       // « refais tout », « reprends à zéro », « que dois-je faire » : pas de nom
       // d'objet, et pourtant c'est bien le programme entier qui est demandé.
       AiCoachingService.ORDRE_DE_PLAN_SANS_OBJET.test(t)

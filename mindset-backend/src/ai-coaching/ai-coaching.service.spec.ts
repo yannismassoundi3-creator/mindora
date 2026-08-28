@@ -993,6 +993,48 @@ describe('AiCoachingService — chat', () => {
     });
   });
 
+  /**
+   * Le souhait poli, qui recevait le mauvais outil.
+   *
+   * L'ancrage sur l'impératif range « je veux un programme de calisthénie » parmi
+   * les retouches. Le rattrapage devait être `BESOIN_SCHEMA_PLAN` — **mesuré le
+   * 28 août 2026 contre le vrai Groq, aucun des trois modèles ne le réclamait** :
+   * deux posaient une unique opération d'édition (une tâche de tractions) et le
+   * troisième refusait, « je ne peux pas te fournir un programme complet en une
+   * seule réponse ». Personne n'installait de programme.
+   */
+  describe('AiCoachingService.ordreDePlanComplet', () => {
+    it.each([
+      'je veux un programme de calisthénie',
+      'Je voudrais un programme de sport',
+      'j’aimerais un programme pour la muscu',
+      "j'ai besoin d'un programme",
+      'il me faut un plan pour la semaine',
+      'tu peux me faire un programme de calisthénie ?',
+      'peux-tu me donner un programme de course',
+      // L'impératif, qui marchait déjà et doit continuer.
+      'fais-moi un programme de calisthénie',
+    ])('y voit une demande de plan entier : %s', (message) => {
+      expect(AiCoachingService.ordreDePlanComplet(message)).toBe(true);
+    });
+
+    it.each([
+      // Regarder son plan n'est pas en demander un autre : lui joindre le schéma
+      // complet inviterait à réécrire ce qu'elle voulait seulement consulter.
+      'je veux voir mon programme',
+      'je veux comprendre mon plan',
+      'j’aimerais savoir ce que vaut mon programme',
+      // Une ligne, pas l'ensemble : c'est le schéma d'édition qui doit partir.
+      'je veux ajouter une habitude de lecture',
+      'je veux changer mon repas du soir',
+      // Ni l'un ni l'autre.
+      'je veux faire du sport',
+      'j’ai fait mon programme ce matin',
+    ])('n’y voit pas une demande de plan entier : %s', (message) => {
+      expect(AiCoachingService.ordreDePlanComplet(message)).toBe(false);
+    });
+  });
+
   /*
     Une réponse arrêtée par `max_tokens` arrive en 200, avec la même forme qu'une
     réponse terminée. Ici le budget est de 1500 jetons et un plan complet en occupe

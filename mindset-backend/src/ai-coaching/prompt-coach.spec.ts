@@ -101,6 +101,13 @@ describe('le prompt du coach', () => {
     expect(prompt).toContain('21 jours');
   });
 
+  it('ne propose aucun exercice recopiable dans ses exemples', () => {
+    // Voir la mesure du 27 août 2026 dans le bloc du schéma de plan : l'exemple
+    // « Planche (3x45s) » se retrouvait tel quel dans les plans installés.
+    expect(prompt).not.toContain('Planche (3x45s)');
+    expect(prompt).toContain('(3x45s)');
+  });
+
   it('dit qu’un rappel non demandé sera jeté', () => {
     /*
       Mesuré au banc du 21 août 2026 : le modèle pose un rappel de sa propre
@@ -211,6 +218,49 @@ describe('le schéma du plan', () => {
     expect(plan).toContain('les écrire deux fois');
   });
 
+  it('exige les jours sur toute tâche de sport, et interdit la séance répétée', () => {
+    /*
+      Mesuré le 28 août 2026 contre le vrai Groq, « fais-moi un programme de
+      calisthénie », les trois maillons, deux tirages chacun : **16 tâches sur 40
+      arrivaient sans champ "jours"**, donc tombaient sept jours sur sept —
+      tractions, dips et muscle-up négatifs le même jour, tous les jours.
+      `gpt-oss-120b` en produisait 8 sur 9, puis 9 sur 9 au tirage suivant.
+
+      La règle existait pourtant, et nommait la musculation. Elle énumérait trois
+      cas où écrire le champ **et finissait par la permission de l'omettre** : le
+      modèle retenait la fin. L'exigence est passée devant, l'omission est devenue
+      l'exception nommée. Après reformulation, sur 49 tâches : **0**.
+
+      C'est la forme la plus visible du reproche qui a lancé ce travail — « des
+      exos pas trop spécifiques » : une semaine dont les sept jours sont
+      identiques n'est pas un programme, quels que soient les exercices.
+    */
+    expect(plan).toContain('**TOUTE tâche de sport porte le sien**');
+    expect(plan).toContain('ne revient jamais deux jours de suite');
+  });
+
+  it('fait décider les exercices par la discipline qu’il a nommée', () => {
+    // Le profil et le message peuvent nommer une discipline (calisthénie, course,
+    // escalade) ; rien dans l'invite n'en faisait un critère de composition.
+    expect(plan).toContain('LES MOUVEMENTS SONT CEUX DE SA DISCIPLINE');
+    expect(plan).toContain("l'étape où il en est");
+  });
+
+  it('ne donne plus d’exercice qu’il puisse recopier tel quel', () => {
+    /*
+      « Planche (3x45s) » figurait comme exemple de titre bien formé. Mesuré le
+      27 août 2026 : le modèle l'a recopié mot pour mot dans le plan d'un
+      pratiquant de calisthénie — un gainage générique au milieu d'un programme
+      de muscle-up, sorti de l'invite et non de sa situation.
+
+      Le même remède que pour les tâches du squelette JSON : un trou à remplir.
+      Le motif chiffré reste visible, le mouvement ne l'est plus.
+    */
+    expect(plan).not.toContain('Planche (3x45s)');
+    expect(plan).not.toContain('Développé couché (4x8)');
+    expect(plan).toContain('(3x45s)');
+  });
+
   it('interdit les titres de séance numérotés', () => {
     // « Séance 1 », « Séance 2 » : le même défaut que « Musculation », avec un
     // chiffre en plus. Devant sa tâche, la personne ne sait toujours pas quoi faire.
@@ -252,6 +302,26 @@ describe('le schéma d’édition', () => {
     // Une cible inventée ne correspond à rien et l'opération est refusée côté
     // client : autant que le modèle le sache avant d'écrire.
     expect(edition).toContain('se recopie depuis les données ci-dessous, mot pour mot');
+  });
+
+  it('refuse de traiter une demande de programme comme une retouche', () => {
+    /*
+      Mesuré le 28 août 2026 contre le vrai Groq, sur « je veux un programme de
+      calisthénie » avec ce schéma joint : la porte de sortie existait déjà et
+      **aucun des trois modèles ne l'empruntait**. `gpt-oss-120b` et `qwen`
+      posaient une seule opération — une tâche de tractions — sous une liste de
+      généralités en prose ; `gpt-oss-20b` refusait, « je ne peux pas te fournir
+      un programme complet en une seule réponse ». Une demande de programme
+      recevait un exercice.
+
+      La règle nomme donc le cas, avec les formulations réelles. Re-mesuré sur une
+      phrase que la détection côté serveur ne rattrape pas — « il me faudrait
+      quelque chose de sérieux pour progresser en calisthénie » — : les trois
+      répondent BESOIN_SCHEMA_PLAN, et aucun ne pose d'opération.
+    */
+    expect(edition).toContain("UN PROGRAMME N'EST JAMAIS UNE RETOUCHE");
+    expect(edition).toContain('je veux un programme de calisthénie');
+    expect(edition).toContain('aucune opération');
   });
 
   it('garde la porte vers le schéma complet', () => {
