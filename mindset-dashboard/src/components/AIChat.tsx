@@ -9,6 +9,7 @@ import { normaliserJours } from '../utils/recurrence';
 import { extrairePlan, reparerJson, retirerObjetsDePlan } from '../utils/extractionPlan';
 import { listesIllisibles, reparerListe, type ListeIllisible } from '../utils/etatLocal';
 import { appliquerEditions, resumerEditions, type AccesListes } from '../utils/editionsPlan';
+import { planInstalleVide, resumerPlanInstalle, resumerPlanSansNouveaute, type PlanInstalle } from '../utils/resumePlan';
 import { validerTacheParTitre } from '../utils/journee';
 import { CLE_PREMIER_CONTACT, composerOuverture, composerPremierContact } from '../utils/ouverture';
 import { retenirQuOnAParleAuCoach } from '../utils/motDuCoach';
@@ -420,11 +421,22 @@ export const AIChat: React.FC = () => {
    * Applique le plan.
    *
    * Rend l'identifiant de la copie de sauvegarde quand le plan a remplacé
-   * l'existant (`null` sinon — un simple ajout n'a rien détruit), et la liste de ce
-   * qu'on n'a pas pu relire.
+   * l'existant (`null` sinon — un simple ajout n'a rien détruit), la liste de ce
+   * qu'on n'a pas pu relire, et **ce qui a réellement été écrit** — de quoi
+   * résumer sous la réponse ce que la personne va trouver sur ses écrans.
    */
-  const applyPlanData = (rawPlanData: any): { sauvegarde: string | null; illisibles: ListeIllisible[] } => {
-    if (!rawPlanData) return { sauvegarde: null, illisibles: [] };
+  const applyPlanData = (
+    rawPlanData: any,
+  ): { sauvegarde: string | null; illisibles: ListeIllisible[]; installe: PlanInstalle } => {
+    /*
+      Ce qui est réellement écrit dans les listes, collecté au fil de l'écriture.
+
+      Pas déduit du bloc reçu : les doublons sont écartés plus bas, et un plan
+      redemandé deux fois n'installe rien. Résumer l'intention du modèle plutôt
+      que le résultat annoncerait des tâches introuvables à l'écran.
+    */
+    const installe = planInstalleVide();
+    if (!rawPlanData) return { sauvegarde: null, illisibles: [], installe };
 
     /*
       Rien n'est écrit tant qu'on n'a pas la certitude de pouvoir tout relire.
@@ -436,7 +448,7 @@ export const AIChat: React.FC = () => {
       même les explications en attente ne partent pas.
     */
     const illisibles = listesIllisibles();
-    if (illisibles.length > 0) return { sauvegarde: null, illisibles };
+    if (illisibles.length > 0) return { sauvegarde: null, illisibles, installe };
 
     // Si l'IA a imbriqué les données dans un objet "plan" ou "actionPlan"
     const dataObj = rawPlanData.plan || rawPlanData.actionPlan || rawPlanData;
@@ -514,6 +526,7 @@ export const AIChat: React.FC = () => {
         };
       });
       localStorage.setItem('mindset_habits', JSON.stringify([...existingHabits, ...newEntries]));
+      installe.habitudes.push(...newEntries.map((h: any) => h.title));
       safeAddNotif('habit', 'Ouvre tes habitudes pour les découvrir.', `${aiName} a ajouté de nouvelles habitudes`);
     }
     
@@ -529,6 +542,10 @@ export const AIChat: React.FC = () => {
         ];
       } catch {}
       
+      // Le libellé que la personne verra, plutôt que 'morning' : ce résumé se lit
+      // dans la conversation, pas dans le stockage.
+      const LIBELLE: Record<string, string> = { morning: 'Matin', midday: 'Midi', evening: 'Soir' };
+
       routinesList.forEach((r: any) => {
         const typeMap: Record<string, string> = { 
           'MORNING': 'morning', 'MATIN': 'morning', 
@@ -562,6 +579,7 @@ export const AIChat: React.FC = () => {
               // Absent, la tâche reste quotidienne comme avant.
               jours: normaliserJours(t.jours ?? t.days),
             } as never);
+            installe.taches.push({ creneau: LIBELLE[mappedType] ?? mappedType, titre: taskTitle });
           });
         }
       });
@@ -591,6 +609,7 @@ export const AIChat: React.FC = () => {
         };
       });
       localStorage.setItem('mindset_nutrition', JSON.stringify([...existingNutrition, ...newEntries]));
+      installe.repas.push(...newEntries.map((n: any) => n.title));
       safeAddNotif('nutrition', 'Tes repas sont dans l\'onglet Alimentation.', `${aiName} a planifié ton alimentation`);
     }
       
@@ -617,6 +636,7 @@ export const AIChat: React.FC = () => {
         };
       });
       localStorage.setItem('mindset_micro_obj', JSON.stringify([...existingMicro, ...newEntries]));
+      installe.objectifs.push(...newEntries.map((o: any) => o.title));
       safeAddNotif('objective', 'Ils sont dans ton écran Objectifs.', `${aiName} a défini de nouveaux objectifs`);
     }
 
@@ -644,6 +664,7 @@ export const AIChat: React.FC = () => {
         };
       });
       localStorage.setItem('mindset_macro_obj', JSON.stringify([...existingMacro, ...newMacros]));
+      installe.objectifs.push(...newMacros.map((m: any) => m.title));
       safeAddNotif('objective', 'Ils sont dans ton écran Objectifs.', `${aiName} a défini de nouveaux objectifs`);
     }
 
@@ -660,7 +681,7 @@ export const AIChat: React.FC = () => {
     */
     signalerPlanApplique();
 
-    return { sauvegarde, illisibles: [] };
+    return { sauvegarde, illisibles: [], installe };
   };
 
   /**
@@ -891,7 +912,16 @@ export const AIChat: React.FC = () => {
                   .join(' ni ')} sur cet appareil, et appliquer le plan par-dessus l'aurait remplacé ` +
                 `au lieu de le compléter.`;
             } else if (isCreation) {
-              replyText += "\n\n✅ **Plan appliqué avec succès ! L'interface a été mise à jour.**";
+              /*
+                « Plan appliqué avec succès » ne disait pas ce qui avait été posé.
+                Un programme de neuf exercices se lisait donc, dans le chat, comme
+                deux phrases et un accusé de réception — d'où « l'IA semble assez
+                limitée » d'un utilisateur qui avait pourtant reçu son programme.
+                Le résumé vient des listes, pas du modèle : il ne peut ni coûter
+                de jetons, ni être tronqué, ni annoncer ce qui n'est pas là.
+              */
+              const resume = resumerPlanInstalle(application.installe);
+              replyText += resume || resumerPlanSansNouveaute();
             } else if (isDeletion) {
               replyText += "\n\n🗑️ **Plan supprimé avec succès ! L'interface a été réinitialisée.**";
             }
